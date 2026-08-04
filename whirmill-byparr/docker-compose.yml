@@ -1,0 +1,21 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: whirmill-byparr_server_1
+      APP_PORT: 8191
+
+  server:
+    image: ghcr.io/thephaseless/byparr:2.1.0@sha256:5e41fe2278f187bfafc762fee822c0678deb49e229171c89a116e56820ca7278
+    restart: on-failure
+    init: true
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8191"
+    shm_size: 512mb
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    mem_limit: 2g
+    stop_grace_period: 30s

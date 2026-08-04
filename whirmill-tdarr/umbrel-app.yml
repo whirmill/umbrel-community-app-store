@@ -1,0 +1,25 @@
+manifestVersion: 1
+id: whirmill-tdarr
+category: media
+name: Tdarr
+version: "2.81.01"
+tagline: Distributed media transcoding and library optimization
+description: >-
+  Tdarr converts and optimizes media libraries with FFmpeg and hardware
+  acceleration. This local Umbrel package starts with its internal node paused
+  and exposes only the Sonarr/Radarr movie and show libraries.
+developer: HaveAGitGat
+website: https://tdarr.io
+repo: https://github.com/HaveAGitGat/Tdarr
+support: https://github.com/HaveAGitGat/Tdarr/issues
+port: 8265
+path: ""
+icon: https://raw.githubusercontent.com/HaveAGitGat/Tdarr/master/assets/tdarr-logo.png
+gallery: []
+defaultUsername: ""
+defaultPassword: ""
+dependencies: []
+releaseNotes: >-
+  Initial local Umbrel package for Tdarr 2.81.01 on Intel N100. The internal
+  node uses /dev/dri when enabled in Tdarr and starts paused to prevent any
+  conversion before the library profiles are reviewed.

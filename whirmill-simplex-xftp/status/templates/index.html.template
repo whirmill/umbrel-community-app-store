@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>SimpleX XFTP setup</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/config.js" defer></script>
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="setup" aria-labelledby="page-title">
+      <p class="eyebrow">Local file server setup</p>
+      <h1 id="page-title">Connect to your SimpleX XFTP server</h1>
+      <p class="intro">Use this address when adding your private file server in SimpleX Chat.</p>
+
+      <section class="connection" aria-labelledby="address-title">
+        <div class="section-heading">
+          <h2 id="address-title">XFTP server address</h2>
+          <span class="status" id="status" role="status" aria-live="polite" data-state="loading">Loading fingerprint</span>
+        </div>
+
+        <div class="address-row">
+          <output class="address address--hidden" id="xftp-address" aria-label="SimpleX XFTP server address" aria-live="off">Preparing address…</output>
+          <div class="actions" aria-label="XFTP address actions">
+            <button class="button button--secondary" id="reveal" type="button" disabled aria-pressed="false">Reveal</button>
+            <button class="button" id="copy" type="button" disabled>Copy address</button>
+          </div>
+        </div>
+        <p class="feedback" id="feedback" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="details" aria-labelledby="details-title">
+        <h2 id="details-title">Keep this private</h2>
+        <ul>
+          <li>This page is for the person managing this Umbrel only, it is not a public server directory.</li>
+          <li>The address contains the file-server app password. Share it only with people you trust.</li>
+          <li>The standard secure port is used automatically, so it is intentionally omitted from the address.</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,60 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: whirmill-simplex-smp_status_1
+      APP_PORT: 80
+
+  server:
+    image: simplexchat/smp-server:v7.0.1@sha256:7d825822839a9d5ee9e9a99563d77a319816c7a8e0b4b7bf4dcebe448897af54
+    restart: on-failure
+    init: true
+    environment:
+      WEB_MANUAL: "1"
+      ADDR: smp.satssurge.com
+      PASS: $APP_PASSWORD
+    volumes:
+      - ${APP_DATA_DIR}/data/smp-config:/etc/opt/simplex
+      - ${APP_DATA_DIR}/data/smp-state:/var/opt/simplex
+    ports:
+      - "5223:5223"
+    stop_signal: SIGINT
+    stop_grace_period: 5m
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /etc/opt/simplex/fingerprint && kill -0 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+
+  status:
+    image: nginx:1.29.6-alpine@sha256:f46cb72c7df02710e693e863a983ac42f6a9579058a59a35f1ae36c9958e4ce0
+    restart: on-failure
+    depends_on:
+      server:
+        condition: service_healthy
+    environment:
+      NGINX_ENVSUBST_OUTPUT_DIR: /usr/share/nginx/html
+      SMP_HOST: smp.satssurge.com
+      SMP_PASSWORD: $APP_PASSWORD
+    volumes:
+      - ${APP_DATA_DIR}/status/templates:/etc/nginx/templates:ro
+      - ${APP_DATA_DIR}/status/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${APP_DATA_DIR}/status/app.js:/usr/share/nginx/html/app.js:ro
+      - ${APP_DATA_DIR}/status/styles.css:/usr/share/nginx/html/styles.css:ro
+      - ${APP_DATA_DIR}/data/smp-config:/simplex-config:ro
+    read_only: true
+    tmpfs:
+      - /usr/share/nginx/html
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 64m

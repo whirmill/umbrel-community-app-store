@@ -1,0 +1,68 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: whirmill-simplex-xftp_status_1
+      APP_PORT: 80
+
+  server:
+    image: simplexchat/xftp-server:v7.0.1@sha256:69a7f95746bb3c094ac36154ee8e7a8f552b5d9231587b88e6699d089003d26b
+    restart: on-failure
+    init: true
+    environment:
+      ADDR: xftp.satssurge.com
+      QUOTA: 20gb
+      PASS: $APP_PASSWORD
+    volumes:
+      - ${APP_DATA_DIR}/data/xftp-config:/etc/opt/simplex-xftp
+      - ${APP_DATA_DIR}/data/xftp-state:/var/opt/simplex-xftp
+      - ${APP_DATA_DIR}/data/xftp-files:/srv/xftp
+    ports:
+      - "443:443"
+    read_only: true
+    tmpfs:
+      - /tmp
+    stop_signal: SIGINT
+    stop_grace_period: 5m
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /etc/opt/simplex-xftp/fingerprint && kill -0 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+
+  status:
+    image: nginx:1.29.6-alpine@sha256:f46cb72c7df02710e693e863a983ac42f6a9579058a59a35f1ae36c9958e4ce0
+    restart: on-failure
+    depends_on:
+      server:
+        condition: service_healthy
+    environment:
+      NGINX_ENVSUBST_OUTPUT_DIR: /usr/share/nginx/html
+      XFTP_HOST: xftp.satssurge.com
+      XFTP_PASSWORD: $APP_PASSWORD
+    volumes:
+      - ${APP_DATA_DIR}/status/templates:/etc/nginx/templates:ro
+      - ${APP_DATA_DIR}/status/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${APP_DATA_DIR}/status/app.js:/usr/share/nginx/html/app.js:ro
+      - ${APP_DATA_DIR}/status/styles.css:/usr/share/nginx/html/styles.css:ro
+      - ${APP_DATA_DIR}/data/xftp-config:/simplex-config:ro
+    read_only: true
+    tmpfs:
+      - /usr/share/nginx/html
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 64m

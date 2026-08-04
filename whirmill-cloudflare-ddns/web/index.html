@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Cloudflare DDNS</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell" aria-labelledby="page-title">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Local DNS automation</p>
+          <h1 id="page-title">Cloudflare DDNS</h1>
+          <p class="lede">Keep the DNS-only records for your local services aligned with this connection’s public IP address.</p>
+        </div>
+        <section class="service-state" aria-labelledby="service-state-title">
+          <span class="state-dot" id="state-dot" aria-hidden="true" data-state="loading"></span>
+          <div>
+            <h2 id="service-state-title">Service status</h2>
+            <p id="service-status" role="status" aria-live="polite" data-state="loading">Checking configuration…</p>
+          </div>
+        </section>
+      </header>
+
+      <div class="workspace">
+        <section class="panel panel--setup" aria-labelledby="setup-title">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Configuration</p>
+              <h2 id="setup-title">DNS update settings</h2>
+            </div>
+            <p class="saved-indicator" id="saved-indicator" aria-live="polite"></p>
+          </div>
+
+          <form id="config-form" novalidate>
+            <section class="token-bootstrap" aria-labelledby="token-title">
+              <div class="token-heading">
+                <div>
+                  <p class="section-kicker">Step 1</p>
+                  <h3 id="token-title">Install the token over SSH</h3>
+                </div>
+                <p id="token-status" class="token-status" role="status" aria-live="polite" data-state="loading">Checking…</p>
+              </div>
+              <p>The DNS Edit token is never accepted over this HTTP page. Connect to Umbrel with SSH and run:</p>
+              <pre><code>umask 077
+read -rsp 'Cloudflare API token: ' cloudflare_token; echo
+printf '%s' "$cloudflare_token" &gt; /home/umbrel/umbrel/app-data/whirmill-cloudflare-ddns/data/api-token
+chmod 600 /home/umbrel/umbrel/app-data/whirmill-cloudflare-ddns/data/api-token
+unset cloudflare_token</code></pre>
+              <p class="field-help">The token stays out of shell history and must be stored as a regular file with mode 0600. Refresh this page after installing it.</p>
+            </section>
+
+            <div class="form-grid">
+              <div class="field">
+                <label for="zone">Zone</label>
+                <input id="zone" name="zone" type="text" value="satssurge.com" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+              </div>
+              <div class="field">
+                <label for="interval">Update interval</label>
+                <div class="interval-field">
+                  <input id="interval" name="interval_seconds" type="number" value="300" min="60" max="86400" step="1" inputmode="numeric" required aria-describedby="interval-help">
+                  <span aria-hidden="true">seconds</span>
+                </div>
+                <p class="field-help" id="interval-help">Between 60 seconds and 24 hours.</p>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="records">DNS records to manage</label>
+              <textarea id="records" name="records" rows="4" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="records-help" required>smp.satssurge.com
+xftp.satssurge.com
+turn.satssurge.com</textarea>
+              <p class="field-help" id="records-help">One fully qualified domain name per line. Commas are accepted when pasting.</p>
+            </div>
+
+            <div class="form-actions">
+              <button class="button button--primary" id="save-button" type="submit" disabled>Save configuration</button>
+              <button class="button button--secondary" id="run-button" type="button" disabled>Run update now</button>
+            </div>
+          </form>
+
+          <div class="inline-feedback" id="form-feedback" role="status" aria-live="polite" data-state="idle"></div>
+        </section>
+
+        <aside class="status-column" aria-label="DDNS details">
+          <section class="panel status-panel" aria-labelledby="activity-title">
+            <div class="section-heading section-heading--compact">
+              <div>
+                <p class="section-kicker">Activity</p>
+                <h2 id="activity-title">Latest update</h2>
+              </div>
+              <button class="text-button" id="refresh-button" type="button">Refresh</button>
+            </div>
+            <dl class="status-list">
+              <div>
+                <dt>Public IP</dt>
+                <dd id="current-ip">—</dd>
+              </div>
+              <div>
+                <dt>Last attempt</dt>
+                <dd id="last-attempt">—</dd>
+              </div>
+              <div>
+                <dt>Last successful update</dt>
+                <dd id="last-success">—</dd>
+              </div>
+              <div>
+                <dt>Result</dt>
+                <dd id="last-result">Waiting for configuration</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="panel permissions-panel" aria-labelledby="permissions-title">
+            <p class="section-kicker">Token scope</p>
+            <h2 id="permissions-title">Minimum Cloudflare permissions</h2>
+            <p>Create a token scoped only to this zone with these permissions:</p>
+            <ul>
+              <li><strong>Zone</strong>, <span>Zone Read</span></li>
+              <li><strong>Zone</strong>, <span>DNS Edit</span></li>
+            </ul>
+            <p class="note">Every managed record is forced to <strong>DNS-only</strong>. Cloudflare proxying is not used.</p>
+          </section>
+
+          <section class="danger-zone" aria-labelledby="remove-title">
+            <h2 id="remove-title">Remove configuration</h2>
+            <p>Deletes the SSH-installed token and settings from this app. Your Cloudflare DNS records are not deleted.</p>
+            <button class="button button--danger" id="remove-button" type="button" aria-expanded="false" aria-controls="remove-confirmation" disabled>Remove configuration</button>
+            <div class="remove-confirmation" id="remove-confirmation" hidden>
+              <p>Remove the saved token and settings?</p>
+              <div class="confirm-actions">
+                <button class="button button--danger" id="confirm-remove-button" type="button">Yes, remove</button>
+                <button class="button button--secondary" id="cancel-remove-button" type="button">Cancel</button>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </body>
+</html>

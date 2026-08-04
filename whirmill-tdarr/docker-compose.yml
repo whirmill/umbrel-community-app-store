@@ -1,0 +1,46 @@
+version: '3.7'
+services:
+  app_proxy:
+    environment:
+      APP_HOST: whirmill-tdarr_server_1
+      APP_PORT: 8265
+  server:
+    image: >-
+      ghcr.io/haveagitgat/tdarr:2.81.01@sha256:71360670ac0c39e1bb8daf2b0c5c9ebb92b5d41e79c54128f2cea5bbdc32ddf2
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Rome
+      PUID: '1000'
+      PGID: '1000'
+      UMASK_SET: '002'
+      serverIP: 0.0.0.0
+      serverPort: '8266'
+      webUIPort: '8265'
+      internalNode: 'true'
+      inContainer: 'true'
+      ffmpegVersion: '7'
+      nodeName: umbrel-n100-node
+      auth: 'false'
+      openBrowser: 'false'
+      startPaused: 'true'
+      transcodegpuWorkers: '1'
+      transcodecpuWorkers: '0'
+      healthcheckgpuWorkers: '1'
+      healthcheckcpuWorkers: '0'
+      maxLogSizeMB: '10'
+      cronPluginUpdate: ''
+    volumes:
+      - ${APP_DATA_DIR}/server:/app/server
+      - ${APP_DATA_DIR}/configs:/app/configs
+      - ${APP_DATA_DIR}/logs:/app/logs
+      - ${APP_DATA_DIR}/cache:/temp
+      - /home/umbrel/umbrel/home/Downloads/movies:/media/movies
+      - /home/umbrel/umbrel/home/Downloads/shows:/media/shows
+    devices:
+      - /dev/dri:/dev/dri
+    shm_size: 512mb
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    mem_limit: 3g
+    stop_grace_period: 30s

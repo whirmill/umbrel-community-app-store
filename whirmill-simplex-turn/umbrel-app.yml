@@ -1,0 +1,25 @@
+manifestVersion: 1
+id: whirmill-simplex-turn
+category: networking
+name: SimpleX TURN Relay
+version: "4.16.0-4"
+tagline: Private WebRTC media relay
+description: >-
+  Runs a STUN and authenticated TURN WebRTC relay on Umbrel for SimpleX audio
+  and video calls. The relay uses turn.satssurge.com, a narrow UDP relay range,
+  resource quotas, private-network peer blocking, and an app-specific secret.
+developer: Coturn
+website: https://github.com/coturn/coturn
+repo: https://github.com/coturn/coturn
+support: https://github.com/coturn/coturn/issues
+port: 5232
+path: ""
+icon: https://avatars.githubusercontent.com/u/5102637?s=512&v=4
+gallery: []
+defaultUsername: ""
+defaultPassword: ""
+dependencies: []
+releaseNotes: >-
+  Enables STUN compatibility for SimpleX WebRTC candidate gathering, keeps
+  authenticated TURN over TCP/UDP 3478, and updates the local setup page to
+  copy the STUN, TURN/UDP, and TURN/TCP addresses together.

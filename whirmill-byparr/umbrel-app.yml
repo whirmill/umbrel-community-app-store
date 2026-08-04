@@ -1,0 +1,27 @@
+manifestVersion: 1
+id: whirmill-byparr
+category: networking
+name: Byparr
+version: "2.1.0"
+tagline: Browser-based anti-bot proxy for Prowlarr
+description: >-
+  Byparr runs a Camoufox browser and exposes a FlareSolverr-compatible API.
+  This Umbrel package is intended for Prowlarr indexers that require a browser
+  to pass anti-bot checks. The API documentation is protected by Umbrel's app
+  proxy, while other Umbrel apps can access the solver directly on the
+  internal Docker network.
+developer: ThePhaseless
+website: https://github.com/ThePhaseless/Byparr
+repo: https://github.com/ThePhaseless/Byparr
+support: https://github.com/ThePhaseless/Byparr/issues
+port: 8192
+path: ""
+icon: https://raw.githubusercontent.com/ThePhaseless/Byparr/v2.1.0/icon/logo-byparr.svg
+gallery: []
+defaultUsername: ""
+defaultPassword: ""
+dependencies: []
+releaseNotes: >-
+  Initial local Umbrel package for Byparr 2.1.0, pinned to the verified amd64
+  image digest. Includes an authenticated Umbrel app-proxy entry and a
+  resource-limited browser service for Prowlarr.

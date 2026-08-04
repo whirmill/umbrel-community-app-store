@@ -1,0 +1,27 @@
+manifestVersion: 1
+id: whirmill-simplex-smp
+category: networking
+name: SimpleX SMP Relay
+version: "7.0.1"
+tagline: Private SimpleX messaging relay
+description: >-
+  Runs a private SimpleX Messaging Protocol relay on Umbrel. The relay accepts
+  native TLS/TCP connections on port 5223 and stores its configuration, queue
+  records, and undelivered messages persistently. This proof of concept uses
+  smp.satssurge.com and remains separate from the configured XFTP and WebRTC
+  TURN relays.
+developer: SimpleX Chat
+website: https://simplex.chat/
+repo: https://github.com/simplex-chat/simplexmq
+support: https://github.com/simplex-chat/simplexmq/issues
+port: 5230
+path: ""
+icon: https://avatars.githubusercontent.com/u/97404820?s=512&v=4
+gallery: []
+defaultUsername: ""
+defaultPassword: ""
+dependencies: []
+releaseNotes: >-
+  Updates the SimpleX SMP server to v7.0.1 while preserving its identity,
+  queues, undelivered messages, app password, direct TCP 5223 binding, and
+  local connection-details page.

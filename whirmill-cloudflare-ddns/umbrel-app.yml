@@ -1,0 +1,27 @@
+manifestVersion: 1
+id: whirmill-cloudflare-ddns
+category: networking
+name: Cloudflare DDNS
+version: "1.0.0"
+tagline: Keep selected DNS records on your public IPv4
+description: >-
+  Detects the current public IPv4 over HTTPS and periodically updates an
+  explicit allowlist of existing Cloudflare A records. A restricted API token
+  is installed over SSH instead of crossing the local HTTP UI; the app never
+  returns it and keeps the managed records in DNS-only mode for native TCP and
+  UDP services such as SimpleX SMP, XFTP, and TURN.
+developer: whirmill
+website: https://developers.cloudflare.com/dns/manage-dns-records/how-to/managing-dynamic-ip-addresses/
+repo: https://github.com/whirmill/umbrel-community-app-store
+support: https://developers.cloudflare.com/api/
+port: 5233
+path: ""
+icon: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/cloudflare.png
+gallery: []
+defaultUsername: ""
+defaultPassword: ""
+dependencies: []
+releaseNotes: >-
+  Initial local proof of concept with an Umbrel-only setup page, HTTPS IPv4
+  detection, exact-record validation, DNS-only enforcement, and a five-minute
+  default update interval.

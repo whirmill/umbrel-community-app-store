@@ -1,0 +1,26 @@
+manifestVersion: 1
+id: whirmill-simplex-xftp
+category: networking
+name: SimpleX XFTP Relay
+version: "7.0.1"
+tagline: Private SimpleX file relay
+description: >-
+  Runs a private SimpleX File Transfer Protocol relay on Umbrel for encrypted
+  files, images, videos, and voice-message attachments. The relay uses
+  xftp.satssurge.com, requires the app-specific upload password, stores files
+  persistently under a bounded quota, and publishes TLS/TCP port 443 directly.
+developer: SimpleX Chat
+website: https://simplex.chat/
+repo: https://github.com/simplex-chat/simplexmq
+support: https://github.com/simplex-chat/simplexmq/issues
+port: 5231
+path: ""
+icon: https://avatars.githubusercontent.com/u/97404820?s=512&v=4
+gallery: []
+defaultUsername: ""
+defaultPassword: ""
+dependencies: []
+releaseNotes: >-
+  Updates the SimpleX XFTP server to v7.0.1 while preserving its identity,
+  state, stored file chunks, app password, 20 GB quota, direct TCP 443 binding,
+  and local connection-details page.
