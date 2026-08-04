@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="SimpleX XFTP Relay">
+  <defs>
+    <linearGradient id="xftp-bg" x1="18" y1="18" x2="238" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#24105D"/>
+      <stop offset="0.55" stop-color="#5930C7"/>
+      <stop offset="1" stop-color="#9A6CFF"/>
+    </linearGradient>
+    <radialGradient id="xftp-glow" cx="0" cy="0" r="1" gradientTransform="translate(127 132) rotate(90) scale(116)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8D8FF" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#E8D8FF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#xftp-bg)"/>
+  <rect width="256" height="256" fill="url(#xftp-glow)"/>
+  <path d="M70 42h78l39 39v133H70a16 16 0 0 1-16-16V58a16 16 0 0 1 16-16Z" fill="#FFFFFF" fill-opacity="0.1" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M148 42v39h39" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M79 119h96m-22-22 22 22-22 22M175 163H79m22-22-22 22 22 22" fill="none" stroke="#D9F5FF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

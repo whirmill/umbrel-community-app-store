@@ -15,7 +15,7 @@ repo: https://github.com/simplex-chat/simplexmq
 support: https://github.com/simplex-chat/simplexmq/issues
 port: 5231
 path: ""
-icon: https://avatars.githubusercontent.com/u/97404820?s=512&v=4
+icon: https://raw.githubusercontent.com/whirmill/umbrel-community-app-store/main/whirmill-simplex-xftp/icon.svg
 gallery: []
 defaultUsername: ""
 defaultPassword: ""

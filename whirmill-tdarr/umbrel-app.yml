@@ -14,7 +14,7 @@ repo: https://github.com/HaveAGitGat/Tdarr
 support: https://github.com/HaveAGitGat/Tdarr/issues
 port: 8265
 path: ""
-icon: https://raw.githubusercontent.com/HaveAGitGat/Tdarr/master/assets/tdarr-logo.png
+icon: https://raw.githubusercontent.com/whirmill/umbrel-community-app-store/main/whirmill-tdarr/icon.svg
 gallery: []
 defaultUsername: ""
 defaultPassword: ""

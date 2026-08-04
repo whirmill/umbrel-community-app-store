@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="SimpleX TURN Relay">
+  <defs>
+    <linearGradient id="turn-bg" x1="20" y1="18" x2="236" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#073E50"/>
+      <stop offset="0.52" stop-color="#007E89"/>
+      <stop offset="1" stop-color="#22C7A9"/>
+    </linearGradient>
+    <radialGradient id="turn-glow" cx="0" cy="0" r="1" gradientTransform="translate(128 128) rotate(90) scale(108)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A6FFF0" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#A6FFF0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#turn-bg)"/>
+  <rect width="256" height="256" fill="url(#turn-glow)"/>
+  <circle cx="128" cy="128" r="78" fill="#FFFFFF" fill-opacity="0.07" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="3"/>
+  <circle cx="74" cy="128" r="18" fill="#FFFFFF"/>
+  <circle cx="182" cy="128" r="18" fill="#FFFFFF"/>
+  <path d="M89 91c27-27 70-27 97 0l9-20m-9 20-22-5M167 165c-27 25-69 24-95-2l-10 20m10-20 22 6" fill="none" stroke="#CFFFF5" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M101 128h54" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/>
+</svg>

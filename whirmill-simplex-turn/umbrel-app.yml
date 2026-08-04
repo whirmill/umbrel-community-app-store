@@ -14,7 +14,7 @@ repo: https://github.com/coturn/coturn
 support: https://github.com/coturn/coturn/issues
 port: 5232
 path: ""
-icon: https://avatars.githubusercontent.com/u/5102637?s=512&v=4
+icon: https://raw.githubusercontent.com/whirmill/umbrel-community-app-store/main/whirmill-simplex-turn/icon.svg
 gallery: []
 defaultUsername: ""
 defaultPassword: ""

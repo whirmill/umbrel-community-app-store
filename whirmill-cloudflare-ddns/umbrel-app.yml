@@ -16,7 +16,7 @@ repo: https://github.com/whirmill/umbrel-community-app-store
 support: https://developers.cloudflare.com/api/
 port: 5233
 path: ""
-icon: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/cloudflare.png
+icon: https://raw.githubusercontent.com/whirmill/umbrel-community-app-store/main/whirmill-cloudflare-ddns/icon.svg
 gallery: []
 defaultUsername: ""
 defaultPassword: ""

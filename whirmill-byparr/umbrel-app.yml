@@ -16,7 +16,7 @@ repo: https://github.com/ThePhaseless/Byparr
 support: https://github.com/ThePhaseless/Byparr/issues
 port: 8192
 path: ""
-icon: https://raw.githubusercontent.com/ThePhaseless/Byparr/v2.1.0/icon/logo-byparr.svg
+icon: https://raw.githubusercontent.com/whirmill/umbrel-community-app-store/main/whirmill-byparr/icon.svg
 gallery: []
 defaultUsername: ""
 defaultPassword: ""

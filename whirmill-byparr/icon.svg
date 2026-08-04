@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Byparr">
+  <defs>
+    <linearGradient id="byparr-bg" x1="18" y1="16" x2="238" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10271B"/>
+      <stop offset="0.55" stop-color="#176B43"/>
+      <stop offset="1" stop-color="#42CC76"/>
+    </linearGradient>
+    <radialGradient id="byparr-glow" cx="0" cy="0" r="1" gradientTransform="translate(130 130) rotate(90) scale(112)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B8FFD1" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#B8FFD1" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#byparr-bg)"/>
+  <rect width="256" height="256" fill="url(#byparr-glow)"/>
+  <rect x="39" y="47" width="178" height="162" rx="20" fill="#FFFFFF" fill-opacity="0.09" stroke="#FFFFFF" stroke-width="8"/>
+  <path d="M43 83h170" stroke="#FFFFFF" stroke-width="8"/>
+  <circle cx="66" cy="65" r="6" fill="#FFFFFF"/>
+  <circle cx="87" cy="65" r="6" fill="#D6FFE4"/>
+  <circle cx="108" cy="65" r="6" fill="#A4F9C0"/>
+  <path d="M128 103 177 121v32c0 28-20 48-49 58-29-10-49-30-49-58v-32l49-18Z" fill="#0B3F28" fill-opacity="0.75" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"/>
+  <path d="m103 159 17 17 35-43" fill="none" stroke="#BFFFF0" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

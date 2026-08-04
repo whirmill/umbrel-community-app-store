@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Tdarr">
+  <defs>
+    <linearGradient id="tdarr-bg" x1="20" y1="18" x2="236" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#25104D"/>
+      <stop offset="0.55" stop-color="#6D238F"/>
+      <stop offset="1" stop-color="#D94D9D"/>
+    </linearGradient>
+    <radialGradient id="tdarr-glow" cx="0" cy="0" r="1" gradientTransform="translate(128 128) rotate(90) scale(112)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD0F0" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#FFD0F0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#tdarr-bg)"/>
+  <rect width="256" height="256" fill="url(#tdarr-glow)"/>
+  <rect x="40" y="55" width="176" height="146" rx="18" fill="#FFFFFF" fill-opacity="0.09" stroke="#FFFFFF" stroke-width="8"/>
+  <path d="M69 58v140m118-140v140" stroke="#FFFFFF" stroke-width="8"/>
+  <path d="M43 87h26m-26 41h26m-26 41h26m118-82h26m-26 41h26m-26 41h26" stroke="#FFFFFF" stroke-width="8"/>
+  <path d="M98 111a43 43 0 0 1 65-5l7-15m-7 15-17-2M158 147a43 43 0 0 1-65 4l-7 15m7-15 17 3" fill="none" stroke="#FFE5F5" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
