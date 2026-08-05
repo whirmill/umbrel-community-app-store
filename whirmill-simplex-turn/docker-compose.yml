@@ -68,7 +68,77 @@ services:
             'new-log-timestamp' \
             'pidfile=/tmp/turnserver.pid' > "$$config"
         }
-        exec turnserver -c "$$config"
+        watch_external_ip() {
+          candidate_ip=
+          candidate_count=0
+          while sleep 60; do
+            detected_ip="$$(timeout 10 detect-external-ip 2>/dev/null || true)"
+            case "$$detected_ip" in
+              *.*.*.*) ;;
+              *) continue ;;
+            esac
+
+            if [ "$$detected_ip" = "$$external_ip" ]; then
+              candidate_ip=
+              candidate_count=0
+              continue
+            fi
+
+            if [ "$$detected_ip" = "$$candidate_ip" ]; then
+              candidate_count=$$((candidate_count + 1))
+            else
+              candidate_ip="$$detected_ip"
+              candidate_count=1
+            fi
+
+            if [ "$$candidate_count" -ge 2 ]; then
+              printf 'Public IPv4 changed from %s to %s; restarting Coturn.\n' \
+                "$$external_ip" "$$detected_ip"
+              return 75
+            fi
+          done
+        }
+
+        stop_children() {
+          trap - TERM INT
+          kill "$$watchdog_pid" 2>/dev/null || true
+          kill -TERM "$$turn_pid" 2>/dev/null || true
+          wait "$$watchdog_pid" 2>/dev/null || true
+          wait "$$turn_pid" 2>/dev/null || true
+          exit 0
+        }
+
+        turnserver -c "$$config" &
+        turn_pid=$$!
+        watch_external_ip &
+        watchdog_pid=$$!
+        trap stop_children TERM INT
+
+        while kill -0 "$$turn_pid" 2>/dev/null && \
+          kill -0 "$$watchdog_pid" 2>/dev/null; do
+          sleep 1
+        done
+
+        if kill -0 "$$turn_pid" 2>/dev/null; then
+          set +e
+          wait "$$watchdog_pid"
+          child_status=$$?
+          set -e
+          kill -TERM "$$turn_pid" 2>/dev/null || true
+          wait "$$turn_pid" 2>/dev/null || true
+        else
+          set +e
+          wait "$$turn_pid"
+          child_status=$$?
+          set -e
+          kill "$$watchdog_pid" 2>/dev/null || true
+          wait "$$watchdog_pid" 2>/dev/null || true
+        fi
+
+        if [ "$$child_status" -eq 0 ]; then
+          child_status=1
+        fi
+        exit "$$child_status"
     environment:
       TURN_PASSWORD: $APP_PASSWORD
     ports:

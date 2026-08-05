@@ -33,8 +33,11 @@ The Cloudflare `A` record `turn.satssurge.com` must point to the current public
 IPv4 address with proxy status **DNS only**. Do not forward 5349, a TCP relay
 range, coturn CLI/web ports, or any additional UDP range.
 
-Coturn detects the public IPv4 when the container starts. If the ISP changes
-the address, update DNS and restart this app before calls can relay correctly.
+Coturn detects the public IPv4 when the container starts. A watchdog checks it
+once per minute and, after observing the same new address twice, terminates the
+server with a failure status so Docker restarts it with the updated address.
+Transient lookup failures and a single differing observation are ignored. DNS
+still needs to be updated separately, for example by the Cloudflare DDNS app.
 
 ## Client configuration
 
@@ -61,6 +64,8 @@ for the end-to-end test.
 5. Restarting the app preserves its generated password and redetects the public
    IPv4. The ICE addresses remain concealed by default in the local UI and the
    credential is not written to application logs.
+6. After two consecutive watchdog checks report a changed public IPv4, Coturn
+   restarts automatically and authenticated ICE tests advertise the new address.
 
 ## Rollback
 
