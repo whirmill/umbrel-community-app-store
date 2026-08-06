@@ -30,12 +30,15 @@ TRACE_ENDPOINTS = (
     "https://connectivity.cloudflareclient.com/cdn-cgi/trace",
 )
 DEFAULT_ZONE = "satssurge.com"
+DEFAULT_ZONES = (DEFAULT_ZONE,)
 DEFAULT_RECORDS = (
     "smp.satssurge.com",
     "xftp.satssurge.com",
     "turn.satssurge.com",
 )
 DEFAULT_INTERVAL = 300
+MAX_ZONES = 20
+MAX_RECORDS = 100
 MAX_RESPONSE_BYTES = 1_048_576
 MAX_REQUEST_BYTES = 65_536
 TOKEN_RE = re.compile(r"^[A-Za-z0-9._~-]{20,512}$")
@@ -75,16 +78,29 @@ def validate_config(payload: Any) -> dict[str, Any]:
     if "api_token" in payload:
         raise DDNSError("Il token API non può essere inviato via HTTP.")
 
-    zone = normalize_dns_name(payload.get("zone", DEFAULT_ZONE))
+    raw_zones = payload.get("zones")
+    if raw_zones is None:
+        # Backward-compatible migration for the 1.0 configuration schema.
+        raw_zones = [payload.get("zone", DEFAULT_ZONE)]
+    if not isinstance(raw_zones, list) or not 1 <= len(raw_zones) <= MAX_ZONES:
+        raise DDNSError(f"Configura da 1 a {MAX_ZONES} zone DNS.")
+
+    zones: list[str] = []
+    for raw_zone in raw_zones:
+        zone = normalize_dns_name(raw_zone)
+        if zone not in zones:
+            zones.append(zone)
+    if not zones:
+        raise DDNSError("Configura almeno una zona DNS.")
+
     raw_records = payload.get("records", list(DEFAULT_RECORDS))
-    if not isinstance(raw_records, list) or not 1 <= len(raw_records) <= 20:
-        raise DDNSError("Configura da 1 a 20 record DNS.")
+    if not isinstance(raw_records, list) or not 1 <= len(raw_records) <= MAX_RECORDS:
+        raise DDNSError(f"Configura da 1 a {MAX_RECORDS} record DNS.")
 
     records: list[str] = []
     for raw_record in raw_records:
         record = normalize_dns_name(raw_record)
-        if record != zone and not record.endswith(f".{zone}"):
-            raise DDNSError(f"Il record {record} non appartiene alla zona {zone}.")
+        zone_for_record(record, zones)
         if record not in records:
             records.append(record)
     if not records:
@@ -95,10 +111,18 @@ def validate_config(payload: Any) -> dict[str, Any]:
         raise DDNSError("L'intervallo deve essere compreso tra 60 e 86400 secondi.")
 
     return {
-        "zone": zone,
+        "zones": zones,
         "records": records,
         "interval_seconds": interval,
     }
+
+
+def zone_for_record(record: str, zones: list[str] | tuple[str, ...]) -> str:
+    matches = [zone for zone in zones if record == zone or record.endswith(f".{zone}")]
+    if not matches:
+        raise DDNSError(f"Il record {record} non appartiene a nessuna zona configurata.")
+    # A delegated sub-zone is authoritative over its parent zone.
+    return max(matches, key=len)
 
 
 def read_api_token(path: Path) -> str:
@@ -160,7 +184,7 @@ def detect_public_ipv4(
     for endpoint in TRACE_ENDPOINTS:
         request = urllib.request.Request(
             endpoint,
-            headers={"User-Agent": "Umbrel-Cloudflare-DDNS/1.0"},
+            headers={"User-Agent": "Umbrel-Cloudflare-DDNS/1.1"},
         )
         try:
             with opener(request, timeout=10) as response:
@@ -196,7 +220,7 @@ class CloudflareClient:
         headers = {
             "Authorization": f"Bearer {self._token}",
             "Accept": "application/json",
-            "User-Agent": "Umbrel-Cloudflare-DDNS/1.0",
+            "User-Agent": "Umbrel-Cloudflare-DDNS/1.1",
         }
         if body is not None:
             encoded = json.dumps(body, separators=(",", ":")).encode("utf-8")
@@ -293,12 +317,22 @@ class UpdateResult:
     unchanged: tuple[str, ...]
 
 
-def validate_cloudflare_config(config: dict[str, Any], token: str) -> None:
-    client = CloudflareClient(token)
+def resolve_zone_ids(client: CloudflareClient, zones: list[str]) -> dict[str, str]:
+    return {zone: client.find_zone(zone) for zone in zones}
+
+
+def validate_cloudflare_config(
+    config: dict[str, Any],
+    token: str,
+    *,
+    client_factory: Callable[[str], CloudflareClient] = CloudflareClient,
+) -> None:
+    client = client_factory(token)
     client.verify_token()
-    zone_id = client.find_zone(config["zone"])
+    zone_ids = resolve_zone_ids(client, config["zones"])
     for record_name in config["records"]:
-        client.find_a_record(zone_id, record_name)
+        zone = zone_for_record(record_name, config["zones"])
+        client.find_a_record(zone_ids[zone], record_name)
 
 
 def perform_update(
@@ -310,12 +344,16 @@ def perform_update(
 ) -> UpdateResult:
     ip = ip_detector()
     client = client_factory(token)
-    zone_id = client.find_zone(config["zone"])
-    records = [(name, client.find_a_record(zone_id, name)) for name in config["records"]]
+    zone_ids = resolve_zone_ids(client, config["zones"])
+    records = []
+    for name in config["records"]:
+        zone = zone_for_record(name, config["zones"])
+        zone_id = zone_ids[zone]
+        records.append((name, zone_id, client.find_a_record(zone_id, name)))
 
     updated: list[str] = []
     unchanged: list[str] = []
-    for name, record in records:
+    for name, zone_id, record in records:
         if record.get("content") == ip and record.get("proxied") is False:
             unchanged.append(name)
             continue
@@ -375,7 +413,7 @@ class DDNSService:
             return {
                 "configured": config is not None,
                 "token_configured": self._token_is_available(),
-                "zone": config["zone"] if config else DEFAULT_ZONE,
+                "zones": list(config["zones"] if config else DEFAULT_ZONES),
                 "records": list(config["records"] if config else DEFAULT_RECORDS),
                 "interval_seconds": config["interval_seconds"] if config else DEFAULT_INTERVAL,
                 **self.status,
@@ -472,6 +510,7 @@ class DDNSService:
                 if self.config is None or self.status["running"]:
                     return
                 config = dict(self.config)
+                config["zones"] = list(self.config["zones"])
                 config["records"] = list(self.config["records"])
                 self.status["running"] = True
                 self.status["last_attempt"] = utc_now()
@@ -525,7 +564,7 @@ class DDNSService:
 class DDNSHandler(BaseHTTPRequestHandler):
     service: DDNSService
     web_dir: Path
-    server_version = "UmbrelCloudflareDDNS/1.0"
+    server_version = "UmbrelCloudflareDDNS/1.1"
 
     def log_message(self, format_string: str, *args: Any) -> None:
         # Request bodies and headers are intentionally never logged.

@@ -14,7 +14,7 @@
         <div>
           <p class="eyebrow">Local DNS automation</p>
           <h1 id="page-title">Cloudflare DDNS</h1>
-          <p class="lede">Keep the DNS-only records for your local services aligned with this connection’s public IP address.</p>
+          <p class="lede">Keep DNS-only records across multiple Cloudflare zones aligned with this connection’s public IP address.</p>
         </div>
         <section class="service-state" aria-labelledby="service-state-title">
           <span class="state-dot" id="state-dot" aria-hidden="true" data-state="loading"></span>
@@ -55,8 +55,9 @@ unset cloudflare_token</code></pre>
 
             <div class="form-grid">
               <div class="field">
-                <label for="zone">Zone</label>
-                <input id="zone" name="zone" type="text" value="satssurge.com" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+                <label for="zones">Cloudflare zones</label>
+                <textarea id="zones" name="zones" rows="3" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="zones-help" required>satssurge.com</textarea>
+                <p class="field-help" id="zones-help">One zone per line. The token must have Zone Read and DNS Edit on every listed zone.</p>
               </div>
               <div class="field">
                 <label for="interval">Update interval</label>
@@ -117,7 +118,7 @@ turn.satssurge.com</textarea>
           <section class="panel permissions-panel" aria-labelledby="permissions-title">
             <p class="section-kicker">Token scope</p>
             <h2 id="permissions-title">Minimum Cloudflare permissions</h2>
-            <p>Create a token scoped only to this zone with these permissions:</p>
+            <p>Create a token scoped only to the managed zones with these permissions:</p>
             <ul>
               <li><strong>Zone</strong>, <span>Zone Read</span></li>
               <li><strong>Zone</strong>, <span>DNS Edit</span></li>

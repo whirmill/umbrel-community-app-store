@@ -1,17 +1,18 @@
 # Cloudflare DDNS for Umbrel
 
 This local Umbrel app keeps an explicit allowlist of existing Cloudflare `A`
-records aligned with the connection's public IPv4 address. Its default scope is
-the three native SimpleX endpoints:
+records across one or more zones aligned with the connection's public IPv4
+address. Its default scope is the three native SimpleX endpoints:
 
 - `smp.satssurge.com`
 - `xftp.satssurge.com`
 - `turn.satssurge.com`
 
 It does not create or delete DNS records. Before saving a configuration, it
-verifies the API token, resolves the exact active zone, and requires every
-configured `A` record to exist uniquely. Every update preserves the record TTL,
-changes only its IPv4 content when needed, and forces `proxied: false` because
+verifies the API token, resolves every exact active zone, and requires every
+configured `A` record to exist uniquely in its most specific configured zone.
+Every update preserves the record TTL, changes only its IPv4 content when
+needed, and forces `proxied: false` because
 Cloudflare's HTTP proxy cannot carry the native SMP, XFTP, STUN, or TURN data
 paths used here.
 
@@ -30,8 +31,9 @@ Create a dedicated API token in Cloudflare with only:
 - `Zone` / `Zone` / `Read`
 - `Zone` / `DNS` / `Edit`
 
-Restrict its zone resources to `Include` / `Specific zone` /
-`satssurge.com`. Do not use the Global API Key.
+Restrict its zone resources to `Include` / `Specific zone` and select every
+zone managed by this app. A token covering all zones in the account also works,
+but grants broader access than necessary. Do not use the Global API Key.
 
 Because the local Umbrel route is HTTP, the token is never accepted by the web
 UI. Install it interactively over SSH as `data/api-token`; the service requires
@@ -72,10 +74,15 @@ chmod 600 /home/umbrel/umbrel/app-data/whirmill-cloudflare-ddns/data/api-token
 unset cloudflare_token
 ```
 
-Open `http://umbrel.local:5233`, confirm that the token is detected, review the
-zone and record allowlist, then save. The service validates the token and every
-record before saving the non-secret settings; the first update is requested
-immediately.
+Open `http://umbrel.local:5233`, confirm that the token is detected, enter one
+Cloudflare zone and one fully qualified record per line, then save. The service
+validates the token, every zone, and every record before saving the non-secret
+settings; the first update is requested immediately. Records in delegated
+sub-zones are assigned to the longest matching configured zone.
+
+Configurations created by version 1.0 with a single `zone` field are accepted
+and migrated in memory to the new `zones` list. Saving from version 1.1 writes
+the new schema without changing or deleting any Cloudflare record.
 
 ## Verification
 

@@ -2,13 +2,13 @@
   "use strict";
 
   const REQUEST_HEADER = { "X-Requested-With": "cloudflare-ddns" };
-  const DEFAULT_ZONE = "satssurge.com";
+  const DEFAULT_ZONES = ["satssurge.com"];
   const DEFAULT_RECORDS = ["smp.satssurge.com", "xftp.satssurge.com", "turn.satssurge.com"];
   const DEFAULT_INTERVAL = 300;
   const REFRESH_INTERVAL_MS = 30000;
 
   const form = document.getElementById("config-form");
-  const zoneInput = document.getElementById("zone");
+  const zonesInput = document.getElementById("zones");
   const recordsInput = document.getElementById("records");
   const intervalInput = document.getElementById("interval");
   const saveButton = document.getElementById("save-button");
@@ -79,13 +79,33 @@
     return { records: uniqueRecords };
   }
 
+  function parseZones(value) {
+    const zones = value
+      .split(/[\n,]/)
+      .map(function (zone) { return zone.trim().toLowerCase().replace(/\.$/, ""); })
+      .filter(Boolean);
+    const uniqueZones = Array.from(new Set(zones));
+    const hostnamePattern = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
+
+    if (!uniqueZones.length) {
+      return { error: "Add at least one Cloudflare zone." };
+    }
+    if (uniqueZones.length > 20) {
+      return { error: "Configure no more than 20 Cloudflare zones." };
+    }
+    if (uniqueZones.some(function (zone) { return !hostnamePattern.test(zone); })) {
+      return { error: "Each zone must be a valid DNS name." };
+    }
+    return { zones: uniqueZones };
+  }
+
   function validateForm() {
-    const zone = zoneInput.value.trim().toLowerCase().replace(/\.$/, "");
     const interval = Number(intervalInput.value);
+    const parsedZones = parseZones(zonesInput.value);
     const parsedRecords = parseRecords(recordsInput.value);
 
-    if (!/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(zone)) {
-      return { field: zoneInput, error: "Enter a valid zone name, such as satssurge.com." };
+    if (parsedZones.error) {
+      return { field: zonesInput, error: parsedZones.error };
     }
     if (!Number.isInteger(interval) || interval < 60 || interval > 86400) {
       return { field: intervalInput, error: "Choose an interval from 60 seconds to 24 hours." };
@@ -93,13 +113,20 @@
     if (parsedRecords.error) {
       return { field: recordsInput, error: parsedRecords.error };
     }
-    if (parsedRecords.records.some(function (record) { return record !== zone && !record.endsWith("." + zone); })) {
-      return { field: recordsInput, error: "Every managed record must belong to the selected zone." };
+    if (parsedRecords.records.length > 100) {
+      return { field: recordsInput, error: "Configure no more than 100 DNS records." };
+    }
+    if (parsedRecords.records.some(function (record) {
+      return !parsedZones.zones.some(function (zone) {
+        return record === zone || record.endsWith("." + zone);
+      });
+    })) {
+      return { field: recordsInput, error: "Every managed record must belong to one of the configured zones." };
     }
 
     return {
       data: {
-        zone: zone,
+        zones: parsedZones.zones,
         records: parsedRecords.records,
         interval_seconds: interval
       }
@@ -162,13 +189,15 @@
     updateConfiguredControls(configured, tokenConfigured);
 
     if (configured && hydrateForm && !formIsDirty) {
-      zoneInput.value = status.zone || DEFAULT_ZONE;
+      zonesInput.value = Array.isArray(status.zones) && status.zones.length
+        ? status.zones.join("\n")
+        : status.zone || DEFAULT_ZONES.join("\n");
       recordsInput.value = Array.isArray(status.records) && status.records.length ? status.records.join("\n") : DEFAULT_RECORDS.join("\n");
       intervalInput.value = String(status.interval_seconds || DEFAULT_INTERVAL);
       hasHydratedConfiguration = true;
       savedIndicator.textContent = "Saved settings loaded";
     } else if (!configured && !hasHydratedConfiguration) {
-      zoneInput.value = DEFAULT_ZONE;
+      zonesInput.value = DEFAULT_ZONES.join("\n");
       recordsInput.value = DEFAULT_RECORDS.join("\n");
       intervalInput.value = String(DEFAULT_INTERVAL);
     }
@@ -298,7 +327,7 @@
     closeRemovalConfirmation();
     removeButton.focus();
   });
-  [zoneInput, recordsInput, intervalInput].forEach(function (input) {
+  [zonesInput, recordsInput, intervalInput].forEach(function (input) {
     input.addEventListener("input", markFormDirty);
   });
   document.addEventListener("visibilitychange", function () {
