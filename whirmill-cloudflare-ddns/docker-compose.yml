@@ -7,7 +7,7 @@ services:
       APP_PORT: 8080
 
   server:
-    image: python:3.14-alpine@sha256:47f36929d95852c8aa959380eeeea761ba7411ebe793d090da4cd518ac3af237
+    image: ghcr.io/whirmill/umbrel-cloudflare-ddns:1.1.1@sha256:1537ffbd4ce8615456444522290ae9f74dd0db8e28e04ccbd4f13008249d16e3
     restart: on-failure
     init: true
     user: "1000:1000"
@@ -20,8 +20,6 @@ services:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
     volumes:
-      - ${APP_DATA_DIR}/app:/app:ro
-      - ${APP_DATA_DIR}/web:/web:ro
       - ${APP_DATA_DIR}/data:/data
     read_only: true
     tmpfs:

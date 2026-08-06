@@ -43,11 +43,15 @@ so access to the Umbrel host and its backups must be protected accordingly.
 
 ## Runtime layout
 
-- `server`: dependency-free Python service and authenticated Umbrel UI.
+- `server`: versioned multi-architecture container with the dependency-free
+  Python service and authenticated Umbrel UI.
 - Local UI: `http://umbrel.local:5233` through Umbrel's app proxy.
 - Default interval: 300 seconds; accepted range is 60–86400 seconds.
 - Public IPv4: detected from Cloudflare trace endpoints over HTTPS; private,
   non-IPv4, unexpected-host, and WARP responses are rejected.
+- The container image owns the immutable backend and UI files; only `/data` is
+  mounted from `${APP_DATA_DIR}` so app updates replace code without touching
+  runtime state.
 - Persistent settings: `${APP_DATA_DIR}/data/config.json`; restricted token:
   `${APP_DATA_DIR}/data/api-token`.
 - No host port is published and no inbound router rule is required for DDNS.
@@ -83,6 +87,12 @@ sub-zones are assigned to the longest matching configured zone.
 Configurations created by version 1.0 with a single `zone` field are accepted
 and migrated in memory to the new `zones` list. Saving from version 1.1 writes
 the new schema without changing or deleting any Cloudflare record.
+
+Version 1.1.1 moves the backend and UI into the versioned container image.
+Earlier packages mounted those files from `${APP_DATA_DIR}`, which Umbrel keeps
+persistent during an update; as a result, the 1.1.0 manifest could be installed
+while the 1.0 runtime remained active. Updating to 1.1.1 preserves the existing
+`data/` directory but replaces the stale application files.
 
 ## Verification
 
