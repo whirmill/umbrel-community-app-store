@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+legacy_data="${UMBREL_ROOT}/app-data/route96/data"
+target_data="${APP_DATA_DIR}/data"
+
+# A populated MariaDB directory means this community install has already been
+# migrated or initialized. Never overwrite it during a retry or reinstall.
+if [[ -f "${target_data}/db/ibdata1" ]]; then
+  exit 0
+fi
+
+if [[ ! -f "${legacy_data}/db/ibdata1" ]] || [[ ! -f "${legacy_data}/config.yaml" ]]; then
+  exit 0
+fi
+
+echo "Importing persistent data from the official Route96 app."
+mkdir -p "${target_data}"
+cp -a -- "${legacy_data}/." "${target_data}/"
+
+sed -i \
+  's/@route96_db_1:3306\//@whirmill-route96_db_1:3306\//g' \
+  "${target_data}/config.yaml"
+
+test -f "${target_data}/db/ibdata1"
+grep -q '@whirmill-route96_db_1:3306/route96' "${target_data}/config.yaml"

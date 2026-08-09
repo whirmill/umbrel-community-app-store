@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+legacy_data="${UMBREL_ROOT}/app-data/nostr-vpn/data"
+target_data="${APP_DATA_DIR}/data"
+
+# Preserve an existing community install. Only import the official app on the
+# first install, when the Nostr VPN configuration has not been created yet.
+if [[ -f "${target_data}/config/nvpn/config.toml" ]]; then
+  exit 0
+fi
+
+if [[ ! -f "${legacy_data}/config/nvpn/config.toml" ]]; then
+  exit 0
+fi
+
+echo "Importing persistent data from the official Nostr VPN app."
+mkdir -p "${target_data}"
+cp -a -- "${legacy_data}/." "${target_data}/"
+
+test -f "${target_data}/config/nvpn/config.toml"
+test -f "${target_data}/config/nvpn/.config.toml.nostr-secret-key.secret"

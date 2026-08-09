@@ -16,10 +16,12 @@ runtime image immutable.
 ## Migration from the official app
 
 The official `route96` app and `whirmill-route96` both use port `8002`, so they
-must not run concurrently. Stop the official app, copy its `data` directory to
-the new app-data path, change only the database hostname in `config.yaml` from
-`route96_db_1` to `whirmill-route96_db_1`, then install and verify the community
-app before removing the migration snapshot.
+must not run concurrently. Stop the official app before installing this
+package. On its first install, the `pre-install` hook copies the official
+app's persistent `data` directory when the community database is still empty
+and changes only the database hostname in `config.yaml` from `route96_db_1` to
+`whirmill-route96_db_1`. Verify the database and uploads before uninstalling
+the official app.
 
 Route96 protocol requests deliberately bypass Umbrel account authentication,
 matching the official package and allowing Nostr clients to use Blossom and

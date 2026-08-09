@@ -19,6 +19,7 @@ multi-platform image by immutable digest.
 
 The official `nostr-vpn` app and `whirmill-nostr-vpn` both use port `38180` and
 host networking for the daemon, so they must not run concurrently. Stop the
-official app, copy its persistent `data` directory to the new app-data path,
-then install the community package and verify the existing network roster
-before deleting the migration snapshot.
+official app before installing this package. On its first install, the
+`pre-install` hook copies the official app's persistent `data` directory when
+the community configuration is still empty. Verify the existing identity and
+network roster before uninstalling the official app.
