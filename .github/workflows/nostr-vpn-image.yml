@@ -1,6 +1,7 @@
 name: Build Nostr VPN Umbrel image
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "nostr-vpn-v*"
@@ -25,7 +26,11 @@ jobs:
         id: version
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#nostr-vpn-v}"
+          if [[ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]]; then
+            version="4.1.6"
+          else
+            version="${GITHUB_REF_NAME#nostr-vpn-v}"
+          fi
           if [[ "$version" != "4.1.6" ]]; then
             echo "Unsupported Nostr VPN release tag: $GITHUB_REF_NAME" >&2
             exit 1
@@ -38,6 +43,7 @@ jobs:
           repository: ${{ env.UPSTREAM_REPOSITORY }}
           ref: ${{ env.UPSTREAM_COMMIT }}
           path: upstream
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Verify upstream release identity
