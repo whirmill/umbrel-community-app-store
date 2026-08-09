@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-legacy_data="${UMBREL_ROOT}/app-data/nostr-vpn/data"
-target_data="${APP_DATA_DIR}/data"
+hook_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+target_app_dir="$(dirname -- "${hook_dir}")"
+umbrel_root="$(dirname -- "$(dirname -- "${target_app_dir}")")"
+
+legacy_data="${umbrel_root}/app-data/nostr-vpn/data"
+target_data="${target_app_dir}/data"
 
 # Preserve an existing community install. Only import the official app on the
 # first install, when the Nostr VPN configuration has not been created yet.
