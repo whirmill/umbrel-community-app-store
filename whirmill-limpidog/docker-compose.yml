@@ -38,7 +38,7 @@ services:
 
   restore:
     image: ghcr.io/whirmill/limpidog-crm:umbrel-38bcedab16cfe427422965cf544eb75c952aa2e5@sha256:4765303637103dc49ae4d10b0fd80cf3a08b364ea5f9ec2c58e085cc592d8a86
-    restart: on-failure
+    restart: "no"
     init: true
     command:
       - /bin/sh
@@ -54,7 +54,7 @@ services:
           --dbname "$$MIGRATION_DATABASE_URL" "$$dump"
         printf '%s\n' "$$current" > "$$marker"
     environment:
-      MIGRATION_DATABASE_URL: ecto://limpidog_owner:$APP_SEED@postgres:5432/limpidog
+      MIGRATION_DATABASE_URL: postgresql://limpidog_owner:$APP_SEED@postgres:5432/limpidog
     volumes:
       - ${APP_DATA_DIR}/data/import:/import
     depends_on:
@@ -67,10 +67,10 @@ services:
 
   migrate:
     image: ghcr.io/whirmill/limpidog-crm:umbrel-38bcedab16cfe427422965cf544eb75c952aa2e5@sha256:4765303637103dc49ae4d10b0fd80cf3a08b364ea5f9ec2c58e085cc592d8a86
-    restart: on-failure
+    restart: "no"
     init: true
     environment:
-      MIGRATION_DATABASE_URL: ecto://limpidog_owner:$APP_SEED@postgres:5432/limpidog
+      MIGRATION_DATABASE_URL: postgresql://limpidog_owner:$APP_SEED@postgres:5432/limpidog
       LIMPIDOG_APP_DB_USER: limpidog_app
       LIMPIDOG_APP_DB_PASSWORD: $APP_SEED
       MIGRATION_MODE: migrate
@@ -93,7 +93,7 @@ services:
         exec /app/bin/openship-start-api
     environment:
       UMBREL_APP_SEED: $APP_SEED
-      DATABASE_URL: ecto://limpidog_app:$APP_SEED@postgres:5432/limpidog
+      DATABASE_URL: postgresql://limpidog_app:$APP_SEED@postgres:5432/limpidog
       POOL_SIZE: "5"
       API_HOST: api.limpidog.com
       API_PORT: "4000"
@@ -129,7 +129,7 @@ services:
         exec /app/bin/openship-start-worker
     environment:
       UMBREL_APP_SEED: $APP_SEED
-      DATABASE_URL: ecto://limpidog_app:$APP_SEED@postgres:5432/limpidog
+      DATABASE_URL: postgresql://limpidog_app:$APP_SEED@postgres:5432/limpidog
       POOL_SIZE: "5"
       CALENDAR_IMPORT_INTERVAL_MINUTES: "1440"
       CALENDAR_IMPORT_LOOKBACK_DAYS: "30"
