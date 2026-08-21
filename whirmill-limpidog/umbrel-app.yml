@@ -1,0 +1,28 @@
+manifestVersion: 1
+id: whirmill-limpidog
+category: productivity
+name: Limpidog
+version: "1.0.0"
+tagline: Self-hosted operations for Limpidog
+description: >-
+  Runs the Limpidog API, operations dashboard, public-site service, background
+  worker, and PostgreSQL database as one Umbrel app. The Umbrel entry point is
+  the protected operations dashboard; dedicated API and site ports support
+  public virtual hosts through Nginx Proxy Manager. Background workers ship
+  disabled so an existing installation can remain authoritative until its
+  final data cutover.
+developer: whirmill
+website: https://limpidog.com
+repo: https://github.com/whirmill/limpidog-crm
+support: https://github.com/whirmill/limpidog-crm/issues
+port: 5234
+path: ""
+icon: https://raw.githubusercontent.com/whirmill/umbrel-community-app-store/main/whirmill-limpidog/icon.svg
+gallery: []
+defaultUsername: ""
+defaultPassword: ""
+dependencies: []
+releaseNotes: >-
+  Initial Umbrel package with an immutable shared runtime image, PostgreSQL 17,
+  idempotent dump restore, migrations, protected dashboard access, and a
+  worker-disabled pre-cutover mode.

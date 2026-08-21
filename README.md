@@ -16,6 +16,7 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-cloudflare-ddns` | `1.1.1` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-nostr-vpn` | `v4.1.6` | app ufficiale `v4.0.67` | `nostr-vpn` |
 | `whirmill-route96` | `0.7.0-3429578` | app ufficiale modificata localmente | `route96` |
+| `whirmill-limpidog` | `1.0.0` | nuova migrazione da OpenShip | — |
 
 La verifica del 4 agosto 2026 non ha trovato questi ID nello store ufficiale
 `getumbrel/umbrel-apps`. `cloudflared` è un'app ufficiale diversa: fornisce un

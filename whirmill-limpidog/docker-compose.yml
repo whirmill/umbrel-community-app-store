@@ -1,0 +1,203 @@
+version: "3.7"
+
+x-limpidog-runtime: &limpidog-runtime
+  image: ghcr.io/whirmill/limpidog-crm:umbrel-38bcedab16cfe427422965cf544eb75c952aa2e5@sha256:4765303637103dc49ae4d10b0fd80cf3a08b364ea5f9ec2c58e085cc592d8a86
+  restart: on-failure
+  init: true
+  env_file:
+    - path: ${APP_DATA_DIR}/data/limpidog.env
+      required: false
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: whirmill-limpidog_dashboard_1
+      APP_PORT: 4001
+
+  postgres:
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    restart: on-failure
+    environment:
+      POSTGRES_DB: limpidog
+      POSTGRES_USER: limpidog_owner
+      POSTGRES_PASSWORD: $APP_SEED
+    volumes:
+      - ${APP_DATA_DIR}/data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U limpidog_owner -d limpidog"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 1g
+
+  restore:
+    image: ghcr.io/whirmill/limpidog-crm:umbrel-38bcedab16cfe427422965cf544eb75c952aa2e5@sha256:4765303637103dc49ae4d10b0fd80cf3a08b364ea5f9ec2c58e085cc592d8a86
+    restart: on-failure
+    init: true
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        set -eu
+        dump=/import/limpidog.dump
+        marker=/import/.restored-sha256
+        test -s "$$dump" || exit 0
+        current="$$(sha256sum "$$dump" | cut -d ' ' -f 1)"
+        test "$$(cat "$$marker" 2>/dev/null || true)" != "$$current" || exit 0
+        pg_restore --clean --if-exists --no-owner --no-privileges \
+          --dbname "$$MIGRATION_DATABASE_URL" "$$dump"
+        printf '%s\n' "$$current" > "$$marker"
+    environment:
+      MIGRATION_DATABASE_URL: ecto://limpidog_owner:$APP_SEED@postgres:5432/limpidog
+    volumes:
+      - ${APP_DATA_DIR}/data/import:/import
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+
+  migrate:
+    image: ghcr.io/whirmill/limpidog-crm:umbrel-38bcedab16cfe427422965cf544eb75c952aa2e5@sha256:4765303637103dc49ae4d10b0fd80cf3a08b364ea5f9ec2c58e085cc592d8a86
+    restart: on-failure
+    init: true
+    environment:
+      MIGRATION_DATABASE_URL: ecto://limpidog_owner:$APP_SEED@postgres:5432/limpidog
+      LIMPIDOG_APP_DB_USER: limpidog_app
+      LIMPIDOG_APP_DB_PASSWORD: $APP_SEED
+      MIGRATION_MODE: migrate
+    depends_on:
+      restore:
+        condition: service_completed_successfully
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 1g
+
+  api:
+    <<: *limpidog-runtime
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        export SECRET_KEY_BASE="$${SECRET_KEY_BASE:-$$UMBREL_APP_SEED}"
+        export AUTH_TOKEN_SALT="$${AUTH_TOKEN_SALT:-$$UMBREL_APP_SEED}"
+        exec /app/bin/openship-start-api
+    environment:
+      UMBREL_APP_SEED: $APP_SEED
+      DATABASE_URL: ecto://limpidog_app:$APP_SEED@postgres:5432/limpidog
+      POOL_SIZE: "5"
+      API_HOST: api.limpidog.com
+      API_PORT: "4000"
+      OPERATIONAL_WORKER_ENABLED: "false"
+      CALENDAR_IMPORT_WORKER_ENABLED: "false"
+      CALENDAR_IMPORT_INTERVAL_MINUTES: "1440"
+      CALENDAR_IMPORT_LOOKBACK_DAYS: "30"
+      CALENDAR_IMPORT_FUTURE_DAYS: "60"
+    ports:
+      - "5235:4000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:4000/ready >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    pids_limit: 512
+    mem_limit: 1g
+
+  worker:
+    <<: *limpidog-runtime
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        export SECRET_KEY_BASE="$${SECRET_KEY_BASE:-$$UMBREL_APP_SEED}"
+        export AUTH_TOKEN_SALT="$${AUTH_TOKEN_SALT:-$$UMBREL_APP_SEED}"
+        export OPERATIONAL_WORKER_ENABLED="$${OPERATIONAL_WORKER_ENABLED:-false}"
+        export CALENDAR_IMPORT_WORKER_ENABLED="$${CALENDAR_IMPORT_WORKER_ENABLED:-false}"
+        exec /app/bin/openship-start-worker
+    environment:
+      UMBREL_APP_SEED: $APP_SEED
+      DATABASE_URL: ecto://limpidog_app:$APP_SEED@postgres:5432/limpidog
+      POOL_SIZE: "5"
+      CALENDAR_IMPORT_INTERVAL_MINUTES: "1440"
+      CALENDAR_IMPORT_LOOKBACK_DAYS: "30"
+      CALENDAR_IMPORT_FUTURE_DAYS: "60"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    pids_limit: 512
+    mem_limit: 1g
+
+  dashboard:
+    <<: *limpidog-runtime
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        export SECRET_KEY_BASE="$${SECRET_KEY_BASE:-$$UMBREL_APP_SEED}"
+        export AUTH_TOKEN_SALT="$${AUTH_TOKEN_SALT:-$$UMBREL_APP_SEED}"
+        exec /app/bin/openship-start-dashboard
+    environment:
+      UMBREL_APP_SEED: $APP_SEED
+      API_URL: http://api:4000
+      DASHBOARD_HOST: dashboard.limpidog.com
+      DASHBOARD_PORT: "4001"
+      DASHBOARD_ORIGIN: https://dashboard.limpidog.com
+      PASSKEY_RP_ID: dashboard.limpidog.com
+      PASSKEY_RP_NAME: Limpidog CRM
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:4001/ >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    pids_limit: 512
+    mem_limit: 768m
+
+  site:
+    <<: *limpidog-runtime
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        export SECRET_KEY_BASE="$${SECRET_KEY_BASE:-$$UMBREL_APP_SEED}"
+        exec /app/bin/openship-start-site
+    environment:
+      UMBREL_APP_SEED: $APP_SEED
+      API_URL: http://api:4000
+      SITE_HOST: limpidog.com
+      SITE_PORT: "4002"
+    ports:
+      - "5236:4002"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:4002/ >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    pids_limit: 256
+    mem_limit: 512m
