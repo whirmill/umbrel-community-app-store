@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "1.0.1"
+version: "1.0.2"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs the Limpidog API, operations dashboard, public-site service, background
@@ -23,5 +23,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Fixes PostgreSQL connection URLs used by the migration and runtime services,
-  and makes restore and migration jobs fail fast instead of restarting forever.
+  Enables the API, dashboard, and site HTTP endpoints explicitly when using the
+  shared runtime image. Also includes the PostgreSQL bootstrap and fail-fast
+  one-shot job fixes from 1.0.1.

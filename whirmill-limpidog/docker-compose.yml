@@ -95,6 +95,7 @@ services:
       UMBREL_APP_SEED: $APP_SEED
       DATABASE_URL: postgresql://limpidog_app:$APP_SEED@postgres:5432/limpidog
       POOL_SIZE: "5"
+      PHX_SERVER_API: "true"
       API_HOST: api.limpidog.com
       API_PORT: "4000"
       OPERATIONAL_WORKER_ENABLED: "false"
@@ -158,6 +159,7 @@ services:
     environment:
       UMBREL_APP_SEED: $APP_SEED
       API_URL: http://api:4000
+      PHX_SERVER_DASHBOARD: "true"
       DASHBOARD_HOST: dashboard.limpidog.com
       DASHBOARD_PORT: "4001"
       DASHBOARD_ORIGIN: https://dashboard.limpidog.com
@@ -186,6 +188,7 @@ services:
     environment:
       UMBREL_APP_SEED: $APP_SEED
       API_URL: http://api:4000
+      PHX_SERVER_SITE: "true"
       SITE_HOST: limpidog.com
       SITE_PORT: "4002"
     ports:
