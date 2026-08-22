@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-cloudflare-ddns
 category: networking
 name: Cloudflare DDNS
-version: "1.1.1"
+version: "1.1.2"
 tagline: Keep selected DNS records on your public IPv4
 description: >-
   Detects the current public IPv4 over HTTPS and periodically updates an
@@ -22,7 +22,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Fixes app updates by packaging the backend and UI in a versioned container
-  image. Multi-zone settings now reach the installed runtime, while the existing
-  token and configuration remain persistent. Single-zone settings still migrate
-  automatically.
+  Preserves each managed record's existing Cloudflare proxy or DNS-only state
+  when its IPv4 address changes. Existing token, zones, records, and update
+  interval remain persistent across the update.
