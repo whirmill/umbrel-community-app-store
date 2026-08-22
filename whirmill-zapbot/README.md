@@ -8,8 +8,9 @@ and application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed OpenShip revision and pinned to the immutable digest
-`sha256:15242fc640d901904f8eccd50670cc9411891a8fbbd463d4229c368cd6883213`.
+minimal reviewed OpenShip bootstrap-fix revision `b8923ac1` and pinned to the
+immutable digest
+`sha256:1492932a710afb735bf418031277231ebd5fe82e2649588ae36b40008294e0f6`.
 Do not substitute `latest` or an unreviewed tag.
 
 PostgreSQL is pinned to the verified PostgreSQL 18 / pgvector 0.8.2 image
@@ -43,22 +44,29 @@ secrets.
 PostgreSQL starts with TLS but no host port. The release-SQL exporter copies
 only `/app/lib/api-*/priv/sql/bootstrap_database_roles.sql` and
 `verify_database_roles.sql`; it fails if the release image does not contain
-exactly one matching source directory. Optional restore, role bootstrap,
-one-shot migration, then post-migration bootstrap/verifier run in that order.
-All jobs fail closed and are safe to repeat:
+exactly one matching source directory. Optional restore, restored-object
+ownership normalization, role bootstrap, one-shot migration, then
+post-migration bootstrap/verifier run in that order. All jobs fail closed and
+are safe to repeat:
 
 1. A non-empty `data/import/zapbot.dump` is restored only when its SHA-256
    differs from `data/import/.restored-sha256`. A failed restore writes no new
    marker.
-2. A one-shot credential initializer derives a distinct password per LOGIN
+2. A pre-bootstrap normalization step accepts only the exact reviewed
+   non-extension `SECURITY DEFINER` inventory, assigns restored application
+   objects to the `zapbot_owner` role required by the official contract, and
+   removes default PUBLIC execution from those functions. This reconciles the
+   administrator ownership produced by `pg_restore --no-owner`; it does not
+   bypass the subsequent body, ACL, role, and protected-table verifier.
+3. A one-shot credential initializer derives a distinct password per LOGIN
    role from the Umbrel app seed and writes only service-scoped `0600` files.
    The owner is `NOLOGIN`; the migrator is
    the sole non-admin member of it. PostgreSQL creates `vector`, `pgcrypto`,
    and `pg_stat_statements`, then executes the official bootstrap and verifier
    as the PostgreSQL administrator.
-3. Migrations use only `zapbot_migrator` plus `SET ROLE zapbot_owner`; the web
+4. Migrations use only `zapbot_migrator` plus `SET ROLE zapbot_owner`; the web
    runtime never receives a migration URL.
-4. The post-migration step reruns the official bootstrap and verifier as the
+5. The post-migration step reruns the official bootstrap and verifier as the
    PostgreSQL administrator. It does not alter `internal_settings` or force a
    trading mode. A restored database must already demonstrate `manage_only`
    and `new_entries_enabled=false` through the web healthcheck, otherwise the
@@ -81,7 +89,9 @@ touch "${APP_DATA_DIR}/data/state/app-enabled"
 Without it, the web container stays idle and reports healthy only as a fenced,
 not-ready process. Once enabled, the healthcheck requires both `/api/ready` and
 `/api/health` evidence that the runtime remains `manage_only` and that
-`new_entries_enabled` is false.
+`new_entries_enabled` is false. During the rehearsal, the web command also
+forces the deliberation runtime and Trusted V2 continuous collection off even
+if imported OpenShip environment files contain older enabled values.
 
 The four producer containers have `restart: "no"`. The three data producers
 have distinct markers: `producer-lnmarkets-candles-enabled`,

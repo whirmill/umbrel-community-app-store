@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.0"
+version: "0.1.1"
 tagline: Fenced self-hosted ZapBot runtime
 description: >-
   A deliberately fenced ZapBot package. It restores and migrates only a local
@@ -21,6 +21,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Initial fenced package built from the exact OpenShip revision, with an
-  immutable multi-architecture image, isolated per-service credentials,
-  PostgreSQL role normalization, and all producers disabled.
+  Adds fail-closed ownership normalization for no-owner PostgreSQL restores,
+  fixes Umbrel script mount paths, admits the corrected immutable release SQL,
+  and keeps the web deliberation runtime plus every producer disabled during
+  migration rehearsal.
