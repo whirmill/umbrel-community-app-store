@@ -32,6 +32,7 @@ services:
         chmod 700 /data/env /data/env/* /data/release-sql /data/state
         find /data/env -type f -exec chmod 600 {} +
         chown -R 1000:1000 /data/env /data/release-sql /data/state /data/secrets/migrator /data/secrets/runtime /data/secrets/evaluator /data/secrets/producer-lnmarkets-candles /data/secrets/producer-coinbase-candles /data/secrets/producer-lnmarkets-funding /data/secrets/producer-lnmarkets-execution-economics
+        chown -R 999:999 /data/postgres /data/secrets/postgres
     security_opt: [no-new-privileges:true]
     pids_limit: 64
     mem_limit: 128m
