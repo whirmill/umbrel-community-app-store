@@ -11,10 +11,9 @@ address. Its default scope is the three native SimpleX endpoints:
 It does not create or delete DNS records. Before saving a configuration, it
 verifies the API token, resolves every exact active zone, and requires every
 configured `A` record to exist uniquely in its most specific configured zone.
-Every update preserves the record TTL, changes only its IPv4 content when
-needed, and forces `proxied: false` because
-Cloudflare's HTTP proxy cannot carry the native SMP, XFTP, STUN, or TURN data
-paths used here.
+Every update preserves the record TTL and existing Cloudflare proxy state,
+changing only its IPv4 content when needed. This allows HTTP records to remain
+proxied while native SMP, XFTP, STUN, and TURN records remain DNS-only.
 
 ## Why this package does not use `oznu/cloudflare-ddns`
 
@@ -56,8 +55,9 @@ so access to the Umbrel host and its backups must be protected accordingly.
   `${APP_DATA_DIR}/data/api-token`.
 - No host port is published and no inbound router rule is required for DDNS.
 
-The three SimpleX service records must remain **DNS only**. Router forwarding
-for their native service ports remains independent from this app.
+The three SimpleX service records must remain **DNS only**; configure that state
+in Cloudflare and the updater will preserve it. HTTP records may remain proxied.
+Router forwarding for native service ports remains independent from this app.
 
 ## Local installation
 
@@ -94,13 +94,17 @@ persistent during an update; as a result, the 1.1.0 manifest could be installed
 while the 1.0 runtime remained active. Updating to 1.1.1 preserves the existing
 `data/` directory but replaces the stale application files.
 
+Version 1.1.2 updates only the IPv4 content of each managed record and preserves
+its existing Cloudflare proxy state. Existing DNS-only SimpleX records therefore
+remain DNS-only, while proxied HTTP records remain proxied.
+
 ## Verification
 
 Do not treat a running container as DDNS proof. Check all of the following:
 
 1. The app reports a successful update and the detected public IPv4.
-2. Cloudflare shows each configured `A` record with that IPv4 and proxy status
-   `DNS only`.
+2. Cloudflare shows each configured `A` record with that IPv4 and the same proxy
+   status it had before the update.
 3. The status response contains no token:
 
    ```sh

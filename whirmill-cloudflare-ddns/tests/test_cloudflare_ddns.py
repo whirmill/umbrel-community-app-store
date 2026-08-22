@@ -37,6 +37,22 @@ class FakeCloudflareClient:
         self.updates.append((zone_id, record["name"], ip))
 
 
+class RecordingCloudflareClient(ddns.CloudflareClient):
+    def __init__(self):
+        self.requests = []
+
+    def _request(self, method, path, *, query=None, body=None):
+        self.requests.append(
+            {
+                "method": method,
+                "path": path,
+                "query": query,
+                "body": body,
+            }
+        )
+        return {"success": True, "result": {}}
+
+
 class ConfigValidationTests(unittest.TestCase):
     def test_legacy_single_zone_config_is_migrated(self):
         config = ddns.validate_config(
@@ -157,6 +173,67 @@ class CloudflareRoutingTests(unittest.TestCase):
             client.updates,
             [("zone:example.net", "vpn.example.net", "198.51.100.10")],
         )
+
+    def test_matching_ip_is_unchanged_even_when_record_is_proxied(self):
+        config = {
+            "zones": ["example.net"],
+            "records": ["vpn.example.net"],
+            "interval_seconds": 300,
+        }
+        records = {
+            ("zone:example.net", "vpn.example.net"): {
+                **self.records[("zone:example.net", "vpn.example.net")],
+                "content": "198.51.100.10",
+                "proxied": True,
+            }
+        }
+        client = FakeCloudflareClient(records)
+
+        result = ddns.perform_update(
+            config,
+            token="test-token",
+            client_factory=lambda _token: client,
+            ip_detector=lambda: "198.51.100.10",
+        )
+
+        self.assertEqual(result.updated, ())
+        self.assertEqual(result.unchanged, ("vpn.example.net",))
+        self.assertEqual(client.updates, [])
+
+    def test_patch_updates_only_content_and_preserves_proxy_state(self):
+        client = RecordingCloudflareClient()
+        record = {
+            "id": "record/with spaces",
+            "type": "A",
+            "name": "vpn.example.net",
+            "content": "203.0.113.20",
+            "proxied": True,
+            "ttl": 120,
+            "settings": {"ipv4_only": True},
+            "comment": "managed externally",
+            "tags": ["owner:umbrel"],
+        }
+
+        client.update_a_record("zone/one", record, "198.51.100.10")
+
+        self.assertEqual(
+            client.requests,
+            [
+                {
+                    "method": "PATCH",
+                    "path": "/zones/zone%2Fone/dns_records/record%2Fwith%20spaces",
+                    "query": None,
+                    "body": {
+                        "type": "A",
+                        "name": "vpn.example.net",
+                        "content": "198.51.100.10",
+                        "ttl": 120,
+                    },
+                }
+            ],
+        )
+        self.assertNotIn("proxied", client.requests[0]["body"])
+        self.assertNotIn("settings", client.requests[0]["body"])
 
 
 if __name__ == "__main__":

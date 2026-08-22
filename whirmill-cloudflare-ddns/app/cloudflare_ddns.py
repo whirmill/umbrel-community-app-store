@@ -24,6 +24,8 @@ from typing import Any, Callable
 
 
 API_BASE = "https://api.cloudflare.com/client/v4"
+APP_VERSION = "1.1.2"
+USER_AGENT = f"Umbrel-Cloudflare-DDNS/{APP_VERSION}"
 TRACE_ENDPOINTS = (
     "https://api.cloudflare.com/cdn-cgi/trace",
     "https://www.cloudflare.com/cdn-cgi/trace",
@@ -184,7 +186,7 @@ def detect_public_ipv4(
     for endpoint in TRACE_ENDPOINTS:
         request = urllib.request.Request(
             endpoint,
-            headers={"User-Agent": "Umbrel-Cloudflare-DDNS/1.1"},
+            headers={"User-Agent": USER_AGENT},
         )
         try:
             with opener(request, timeout=10) as response:
@@ -220,7 +222,7 @@ class CloudflareClient:
         headers = {
             "Authorization": f"Bearer {self._token}",
             "Accept": "application/json",
-            "User-Agent": "Umbrel-Cloudflare-DDNS/1.1",
+            "User-Agent": USER_AGENT,
         }
         if body is not None:
             encoded = json.dumps(body, separators=(",", ":")).encode("utf-8")
@@ -305,7 +307,6 @@ class CloudflareClient:
                 "name": record["name"],
                 "content": ip,
                 "ttl": ttl,
-                "proxied": False,
             },
         )
 
@@ -354,7 +355,7 @@ def perform_update(
     updated: list[str] = []
     unchanged: list[str] = []
     for name, zone_id, record in records:
-        if record.get("content") == ip and record.get("proxied") is False:
+        if record.get("content") == ip:
             unchanged.append(name)
             continue
         client.update_a_record(zone_id, record, ip)
@@ -564,7 +565,7 @@ class DDNSService:
 class DDNSHandler(BaseHTTPRequestHandler):
     service: DDNSService
     web_dir: Path
-    server_version = "UmbrelCloudflareDDNS/1.1"
+    server_version = f"UmbrelCloudflareDDNS/{APP_VERSION}"
 
     def log_message(self, format_string: str, *args: Any) -> None:
         # Request bodies and headers are intentionally never logged.

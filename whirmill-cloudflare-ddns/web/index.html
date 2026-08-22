@@ -14,7 +14,7 @@
         <div>
           <p class="eyebrow">Local DNS automation</p>
           <h1 id="page-title">Cloudflare DDNS</h1>
-          <p class="lede">Keep DNS-only records across multiple Cloudflare zones aligned with this connection’s public IP address.</p>
+          <p class="lede">Keep selected records across multiple Cloudflare zones aligned with this connection’s public IP address.</p>
         </div>
         <section class="service-state" aria-labelledby="service-state-title">
           <span class="state-dot" id="state-dot" aria-hidden="true" data-state="loading"></span>
@@ -123,7 +123,7 @@ turn.satssurge.com</textarea>
               <li><strong>Zone</strong>, <span>Zone Read</span></li>
               <li><strong>Zone</strong>, <span>DNS Edit</span></li>
             </ul>
-            <p class="note">Every managed record is forced to <strong>DNS-only</strong>. Cloudflare proxying is not used.</p>
+            <p class="note">The updater changes only the IPv4 address and preserves each record’s existing <strong>proxied</strong> or <strong>DNS-only</strong> state.</p>
           </section>
 
           <section class="danger-zone" aria-labelledby="remove-title">

@@ -8,8 +8,8 @@ description: >-
   Detects the current public IPv4 over HTTPS and periodically updates an
   explicit allowlist of existing Cloudflare A records across multiple zones. A
   restricted API token is installed over SSH instead of crossing the local HTTP
-  UI; the app never returns it and keeps the managed records in DNS-only mode
-  for native TCP and UDP services such as SimpleX SMP, XFTP, and TURN.
+  UI; the app never returns it and preserves each managed record's existing
+  Cloudflare proxy or DNS-only state while updating its public IPv4 address.
 developer: whirmill
 website: https://developers.cloudflare.com/dns/manage-dns-records/how-to/managing-dynamic-ip-addresses/
 repo: https://github.com/whirmill/umbrel-community-app-store
