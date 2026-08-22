@@ -2,11 +2,13 @@ version: "3.7"
 
 services:
   app_proxy:
+    container_name: whirmill-cloudflare-ddns_app_proxy_1
     environment:
       APP_HOST: whirmill-cloudflare-ddns_server_1
       APP_PORT: 8080
 
   server:
+    container_name: whirmill-cloudflare-ddns_server_1
     image: ghcr.io/whirmill/umbrel-cloudflare-ddns:1.1.2@sha256:6d9d5b1f8a91f40417e6ea32f2cab9dbe1f657b93ce05814c7384a9c712f5e27
     restart: on-failure
     init: true
