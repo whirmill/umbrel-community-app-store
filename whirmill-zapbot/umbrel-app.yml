@@ -1,0 +1,26 @@
+manifestVersion: 1
+id: whirmill-zapbot
+category: developer
+name: ZapBot
+version: "0.1.0"
+tagline: Fenced self-hosted ZapBot runtime
+description: >-
+  A deliberately fenced ZapBot package. It restores and migrates only a local
+  PostgreSQL data directory, requires manage-only readiness before admission,
+  and leaves all data producers disabled until a separately reviewed operator
+  cutover.
+developer: whirmill
+website: https://github.com/whirmill/zapbot-exs
+repo: https://github.com/whirmill/zapbot-exs
+support: https://github.com/whirmill/zapbot-exs/issues
+port: 5237
+path: ""
+icon: https://raw.githubusercontent.com/whirmill/umbrel-community-app-store/main/whirmill-zapbot/icon.png
+gallery: []
+defaultUsername: ""
+defaultPassword: ""
+dependencies: []
+releaseNotes: >-
+  Initial fenced package built from the exact OpenShip revision, with an
+  immutable multi-architecture image, isolated per-service credentials,
+  PostgreSQL role normalization, and all producers disabled.

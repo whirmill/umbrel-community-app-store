@@ -1,0 +1,307 @@
+services:
+  app_proxy:
+    environment:
+      APP_HOST: whirmill-zapbot-web
+      APP_PORT: 4000
+      PROXY_AUTH_ADD: "false"
+
+  credential-init:
+    image: pgvector/pgvector:0.8.2-pg18-trixie@sha256:b7337db8fe39d12fe8ecb0003c72680f24479813a744b43154eee6f2eab5a5f3
+    restart: "no"
+    user: "0:0"
+    environment:
+      APP_SEED: $APP_SEED
+    volumes:
+      - ${APP_DATA_DIR}/data:/data
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        umask 077
+        mkdir -p /data/env/app /data/env/producer-lnmarkets-candles /data/env/producer-coinbase-candles /data/env/producer-lnmarkets-funding /data/import /data/postgres /data/release-sql /data/state /data/tls/private /data/tls/ca
+        for role in postgres migrator runtime evaluator producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-lnmarkets-execution-economics; do
+          directory="/data/secrets/$$role"
+          mkdir -p "$$directory"
+          printf %s "$$APP_SEED:db:$$role" | sha256sum | awk '{print $$1}' > "$$directory/password"
+          printf %s "$$APP_SEED:secret-key-base:$$role" | sha512sum | awk '{print $$1 $$1}' > "$$directory/secret-key-base"
+          printf %s "$$APP_SEED:signing-salt:$$role" | sha256sum | awk '{print $$1}' > "$$directory/signing-salt"
+          printf %s "$$APP_SEED:auth-token-salt:$$role" | sha256sum | awk '{print $$1}' > "$$directory/auth-token-salt"
+          chmod 700 "$$directory"
+          chmod 600 "$$directory"/*
+        done
+        chmod 700 /data/env /data/env/* /data/release-sql /data/state
+        find /data/env -type f -exec chmod 600 {} +
+        chown -R 1000:1000 /data/env /data/release-sql /data/state /data/secrets/migrator /data/secrets/runtime /data/secrets/evaluator /data/secrets/producer-lnmarkets-candles /data/secrets/producer-coinbase-candles /data/secrets/producer-lnmarkets-funding /data/secrets/producer-lnmarkets-execution-economics
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 128m
+
+  postgres-tls-init:
+    image: pgvector/pgvector:0.8.2-pg18-trixie@sha256:b7337db8fe39d12fe8ecb0003c72680f24479813a744b43154eee6f2eab5a5f3
+    restart: "no"
+    user: "0:0"
+    volumes:
+      - ${APP_DATA_DIR}/data/tls/private:/tls-private
+      - ${APP_DATA_DIR}/data/tls/ca:/tls-ca
+    depends_on:
+      credential-init:
+        condition: service_completed_successfully
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        if [ -s /tls-private/server.crt ] && [ -s /tls-private/server.key ] && [ -s /tls-private/ca.key ] && [ -s /tls-ca/ca.crt ]; then exit 0; fi
+        if [ -n "$$(find /tls-private /tls-ca -mindepth 1 -maxdepth 1 -print -quit)" ]; then echo 'incomplete PostgreSQL TLS material; refusing overwrite' >&2; exit 1; fi
+        umask 077
+        openssl req -x509 -new -nodes -newkey rsa:4096 -sha256 -days 3650 -subj '/CN=whirmill-zapbot-postgres-ca' -keyout /tls-private/ca.key -out /tls-ca/ca.crt
+        openssl req -new -nodes -newkey rsa:2048 -subj '/CN=whirmill-zapbot-postgres' -keyout /tls-private/server.key -out /tmp/server.csr
+        printf 'subjectAltName=DNS:whirmill-zapbot-postgres,DNS:localhost\nextendedKeyUsage=serverAuth\n' > /tmp/server.ext
+        openssl x509 -req -sha256 -days 3650 -in /tmp/server.csr -CA /tls-ca/ca.crt -CAkey /tls-private/ca.key -CAcreateserial -extfile /tmp/server.ext -out /tls-private/server.crt
+        rm -f /tmp/server.csr /tmp/server.ext
+        chown -R postgres:postgres /tls-private
+        chmod 700 /tls-private
+        chmod 600 /tls-private/ca.key /tls-private/server.key
+        chmod 644 /tls-private/server.crt /tls-ca/ca.crt
+        chmod 755 /tls-ca
+    security_opt: [no-new-privileges:true]
+
+  whirmill-zapbot-postgres:
+    image: pgvector/pgvector:0.8.2-pg18-trixie@sha256:b7337db8fe39d12fe8ecb0003c72680f24479813a744b43154eee6f2eab5a5f3
+    container_name: whirmill-zapbot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: zapbot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/zapbot-secret/password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ${APP_DATA_DIR}/data/postgres:/var/lib/postgresql/data
+      - ${APP_DATA_DIR}/data/tls/private:/var/lib/postgresql/tls:ro
+      - ${APP_DATA_DIR}/data/secrets/postgres:/run/zapbot-secret:ro
+    command: [postgres, -c, ssl=on, -c, ssl_cert_file=/var/lib/postgresql/tls/server.crt, -c, ssl_key_file=/var/lib/postgresql/tls/server.key, -c, shared_preload_libraries=pg_stat_statements]
+    depends_on:
+      credential-init:
+        condition: service_completed_successfully
+      postgres-tls-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d zapbot']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 4g
+
+  release-sql-export:
+    image: ghcr.io/whirmill/zapbot:umbrel-openship-d62974974f34338c891ae65e83963414eff36a1d@sha256:15242fc640d901904f8eccd50670cc9411891a8fbbd463d4229c368cd6883213
+    restart: "no"
+    user: "1000:1000"
+    volumes:
+      - ${APP_DATA_DIR}/data/release-sql:/release-sql
+      - ./scripts/export-release-sql.sh:/usr/local/bin/export-release-sql:ro
+    command: [/bin/sh, /usr/local/bin/export-release-sql]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 128m
+
+  restore:
+    image: pgvector/pgvector:0.8.2-pg18-trixie@sha256:b7337db8fe39d12fe8ecb0003c72680f24479813a744b43154eee6f2eab5a5f3
+    restart: "no"
+    environment:
+      PGHOST: whirmill-zapbot-postgres
+      PGUSER: postgres
+      PGDATABASE: zapbot
+      PGSSLMODE: verify-full
+      PGSSLROOTCERT: /run/zapbot-db-tls/ca.crt
+    volumes:
+      - ${APP_DATA_DIR}/data/import:/import
+      - ${APP_DATA_DIR}/data/secrets/postgres:/run/zapbot-secret:ro
+      - ${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro
+    depends_on:
+      whirmill-zapbot-postgres:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        export PGPASSWORD="$$(cat /run/zapbot-secret/password)"
+        dump=/import/zapbot.dump; marker=/import/.restored-sha256
+        test -e "$$dump" || exit 0
+        test -s "$$dump" || { echo 'restore dump is empty' >&2; exit 1; }
+        current="$$(sha256sum "$$dump" | awk '{print $$1}')"
+        test "$$(cat "$$marker" 2>/dev/null || true)" != "$$current" || exit 0
+        pg_restore --dbname="$$PGDATABASE" --clean --if-exists --no-owner --no-privileges --exit-on-error --single-transaction "$$dump"
+        printf '%s\n' "$$current" > "$$marker"
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 2g
+
+  role-bootstrap:
+    image: pgvector/pgvector:0.8.2-pg18-trixie@sha256:b7337db8fe39d12fe8ecb0003c72680f24479813a744b43154eee6f2eab5a5f3
+    restart: "no"
+    environment:
+      PGHOST: whirmill-zapbot-postgres
+      PGUSER: postgres
+      PGDATABASE: zapbot
+      PGSSLMODE: verify-full
+      PGSSLROOTCERT: /run/zapbot-db-tls/ca.crt
+    volumes:
+      - ${APP_DATA_DIR}/data/release-sql:/release-sql:ro
+      - ${APP_DATA_DIR}/data/secrets:/run/zapbot-secrets:ro
+      - ${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro
+    depends_on:
+      restore:
+        condition: service_completed_successfully
+      release-sql-export:
+        condition: service_completed_successfully
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        test -f /release-sql/.complete || { echo 'release SQL export incomplete' >&2; exit 1; }
+        export PGPASSWORD="$$(cat /run/zapbot-secrets/postgres/password)"
+        export ZAPBOT_MIGRATOR_DATABASE_PASSWORD="$$(cat /run/zapbot-secrets/migrator/password)"
+        export ZAPBOT_RUNTIME_DATABASE_PASSWORD="$$(cat /run/zapbot-secrets/runtime/password)"
+        export ZAPBOT_EVALUATOR_DATABASE_PASSWORD="$$(cat /run/zapbot-secrets/evaluator/password)"
+        export ZAPBOT_PRODUCER_LNMARKETS_CANDLES_PASSWORD="$$(cat /run/zapbot-secrets/producer-lnmarkets-candles/password)"
+        export ZAPBOT_PRODUCER_COINBASE_CANDLES_PASSWORD="$$(cat /run/zapbot-secrets/producer-coinbase-candles/password)"
+        export ZAPBOT_PRODUCER_LNMARKETS_FUNDING_PASSWORD="$$(cat /run/zapbot-secrets/producer-lnmarkets-funding/password)"
+        export ZAPBOT_PRODUCER_LNMARKETS_EXECUTION_ECONOMICS_PASSWORD="$$(cat /run/zapbot-secrets/producer-lnmarkets-execution-economics/password)"
+        psql --set=ON_ERROR_STOP=1 -c 'CREATE EXTENSION IF NOT EXISTS vector' -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto' -c 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements' -f /release-sql/bootstrap_database_roles.sql -f /release-sql/verify_database_roles.sql
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 2g
+
+  migrate:
+    image: ghcr.io/whirmill/zapbot:umbrel-openship-d62974974f34338c891ae65e83963414eff36a1d@sha256:15242fc640d901904f8eccd50670cc9411891a8fbbd463d4229c368cd6883213
+    restart: "no"
+    environment:
+      ZAPBOT_RUNTIME_MODE: production
+      ZAPBOT_START_DELIBERATION_RUNTIME: "false"
+      DATABASE_SSL: "true"
+      DATABASE_SSL_VERIFY: verify_peer
+      DATABASE_SSL_CACERTFILE: /run/zapbot-db-tls/ca.crt
+      DATABASE_MIGRATION_ROLE: zapbot_owner
+    volumes:
+      - ${APP_DATA_DIR}/data/secrets/migrator:/run/zapbot-migrator-secret:ro
+      - ${APP_DATA_DIR}/data/secrets/runtime:/run/zapbot-runtime-secret:ro
+      - ${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro
+    depends_on:
+      role-bootstrap:
+        condition: service_completed_successfully
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        runtime_password="$$(cat /run/zapbot-runtime-secret/password)"
+        migrator_password="$$(cat /run/zapbot-migrator-secret/password)"
+        export DATABASE_URL="postgresql://zapbot_runtime:$$runtime_password@whirmill-zapbot-postgres:5432/zapbot"
+        export MIGRATION_DATABASE_URL="postgresql://zapbot_migrator:$$migrator_password@whirmill-zapbot-postgres:5432/zapbot"
+        export SECRET_KEY_BASE="$${SECRET_KEY_BASE:-$$(cat /run/zapbot-migrator-secret/secret-key-base)}"
+        export SIGNING_SALT="$${SIGNING_SALT:-$$(cat /run/zapbot-migrator-secret/signing-salt)}"
+        export AUTH_TOKEN_SALT="$${AUTH_TOKEN_SALT:-$$(cat /run/zapbot-migrator-secret/auth-token-salt)}"
+        exec bin/zapbot eval 'Zapbot.Release.migrate()'
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 2g
+
+  normalize-and-verify:
+    image: pgvector/pgvector:0.8.2-pg18-trixie@sha256:b7337db8fe39d12fe8ecb0003c72680f24479813a744b43154eee6f2eab5a5f3
+    restart: "no"
+    environment:
+      PGHOST: whirmill-zapbot-postgres
+      PGUSER: postgres
+      PGDATABASE: zapbot
+      PGSSLMODE: verify-full
+      PGSSLROOTCERT: /run/zapbot-db-tls/ca.crt
+    volumes:
+      - ${APP_DATA_DIR}/data/release-sql:/release-sql:ro
+      - ${APP_DATA_DIR}/data/secrets:/run/zapbot-secrets:ro
+      - ${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        test -f /release-sql/.complete || { echo 'release SQL export incomplete' >&2; exit 1; }
+        export PGPASSWORD="$$(cat /run/zapbot-secrets/postgres/password)"
+        export ZAPBOT_MIGRATOR_DATABASE_PASSWORD="$$(cat /run/zapbot-secrets/migrator/password)"
+        export ZAPBOT_RUNTIME_DATABASE_PASSWORD="$$(cat /run/zapbot-secrets/runtime/password)"
+        export ZAPBOT_EVALUATOR_DATABASE_PASSWORD="$$(cat /run/zapbot-secrets/evaluator/password)"
+        export ZAPBOT_PRODUCER_LNMARKETS_CANDLES_PASSWORD="$$(cat /run/zapbot-secrets/producer-lnmarkets-candles/password)"
+        export ZAPBOT_PRODUCER_COINBASE_CANDLES_PASSWORD="$$(cat /run/zapbot-secrets/producer-coinbase-candles/password)"
+        export ZAPBOT_PRODUCER_LNMARKETS_FUNDING_PASSWORD="$$(cat /run/zapbot-secrets/producer-lnmarkets-funding/password)"
+        export ZAPBOT_PRODUCER_LNMARKETS_EXECUTION_ECONOMICS_PASSWORD="$$(cat /run/zapbot-secrets/producer-lnmarkets-execution-economics/password)"
+        psql --set=ON_ERROR_STOP=1 -f /release-sql/bootstrap_database_roles.sql -f /release-sql/verify_database_roles.sql
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 2g
+
+  whirmill-zapbot-web:
+    image: ghcr.io/whirmill/zapbot:umbrel-openship-d62974974f34338c891ae65e83963414eff36a1d@sha256:15242fc640d901904f8eccd50670cc9411891a8fbbd463d4229c368cd6883213
+    container_name: whirmill-zapbot-web
+    restart: on-failure
+    environment:
+      ZAPBOT_DATABASE_ROLE: runtime
+    volumes:
+      - ${APP_DATA_DIR}/data/env/app:/service-env:ro
+      - ${APP_DATA_DIR}/data/secrets/runtime:/run/zapbot-db-secret:ro
+      - ${APP_DATA_DIR}/data/state:/state:ro
+      - ${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro
+      - ./scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro
+    depends_on:
+      normalize-and-verify:
+        condition: service_completed_successfully
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        if [ ! -f /state/app-enabled ]; then echo 'ZapBot remains fenced: create data/state/app-enabled after reviewed cutover'; exec tail -f /dev/null; fi
+        . /usr/local/bin/runtime-env
+        exec bin/zapbot start
+    healthcheck:
+      test: [CMD-SHELL, 'if [ ! -f /state/app-enabled ]; then exit 0; fi; wget -qO- http://127.0.0.1:4000/api/ready | grep -Eq "\"ok\"[[:space:]]*:[[:space:]]*true" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"entry_mode\"[[:space:]]*:[[:space:]]*\"manage_only\"" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"new_entries_enabled\"[[:space:]]*:[[:space:]]*false"']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    security_opt: [no-new-privileges:true]
+    pids_limit: 512
+    mem_limit: 2g
+
+  producer-lnmarkets-candles:
+    image: ghcr.io/whirmill/zapbot:umbrel-openship-d62974974f34338c891ae65e83963414eff36a1d@sha256:15242fc640d901904f8eccd50670cc9411891a8fbbd463d4229c368cd6883213
+    restart: "no"
+    environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_candles}
+    volumes: ["${APP_DATA_DIR}/data/env/producer-lnmarkets-candles:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-lnmarkets-candles:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "./scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
+    depends_on: {normalize-and-verify: {condition: service_completed_successfully}}
+    command: [/bin/sh, -ec, 'test -f /state/producer-lnmarkets-candles-enabled || { echo "producer fence remains closed"; exit 0; }; . /usr/local/bin/runtime-env; export ZAPBOT_RUNTIME_MODE=lnmarkets_candle_producer_continuous; exec bin/zapbot eval "ZapbotHub.Release.TrustedV2ContinuousProducer.run!(confirm: true)"']
+    security_opt: [no-new-privileges:true]
+
+  producer-coinbase-candles:
+    image: ghcr.io/whirmill/zapbot:umbrel-openship-d62974974f34338c891ae65e83963414eff36a1d@sha256:15242fc640d901904f8eccd50670cc9411891a8fbbd463d4229c368cd6883213
+    restart: "no"
+    environment: {ZAPBOT_DATABASE_ROLE: producer_coinbase_candles}
+    volumes: ["${APP_DATA_DIR}/data/env/producer-coinbase-candles:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-coinbase-candles:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "./scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
+    depends_on: {normalize-and-verify: {condition: service_completed_successfully}}
+    command: [/bin/sh, -ec, 'test -f /state/producer-coinbase-candles-enabled || { echo "producer fence remains closed"; exit 0; }; . /usr/local/bin/runtime-env; export ZAPBOT_RUNTIME_MODE=coinbase_candle_producer_continuous; exec bin/zapbot eval "ZapbotHub.Release.TrustedV2ContinuousProducer.run!(confirm: true)"']
+    security_opt: [no-new-privileges:true]
+
+  producer-lnmarkets-funding:
+    image: ghcr.io/whirmill/zapbot:umbrel-openship-d62974974f34338c891ae65e83963414eff36a1d@sha256:15242fc640d901904f8eccd50670cc9411891a8fbbd463d4229c368cd6883213
+    restart: "no"
+    environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_funding}
+    volumes: ["${APP_DATA_DIR}/data/env/producer-lnmarkets-funding:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-lnmarkets-funding:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "./scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
+    depends_on: {normalize-and-verify: {condition: service_completed_successfully}}
+    command: [/bin/sh, -ec, 'test -f /state/producer-lnmarkets-funding-enabled || { echo "producer fence remains closed"; exit 0; }; . /usr/local/bin/runtime-env; export ZAPBOT_RUNTIME_MODE=lnmarkets_funding_producer_continuous; exec bin/zapbot eval "ZapbotHub.Release.TrustedV2ContinuousProducer.run!(confirm: true)"']
+    security_opt: [no-new-privileges:true]
+
+  producer-risk-authority-snapshot:
+    image: ghcr.io/whirmill/zapbot:umbrel-openship-d62974974f34338c891ae65e83963414eff36a1d@sha256:15242fc640d901904f8eccd50670cc9411891a8fbbd463d4229c368cd6883213
+    restart: "no"
+    command: [/bin/sh, -ec, 'echo "RiskAuthority producer is hard-disabled: its canonical database role is NOLOGIN"; exit 0']
+    security_opt: [no-new-privileges:true]
