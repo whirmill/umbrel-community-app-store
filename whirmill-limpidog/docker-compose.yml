@@ -13,7 +13,7 @@ x-limpidog-runtime: &limpidog-runtime
 services:
   app_proxy:
     environment:
-      APP_HOST: whirmill-limpidog_dashboard_1
+      APP_HOST: dashboard
       APP_PORT: 4001
 
   postgres:
