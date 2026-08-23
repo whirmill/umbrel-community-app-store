@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+APP_DATA_DIR="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")/..")"
+DATUM_CONFIG_FILE="${APP_DATA_DIR}/data/settings/datum_gateway_config.json"
+DESIRED_OWNER="1000:1000"
+
+required_variables=(
+  APP_BITCOIN_RPC_USER
+  APP_BITCOIN_RPC_PASS
+  APP_BITCOIN_NODE_IP
+  APP_BITCOIN_RPC_PORT
+  APP_PASSWORD
+)
+
+for variable_name in "${required_variables[@]}"; do
+  if [ -z "${!variable_name:-}" ]; then
+    echo "Missing required Bitcoin Core or Umbrel environment variable: ${variable_name}"
+    exit 1
+  fi
+done
+
+if [ ! -f "${DATUM_CONFIG_FILE}" ]; then
+  echo "DATUM configuration file not found. Installation incomplete."
+  exit 1
+fi
+
+if ! jq -e '.bitcoind | type == "object"' "${DATUM_CONFIG_FILE}" >/dev/null; then
+  echo "DATUM configuration does not contain a valid bitcoind section."
+  exit 1
+fi
+
+temporary_file="$(mktemp "${DATUM_CONFIG_FILE}.tmp.XXXXXX")"
+cleanup() {
+  if [ -f "${temporary_file}" ]; then
+    rm -f -- "${temporary_file}"
+  fi
+}
+trap cleanup EXIT
+
+jq \
+  --arg user "${APP_BITCOIN_RPC_USER}" \
+  --arg pass "${APP_BITCOIN_RPC_PASS}" \
+  --arg url "${APP_BITCOIN_NODE_IP}:${APP_BITCOIN_RPC_PORT}" \
+  --arg password "${APP_PASSWORD}" \
+  '
+    .bitcoind.rpcuser = $user
+    | .bitcoind.rpcpassword = $pass
+    | .bitcoind.rpcurl = $url
+    | .api.modify_conf = true
+    | if (.api.admin_password // "") == "" or .api.admin_password == "umbrel"
+      then .api.admin_password = $password
+      else .
+      end
+    | if .mining.pool_address == "enter your bitcoin address"
+      then .mining.pool_address = ""
+      else .
+      end
+  ' "${DATUM_CONFIG_FILE}" >"${temporary_file}"
+
+chmod 600 "${temporary_file}"
+chown "${DESIRED_OWNER}" "${temporary_file}"
+mv -f -- "${temporary_file}" "${DATUM_CONFIG_FILE}"
+trap - EXIT
+
+echo "DATUM configuration updated with the selected Bitcoin Core provider."

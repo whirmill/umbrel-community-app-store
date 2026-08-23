@@ -18,6 +18,7 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-route96` | `0.7.0-3429578` | app ufficiale modificata localmente | `route96` |
 | `whirmill-limpidog` | `1.0.0` | nuova migrazione da OpenShip | — |
 | `whirmill-zapbot` | `0.1.0` | migrazione recintata da OpenShip | — |
+| `whirmill-datum-core` | `0.4.1-core.1` | variante DATUM per Bitcoin Core | `datum` |
 
 La verifica del 4 agosto 2026 non ha trovato questi ID nello store ufficiale
 `getumbrel/umbrel-apps`. `cloudflared` è un'app ufficiale diversa: fornisce un

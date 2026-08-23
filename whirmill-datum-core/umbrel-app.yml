@@ -1,0 +1,44 @@
+manifestVersion: 1.1
+id: whirmill-datum-core
+category: bitcoin
+name: DATUM for Bitcoin Core
+version: "0.4.1-core.1"
+tagline: Self-sovereign mining with Bitcoin Core
+description: >-
+  Runs OCEAN's DATUM Gateway against the Bitcoin Core app selected as Umbrel's
+  generic Bitcoin provider. The package preserves DATUM's native configuration
+  UI and miner endpoint while replacing the official Umbrel package's hard
+  dependency on Bitcoin Knots. Bitcoin Core remains the canonical backend for
+  Lightning, wallets, indexers, and mining.
+developer: OCEAN / Whirmill integration
+website: https://ocean.xyz
+repo: https://github.com/OCEAN-xyz/datum_gateway
+support: https://github.com/OCEAN-xyz/datum_gateway/issues
+dependencies:
+  - bitcoin
+port: 21000
+path: ""
+icon: https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/master/datum/icon.svg
+gallery: []
+defaultUsername: "admin"
+deterministicPassword: true
+releaseNotes: >-
+  Adds a Bitcoin Core-compatible Umbrel integration using the generic bitcoin
+  dependency and Core RPC credentials. Existing DATUM mining and API settings
+  remain persistent across restarts and package updates.
+widgets:
+  - id: stats
+    type: three-stats
+    refresh: 30s
+    endpoint: datum:21000/umbrel-api
+    link: ""
+    example:
+      type: three-stats
+      link: ""
+      items:
+        - title: Connections
+          text: "12"
+          subtext: Worker
+        - title: Hashrate
+          text: "21"
+          subtext: TH/s
