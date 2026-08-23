@@ -14,8 +14,6 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-simplex-xftp` | `7.0.1` | installata direttamente | `simplex-xftp` |
 | `whirmill-simplex-turn` | `4.16.0-5` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
-| `whirmill-nostr-vpn` | `v4.1.6` | app ufficiale `v4.0.67` | `nostr-vpn` |
-| `whirmill-route96` | `0.7.0-3429578` | app ufficiale modificata localmente | `route96` |
 | `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
 | `whirmill-zapbot` | `0.1.1` | migrazione recintata da OpenShip | — |
 | `whirmill-datum-core` | `0.4.1-core.1` | variante DATUM per Bitcoin Core | `datum` |
@@ -59,8 +57,6 @@ tdarr        -> whirmill-tdarr
 simplex-smp  -> whirmill-simplex-smp
 simplex-xftp -> whirmill-simplex-xftp
 simplex-turn -> whirmill-simplex-turn
-nostr-vpn    -> whirmill-nostr-vpn
-route96      -> whirmill-route96
 ```
 
 Il backup contiene chiavi private, identità SimpleX, code SMP, file XFTP e
@@ -98,11 +94,3 @@ il ripristino e la verifica delle librerie.
 Prima della pubblicazione o migrazione live verificare inoltre che l'app proxy
 Umbrel richieda autenticazione, che l'accesso diretto tra container non allarghi
 il perimetro previsto e che Tdarr resti in pausa dopo il ripristino dello stato.
-
-Per Nostr VPN, il nuovo pacchetto mantiene il daemon su rete host e riutilizza
-l'intera directory persistente `data`; questo conserva identità, roster firmati
-e configurazione. Per Route96, MariaDB deve essere fermato prima della copia
-finale di `data/db`; dopo la copia va cambiato soltanto l'hostname database in
-`config.yaml` da `route96_db_1` a `whirmill-route96_db_1`. I due vecchi ID
-confliggono con i nuovi sulle porte `38180` e `8002` e non possono essere
-eseguiti contemporaneamente.
