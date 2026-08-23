@@ -12,12 +12,12 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-tdarr` | `2.81.01` | installata direttamente | `tdarr` |
 | `whirmill-simplex-smp` | `7.0.1` | installata direttamente | `simplex-smp` |
 | `whirmill-simplex-xftp` | `7.0.1` | installata direttamente | `simplex-xftp` |
-| `whirmill-simplex-turn` | `4.16.0-4` | installata direttamente | `simplex-turn` |
+| `whirmill-simplex-turn` | `4.16.0-5` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-nostr-vpn` | `v4.1.6` | app ufficiale `v4.0.67` | `nostr-vpn` |
 | `whirmill-route96` | `0.7.0-3429578` | app ufficiale modificata localmente | `route96` |
-| `whirmill-limpidog` | `1.0.0` | nuova migrazione da OpenShip | — |
-| `whirmill-zapbot` | `0.1.0` | migrazione recintata da OpenShip | — |
+| `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
+| `whirmill-zapbot` | `0.1.1` | migrazione recintata da OpenShip | — |
 | `whirmill-datum-core` | `0.4.1-core.1` | variante DATUM per Bitcoin Core | `datum` |
 
 La verifica del 4 agosto 2026 non ha trovato questi ID nello store ufficiale
