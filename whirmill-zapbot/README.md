@@ -1,9 +1,10 @@
-# ZapBot on Umbrel — fenced package
+# ZapBot on Umbrel — restart-safe package
 
-This is an infrastructure reengineering package, not a cutover. It does not
-build, publish, install, expose PostgreSQL, or enable any trading producer.
-The only intended Umbrel entry point is the app proxy on port `5237`; database
-and application container ports remain private.
+This package provides a restart-safe, manage-only ZapBot runtime. It enables
+the public LN Markets market feed, but does not enable deliberation, execution
+consumers, trusted continuous mode, or any standalone trading producer. The
+only intended Umbrel entry point is the app proxy on port `5237`; database and
+application container ports remain private.
 
 ## Image admission
 
@@ -111,14 +112,14 @@ no database credential.
 
 The default Compose project contains only the one-shot bootstrap and migration
 chain, PostgreSQL, the web runtime, and Umbrel's app proxy. Producer services
-appear only when the `zapbot-producers` profile is explicitly selected. The web
-runtime receives all three supervision fences as container environment values,
-and its startup path reasserts them after loading private settings while
-discarding any historical `RELEASE_SYS_CONFIG` override:
+appear only when the `zapbot-producers` profile is explicitly selected. The
+shared private environment remains fail-closed, while the web startup path
+explicitly enables only the public market stream after loading private settings
+and discarding any historical `RELEASE_SYS_CONFIG` override:
 
 - `ZAPBOT_START_DELIBERATION_RUNTIME=false`;
 - `ZAPBOT_START_INTERNAL_CONSUMERS=false`; and
-- `ZAPBOT_START_MARKET_STREAM=false`.
+- `ZAPBOT_START_MARKET_STREAM=true`.
 
 The admitted ZapBot release must map these values into both the API and Hub
 runtime configuration. Its release SQL must also include

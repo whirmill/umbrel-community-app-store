@@ -276,7 +276,7 @@ services:
       ZAPBOT_DATABASE_ROLE: runtime
       ZAPBOT_START_DELIBERATION_RUNTIME: "false"
       ZAPBOT_START_INTERNAL_CONSUMERS: "false"
-      ZAPBOT_START_MARKET_STREAM: "false"
+      ZAPBOT_START_MARKET_STREAM: "true"
     volumes:
       - ${APP_DATA_DIR}/data/env/app:/service-env:ro
       - ${APP_DATA_DIR}/data/secrets/runtime:/run/zapbot-db-secret:ro
@@ -295,7 +295,7 @@ services:
         unset RELEASE_SYS_CONFIG
         export ZAPBOT_START_DELIBERATION_RUNTIME=false
         export ZAPBOT_START_INTERNAL_CONSUMERS=false
-        export ZAPBOT_START_MARKET_STREAM=false
+        export ZAPBOT_START_MARKET_STREAM=true
         export TRUSTED_V2_CONTINUOUS_ENABLED=false
         exec bin/zapbot start
     healthcheck:
