@@ -11,6 +11,14 @@ if [ -f /service-env/config.env ]; then
   set +a
 fi
 
+# Imported deployment settings must not bypass the runtime configuration
+# shipped by the admitted immutable release. Reassert the supervision fences
+# after loading the private file so historical values cannot enable workers.
+unset RELEASE_SYS_CONFIG
+export ZAPBOT_START_DELIBERATION_RUNTIME=false
+export ZAPBOT_START_INTERNAL_CONSUMERS=false
+export ZAPBOT_START_MARKET_STREAM=false
+
 case "${ZAPBOT_DATABASE_ROLE:-runtime}" in
   runtime) db_login=zapbot_runtime ;;
   producer_lnmarkets_candles) db_login=zapbot_producer_lnmarkets_candles ;;
