@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.8"
+version: "0.1.9"
 tagline: Resource-bounded Trusted V2 activation
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,6 +23,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Preserves the script-safe 0.1.7 update path and fixes the profile-only tmpfs
-  declarations so Docker receives one complete mount specification for each
-  Trusted V2 one-shot container. Trading risk controls remain unchanged.
+  Preserves the script-safe update path and aligns execution-history roots with
+  the canonical chronological order enforced by PostgreSQL, including mixed
+  timestamp precision. Trading risk controls remain unchanged.
