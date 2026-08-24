@@ -1,6 +1,6 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.11` also installs its reviewed scripts from the community
+Package revision `0.1.12` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
@@ -18,8 +18,8 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed Trusted V2 lineage validation revision `ca70bf89` and pinned to the immutable digest
-`sha256:19c03578a9e865b7dcb14be41e26433e200ae2a5a23eb8a242afb9ab3d6809c4`.
+reviewed Trusted V2 writer qualification revision `6e732bbd` and pinned to the immutable digest
+`sha256:330574cd42744720f49d350b024a16fa8d6de8fdfdf2f8e22fc52cb7ab813c18`.
 Do not substitute `latest` or an unreviewed tag.
 
 PostgreSQL is pinned to the verified PostgreSQL 18 / pgvector 0.8.2 image
