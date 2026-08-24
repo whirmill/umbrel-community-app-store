@@ -11,14 +11,17 @@ services:
     user: "0:0"
     environment:
       APP_SEED: $APP_SEED
+      ZAPBOT_PACKAGE_VERSION: $APP_VERSION
     volumes:
       - ${APP_DATA_DIR}/data:/data
+      - ${APP_DATA_DIR}/scripts:/package-scripts:ro
     command:
       - /bin/sh
       - -ec
       - |
         umask 077
         test -n "$${APP_SEED:-}" && test "$${#APP_SEED}" -ge 32 || { echo 'APP_SEED must contain at least 32 characters' >&2; exit 64; }
+        test "$$(cat /package-scripts/.package-version 2>/dev/null || true)" = "$${ZAPBOT_PACKAGE_VERSION:-}" || { echo 'ZapBot runtime scripts do not match the installed package version' >&2; exit 65; }
         mkdir -p /data/env/app /data/env/producer-lnmarkets-candles /data/env/producer-coinbase-candles /data/env/producer-lnmarkets-funding /data/env/producer-risk-authority-snapshot /data/env/trusted-v2-lineage /data/env/execution-coverage-acquirer /data/env/execution-economics-producer /data/handoff/execution-economics /data/import /data/postgres /data/release-sql /data/state /data/tls/private /data/tls/ca /data/tls/ca-private /data/secrets/execution-coverage-acquirer /data/secrets/execution-economics-attestation /data/secrets/execution-economics-producer
         for role in postgres migrator runtime evaluator evaluator-attestor holdout-report-writer holdout-v2-sealer producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-lnmarkets-execution-economics producer-risk-authority-snapshot; do
           directory="/data/secrets/$$role"
