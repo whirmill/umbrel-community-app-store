@@ -48,7 +48,11 @@ DECLARE
       pg_catalog.to_regprocedure('public.current_forward_holdout_v2_continuous_checkpoint(uuid,text,timestamp without time zone)')::oid,
       pg_catalog.to_regprocedure('public.advance_forward_holdout_v2_continuous_checkpoint(uuid,text,timestamp without time zone,timestamp without time zone,timestamp without time zone)')::oid,
       pg_catalog.to_regprocedure('public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)')::oid,
-      pg_catalog.to_regprocedure('public.seal_forward_holdout_v2(uuid,timestamp without time zone)')::oid
+      pg_catalog.to_regprocedure('public.seal_forward_holdout_v2(uuid,timestamp without time zone)')::oid,
+      pg_catalog.to_regprocedure('public.preflight_forward_holdout_v2_seal(uuid,timestamp without time zone)')::oid,
+      pg_catalog.to_regprocedure('public.attest_forward_holdout_v2(uuid,text,text)')::oid,
+      pg_catalog.to_regprocedure('public.write_forward_holdout_v2_report(uuid)')::oid,
+      pg_catalog.to_regprocedure('public.register_lnmarkets_execution_economics_acquisition_key(text,text,uuid,timestamp without time zone,timestamp without time zone,bytea)')::oid
     ],
     NULL
   );

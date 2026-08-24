@@ -1,0 +1,56 @@
+#!/bin/sh
+set -eu
+
+destination_dir="${APP_DATA_DIR:?APP_DATA_DIR is required}/scripts"
+source_dir="${SCRIPT_APP_REPO_DIR:-}/scripts"
+expected_version="${APP_VERSION:?APP_VERSION is required}"
+version_file="$destination_dir/.package-version"
+
+mkdir -p "$destination_dir"
+
+if [ -n "${SCRIPT_APP_REPO_DIR:-}" ] && [ -d "$source_dir" ]; then
+  source_version="$(yq e '.version' "${SCRIPT_APP_REPO_DIR}/umbrel-app.yml")"
+
+  if [ "$source_version" = "$expected_version" ]; then
+    staging_dir="$(mktemp -d "$destination_dir/.package-stage.XXXXXX")"
+    trap 'rm -rf "$staging_dir"' EXIT INT TERM
+
+    install -m 0755 "$source_dir/export-release-sql.sh" "$staging_dir/export-release-sql.sh"
+    install -m 0644 "$source_dir/pre-bootstrap-normalize.sql" "$staging_dir/pre-bootstrap-normalize.sql"
+    install -m 0755 "$source_dir/runtime-env.sh" "$staging_dir/runtime-env.sh"
+    install -m 0755 "$source_dir/recover-execution-economics-handoff.sh" "$staging_dir/recover-execution-economics-handoff.sh"
+
+    for staged_file in \
+      export-release-sql.sh \
+      pre-bootstrap-normalize.sql \
+      runtime-env.sh \
+      recover-execution-economics-handoff.sh
+    do
+      cmp "$source_dir/$staged_file" "$staging_dir/$staged_file"
+      mv -f "$staging_dir/$staged_file" "$destination_dir/$staged_file"
+    done
+
+    printf '%s\n' "$expected_version" > "$staging_dir/.package-version"
+    chmod 0644 "$staging_dir/.package-version"
+    mv -f "$staging_dir/.package-version" "$version_file"
+    rmdir "$staging_dir"
+    trap - EXIT INT TERM
+  fi
+fi
+
+test "$(cat "$version_file" 2>/dev/null || true)" = "$expected_version" || {
+  echo "ZapBot runtime scripts do not match package version $expected_version" >&2
+  exit 1
+}
+
+for required_file in \
+  export-release-sql.sh \
+  pre-bootstrap-normalize.sql \
+  runtime-env.sh \
+  recover-execution-economics-handoff.sh
+do
+  test -s "$destination_dir/$required_file" || {
+    echo "missing required ZapBot runtime script: $required_file" >&2
+    exit 1
+  }
+done

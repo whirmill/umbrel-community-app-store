@@ -1,5 +1,13 @@
 # ZapBot on Umbrel — restart-safe package
 
+Package revision `0.1.7` also installs its reviewed scripts from the community
+store during the Umbrel `pre-start` hook. This compensates for the legacy
+updater whitelist, which otherwise refreshes Compose and hooks but leaves an
+installed app's `scripts/` directory unchanged. The hook copies only from an
+exactly matching store manifest, stages and compares every file, and publishes
+a version sentinel last; the Compose bootstrap refuses a mixed script/package
+revision.
+
 This package provides a restart-safe, manage-only ZapBot runtime plus four
 individually fenced continuous Trusted V2 evidence producers and one isolated,
 one-shot execution-economics acquisition profile. It enables the public LN
