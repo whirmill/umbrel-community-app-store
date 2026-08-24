@@ -9,8 +9,8 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed Trusted V2 producer revision `084aceb1` and pinned to the immutable digest
-`sha256:0ea1f380f8bd9086dd5d0871fdeacf3ee5844110a06352f50671d9d89e774c33`.
+reviewed Trusted V2 producer revision `cfa7e824` and pinned to the immutable digest
+`sha256:0b39d7ecc56752f0212985e5cd378d962a49f788e799e1f5daf83a9a77246b64`.
 Do not substitute `latest` or an unreviewed tag.
 
 PostgreSQL is pinned to the verified PostgreSQL 18 / pgvector 0.8.2 image
