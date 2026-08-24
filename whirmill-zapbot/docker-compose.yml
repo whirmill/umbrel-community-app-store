@@ -96,7 +96,7 @@ services:
     mem_limit: 4g
 
   release-sql-export:
-    image: ghcr.io/whirmill/zapbot:umbrel-bootstrap-b8923ac1d6ab502d999bccd52156e3c3bdd7095a@sha256:1492932a710afb735bf418031277231ebd5fe82e2649588ae36b40008294e0f6
+    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
     restart: "no"
     user: "1000:1000"
     volumes:
@@ -202,7 +202,7 @@ services:
     mem_limit: 2g
 
   migrate:
-    image: ghcr.io/whirmill/zapbot:umbrel-bootstrap-b8923ac1d6ab502d999bccd52156e3c3bdd7095a@sha256:1492932a710afb735bf418031277231ebd5fe82e2649588ae36b40008294e0f6
+    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
     restart: "no"
     environment:
       ZAPBOT_RUNTIME_MODE: production
@@ -269,11 +269,14 @@ services:
     mem_limit: 2g
 
   whirmill-zapbot-web:
-    image: ghcr.io/whirmill/zapbot:umbrel-bootstrap-b8923ac1d6ab502d999bccd52156e3c3bdd7095a@sha256:1492932a710afb735bf418031277231ebd5fe82e2649588ae36b40008294e0f6
+    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
     container_name: whirmill-zapbot-web
     restart: on-failure
     environment:
       ZAPBOT_DATABASE_ROLE: runtime
+      ZAPBOT_START_DELIBERATION_RUNTIME: "false"
+      ZAPBOT_START_INTERNAL_CONSUMERS: "false"
+      ZAPBOT_START_MARKET_STREAM: "false"
     volumes:
       - ${APP_DATA_DIR}/data/env/app:/service-env:ro
       - ${APP_DATA_DIR}/data/secrets/runtime:/run/zapbot-db-secret:ro
@@ -289,7 +292,10 @@ services:
       - |
         if [ ! -f /state/app-enabled ]; then echo 'ZapBot remains fenced: create data/state/app-enabled after reviewed cutover'; exec tail -f /dev/null; fi
         . /usr/local/bin/runtime-env
+        unset RELEASE_SYS_CONFIG
         export ZAPBOT_START_DELIBERATION_RUNTIME=false
+        export ZAPBOT_START_INTERNAL_CONSUMERS=false
+        export ZAPBOT_START_MARKET_STREAM=false
         export TRUSTED_V2_CONTINUOUS_ENABLED=false
         exec bin/zapbot start
     healthcheck:
@@ -303,7 +309,8 @@ services:
     mem_limit: 2g
 
   producer-lnmarkets-candles:
-    image: ghcr.io/whirmill/zapbot:umbrel-bootstrap-b8923ac1d6ab502d999bccd52156e3c3bdd7095a@sha256:1492932a710afb735bf418031277231ebd5fe82e2649588ae36b40008294e0f6
+    profiles: [zapbot-producers]
+    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
     restart: "no"
     environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_candles}
     volumes: ["${APP_DATA_DIR}/data/env/producer-lnmarkets-candles:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-lnmarkets-candles:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
@@ -312,7 +319,8 @@ services:
     security_opt: [no-new-privileges:true]
 
   producer-coinbase-candles:
-    image: ghcr.io/whirmill/zapbot:umbrel-bootstrap-b8923ac1d6ab502d999bccd52156e3c3bdd7095a@sha256:1492932a710afb735bf418031277231ebd5fe82e2649588ae36b40008294e0f6
+    profiles: [zapbot-producers]
+    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
     restart: "no"
     environment: {ZAPBOT_DATABASE_ROLE: producer_coinbase_candles}
     volumes: ["${APP_DATA_DIR}/data/env/producer-coinbase-candles:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-coinbase-candles:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
@@ -321,7 +329,8 @@ services:
     security_opt: [no-new-privileges:true]
 
   producer-lnmarkets-funding:
-    image: ghcr.io/whirmill/zapbot:umbrel-bootstrap-b8923ac1d6ab502d999bccd52156e3c3bdd7095a@sha256:1492932a710afb735bf418031277231ebd5fe82e2649588ae36b40008294e0f6
+    profiles: [zapbot-producers]
+    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
     restart: "no"
     environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_funding}
     volumes: ["${APP_DATA_DIR}/data/env/producer-lnmarkets-funding:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-lnmarkets-funding:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
@@ -330,7 +339,8 @@ services:
     security_opt: [no-new-privileges:true]
 
   producer-risk-authority-snapshot:
-    image: ghcr.io/whirmill/zapbot:umbrel-bootstrap-b8923ac1d6ab502d999bccd52156e3c3bdd7095a@sha256:1492932a710afb735bf418031277231ebd5fe82e2649588ae36b40008294e0f6
+    profiles: [zapbot-producers]
+    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
     restart: "no"
     command: [/bin/sh, -ec, 'echo "RiskAuthority producer is hard-disabled: its canonical database role is NOLOGIN"; exit 0']
     security_opt: [no-new-privileges:true]

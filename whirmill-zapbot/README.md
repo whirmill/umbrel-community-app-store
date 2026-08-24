@@ -8,9 +8,8 @@ and application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-minimal reviewed OpenShip bootstrap-fix revision `b8923ac1` and pinned to the
-immutable digest
-`sha256:1492932a710afb735bf418031277231ebd5fe82e2649588ae36b40008294e0f6`.
+reviewed restart-safe revision `9bab5939` and pinned to the immutable digest
+`sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c`.
 Do not substitute `latest` or an unreviewed tag.
 
 PostgreSQL is pinned to the verified PostgreSQL 18 / pgvector 0.8.2 image
@@ -89,11 +88,14 @@ touch "${APP_DATA_DIR}/data/state/app-enabled"
 Without it, the web container stays idle and reports healthy only as a fenced,
 not-ready process. Once enabled, the healthcheck requires both `/api/ready` and
 `/api/health` evidence that the runtime remains `manage_only` and that
-`new_entries_enabled` is false. During the rehearsal, the web command also
-forces the deliberation runtime and Trusted V2 continuous collection off even
-if imported OpenShip environment files contain older enabled values.
+`new_entries_enabled` is false. During the rehearsal, the web service also
+forces the deliberation runtime, the internal consumers, the LN Markets stream,
+and Trusted V2 continuous collection off even if an imported environment file
+contains older enabled values.
 
-The four producer containers have `restart: "no"`. The three data producers
+The four producer containers are assigned to the explicit
+`zapbot-producers` Compose profile and have `restart: "no"`. A normal Umbrel
+start or restart does not create them. The three data producers
 have distinct markers: `producer-lnmarkets-candles-enabled`,
 `producer-coinbase-candles-enabled`, and `producer-lnmarkets-funding-enabled`
 inside `data/state/`. A marker is not activation approval:
@@ -104,6 +106,26 @@ must remain `false` until that separate admission. The RiskAuthority identity
 remains canonical `NOLOGIN` with a
 null password; its fourth container is permanently hard-disabled and receives
 no database credential.
+
+## Restart contract
+
+The default Compose project contains only the one-shot bootstrap and migration
+chain, PostgreSQL, the web runtime, and Umbrel's app proxy. Producer services
+appear only when the `zapbot-producers` profile is explicitly selected. The web
+runtime receives all three supervision fences as container environment values,
+and its startup path reasserts them after loading private settings while
+discarding any historical `RELEASE_SYS_CONFIG` override:
+
+- `ZAPBOT_START_DELIBERATION_RUNTIME=false`;
+- `ZAPBOT_START_INTERNAL_CONSUMERS=false`; and
+- `ZAPBOT_START_MARKET_STREAM=false`.
+
+The admitted ZapBot release must map these values into both the API and Hub
+runtime configuration. Its release SQL must also include
+`research_forward_holdout_successor_audits` in both the bootstrap protected
+matrix and the administrative verifier, granting the runtime role only
+`SELECT, INSERT`. Only an immutable image satisfying this contract may replace
+the pinned release image above and be used to enable Umbrel autostart.
 
 ## Cutover warnings
 

@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.1"
+version: "0.1.2"
 tagline: Fenced self-hosted ZapBot runtime
 description: >-
   A deliberately fenced ZapBot package. It restores and migrates only a local
@@ -21,7 +21,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Adds fail-closed ownership normalization for no-owner PostgreSQL restores,
-  fixes Umbrel script mount paths, admits the corrected immutable release SQL,
-  and keeps the web deliberation runtime plus every producer disabled during
-  migration rehearsal.
+  Makes Umbrel restart fail closed: fixes the protected successor-audit ACL,
+  verifies it administratively, maps all runtime supervision fences, and keeps
+  every producer outside the default Compose profile.
