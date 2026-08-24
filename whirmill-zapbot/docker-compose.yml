@@ -18,8 +18,9 @@ services:
       - -ec
       - |
         umask 077
-        mkdir -p /data/env/app /data/env/producer-lnmarkets-candles /data/env/producer-coinbase-candles /data/env/producer-lnmarkets-funding /data/import /data/postgres /data/release-sql /data/state /data/tls/private /data/tls/ca
-        for role in postgres migrator runtime evaluator producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-lnmarkets-execution-economics; do
+        test -n "$${APP_SEED:-}" && test "$${#APP_SEED}" -ge 32 || { echo 'APP_SEED must contain at least 32 characters' >&2; exit 64; }
+        mkdir -p /data/env/app /data/env/producer-lnmarkets-candles /data/env/producer-coinbase-candles /data/env/producer-lnmarkets-funding /data/env/producer-risk-authority-snapshot /data/import /data/postgres /data/release-sql /data/state /data/tls/private /data/tls/ca /data/tls/ca-private
+        for role in postgres migrator runtime evaluator producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-lnmarkets-execution-economics producer-risk-authority-snapshot; do
           directory="/data/secrets/$$role"
           mkdir -p "$$directory"
           printf %s "$$APP_SEED:db:$$role" | sha256sum | awk '{print $$1}' > "$$directory/password"
@@ -31,7 +32,7 @@ services:
         done
         chmod 700 /data/env /data/env/* /data/release-sql /data/state
         find /data/env -type f -exec chmod 600 {} +
-        chown -R 1000:1000 /data/env /data/release-sql /data/state /data/secrets/migrator /data/secrets/runtime /data/secrets/evaluator /data/secrets/producer-lnmarkets-candles /data/secrets/producer-coinbase-candles /data/secrets/producer-lnmarkets-funding /data/secrets/producer-lnmarkets-execution-economics
+        chown -R 1000:1000 /data/env /data/release-sql /data/state /data/secrets/migrator /data/secrets/runtime /data/secrets/evaluator /data/secrets/producer-lnmarkets-candles /data/secrets/producer-coinbase-candles /data/secrets/producer-lnmarkets-funding /data/secrets/producer-lnmarkets-execution-economics /data/secrets/producer-risk-authority-snapshot
         chown -R 999:999 /data/postgres /data/secrets/postgres
     security_opt: [no-new-privileges:true]
     pids_limit: 64
@@ -44,6 +45,7 @@ services:
     volumes:
       - ${APP_DATA_DIR}/data/tls/private:/tls-private
       - ${APP_DATA_DIR}/data/tls/ca:/tls-ca
+      - ${APP_DATA_DIR}/data/tls/ca-private:/tls-ca-private
     depends_on:
       credential-init:
         condition: service_completed_successfully
@@ -51,17 +53,19 @@ services:
       - /bin/sh
       - -ec
       - |
-        if [ -s /tls-private/server.crt ] && [ -s /tls-private/server.key ] && [ -s /tls-private/ca.key ] && [ -s /tls-ca/ca.crt ]; then exit 0; fi
-        if [ -n "$$(find /tls-private /tls-ca -mindepth 1 -maxdepth 1 -print -quit)" ]; then echo 'incomplete PostgreSQL TLS material; refusing overwrite' >&2; exit 1; fi
+        if [ -s /tls-private/ca.key ] && [ ! -e /tls-ca-private/ca.key ]; then mv /tls-private/ca.key /tls-ca-private/ca.key; fi
+        if [ -s /tls-private/server.crt ] && [ -s /tls-private/server.key ] && [ -s /tls-ca-private/ca.key ] && [ -s /tls-ca/ca.crt ]; then exit 0; fi
+        if [ -n "$$(find /tls-private /tls-ca /tls-ca-private -mindepth 1 -maxdepth 1 -print -quit)" ]; then echo 'incomplete PostgreSQL TLS material; refusing overwrite' >&2; exit 1; fi
         umask 077
-        openssl req -x509 -new -nodes -newkey rsa:4096 -sha256 -days 3650 -subj '/CN=whirmill-zapbot-postgres-ca' -keyout /tls-private/ca.key -out /tls-ca/ca.crt
+        openssl req -x509 -new -nodes -newkey rsa:4096 -sha256 -days 3650 -subj '/CN=whirmill-zapbot-postgres-ca' -keyout /tls-ca-private/ca.key -out /tls-ca/ca.crt
         openssl req -new -nodes -newkey rsa:2048 -subj '/CN=whirmill-zapbot-postgres' -keyout /tls-private/server.key -out /tmp/server.csr
         printf 'subjectAltName=DNS:whirmill-zapbot-postgres,DNS:localhost\nextendedKeyUsage=serverAuth\n' > /tmp/server.ext
-        openssl x509 -req -sha256 -days 3650 -in /tmp/server.csr -CA /tls-ca/ca.crt -CAkey /tls-private/ca.key -CAcreateserial -extfile /tmp/server.ext -out /tls-private/server.crt
+        openssl x509 -req -sha256 -days 3650 -in /tmp/server.csr -CA /tls-ca/ca.crt -CAkey /tls-ca-private/ca.key -CAcreateserial -extfile /tmp/server.ext -out /tls-private/server.crt
         rm -f /tmp/server.csr /tmp/server.ext
         chown -R postgres:postgres /tls-private
         chmod 700 /tls-private
-        chmod 600 /tls-private/ca.key /tls-private/server.key
+        chmod 700 /tls-ca-private
+        chmod 600 /tls-ca-private/ca.key /tls-private/server.key
         chmod 644 /tls-private/server.crt /tls-ca/ca.crt
         chmod 755 /tls-ca
     security_opt: [no-new-privileges:true]
@@ -96,7 +100,7 @@ services:
     mem_limit: 4g
 
   release-sql-export:
-    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-producers-084aceb12ac90b853c4ec30550778476a2d74e54@sha256:0ea1f380f8bd9086dd5d0871fdeacf3ee5844110a06352f50671d9d89e774c33
     restart: "no"
     user: "1000:1000"
     volumes:
@@ -170,6 +174,7 @@ services:
         export ZAPBOT_PRODUCER_COINBASE_CANDLES_PASSWORD="$$(cat /run/zapbot-secrets/producer-coinbase-candles/password)"
         export ZAPBOT_PRODUCER_LNMARKETS_FUNDING_PASSWORD="$$(cat /run/zapbot-secrets/producer-lnmarkets-funding/password)"
         export ZAPBOT_PRODUCER_LNMARKETS_EXECUTION_ECONOMICS_PASSWORD="$$(cat /run/zapbot-secrets/producer-lnmarkets-execution-economics/password)"
+        export ZAPBOT_PRODUCER_RISK_AUTHORITY_SNAPSHOT_PASSWORD="$$(cat /run/zapbot-secrets/producer-risk-authority-snapshot/password)"
         psql --set=ON_ERROR_STOP=1 -c 'CREATE EXTENSION IF NOT EXISTS vector' -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto' -c 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements' -f /release-sql/bootstrap_database_roles.sql -f /release-sql/verify_database_roles.sql
     security_opt: [no-new-privileges:true]
     pids_limit: 128
@@ -202,7 +207,7 @@ services:
     mem_limit: 2g
 
   migrate:
-    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-producers-084aceb12ac90b853c4ec30550778476a2d74e54@sha256:0ea1f380f8bd9086dd5d0871fdeacf3ee5844110a06352f50671d9d89e774c33
     restart: "no"
     environment:
       ZAPBOT_RUNTIME_MODE: production
@@ -263,19 +268,21 @@ services:
         export ZAPBOT_PRODUCER_COINBASE_CANDLES_PASSWORD="$$(cat /run/zapbot-secrets/producer-coinbase-candles/password)"
         export ZAPBOT_PRODUCER_LNMARKETS_FUNDING_PASSWORD="$$(cat /run/zapbot-secrets/producer-lnmarkets-funding/password)"
         export ZAPBOT_PRODUCER_LNMARKETS_EXECUTION_ECONOMICS_PASSWORD="$$(cat /run/zapbot-secrets/producer-lnmarkets-execution-economics/password)"
+        export ZAPBOT_PRODUCER_RISK_AUTHORITY_SNAPSHOT_PASSWORD="$$(cat /run/zapbot-secrets/producer-risk-authority-snapshot/password)"
         psql --set=ON_ERROR_STOP=1 -f /release-sql/bootstrap_database_roles.sql -f /release-sql/verify_database_roles.sql
     security_opt: [no-new-privileges:true]
     pids_limit: 128
     mem_limit: 2g
 
   whirmill-zapbot-web:
-    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-producers-084aceb12ac90b853c4ec30550778476a2d74e54@sha256:0ea1f380f8bd9086dd5d0871fdeacf3ee5844110a06352f50671d9d89e774c33
     container_name: whirmill-zapbot-web
     restart: on-failure
     environment:
       ZAPBOT_DATABASE_ROLE: runtime
+      ZAPBOT_OBSERVATION_ONLY: "true"
       ZAPBOT_START_DELIBERATION_RUNTIME: "false"
-      ZAPBOT_START_INTERNAL_CONSUMERS: "true"
+      ZAPBOT_START_INTERNAL_CONSUMERS: "false"
       ZAPBOT_START_MARKET_STREAM: "true"
     volumes:
       - ${APP_DATA_DIR}/data/env/app:/service-env:ro
@@ -293,13 +300,14 @@ services:
         if [ ! -f /state/app-enabled ]; then echo 'ZapBot remains fenced: create data/state/app-enabled after reviewed cutover'; exec tail -f /dev/null; fi
         . /usr/local/bin/runtime-env
         unset RELEASE_SYS_CONFIG
+        export ZAPBOT_OBSERVATION_ONLY=true
         export ZAPBOT_START_DELIBERATION_RUNTIME=false
-        export ZAPBOT_START_INTERNAL_CONSUMERS=true
+        export ZAPBOT_START_INTERNAL_CONSUMERS=false
         export ZAPBOT_START_MARKET_STREAM=true
         export TRUSTED_V2_CONTINUOUS_ENABLED=false
         exec bin/zapbot start
     healthcheck:
-      test: [CMD-SHELL, 'if [ ! -f /state/app-enabled ]; then exit 0; fi; wget -qO- http://127.0.0.1:4000/api/ready | grep -Eq "\"ok\"[[:space:]]*:[[:space:]]*true" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"entry_mode\"[[:space:]]*:[[:space:]]*\"manage_only\"" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"new_entries_enabled\"[[:space:]]*:[[:space:]]*false"']
+      test: [CMD-SHELL, 'if [ ! -f /state/app-enabled ]; then exit 0; fi; wget -qO- http://127.0.0.1:4000/api/ready | grep -Eq "\"ok\"[[:space:]]*:[[:space:]]*true" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"observation_only\"[[:space:]]*:[[:space:]]*true" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"entry_mode\"[[:space:]]*:[[:space:]]*\"manage_only\"" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"new_entries_enabled\"[[:space:]]*:[[:space:]]*false"']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -309,38 +317,49 @@ services:
     mem_limit: 2g
 
   producer-lnmarkets-candles:
-    profiles: [zapbot-producers]
-    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
-    restart: "no"
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-producers-084aceb12ac90b853c4ec30550778476a2d74e54@sha256:0ea1f380f8bd9086dd5d0871fdeacf3ee5844110a06352f50671d9d89e774c33
+    restart: unless-stopped
     environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_candles}
     volumes: ["${APP_DATA_DIR}/data/env/producer-lnmarkets-candles:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-lnmarkets-candles:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
     depends_on: {normalize-and-verify: {condition: service_completed_successfully}}
-    command: [/bin/sh, -ec, 'test -f /state/producer-lnmarkets-candles-enabled || { echo "producer fence remains closed"; exit 0; }; . /usr/local/bin/runtime-env; export ZAPBOT_RUNTIME_MODE=lnmarkets_candle_producer_continuous; exec bin/zapbot eval "ZapbotHub.Release.TrustedV2ContinuousProducer.run!(confirm: true)"']
+    command: [/bin/sh, -ec, 'while [ ! -f /state/producer-lnmarkets-candles-enabled ]; do sleep 60; done; . /usr/local/bin/runtime-env; export ZAPBOT_RUNTIME_MODE=lnmarkets_candle_producer_continuous; exec bin/zapbot eval "ZapbotHub.Release.TrustedV2ContinuousProducer.run!(confirm: true)"']
+    healthcheck: {disable: true}
     security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 384m
 
   producer-coinbase-candles:
-    profiles: [zapbot-producers]
-    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
-    restart: "no"
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-producers-084aceb12ac90b853c4ec30550778476a2d74e54@sha256:0ea1f380f8bd9086dd5d0871fdeacf3ee5844110a06352f50671d9d89e774c33
+    restart: unless-stopped
     environment: {ZAPBOT_DATABASE_ROLE: producer_coinbase_candles}
     volumes: ["${APP_DATA_DIR}/data/env/producer-coinbase-candles:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-coinbase-candles:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
     depends_on: {normalize-and-verify: {condition: service_completed_successfully}}
-    command: [/bin/sh, -ec, 'test -f /state/producer-coinbase-candles-enabled || { echo "producer fence remains closed"; exit 0; }; . /usr/local/bin/runtime-env; export ZAPBOT_RUNTIME_MODE=coinbase_candle_producer_continuous; exec bin/zapbot eval "ZapbotHub.Release.TrustedV2ContinuousProducer.run!(confirm: true)"']
+    command: [/bin/sh, -ec, 'while [ ! -f /state/producer-coinbase-candles-enabled ]; do sleep 60; done; . /usr/local/bin/runtime-env; export ZAPBOT_RUNTIME_MODE=coinbase_candle_producer_continuous; exec bin/zapbot eval "ZapbotHub.Release.TrustedV2ContinuousProducer.run!(confirm: true)"']
+    healthcheck: {disable: true}
     security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 384m
 
   producer-lnmarkets-funding:
-    profiles: [zapbot-producers]
-    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
-    restart: "no"
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-producers-084aceb12ac90b853c4ec30550778476a2d74e54@sha256:0ea1f380f8bd9086dd5d0871fdeacf3ee5844110a06352f50671d9d89e774c33
+    restart: unless-stopped
     environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_funding}
     volumes: ["${APP_DATA_DIR}/data/env/producer-lnmarkets-funding:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-lnmarkets-funding:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
     depends_on: {normalize-and-verify: {condition: service_completed_successfully}}
-    command: [/bin/sh, -ec, 'test -f /state/producer-lnmarkets-funding-enabled || { echo "producer fence remains closed"; exit 0; }; . /usr/local/bin/runtime-env; export ZAPBOT_RUNTIME_MODE=lnmarkets_funding_producer_continuous; exec bin/zapbot eval "ZapbotHub.Release.TrustedV2ContinuousProducer.run!(confirm: true)"']
+    command: [/bin/sh, -ec, 'while [ ! -f /state/producer-lnmarkets-funding-enabled ]; do sleep 60; done; . /usr/local/bin/runtime-env; export ZAPBOT_RUNTIME_MODE=lnmarkets_funding_producer_continuous; exec bin/zapbot eval "ZapbotHub.Release.TrustedV2ContinuousProducer.run!(confirm: true)"']
+    healthcheck: {disable: true}
     security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 384m
 
   producer-risk-authority-snapshot:
-    profiles: [zapbot-producers]
-    image: ghcr.io/whirmill/zapbot:umbrel-restart-safe-9bab5939c2e0413cac324cf02d55dec12d46e40e@sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c
-    restart: "no"
-    command: [/bin/sh, -ec, 'echo "RiskAuthority producer is hard-disabled: its canonical database role is NOLOGIN"; exit 0']
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-producers-084aceb12ac90b853c4ec30550778476a2d74e54@sha256:0ea1f380f8bd9086dd5d0871fdeacf3ee5844110a06352f50671d9d89e774c33
+    restart: unless-stopped
+    environment: {ZAPBOT_DATABASE_ROLE: producer_risk_authority_snapshot}
+    volumes: ["${APP_DATA_DIR}/data/env/producer-risk-authority-snapshot:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-risk-authority-snapshot:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
+    depends_on: {normalize-and-verify: {condition: service_completed_successfully}}
+    command: [/bin/sh, -ec, 'while [ ! -f /state/producer-risk-authority-snapshot-enabled ]; do sleep 60; done; . /usr/local/bin/runtime-env; export ZAPBOT_RUNTIME_MODE=risk_authority_configuration_snapshot_producer_continuous; exec bin/zapbot eval "Zapbot.Release.RiskAuthorityConfigurationSnapshotContinuousProducer.run!(confirm: true)"']
+    healthcheck: {disable: true}
     security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 384m

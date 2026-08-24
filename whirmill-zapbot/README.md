@@ -1,16 +1,16 @@
 # ZapBot on Umbrel — restart-safe package
 
-This package provides a restart-safe, manage-only ZapBot runtime. It enables
-the public LN Markets market feed, but does not enable deliberation, execution
-consumers, trusted continuous mode, or any standalone trading producer. The
+This package provides a restart-safe, manage-only ZapBot runtime plus four
+individually fenced Trusted V2 evidence producers. It enables the public LN
+Markets market feed, but not deliberation or execution consumers. The
 only intended Umbrel entry point is the app proxy on port `5237`; database and
 application container ports remain private.
 
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed restart-safe revision `9bab5939` and pinned to the immutable digest
-`sha256:6d5a6c9a5f6aad64fe7e915f7b12e80f5fed2df2b8896ce49195fe49e26aa72c`.
+reviewed Trusted V2 producer revision `084aceb1` and pinned to the immutable digest
+`sha256:0ea1f380f8bd9086dd5d0871fdeacf3ee5844110a06352f50671d9d89e774c33`.
 Do not substitute `latest` or an unreviewed tag.
 
 PostgreSQL is pinned to the verified PostgreSQL 18 / pgvector 0.8.2 image
@@ -21,7 +21,7 @@ digest `pgvector/pgvector:0.8.2-pg18-trixie@sha256:b7337db8fe39d12fe8ecb0003c726
 All persistent state is under `${APP_DATA_DIR}/data`:
 
 - `postgres/` — private PostgreSQL cluster;
-- `tls/` — the private database CA and server material;
+- `tls/` — separated client CA, server material, and init-only CA signing key;
 - `import/zapbot.dump` — optional PostgreSQL custom-format import;
 - `import/.restored-sha256` — only written after a successful restore;
 - `release-sql/` — exact reviewed `bootstrap_database_roles.sql` and
@@ -59,7 +59,8 @@ are safe to repeat:
    administrator ownership produced by `pg_restore --no-owner`; it does not
    bypass the subsequent body, ACL, role, and protected-table verifier.
 3. A one-shot credential initializer derives a distinct password per LOGIN
-   role from the Umbrel app seed and writes only service-scoped `0600` files.
+   role from a validated non-empty Umbrel app seed and writes only
+   service-scoped `0600` files.
    The owner is `NOLOGIN`; the migrator is
    the sole non-admin member of it. PostgreSQL creates `vector`, `pgcrypto`,
    and `pg_stat_statements`, then executes the official bootstrap and verifier
@@ -89,39 +90,37 @@ touch "${APP_DATA_DIR}/data/state/app-enabled"
 Without it, the web container stays idle and reports healthy only as a fenced,
 not-ready process. Once enabled, the healthcheck requires both `/api/ready` and
 `/api/health` evidence that the runtime remains `manage_only` and that
-`new_entries_enabled` is false. During observation warmup, the web service
-starts the internal bus and market-data consumers while still forcing live
-deliberation execution and Trusted V2 continuous collection off, even if an
-imported environment file contains older enabled values. The DB-backed
-`deliberation_execute_enabled` gate remains separately operator-controlled and
-must stay false during warmup.
+`new_entries_enabled` is false. The web service forces internal execution
+consumers and live deliberation off while retaining the public market stream,
+even if an imported environment file contains older enabled values. The
+DB-backed `deliberation_execute_enabled` gate remains separately
+operator-controlled and must stay false during evidence collection.
 
-The four producer containers are assigned to the explicit
-`zapbot-producers` Compose profile and have `restart: "no"`. A normal Umbrel
-start or restart does not create them. The three data producers
-have distinct markers: `producer-lnmarkets-candles-enabled`,
+The four producer containers are part of the default restart-safe project but
+remain idle until their individual admission markers exist. They use distinct
+least-privilege LOGIN roles and isolated configuration/secret mounts. The
+markers are `producer-lnmarkets-candles-enabled`,
 `producer-coinbase-candles-enabled`, and `producer-lnmarkets-funding-enabled`
-inside `data/state/`. A marker is not activation approval:
+and `producer-risk-authority-snapshot-enabled` inside `data/state/`. A marker
+is not activation approval:
 each producer also requires its own reviewed credentials, TLS, campaign,
-boundary, exact revision and product-level admission. The descriptor supplies
-none of them, and each producer's copied `TRUSTED_V2_CONTINUOUS_ENABLED` value
-must remain `false` until that separate admission. The RiskAuthority identity
-remains canonical `NOLOGIN` with a
-null password; its fourth container is permanently hard-disabled and receives
-no database credential.
+boundary, exact baked revision, enable flag and product-level admission.
+Execution-economics ingestion remains intentionally absent because it requires
+an independently provisioned read-only LN Markets acquisition credential and
+an isolated framed handoff.
 
 ## Restart contract
 
-The default Compose project contains only the one-shot bootstrap and migration
-chain, PostgreSQL, the web runtime, and Umbrel's app proxy. Producer services
-appear only when the `zapbot-producers` profile is explicitly selected. The
-shared private environment remains fail-closed, while the web startup path
-enables the public market stream and internal observation consumers after
-loading private settings and discarding any historical `RELEASE_SYS_CONFIG`
-override:
+The default Compose project contains the one-shot bootstrap and migration
+chain, PostgreSQL, web, app proxy, and four fenced producers. Producer
+containers survive host restarts and wait without database access until their
+marker exists. The runtime loader preserves the baked image revision, rejects
+cross-role identities, and strips unrelated credentials from producers. The
+web startup path keeps only the public market stream enabled:
 
+- `ZAPBOT_OBSERVATION_ONLY=true` (Oban queues and plugins disabled);
 - `ZAPBOT_START_DELIBERATION_RUNTIME=false`;
-- `ZAPBOT_START_INTERNAL_CONSUMERS=true`; and
+- `ZAPBOT_START_INTERNAL_CONSUMERS=false`; and
 - `ZAPBOT_START_MARKET_STREAM=true`.
 
 The admitted ZapBot release must map these values into both the API and Hub
