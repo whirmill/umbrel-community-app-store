@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.12"
+version: "0.1.13"
 tagline: Resource-bounded Trusted V2 activation
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,6 +23,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Qualifies Trusted V2 attestation and report idempotency queries so their
-  timestamp columns cannot collide with PL/pgSQL variables. Research-only and
-  trading risk controls remain unchanged.
+  Corrects the Trusted V2 attestation hash contract to accept the canonical
+  40-character Git revision and sha256-prefixed OCI image digest. Research-only
+  and trading risk controls remain unchanged.
