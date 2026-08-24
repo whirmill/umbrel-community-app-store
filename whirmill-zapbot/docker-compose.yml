@@ -104,7 +104,7 @@ services:
     mem_limit: 4g
 
   release-sql-export:
-    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-root-order-7bc4dc0e524f26bb9c2f7ee2ab607003815586d4@sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-lineage-hotfix-5c3df6c489908ad5352d7fbb3294b73558ed7f88@sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85
     restart: "no"
     user: "1000:1000"
     volumes:
@@ -214,7 +214,7 @@ services:
     mem_limit: 2g
 
   migrate:
-    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-root-order-7bc4dc0e524f26bb9c2f7ee2ab607003815586d4@sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-lineage-hotfix-5c3df6c489908ad5352d7fbb3294b73558ed7f88@sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85
     restart: "no"
     environment:
       ZAPBOT_RUNTIME_MODE: production
@@ -285,7 +285,7 @@ services:
     mem_limit: 2g
 
   whirmill-zapbot-web:
-    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-root-order-7bc4dc0e524f26bb9c2f7ee2ab607003815586d4@sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-lineage-hotfix-5c3df6c489908ad5352d7fbb3294b73558ed7f88@sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85
     container_name: whirmill-zapbot-web
     restart: on-failure
     environment:
@@ -328,7 +328,7 @@ services:
     mem_limit: 2g
 
   producer-lnmarkets-candles:
-    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-root-order-7bc4dc0e524f26bb9c2f7ee2ab607003815586d4@sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-lineage-hotfix-5c3df6c489908ad5352d7fbb3294b73558ed7f88@sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85
     restart: unless-stopped
     environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_candles}
     volumes: ["${APP_DATA_DIR}/data/env/producer-lnmarkets-candles:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-lnmarkets-candles:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
@@ -340,7 +340,7 @@ services:
     mem_limit: 384m
 
   producer-coinbase-candles:
-    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-root-order-7bc4dc0e524f26bb9c2f7ee2ab607003815586d4@sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-lineage-hotfix-5c3df6c489908ad5352d7fbb3294b73558ed7f88@sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85
     restart: unless-stopped
     environment: {ZAPBOT_DATABASE_ROLE: producer_coinbase_candles}
     volumes: ["${APP_DATA_DIR}/data/env/producer-coinbase-candles:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-coinbase-candles:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
@@ -352,7 +352,7 @@ services:
     mem_limit: 384m
 
   producer-lnmarkets-funding:
-    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-root-order-7bc4dc0e524f26bb9c2f7ee2ab607003815586d4@sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-lineage-hotfix-5c3df6c489908ad5352d7fbb3294b73558ed7f88@sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85
     restart: unless-stopped
     environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_funding}
     volumes: ["${APP_DATA_DIR}/data/env/producer-lnmarkets-funding:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-lnmarkets-funding:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
@@ -364,7 +364,7 @@ services:
     mem_limit: 384m
 
   producer-risk-authority-snapshot:
-    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-root-order-7bc4dc0e524f26bb9c2f7ee2ab607003815586d4@sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-lineage-hotfix-5c3df6c489908ad5352d7fbb3294b73558ed7f88@sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85
     restart: unless-stopped
     environment: {ZAPBOT_DATABASE_ROLE: producer_risk_authority_snapshot}
     volumes: ["${APP_DATA_DIR}/data/env/producer-risk-authority-snapshot:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-risk-authority-snapshot:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
@@ -377,7 +377,7 @@ services:
 
   trusted-v2-sealer:
     profiles: [trusted-v2-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-root-order-7bc4dc0e524f26bb9c2f7ee2ab607003815586d4@sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-lineage-hotfix-5c3df6c489908ad5352d7fbb3294b73558ed7f88@sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85
     restart: "no"
     user: "1000:1000"
     environment: {ZAPBOT_DATABASE_ROLE: holdout_v2_sealer}
@@ -393,13 +393,13 @@ services:
 
   trusted-v2-attestor:
     profiles: [trusted-v2-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-root-order-7bc4dc0e524f26bb9c2f7ee2ab607003815586d4@sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-lineage-hotfix-5c3df6c489908ad5352d7fbb3294b73558ed7f88@sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85
     restart: "no"
     user: "1000:1000"
     environment: {ZAPBOT_DATABASE_ROLE: evaluator_attestor}
     volumes: ["${APP_DATA_DIR}/data/env/trusted-v2-lineage:/service-env:ro", "${APP_DATA_DIR}/data/secrets/evaluator-attestor:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
     depends_on: {trusted-v2-sealer: {condition: service_completed_successfully}}
-    command: [/bin/sh, -ec, '. /usr/local/bin/runtime-env; export POOL_SIZE=1; export ZAPBOT_RUNTIME_MODE=trusted_v2_attestor; export TRUSTED_V2_ATTESTATION_ENABLED=true; export ZAPBOT_RELEASE_IMAGE_DIGEST=sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205; exec bin/zapbot eval "Zapbot.Release.TrustedV2LineageRunner.run_from_env!(confirm: true)"']
+    command: [/bin/sh, -ec, '. /usr/local/bin/runtime-env; export POOL_SIZE=1; export ZAPBOT_RUNTIME_MODE=trusted_v2_attestor; export TRUSTED_V2_ATTESTATION_ENABLED=true; export ZAPBOT_RELEASE_IMAGE_DIGEST=sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85; exec bin/zapbot eval "Zapbot.Release.TrustedV2LineageRunner.run_from_env!(confirm: true)"']
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
     security_opt: [no-new-privileges:true]
@@ -409,7 +409,7 @@ services:
 
   trusted-v2-report-writer:
     profiles: [trusted-v2-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-root-order-7bc4dc0e524f26bb9c2f7ee2ab607003815586d4@sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-lineage-hotfix-5c3df6c489908ad5352d7fbb3294b73558ed7f88@sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85
     restart: "no"
     user: "1000:1000"
     environment: {ZAPBOT_DATABASE_ROLE: holdout_report_writer}
@@ -503,7 +503,7 @@ services:
 
   execution-coverage-acquirer:
     profiles: [execution-economics-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-root-order-7bc4dc0e524f26bb9c2f7ee2ab607003815586d4@sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-lineage-hotfix-5c3df6c489908ad5352d7fbb3294b73558ed7f88@sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85
     restart: "no"
     user: "1000:1000"
     volumes:
@@ -545,7 +545,7 @@ services:
 
   execution-economics-producer:
     profiles: [execution-economics-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-root-order-7bc4dc0e524f26bb9c2f7ee2ab607003815586d4@sha256:64678d8492871d888b3807744a2c01d2f515f8204e59791160d452398a06f205
+    image: ghcr.io/whirmill/zapbot:umbrel-trusted-v2-lineage-hotfix-5c3df6c489908ad5352d7fbb3294b73558ed7f88@sha256:2d9b38990e30205c151b8b7d3dd6be56ef1151e5fe281fea4993b56bbb9a5d85
     restart: "no"
     user: "1000:1000"
     environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_execution_economics}
