@@ -1,7 +1,8 @@
 # ZapBot on Umbrel — restart-safe package
 
 This package provides a restart-safe, manage-only ZapBot runtime plus four
-individually fenced Trusted V2 evidence producers. It enables the public LN
+individually fenced continuous Trusted V2 evidence producers and one isolated,
+one-shot execution-economics acquisition profile. It enables the public LN
 Markets market feed, but not deliberation or execution consumers. The
 only intended Umbrel entry point is the app proxy on port `5237`; database and
 application container ports remain private.
@@ -9,8 +10,8 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed Trusted V2 producer revision `6254c12f` and pinned to the immutable digest
-`sha256:a15d2c7e9cb752ae508361ae753a23090066bf40f65e4cafda68eb701196eac6`.
+reviewed Trusted V2 producer revision `4e1c92e9` and pinned to the immutable digest
+`sha256:e38c7ee65e8665187800df18b615bd84739b3f16d5d16e936a0a896915f869bd`.
 Do not substitute `latest` or an unreviewed tag.
 
 PostgreSQL is pinned to the verified PostgreSQL 18 / pgvector 0.8.2 image
@@ -28,6 +29,12 @@ All persistent state is under `${APP_DATA_DIR}/data`:
   `verify_database_roles.sql` exported from the immutable release image;
 - `env/app/config.env` — optional private web configuration;
 - `env/producer-*/config.env` — optional, producer-specific configuration;
+- `env/execution-coverage-acquirer/config.env` — temporary isolated LN Markets
+  read binding, removed only after the database producer acknowledges commit;
+- `env/execution-economics-producer/config.env` — non-secret campaign,
+  environment, boundary and cutoff binding for the one-shot producer;
+- `handoff/execution-economics/` — two mode-`0600` FIFOs; no artifact file is
+  ever persisted;
 - `secrets/` — generated per-role database and release secrets; and
 - `state/` — explicit app and producer admission markers.
 
@@ -105,14 +112,57 @@ and `producer-risk-authority-snapshot-enabled` inside `data/state/`. A marker
 is not activation approval:
 each producer also requires its own reviewed credentials, TLS, campaign,
 boundary, exact baked revision, enable flag and product-level admission.
-Execution-economics ingestion remains intentionally absent because it requires
-an independently provisioned read-only LN Markets acquisition credential and
-an isolated framed handoff.
+Execution-economics ingestion is absent from the default project and exists
+only under the `execution-economics-ops` Compose profile. For the initial
+Umbrel migration, the operator may temporarily copy the current LN Markets
+read values into these exact keys in the acquirer file:
+
+```text
+ZAPBOT_EXECUTION_COVERAGE_API_KEY=
+ZAPBOT_EXECUTION_COVERAGE_API_SECRET=
+ZAPBOT_EXECUTION_COVERAGE_API_PASSPHRASE=
+ZAPBOT_EXECUTION_COVERAGE_ACCOUNT_ID=
+ZAPBOT_DEPLOYMENT_ENVIRONMENT_ID=
+TRUSTED_V2_CAMPAIGN_ID=
+TRUSTED_V2_FORWARD_BOUNDARY=
+TRUSTED_V2_EXECUTION_ECONOMICS_CUTOFF_AT=
+```
+
+The producer file contains only the last four non-secret bindings. The
+credential initializer generates a one-time raw Ed25519 keypair and a separate
+32-byte HMAC key. The producer registers that key through its exact
+owner-controlled `SECURITY DEFINER` RPC; it never receives table access or an
+administrator credential. The registry remains owner-only and append-only. The acquirer has no database binding; the
+producer has no venue credential. They exchange one bounded frame through a
+FIFO. After a successful database commit, the producer writes a fixed
+acknowledgement through the second FIFO; only then does the acquirer mark the
+acquisition consumed and remove its copied LN Markets config, Ed25519 private
+key and HMAC file. The public key and database evidence remain verifiable.
+
+The profile uses `POOL_SIZE=1`, caps acquisition pagination at 64 pages per
+endpoint, and limits the two temporary BEAM containers to 384 MiB and 512 MiB.
+It adds no resident process after completion. Re-acquisition or correction is
+an explicit new operation because consumed private material is never silently
+regenerated.
+
+Both FIFO participants have a 20-minute deadline. A failed attempt deliberately
+keeps retry material and stale FIFOs so that no second run can overlap it. After
+investigating the failed containers, recover only the transport with:
+
+```sh
+./scripts/recover-execution-economics-handoff.sh
+```
+
+The script first proves through Docker Compose labels that neither participant
+is running, then removes only owner-`1000`, mode-`0600` FIFO paths. It refuses
+regular files, wrong ownership, wrong modes, and any active participant.
 
 ## Restart contract
 
 The default Compose project contains the one-shot bootstrap and migration
-chain, PostgreSQL, web, app proxy, and four fenced producers. Producer
+chain, PostgreSQL, web, app proxy, and four fenced producers. Execution
+economics, sealing, attestation, and report writing are profile-only jobs and
+never restart automatically. Producer
 containers survive host restarts and wait without database access until their
 marker exists. The runtime loader preserves the baked image revision, rejects
 cross-role identities, and strips unrelated credentials from producers. The

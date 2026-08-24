@@ -2,13 +2,15 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.5"
-tagline: Restart-safe Trusted V2 evidence producers
+version: "0.1.6"
+tagline: Resource-bounded Trusted V2 activation
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
   data directory, requires manage-only readiness before admission, and starts
   the public LN Markets feed plus individually fenced, least-privilege Trusted
-  V2 producers while keeping execution consumers and new entries disabled.
+  V2 producers plus explicit one-shot execution-economics and lineage jobs.
+  Default startup remains resource-bounded and keeps execution consumers and
+  new entries disabled.
 developer: whirmill
 website: https://github.com/whirmill/zapbot-exs
 repo: https://github.com/whirmill/zapbot-exs
@@ -21,7 +23,8 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Adds restart-safe LN Markets candle, Coinbase candle, funding and
-  RiskAuthority snapshot producers with isolated database identities, immutable
-  revision admission and individual activation fences. Execution consumers and
-  downstream V2 sealing, attestation and reporting remain disabled.
+  Activates the five-source Trusted V2 research lineage with campaign-scoped
+  readiness, sequential one-shot seal, attestation and report jobs, and an
+  isolated execution-economics handoff. Adds exact database RPC authority,
+  bounded FIFO timeouts and guarded recovery while keeping normal startup and
+  trading risk controls unchanged.

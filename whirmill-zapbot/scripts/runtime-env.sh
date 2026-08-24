@@ -44,6 +44,9 @@ case "$requested_role" in
   producer_lnmarkets_funding) db_login=zapbot_producer_lnmarkets_funding ;;
   producer_lnmarkets_execution_economics) db_login=zapbot_producer_lnmarkets_execution_economics ;;
   producer_risk_authority_snapshot) db_login=zapbot_producer_risk_authority_snapshot ;;
+  evaluator_attestor) db_login=zapbot_evaluator_attestor ;;
+  holdout_report_writer) db_login=zapbot_holdout_report_writer ;;
+  holdout_v2_sealer) db_login=zapbot_holdout_v2_sealer ;;
   *) echo "unsupported ZapBot database role" >&2; exit 64 ;;
 esac
 
