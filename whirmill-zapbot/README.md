@@ -89,10 +89,12 @@ touch "${APP_DATA_DIR}/data/state/app-enabled"
 Without it, the web container stays idle and reports healthy only as a fenced,
 not-ready process. Once enabled, the healthcheck requires both `/api/ready` and
 `/api/health` evidence that the runtime remains `manage_only` and that
-`new_entries_enabled` is false. During the rehearsal, the web service also
-forces the deliberation runtime, the internal consumers, the LN Markets stream,
-and Trusted V2 continuous collection off even if an imported environment file
-contains older enabled values.
+`new_entries_enabled` is false. During observation warmup, the web service
+starts the internal bus and market-data consumers while still forcing live
+deliberation execution and Trusted V2 continuous collection off, even if an
+imported environment file contains older enabled values. The DB-backed
+`deliberation_execute_enabled` gate remains separately operator-controlled and
+must stay false during warmup.
 
 The four producer containers are assigned to the explicit
 `zapbot-producers` Compose profile and have `restart: "no"`. A normal Umbrel
@@ -114,11 +116,12 @@ The default Compose project contains only the one-shot bootstrap and migration
 chain, PostgreSQL, the web runtime, and Umbrel's app proxy. Producer services
 appear only when the `zapbot-producers` profile is explicitly selected. The
 shared private environment remains fail-closed, while the web startup path
-explicitly enables only the public market stream after loading private settings
-and discarding any historical `RELEASE_SYS_CONFIG` override:
+enables the public market stream and internal observation consumers after
+loading private settings and discarding any historical `RELEASE_SYS_CONFIG`
+override:
 
 - `ZAPBOT_START_DELIBERATION_RUNTIME=false`;
-- `ZAPBOT_START_INTERNAL_CONSUMERS=false`; and
+- `ZAPBOT_START_INTERNAL_CONSUMERS=true`; and
 - `ZAPBOT_START_MARKET_STREAM=true`.
 
 The admitted ZapBot release must map these values into both the API and Hub

@@ -2,13 +2,14 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.3"
-tagline: Restart-safe ZapBot runtime with public market data
+version: "0.1.4"
+tagline: Observation warmup with persisted market data
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
   data directory, requires manage-only readiness before admission, and starts
-  the public LN Markets feed while keeping deliberation, execution consumers,
-  and standalone data producers disabled until separately reviewed cutovers.
+  the public LN Markets feed plus internal observation consumers while keeping
+  live deliberation execution, new entries, and standalone data producers
+  disabled until separately reviewed cutovers.
 developer: whirmill
 website: https://github.com/whirmill/zapbot-exs
 repo: https://github.com/whirmill/zapbot-exs
@@ -21,6 +22,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Enables only the public LN Markets market stream after the restart-safe
-  cutover. Deliberation, internal execution consumers, trusted continuous mode,
-  and standalone producer profiles remain disabled.
+  Starts internal consumers for observation warmup and multi-timeframe candle
+  persistence while retaining manage-only entry mode and disabled live
+  deliberation execution. Standalone producer profiles remain disabled.

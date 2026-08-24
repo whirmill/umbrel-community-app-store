@@ -275,7 +275,7 @@ services:
     environment:
       ZAPBOT_DATABASE_ROLE: runtime
       ZAPBOT_START_DELIBERATION_RUNTIME: "false"
-      ZAPBOT_START_INTERNAL_CONSUMERS: "false"
+      ZAPBOT_START_INTERNAL_CONSUMERS: "true"
       ZAPBOT_START_MARKET_STREAM: "true"
     volumes:
       - ${APP_DATA_DIR}/data/env/app:/service-env:ro
@@ -294,7 +294,7 @@ services:
         . /usr/local/bin/runtime-env
         unset RELEASE_SYS_CONFIG
         export ZAPBOT_START_DELIBERATION_RUNTIME=false
-        export ZAPBOT_START_INTERNAL_CONSUMERS=false
+        export ZAPBOT_START_INTERNAL_CONSUMERS=true
         export ZAPBOT_START_MARKET_STREAM=true
         export TRUSTED_V2_CONTINUOUS_ENABLED=false
         exec bin/zapbot start
