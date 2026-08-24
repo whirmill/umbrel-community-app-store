@@ -385,7 +385,7 @@ services:
     depends_on: {normalize-and-verify: {condition: service_completed_successfully}}
     command: [/bin/sh, -ec, '. /usr/local/bin/runtime-env; export POOL_SIZE=1; export ZAPBOT_RUNTIME_MODE=trusted_v2_sealer; export TRUSTED_V2_SEAL_ENABLED=true; exec bin/zapbot eval "Zapbot.Release.TrustedV2LineageRunner.run_from_env!(confirm: true)"']
     read_only: true
-    tmpfs: [/tmp:size=64m,mode=1777]
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     pids_limit: 128
@@ -401,7 +401,7 @@ services:
     depends_on: {trusted-v2-sealer: {condition: service_completed_successfully}}
     command: [/bin/sh, -ec, '. /usr/local/bin/runtime-env; export POOL_SIZE=1; export ZAPBOT_RUNTIME_MODE=trusted_v2_attestor; export TRUSTED_V2_ATTESTATION_ENABLED=true; export ZAPBOT_RELEASE_IMAGE_DIGEST=sha256:e38c7ee65e8665187800df18b615bd84739b3f16d5d16e936a0a896915f869bd; exec bin/zapbot eval "Zapbot.Release.TrustedV2LineageRunner.run_from_env!(confirm: true)"']
     read_only: true
-    tmpfs: [/tmp:size=64m,mode=1777]
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     pids_limit: 128
@@ -417,7 +417,7 @@ services:
     depends_on: {trusted-v2-attestor: {condition: service_completed_successfully}}
     command: [/bin/sh, -ec, '. /usr/local/bin/runtime-env; export POOL_SIZE=1; export ZAPBOT_RUNTIME_MODE=trusted_v2_report_writer; export TRUSTED_V2_REPORT_ENABLED=true; exec bin/zapbot eval "Zapbot.Release.TrustedV2LineageRunner.run_from_env!(confirm: true)"']
     read_only: true
-    tmpfs: [/tmp:size=64m,mode=1777]
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     pids_limit: 128
@@ -466,7 +466,7 @@ services:
         fi
         chmod 600 "$$acquisition_private" "$$acquisition_hmac" "$$acquisition_public"
     read_only: true
-    tmpfs: [/tmp:size=16m,mode=1777]
+    tmpfs: ["/tmp:size=16m,mode=1777"]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     pids_limit: 32
@@ -495,7 +495,7 @@ services:
         mkfifo /handoff/artifact.pipe /handoff/ack.pipe
         chmod 600 /handoff/artifact.pipe /handoff/ack.pipe
     read_only: true
-    tmpfs: [/tmp:size=16m,mode=1777]
+    tmpfs: ["/tmp:size=16m,mode=1777"]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     pids_limit: 32
@@ -537,7 +537,7 @@ services:
         rm -f /handoff/artifact.pipe /handoff/ack.pipe
         : > /run/zapbot-acquisition/consumed
     read_only: true
-    tmpfs: [/tmp:size=64m,mode=1777]
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     pids_limit: 128
@@ -573,7 +573,7 @@ services:
         export ZAPBOT_EXECUTION_ECONOMICS_ACQUISITION_HMAC_KEY="$$(cat /run/zapbot-attestation/hmac-key)"
         timeout -s TERM -k 30 1200 /bin/sh -ec 'bin/zapbot eval '\''Zapbot.Release.LNMarketsExecutionEconomicsProducer.run_handoff!(confirm: true); :ok'\'' < /handoff/artifact.pipe; printf '\''committed\n'\'' > /handoff/ack.pipe'
     read_only: true
-    tmpfs: [/tmp:size=64m,mode=1777]
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     pids_limit: 128
