@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.10"
+version: "0.1.11"
 tagline: Resource-bounded Trusted V2 activation
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,6 +23,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Hardens the isolated Trusted V2 lineage jobs by matching their single-session
-  database roles with a single Ecto connection and encoding campaign UUIDs for
-  raw Postgrex queries. Trading risk controls remain unchanged.
+  Coalesces deferred Trusted V2 lineage validation to one complete check per
+  seal transaction, removing quadratic trigger work while preserving full
+  validation for later direct writes. Trading risk controls remain unchanged.
