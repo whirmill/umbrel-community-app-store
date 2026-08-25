@@ -2,16 +2,15 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.16"
-tagline: Fail-closed live-readiness evidence
+version: "0.1.17"
+tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
-  data directory, requires manage-only readiness before admission, and starts
-  the public LN Markets feed plus individually fenced, least-privilege Trusted
-  V2 producers plus explicit one-shot execution-economics and lineage jobs.
-  Default startup remains resource-bounded, starts internal consumers and
-  background operational workers, and keeps live deliberation, execution, and
-  new entries disabled.
+  data directory, starts the complete event-driven runtime and the public LN
+  Markets feed, and includes individually fenced, least-privilege Trusted V2
+  producers plus explicit one-shot execution-economics and lineage jobs.
+  Startup remains resource-bounded; execution, entry mode, exposure and risk
+  remain independently controlled by persisted, audited runtime settings.
 developer: whirmill
 website: https://github.com/whirmill/zapbot-exs
 repo: https://github.com/whirmill/zapbot-exs
@@ -24,9 +23,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Separates complete Trusted V2 technical lineage from the legacy statistical
-  admission receipt and replaces the RiskAuthority producer dormant check with
-  an exact least-privilege catalog contract. Authenticated, campaign-bound and
-  adequately powered evidence remains mandatory for GO or NO_GO. Manage-only
-  mode, disabled live deliberation, disabled execution, disabled new entries,
-  and all trading risk controls remain unchanged.
+  Adds the reviewed initial 3-active/1-decision-sleeve profile, preserves the
+  aggregate exposure cap at 1.0 and the 300-sat aggregate stop-risk budget, and
+  makes the three capacity settings one atomic RiskAuthority-controlled update.
+  The complete event-driven runtime now starts after a reboot; execution and
+  new entries remain separate persisted operator-controlled gates, while the
+  future five-lot capability stays disabled.

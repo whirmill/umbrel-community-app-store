@@ -1,6 +1,6 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.16` also installs its reviewed scripts from the community
+Package revision `0.1.17` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
@@ -8,20 +8,21 @@ exactly matching store manifest, stages and compares every file, and publishes
 a version sentinel last; the Compose bootstrap refuses a mixed script/package
 revision.
 
-This package provides a restart-safe, manage-only ZapBot runtime plus four
+This package provides a restart-safe, live-capable ZapBot runtime plus four
 individually fenced continuous Trusted V2 evidence producers and one isolated,
 one-shot execution-economics acquisition profile. It enables the public LN
-Markets market feed, internal consumers, and normal background operational
-queues while keeping live deliberation, execution, and new entries disabled. The
+Markets market feed, internal consumers, complete event-driven deliberation,
+and normal background operational queues. Execution and new-entry authority
+remain separate persisted, audited operator-controlled settings. The
 only intended Umbrel entry point is the app proxy on port `5237`; database and
 application container ports remain private.
 
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed live-readiness evidence-contract revision `8daf2df5` and pinned to
+reviewed operational-profile revision `c63cd76c` and pinned to
 the immutable digest
-`sha256:d8e9ba3be5d72f143b8713a9bc549ea070f10dd961437d5003920f288c3286a4`.
+`sha256:e03b3711d52d3423df6b41379e1d72b7005193ee7bfcd1a2d84d5f3ca875fbad`.
 Do not substitute `latest` or an unreviewed tag.
 
 The runtime database-role receipt now validates the active RiskAuthority
@@ -93,9 +94,9 @@ are safe to repeat:
    runtime never receives a migration URL.
 5. The post-migration step reruns the official bootstrap and verifier as the
    PostgreSQL administrator. It does not alter `internal_settings` or force a
-   trading mode. A restored database must already demonstrate `manage_only`
-   and `new_entries_enabled=false` through the web healthcheck, otherwise the
-   application remains unhealthy and cutover is blocked.
+   trading mode. The web healthcheck verifies application readiness, live
+   process state and non-observation mode without rewriting the persisted
+   execution or entry-mode decision.
 
 Do not put an import dump in place while another authoritative ZapBot stack is
 still writing to it. This descriptor has no replication, dual-write, traffic
@@ -113,13 +114,12 @@ touch "${APP_DATA_DIR}/data/state/app-enabled"
 
 Without it, the web container stays idle and reports healthy only as a fenced,
 not-ready process. Once enabled, the healthcheck requires both `/api/ready` and
-`/api/health` evidence that the runtime remains `manage_only` and that
-`new_entries_enabled` is false. The web service starts the internal bus,
-reconciliation, candle-persistence, and normal Oban operational workers but
-forces live deliberation off while retaining the public market stream, even if
-an imported environment file contains older enabled values. The DB-backed
-`deliberation_execute_enabled` gate remains separately operator-controlled and
-must stay false during evidence collection.
+`/api/health` evidence that the runtime is ready, live and outside observation
+mode. The web service starts the internal bus, reconciliation,
+candle-persistence, complete event-driven deliberation and normal Oban
+operational workers together with the public market stream. The DB-backed
+`deliberation_execute_enabled` and `trading_entry_mode` gates remain separately
+operator-controlled and survive application and host restarts.
 
 The four producer containers are part of the default restart-safe project but
 remain idle until their individual admission markers exist. They use distinct
@@ -184,11 +184,11 @@ never restart automatically. Producer
 containers survive host restarts and wait without database access until their
 marker exists. The runtime loader preserves the baked image revision, rejects
 cross-role identities, and strips unrelated credentials from producers. The
-web startup path enables the market stream, internal consumers, and normal
-Oban operational queues while retaining all live-trading admission fences:
+web startup path enables the market stream, internal consumers, complete
+event-driven deliberation and normal Oban operational queues:
 
 - `ZAPBOT_OBSERVATION_ONLY=false` (normal Oban operational queues enabled);
-- `ZAPBOT_START_DELIBERATION_RUNTIME=false`;
+- `ZAPBOT_START_DELIBERATION_RUNTIME=true`;
 - `ZAPBOT_START_INTERNAL_CONSUMERS=true`; and
 - `ZAPBOT_START_MARKET_STREAM=true`.
 
