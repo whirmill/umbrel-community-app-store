@@ -1,6 +1,6 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.17` also installs its reviewed scripts from the community
+Package revision `0.1.18` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
@@ -20,10 +20,16 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed operational-profile revision `c63cd76c` and pinned to
+reviewed canonical-exposure revision `af45c0a9` and pinned to
 the immutable digest
-`sha256:e03b3711d52d3423df6b41379e1d72b7005193ee7bfcd1a2d84d5f3ca875fbad`.
+`sha256:eccb3f8fcaaaf380264f96712832f1f1e1453d663642603467abfae89523823d`.
 Do not substitute `latest` or an unreviewed tag.
+
+Open-position plans carry the canonical continuous exposure reconstructed from
+filled and pending venue state, in-flight commands and live reservations, plus
+the requested per-lot exposure fraction. An unavailable canonical snapshot
+clears the projected exposure and attaches a blocking portfolio-risk receipt;
+these evidence fields are never forwarded in the LN Markets adapter payload.
 
 The runtime database-role receipt now validates the active RiskAuthority
 producer by its exact least-privilege catalog contract rather than treating
