@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.17"
+version: "0.1.18"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,9 +23,10 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Adds the reviewed initial 3-active/1-decision-sleeve profile, preserves the
-  aggregate exposure cap at 1.0 and the 300-sat aggregate stop-risk budget, and
-  makes the three capacity settings one atomic RiskAuthority-controlled update.
-  The complete event-driven runtime now starts after a reboot; execution and
-  new entries remain separate persisted operator-controlled gates, while the
-  future five-lot capability stays disabled.
+  Carries continuous canonical portfolio exposure, including pending commands
+  and reservations, into every risk-increasing plan together with its per-lot
+  requested fraction. If the canonical snapshot is unavailable, exposure is
+  cleared and new risk is blocked before command persistence. Venue payloads
+  remain unchanged; the reviewed 3-active/1-decision-sleeve profile, exposure
+  cap 1.0, 300-sat aggregate stop-risk budget and disabled five-lot capability
+  are preserved.
