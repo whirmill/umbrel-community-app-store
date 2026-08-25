@@ -2,16 +2,16 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.14"
+version: "0.1.15"
 tagline: Resource-bounded Trusted V2 activation
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
   data directory, requires manage-only readiness before admission, and starts
   the public LN Markets feed plus individually fenced, least-privilege Trusted
   V2 producers plus explicit one-shot execution-economics and lineage jobs.
-  Default startup remains resource-bounded, starts internal observation and
-  reconciliation consumers, and keeps live deliberation and new entries
-  disabled.
+  Default startup remains resource-bounded, starts internal consumers and
+  background operational workers, and keeps live deliberation, execution, and
+  new entries disabled.
 developer: whirmill
 website: https://github.com/whirmill/zapbot-exs
 repo: https://github.com/whirmill/zapbot-exs
@@ -24,7 +24,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Starts the internal observation, reconciliation, and candle-persistence
-  consumers while retaining manage-only mode, observation-only health,
-  disabled live deliberation, and disabled new entries. Trading risk controls
-  remain unchanged.
+  Starts the normal Oban operational queues for reconciliation, alerts, and
+  maintenance while retaining manage-only mode, disabled live deliberation,
+  disabled execution, and disabled new entries. Trading risk controls remain
+  unchanged.

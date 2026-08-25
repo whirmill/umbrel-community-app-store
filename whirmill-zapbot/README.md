@@ -1,6 +1,6 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.14` also installs its reviewed scripts from the community
+Package revision `0.1.15` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
@@ -11,8 +11,8 @@ revision.
 This package provides a restart-safe, manage-only ZapBot runtime plus four
 individually fenced continuous Trusted V2 evidence producers and one isolated,
 one-shot execution-economics acquisition profile. It enables the public LN
-Markets market feed and internal observation/reconciliation consumers while
-keeping live deliberation and new entries disabled. The
+Markets market feed, internal consumers, and normal background operational
+queues while keeping live deliberation, execution, and new entries disabled. The
 only intended Umbrel entry point is the app proxy on port `5237`; database and
 application container ports remain private.
 
@@ -108,9 +108,9 @@ Without it, the web container stays idle and reports healthy only as a fenced,
 not-ready process. Once enabled, the healthcheck requires both `/api/ready` and
 `/api/health` evidence that the runtime remains `manage_only` and that
 `new_entries_enabled` is false. The web service starts the internal bus,
-reconciliation, and candle-persistence consumers but forces live deliberation
-off while retaining the public market stream, even if an imported environment
-file contains older enabled values. The DB-backed
+reconciliation, candle-persistence, and normal Oban operational workers but
+forces live deliberation off while retaining the public market stream, even if
+an imported environment file contains older enabled values. The DB-backed
 `deliberation_execute_enabled` gate remains separately operator-controlled and
 must stay false during evidence collection.
 
@@ -177,11 +177,12 @@ never restart automatically. Producer
 containers survive host restarts and wait without database access until their
 marker exists. The runtime loader preserves the baked image revision, rejects
 cross-role identities, and strips unrelated credentials from producers. The
-web startup path keeps only the public market stream enabled:
+web startup path enables the market stream, internal consumers, and normal
+Oban operational queues while retaining all live-trading admission fences:
 
-- `ZAPBOT_OBSERVATION_ONLY=true` (Oban queues and plugins disabled);
+- `ZAPBOT_OBSERVATION_ONLY=false` (normal Oban operational queues enabled);
 - `ZAPBOT_START_DELIBERATION_RUNTIME=false`;
-- `ZAPBOT_START_INTERNAL_CONSUMERS=false`; and
+- `ZAPBOT_START_INTERNAL_CONSUMERS=true`; and
 - `ZAPBOT_START_MARKET_STREAM=true`.
 
 The admitted ZapBot release must map these values into both the API and Hub

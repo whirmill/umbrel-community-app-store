@@ -290,7 +290,7 @@ services:
     restart: on-failure
     environment:
       ZAPBOT_DATABASE_ROLE: runtime
-      ZAPBOT_OBSERVATION_ONLY: "true"
+      ZAPBOT_OBSERVATION_ONLY: "false"
       ZAPBOT_START_DELIBERATION_RUNTIME: "false"
       ZAPBOT_START_INTERNAL_CONSUMERS: "true"
       ZAPBOT_START_MARKET_STREAM: "true"
@@ -311,14 +311,14 @@ services:
         . /usr/local/bin/runtime-env
         export POOL_SIZE=10
         unset RELEASE_SYS_CONFIG
-        export ZAPBOT_OBSERVATION_ONLY=true
+        export ZAPBOT_OBSERVATION_ONLY=false
         export ZAPBOT_START_DELIBERATION_RUNTIME=false
         export ZAPBOT_START_INTERNAL_CONSUMERS=true
         export ZAPBOT_START_MARKET_STREAM=true
         export TRUSTED_V2_CONTINUOUS_ENABLED=false
         exec bin/zapbot start
     healthcheck:
-      test: [CMD-SHELL, 'if [ ! -f /state/app-enabled ]; then exit 0; fi; wget -qO- http://127.0.0.1:4000/api/ready | grep -Eq "\"ok\"[[:space:]]*:[[:space:]]*true" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"observation_only\"[[:space:]]*:[[:space:]]*true" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"entry_mode\"[[:space:]]*:[[:space:]]*\"manage_only\"" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"new_entries_enabled\"[[:space:]]*:[[:space:]]*false"']
+      test: [CMD-SHELL, 'if [ ! -f /state/app-enabled ]; then exit 0; fi; wget -qO- http://127.0.0.1:4000/api/ready | grep -Eq "\"ok\"[[:space:]]*:[[:space:]]*true" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"observation_only\"[[:space:]]*:[[:space:]]*false" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"execution\"[[:space:]]*:[[:space:]]*\{\"enabled\"[[:space:]]*:[[:space:]]*false" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"entry_mode\"[[:space:]]*:[[:space:]]*\"manage_only\"" && wget -qO- http://127.0.0.1:4000/api/health | grep -Eq "\"new_entries_enabled\"[[:space:]]*:[[:space:]]*false"']
       interval: 30s
       timeout: 10s
       retries: 3
