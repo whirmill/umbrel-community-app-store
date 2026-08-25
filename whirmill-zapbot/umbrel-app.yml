@@ -2,8 +2,8 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.15"
-tagline: Resource-bounded Trusted V2 activation
+version: "0.1.16"
+tagline: Fail-closed live-readiness evidence
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
   data directory, requires manage-only readiness before admission, and starts
@@ -24,7 +24,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Starts the normal Oban operational queues for reconciliation, alerts, and
-  maintenance while retaining manage-only mode, disabled live deliberation,
-  disabled execution, and disabled new entries. Trading risk controls remain
-  unchanged.
+  Separates complete Trusted V2 technical lineage from the legacy statistical
+  admission receipt and replaces the RiskAuthority producer dormant check with
+  an exact least-privilege catalog contract. Authenticated, campaign-bound and
+  adequately powered evidence remains mandatory for GO or NO_GO. Manage-only
+  mode, disabled live deliberation, disabled execution, disabled new entries,
+  and all trading risk controls remain unchanged.
