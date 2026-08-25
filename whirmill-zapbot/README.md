@@ -1,6 +1,6 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.13` also installs its reviewed scripts from the community
+Package revision `0.1.14` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
@@ -11,7 +11,8 @@ revision.
 This package provides a restart-safe, manage-only ZapBot runtime plus four
 individually fenced continuous Trusted V2 evidence producers and one isolated,
 one-shot execution-economics acquisition profile. It enables the public LN
-Markets market feed, but not deliberation or execution consumers. The
+Markets market feed and internal observation/reconciliation consumers while
+keeping live deliberation and new entries disabled. The
 only intended Umbrel entry point is the app proxy on port `5237`; database and
 application container ports remain private.
 
@@ -106,11 +107,12 @@ touch "${APP_DATA_DIR}/data/state/app-enabled"
 Without it, the web container stays idle and reports healthy only as a fenced,
 not-ready process. Once enabled, the healthcheck requires both `/api/ready` and
 `/api/health` evidence that the runtime remains `manage_only` and that
-`new_entries_enabled` is false. The web service forces internal execution
-consumers and live deliberation off while retaining the public market stream,
-even if an imported environment file contains older enabled values. The
-DB-backed `deliberation_execute_enabled` gate remains separately
-operator-controlled and must stay false during evidence collection.
+`new_entries_enabled` is false. The web service starts the internal bus,
+reconciliation, and candle-persistence consumers but forces live deliberation
+off while retaining the public market stream, even if an imported environment
+file contains older enabled values. The DB-backed
+`deliberation_execute_enabled` gate remains separately operator-controlled and
+must stay false during evidence collection.
 
 The four producer containers are part of the default restart-safe project but
 remain idle until their individual admission markers exist. They use distinct
