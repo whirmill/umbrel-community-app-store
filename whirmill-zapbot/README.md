@@ -1,6 +1,6 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.19` also installs its reviewed scripts from the community
+Package revision `0.1.20` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
@@ -20,9 +20,9 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed command-envelope exposure revision `313334be` and pinned to
+reviewed continuous-exposure readiness revision `371ff1ca` and pinned to
 the immutable digest
-`sha256:0e78851f06cf39f7705b01a00490b75f93420cbd34b321ef2433915d9f5c9b6d`.
+`sha256:d91765922c2ee936913bc72b716550470c3d8e9ef3e60389b0a0ba7302c8d2f3`.
 Do not substitute `latest` or an unreviewed tag.
 
 Open-position plans carry the canonical continuous exposure reconstructed from
@@ -34,6 +34,13 @@ Persisted execution-command envelopes are unwrapped before correlating their
 client identifier and requested fraction with reconciled live trades. Direct
 legacy payloads remain supported; missing or malformed evidence still blocks
 new risk rather than inferring an exposure value.
+
+Strict readiness consumes that same canonical continuous exposure instead of
+using active-position count as an exposure proxy. An authoritative flat state
+requires both fresh trade-cache and REST-reconcile diagnostics; query errors,
+stale rows, missing heartbeats and incomplete exposure or risk evidence remain
+blocking. The empty-sandbox shortcut used by legacy tests is explicitly bound
+to test runtime and cannot activate in an Umbrel release.
 
 The runtime database-role receipt now validates the active RiskAuthority
 producer by its exact least-privilege catalog contract rather than treating
