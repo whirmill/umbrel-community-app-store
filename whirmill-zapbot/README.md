@@ -20,9 +20,9 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed continuous-exposure readiness revision `371ff1ca` and pinned to
+reviewed continuous-exposure readiness hardening revision `48b89814` and pinned to
 the immutable digest
-`sha256:d91765922c2ee936913bc72b716550470c3d8e9ef3e60389b0a0ba7302c8d2f3`.
+`sha256:1649840ff48039f4cb16a448d1f9cee8e9db291fe3e6488da447822ecfc11d05`.
 Do not substitute `latest` or an unreviewed tag.
 
 Open-position plans carry the canonical continuous exposure reconstructed from
@@ -40,7 +40,8 @@ using active-position count as an exposure proxy. An authoritative flat state
 requires both fresh trade-cache and REST-reconcile diagnostics; query errors,
 stale rows, missing heartbeats and incomplete exposure or risk evidence remain
 blocking. The empty-sandbox shortcut used by legacy tests is explicitly bound
-to test runtime and cannot activate in an Umbrel release.
+to a test-compiled build and cannot be activated in an Umbrel release by a
+runtime-mode or application-setting override.
 
 The runtime database-role receipt now validates the active RiskAuthority
 producer by its exact least-privilege catalog contract rather than treating
