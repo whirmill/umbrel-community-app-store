@@ -1,12 +1,17 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.23` also installs its reviewed scripts from the community
+Package revision `0.1.24` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
 exactly matching store manifest, stages and compares every file, and publishes
 a version sentinel last; the Compose bootstrap refuses a mixed script/package
 revision.
+
+Operator Posture uses a bounded, pool-safe collection path that preserves
+completed evidence and reports unfinished sources explicitly. Historical
+decision comparison remains available through its dedicated diagnostic RPC,
+outside the interactive five-second posture budget.
 
 This package provides a restart-safe, live-capable ZapBot runtime plus four
 individually fenced continuous Trusted V2 evidence producers and one isolated,
@@ -20,9 +25,9 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `734a87dbe3e021b5eb02650f6932a60cfae65af3` on native
+reviewed source revision `7a2f1f68b0e1d6b44cd800adc05991b141c95a9c` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:a54c15fefaeb2c7754e4b507f233cdbe5a9c2813592cd12ebe7ba49a2d4235b2`.
+`sha256:e75619f22276e37c0acf4ef8a0caa985f204923c11409ffa8ab9d0281ef30803`.
 Do not substitute `latest` or an unreviewed tag.
 
 Open-position plans carry the canonical continuous exposure reconstructed from
