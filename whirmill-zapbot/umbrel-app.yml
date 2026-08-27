@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.20"
+version: "0.1.21"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,10 +23,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Makes strict live readiness use canonical continuous exposure across filled
-  and pending venue state, in-flight commands and reservations. Flat state is
-  authoritative only with fresh trade-cache and REST-reconcile evidence;
-  unavailable, stale or malformed evidence remains fail-closed. The reviewed
-  3-active/1-decision-sleeve profile, exposure cap 1.0, 300-sat aggregate
-  stop-risk budget and disabled five-lot capability are unchanged. Test-only
-  flat-cache fixtures are now compile-time fenced out of production images.
+  Refreshes the operator frontend and UX to make runtime state, evidence and
+  controls easier to understand. The release is built and published with
+  native amd64 and arm64 runners; the image remains pinned by immutable tag
+  and digest. The reviewed 3-active/1-decision-sleeve profile, exposure cap
+  1.0, 300-sat aggregate stop-risk budget and disabled five-lot capability are
+  unchanged.
