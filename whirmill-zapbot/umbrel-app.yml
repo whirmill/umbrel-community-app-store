@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.22"
+version: "0.1.23"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,9 +23,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Hardens operator data integrity by expiring historical Entry Burst blockers
-  without deleting audit evidence, completing close-to-outcome learning, and
-  exposing truthful analytics, provenance and mode diagnostics. Frontend data
-  states, responsive behavior and accessibility are normalized. The image is
-  pinned to its native amd64/arm64 immutable digest; runtime settings, trading
-  and risk controls, and producer admission remain unchanged.
+  Completes the data-integrity hardening with durable observe decision records
+  and fail-closed close-to-outcome learning delivery. Historical Entry Burst
+  evidence expires without deletion; analytics, provenance, mode diagnostics,
+  frontend data states, responsive behavior and accessibility remain truthful.
+  The image is pinned to its native amd64/arm64 immutable digest; runtime
+  settings, trading and risk controls, and producer admission remain unchanged.
