@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.33"
+version: "0.1.34"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,8 +23,8 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Removes unused 24-hour aggregates and pagination from the live operational
-  signals path while preserving the exact fail-closed alert contract. This gives
-  concurrent Monitor and scheduled workloads more latency margin without raising
-  timeouts or pool size. Trusted V2 candle-boundary stability, parallel execution,
-  runtime settings, trading and risk controls remain unchanged.
+  Keeps Trusted V2 candle diagnostics on the preceding closed boundary until the
+  receipt-visibility window completes, then advances atomically. Fresh campaigns
+  remain queryable through the existing runtime-authorized coverage function;
+  non-candle evidence stays current and fail closed. No database migration,
+  settings, risk or trading contract changes are included.

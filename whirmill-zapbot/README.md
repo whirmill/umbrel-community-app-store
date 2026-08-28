@@ -1,6 +1,6 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.33` also installs its reviewed scripts from the community
+Package revision `0.1.34` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
@@ -38,6 +38,13 @@ posture leaves, alert checks, causal notification groups and independent
 retention families can progress concurrently while same-key ordering, atomic
 alert admission and bounded connection headroom remain enforced.
 
+Trusted V2 candle diagnostics now retain the preceding closed boundary through
+the producer receipt-visibility window, then advance atomically to current time.
+Fresh campaigns clamp that diagnostic cutoff just beyond their own holdout start,
+while non-candle sources remain current and fail closed. The path uses the
+existing runtime-authorized three-argument coverage function and does not alter
+sealing, admission, readiness, execution, settings, risk or trading contracts.
+
 This package provides a restart-safe, live-capable ZapBot runtime plus four
 individually fenced continuous Trusted V2 evidence producers and one isolated,
 one-shot execution-economics acquisition profile. It enables the public LN
@@ -50,9 +57,9 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `1a53934cd7216d712d33a2c8bac76c0808fe1282` on native
+reviewed source revision `72231fca6da31647505f879afba26aef26866bf4` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:ed185a9298a8b1da33185a2087ea4905d63fe9d3e83fac94fe3990625506190e`.
+`sha256:472dbec39f3276982a1925c6abfac0d212795c76e5d1cfd68553ecc003d97620`.
 Do not substitute `latest` or an unreviewed tag.
 
 Open-position plans carry the canonical continuous exposure reconstructed from
