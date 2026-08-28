@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.27"
+version: "0.1.28"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,9 +23,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Keeps the global optimized SQL boundary and moves the bounded Operator
-  Posture collector to the summary dashboard profile. The
-  profile retains all graph, Oban and notification queues plus dispatch,
-  queue-drain, reconciliation and notification SLO gates, while omitting
-  unrelated full-page enrichment reads. Runtime settings, trading and risk
-  controls, and producer admission remain unchanged.
+  Coalesces concurrent cold misses for every operational cache key and collects
+  signals after the bounded summary dashboard has populated their shared queue
+  diagnostics. The summary still covers every graph, Oban and notification
+  queue plus all four runtime SLOs, while avoiding duplicate database fan-out.
+  Runtime settings, trading and risk controls, and producer admission remain
+  unchanged.
