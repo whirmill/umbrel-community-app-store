@@ -1,6 +1,6 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.28` also installs its reviewed scripts from the community
+Package revision `0.1.29` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
@@ -28,6 +28,8 @@ summary dashboard that retains every queue and runtime-SLO gate without the
 unneeded full-page enrichment fan-out. Shared operational cache misses are
 coalesced per key, and the signals receipt runs after the summary has populated
 their shared bounded diagnostics instead of duplicating cold database work.
+Concurrent clients also share one short-lived, server-owned posture collection
+instead of multiplying the entire eleven-source query fan-out.
 
 This package provides a restart-safe, live-capable ZapBot runtime plus four
 individually fenced continuous Trusted V2 evidence producers and one isolated,
@@ -41,9 +43,9 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `072705aeeac7fcba02bb297636d3cfc017383212` on native
+reviewed source revision `3b933935a031b7cf7e0105b386c80e9fb6037123` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:bb8586bc146f0dc07d54d466ea4fcb5065b5eb6e1528493ad3aa4cdcd2082959`.
+`sha256:ffc02ea6e4e8075dc79278a9feb483affc344f3c0e74894173fbf4f5f62fddb1`.
 Do not substitute `latest` or an unreviewed tag.
 
 Open-position plans carry the canonical continuous exposure reconstructed from
