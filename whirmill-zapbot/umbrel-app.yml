@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.29"
+version: "0.1.30"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,9 +23,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Coalesces concurrent Operator Posture readers onto one short-lived,
-  server-owned eleven-source collection. It retains per-key operational-cache
-  single-flight, summary-first signals collection, every graph, Oban and
-  notification queue, and all four runtime SLOs while preventing duplicate
-  database fan-out across tabs or clients. Runtime settings, trading and risk
+  Completes concurrent Operator Posture coalescing by sharing a slow leader's
+  completed generation with every waiter that arrived during computation,
+  without extending the semantic TTL for later callers. Signals and the summary
+  dashboard overlap under per-key single-flight while all eleven sources,
+  queues and runtime SLO gates remain intact. Runtime settings, trading and risk
   controls, and producer admission remain unchanged.
