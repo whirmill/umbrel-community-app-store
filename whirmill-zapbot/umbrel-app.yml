@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.25"
+version: "0.1.26"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,9 +23,10 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Keeps Operator Posture within its five-second server budget through pool-safe,
-  bounded evidence collection. Entry Burst now proves that the capped command
-  scan covers the complete current cluster and expiry horizon, so older
-  historical evidence remains auditable without degrading current posture;
-  incomplete recent coverage still fails closed. Runtime settings, trading and
-  risk controls, and producer admission remain unchanged.
+  Applies the optimized SQL execution boundary across API, Hub, workers,
+  release checks and UI-backed reads. Stable statements gain reusable versioned
+  identities, dynamic SQL remains explicitly unnamed, and set-based evidence,
+  causal-comparison and feature-backfill queries avoid repeated work. Operator
+  Posture now preserves its last complete snapshot through partial refreshes.
+  Runtime settings, trading and risk controls, and producer admission remain
+  unchanged.
