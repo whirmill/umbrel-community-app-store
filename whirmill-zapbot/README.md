@@ -1,6 +1,6 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.35` also installs its reviewed scripts from the community
+Package revision `0.1.36` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
@@ -12,6 +12,15 @@ Operator Posture uses a bounded, pool-safe collection path that preserves
 completed evidence and reports unfinished sources explicitly. Historical
 decision comparison remains available through its dedicated diagnostic RPC,
 outside the interactive five-second posture budget.
+
+The clean-slate alpha foundation is present only as an unbound, default-off
+contract. A future learned challenger may approve or veto the exact side and
+template independently produced by a code-owned technical policy; it cannot
+construct or modify a thesis, order plan, size, leverage, margin, stop, target,
+exposure, executor or risk setting. Proposal identity binds causal features,
+artifact, dataset, protocol, exact policy configuration and loaded BEAM code.
+Missing, future, expired, OOD, low-quality or mismatched evidence resolves to
+flat, never to a technical-analysis-only fallback. No live route is connected.
 
 Execution preflight now gives GraphRuntime's canonical continuous market and
 direction exposure maps precedence over legacy concentration keys. The legacy
@@ -64,9 +73,9 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `9c517974983e2666224f61b89ea5c3b7d42a307e` on native
+reviewed source revision `2eca4a723c26a970dc72187bd351a027ba3c1594` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:1d26f4bfe78890d2f22bc8c6b90493a96205afafb4853e63cd3931cead3e68d9`.
+`sha256:8bc58cff1b992412a862240381112efa2e5c5a00c8c1742ae8cb0e4d6182e1f0`.
 Do not substitute `latest` or an unreviewed tag.
 
 Open-position plans carry the canonical continuous exposure reconstructed from

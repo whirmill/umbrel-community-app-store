@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.35"
+version: "0.1.36"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,8 +23,8 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Makes execution preflight prefer the canonical continuous-exposure evidence
-  emitted by GraphRuntime while retaining the legacy-key fallback. Structured
-  Trusted V2 provider failures are now classified before transaction entry and
-  exposed only through a fixed, sanitized diagnostic code. No database migration,
-  persisted setting, sizing, leverage, drawdown or other risk limit is changed.
+  Adds the unbound, default-off alpha-foundation contract for a future learned
+  challenger that can only approve or veto an independently produced technical
+  side/template. Missing, stale, OOD, low-quality or provenance-mismatched input
+  fails flat with no technical-only fallback. There is no live binding, database
+  migration, setting, worker, schedule, execution or risk-control change.
