@@ -1,6 +1,6 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.36` also installs its reviewed scripts from the community
+Package revision `0.1.37` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
@@ -21,6 +21,13 @@ exposure, executor or risk setting. Proposal identity binds causal features,
 artifact, dataset, protocol, exact policy configuration and loaded BEAM code.
 Missing, future, expired, OOD, low-quality or mismatched evidence resolves to
 flat, never to a technical-analysis-only fallback. No live route is connected.
+
+Operator diagnostics now use the Umbrel origin instead of the retired public
+hostname, accept separate mode-`0600` token files for read and control access,
+and expose the bounded `decision.engine.posture` receipt through the read-only
+RPC catalog. The flat-cache provenance path retains its test-only fail-closed
+semantics without emitting compiler warnings. No entry mode, execution path,
+position sizing, exposure, leverage or risk-control setting changes.
 
 Execution preflight now gives GraphRuntime's canonical continuous market and
 direction exposure maps precedence over legacy concentration keys. The legacy
@@ -73,9 +80,9 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `2eca4a723c26a970dc72187bd351a027ba3c1594` on native
+reviewed source revision `91171602d5e4ed61427d34f1d22321acbb6f2fff` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:8bc58cff1b992412a862240381112efa2e5c5a00c8c1742ae8cb0e4d6182e1f0`.
+`sha256:f3e7ed20e709e9f377474fcc83d38f0fd722bef96a06d7c5ac67dd5c3e3334bb`.
 Do not substitute `latest` or an unreviewed tag.
 
 Open-position plans carry the canonical continuous exposure reconstructed from
