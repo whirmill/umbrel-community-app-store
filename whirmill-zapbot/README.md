@@ -1,6 +1,6 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.34` also installs its reviewed scripts from the community
+Package revision `0.1.35` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
@@ -12,6 +12,13 @@ Operator Posture uses a bounded, pool-safe collection path that preserves
 completed evidence and reports unfinished sources explicitly. Historical
 decision comparison remains available through its dedicated diagnostic RPC,
 outside the interactive five-second posture budget.
+
+Execution preflight now gives GraphRuntime's canonical continuous market and
+direction exposure maps precedence over legacy concentration keys. The legacy
+fallback remains available for older envelopes, while malformed or unavailable
+canonical evidence still fails closed. Structured Trusted V2 provider failures
+are classified before transaction entry and reported only with a fixed,
+sanitized diagnostic code; retry, restart and checkpoint atomicity are unchanged.
 
 Entry Burst coverage now proves that a capped command scan reaches beyond the
 complete current cluster and expiry horizon. Older truncated history remains
@@ -57,9 +64,9 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `72231fca6da31647505f879afba26aef26866bf4` on native
+reviewed source revision `9c517974983e2666224f61b89ea5c3b7d42a307e` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:472dbec39f3276982a1925c6abfac0d212795c76e5d1cfd68553ecc003d97620`.
+`sha256:1d26f4bfe78890d2f22bc8c6b90493a96205afafb4853e63cd3931cead3e68d9`.
 Do not substitute `latest` or an unreviewed tag.
 
 Open-position plans carry the canonical continuous exposure reconstructed from
