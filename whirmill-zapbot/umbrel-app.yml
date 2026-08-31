@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.36"
+version: "0.1.37"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,8 +23,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Adds the unbound, default-off alpha-foundation contract for a future learned
-  challenger that can only approve or veto an independently produced technical
-  side/template. Missing, stale, OOD, low-quality or provenance-mismatched input
-  fails flat with no technical-only fallback. There is no live binding, database
-  migration, setting, worker, schedule, execution or risk-control change.
+  Moves operator diagnostics from the retired public hostname to Umbrel, adds
+  separate private token-file support for read and control access, registers the
+  bounded decision.engine.posture receipt as a read-only RPC, and removes a
+  compiler warning from flat-cache provenance without changing its fail-closed
+  behavior. Entry mode, execution, sizing, exposure, leverage and risk controls
+  are unchanged; Alpha remains default-off, unbound and without live influence.
