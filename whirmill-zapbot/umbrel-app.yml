@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.38"
+version: "0.1.39"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,9 +23,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Adds the default-off, evidence-only learning.pipeline@v1 flow from causal
-  deliberation events through immutable snapshots, robust normalization,
-  exact-L2 vectors and exact-horizon labels, with bounded recovery, status and
-  bootstrap controls. The Deliberation page now includes an interactive,
-  accessible lineage graph. Trading, sizing, exposure, leverage and risk
-  controls are unchanged; the learning pipeline generates no live actions.
+  Publishes the automatic evidence-only learning pipeline and interactive
+  deliberation lineage graph with a least-privilege migration repair for
+  schema-qualified immutable trigger functions. Fresh installs and databases
+  that already recorded the original migration converge on the same safe
+  trigger posture. Trading, sizing, exposure, leverage and risk controls are
+  unchanged; the learning pipeline generates no live actions.
