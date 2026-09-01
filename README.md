@@ -15,7 +15,7 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-simplex-turn` | `4.16.0-5` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
-| `whirmill-zapbot` | `0.1.39` | installata dal Community App Store | — |
+| `whirmill-zapbot` | `0.1.40` | installata dal Community App Store | — |
 
 La verifica del 4 agosto 2026 non ha trovato questi ID nello store ufficiale
 `getumbrel/umbrel-apps`. `cloudflared` è un'app ufficiale diversa: fornisce un
