@@ -17,7 +17,7 @@ repo: https://github.com/whirmill/limpidog-crm
 support: https://github.com/whirmill/limpidog-crm/issues
 port: 5234
 path: ""
-icon: https://raw.githubusercontent.com/whirmill/umbrel-community-app-store/main/whirmill-limpidog/icon.svg
+icon: https://cdn.jsdelivr.net/gh/whirmill/umbrel-community-app-store@07fe21c2a0f478e045d14d9d2332716892d9c213/whirmill-limpidog/icon.svg
 gallery: []
 defaultUsername: ""
 defaultPassword: ""
