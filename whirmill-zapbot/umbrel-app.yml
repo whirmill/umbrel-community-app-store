@@ -17,7 +17,7 @@ repo: https://github.com/whirmill/zapbot-exs
 support: https://github.com/whirmill/zapbot-exs/issues
 port: 5237
 path: ""
-icon: https://raw.githubusercontent.com/whirmill/umbrel-community-app-store/main/whirmill-zapbot/icon.png
+icon: https://raw.githubusercontent.com/whirmill/umbrel-community-app-store/main/whirmill-zapbot/icon.svg
 gallery: []
 defaultUsername: ""
 defaultPassword: ""

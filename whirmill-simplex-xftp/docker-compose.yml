@@ -19,7 +19,8 @@ services:
       - ${APP_DATA_DIR}/data/xftp-state:/var/opt/simplex-xftp
       - ${APP_DATA_DIR}/data/xftp-files:/srv/xftp
     ports:
-      - "443:443"
+      # Umbrel 2 reserves host TCP 443 for its own HTTPS ingress.
+      - "7443:443"
     read_only: true
     tmpfs:
       - /tmp
@@ -48,7 +49,7 @@ services:
         condition: service_healthy
     environment:
       NGINX_ENVSUBST_OUTPUT_DIR: /usr/share/nginx/html
-      XFTP_HOST: xftp.satssurge.com
+      XFTP_HOST: xftp.satssurge.com:7443
       XFTP_PASSWORD: $APP_PASSWORD
     volumes:
       - ${APP_DATA_DIR}/status/templates:/etc/nginx/templates:ro

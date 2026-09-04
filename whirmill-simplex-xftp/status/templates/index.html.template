@@ -36,7 +36,7 @@
         <ul>
           <li>This page is for the person managing this Umbrel only, it is not a public server directory.</li>
           <li>The address contains the file-server app password. Share it only with people you trust.</li>
-          <li>The standard secure port is used automatically, so it is intentionally omitted from the address.</li>
+          <li>The address includes public TCP port 7443. Keep this port when configuring SimpleX Chat.</li>
         </ul>
       </section>
     </main>
