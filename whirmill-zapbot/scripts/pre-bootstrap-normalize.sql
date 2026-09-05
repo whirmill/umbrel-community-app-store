@@ -26,6 +26,7 @@ DECLARE
     ARRAY[
       pg_catalog.to_regprocedure('public.guard_attested_causal_event_correction()')::oid,
       pg_catalog.to_regprocedure('public.record_causal_event_producer_receipt()')::oid,
+      pg_catalog.to_regprocedure('public.validate_forward_return_label_causal_attestation()')::oid,
       pg_catalog.to_regprocedure('public.validate_forward_holdout_successor_campaign_insert()')::oid,
       pg_catalog.to_regprocedure('public.validate_causal_funding_window_completed_insert()')::oid,
       pg_catalog.to_regprocedure('public.validate_causal_execution_economics_finalized_insert()')::oid,

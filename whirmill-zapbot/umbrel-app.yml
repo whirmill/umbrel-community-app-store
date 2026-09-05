@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.40"
+version: "0.1.41"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,9 +23,11 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Makes automatic learning retries reuse their exact immutable feature
-  snapshot across restarts and crash windows. Frozen ineligible evidence is
-  terminal instead of retrying forever; identity or material mismatches fail
-  closed and appear in bounded API/RPC diagnostics, with the ineligible count
-  visible in the lineage UI. Trading, sizing, exposure, leverage and risk
-  controls are unchanged; the learning pipeline generates no live actions.
+  Stabilizes learning-label retries and causal availability, protects
+  normalization bases, validates complete aggregation windows, and corrects
+  research monetary conversion, effective sample size and degradation alerts.
+  Adds bounded passive execution-evidence capture and read-only diagnostics,
+  disabled by default. Updates the startup SQL allowlist for the new causal
+  attestation function so subsequent restarts retain the strict verifier.
+  Passive capture remains off; existing entry mode, execution and risk controls
+  persist across the update and restarts.
