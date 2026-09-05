@@ -284,11 +284,48 @@ assert_final_state() {
   assert_fenced_services "$project" "$data_dir"
 }
 
+await_healthy_service() {
+  project=$1
+  data_dir=$2
+  service=$3
+  timeout_seconds=$4
+  deadline=$(( $(date +%s) + timeout_seconds ))
+
+  while :; do
+    container_id=$(compose "$project" "$data_dir" ps -aq "$service" | tail -n 1)
+    test -n "$container_id"
+    state=$(docker inspect -f '{{.State.Status}}:{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")
+
+    case "$state" in
+      running:healthy) return 0 ;;
+      exited:*|dead:*|*:unhealthy)
+        echo "service $service failed before becoming healthy: $state" >&2
+        return 1
+        ;;
+    esac
+
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      echo "timed out waiting for $service health: $state" >&2
+      return 1
+    fi
+
+    sleep 2
+  done
+}
+
+await_lifecycle_ready() {
+  project=$1
+  data_dir=$2
+  await_healthy_service "$project" "$data_dir" whirmill-zapbot-postgres 240
+  await_healthy_service "$project" "$data_dir" whirmill-zapbot-web 240
+}
+
 start_full_package() {
   project=$1
   data_dir=$2
   log "starting full fenced Compose lifecycle project=$project"
-  compose "$project" "$data_dir" up --wait --wait-timeout 240 $fenced_services >>"$receipt" 2>&1
+  compose "$project" "$data_dir" up -d $fenced_services >>"$receipt" 2>&1
+  await_lifecycle_ready "$project" "$data_dir"
   assert_final_state "$project" "$data_dir"
 }
 
@@ -322,7 +359,8 @@ repeat_package() {
     printf '%s %s\n' "$service" "$container_id" >> "$before_file"
   done
   log "repeating complete fenced Compose lifecycle project=$project"
-  compose "$project" "$data_dir" up --wait --wait-timeout 240 --force-recreate --always-recreate-deps $fenced_services >>"$receipt" 2>&1
+  compose "$project" "$data_dir" up -d --force-recreate --always-recreate-deps $fenced_services >>"$receipt" 2>&1
+  await_lifecycle_ready "$project" "$data_dir"
   while IFS=' ' read -r service previous_id; do
     current_id=$(one_shot_id "$project" "$data_dir" "$service")
     test -n "$current_id"
