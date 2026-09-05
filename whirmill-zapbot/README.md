@@ -1,12 +1,28 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.40` also installs its reviewed scripts from the community
+Package revision `0.1.41` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
 installed app's `scripts/` directory unchanged. The hook copies only from an
 exactly matching store manifest, stages and compares every file, and publishes
 a version sentinel last; the Compose bootstrap refuses a mixed script/package
 revision.
+
+This revision stabilizes learning-label retries and causal availability,
+protects normalization bases, validates every consumed aggregation window,
+and corrects research monetary conversion, effective sample size and pipeline
+degradation reporting. Its startup normalization allowlist includes the exact
+new causal-label attestation function, preserving strict inventory checks on
+later restarts.
+
+Passive execution-evidence capture is present with both capability and enable
+switches default-off. It observes existing execution attempts only when
+separately activated; this package creates no additional orders or collection
+admission. A local pre-dispatch quote is not physical venue arrival and order
+acceptance is not a fill. Captures remain unassigned to development or holdout.
+Use the read-only `mix zapbot.cli prod passive-evidence --json` diagnostic to
+verify effective gates and bounded recorder status. Installing this package
+does not implement or authorize the future horizon recommendation.
 
 Operator Posture uses a bounded, pool-safe collection path that preserves
 completed evidence and reports unfinished sources explicitly. Historical
@@ -80,9 +96,9 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `7ab8309d82612bfec6a4bb42e75554cd3ad14352` on native
+reviewed source revision `528e94511a87e18d502f6f80661a783504da8162` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:3ca41fa2f870dd2f4078d5fe5589f4c37ada64eafafd027f8e96524e0eab761c`.
+`sha256:01dd7c13092fc7184836d02d2850e779e6955e970924d2dc1c8ba02a86429b28`.
 Do not substitute `latest` or an unreviewed tag.
 
 Open-position plans carry the canonical continuous exposure reconstructed from
