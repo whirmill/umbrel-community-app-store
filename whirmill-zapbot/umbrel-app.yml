@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.41"
+version: "0.1.42"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,11 +23,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Stabilizes learning-label retries and causal availability, protects
-  normalization bases, validates complete aggregation windows, and corrects
-  research monetary conversion, effective sample size and degradation alerts.
-  Adds bounded passive execution-evidence capture and read-only diagnostics,
-  disabled by default. Updates the startup SQL allowlist for the new causal
-  attestation function so subsequent restarts retain the strict verifier.
-  Passive capture remains off; existing entry mode, execution and risk controls
-  persist across the update and restarts.
+  Corrects the database bootstrap check that prevented upgrades from the
+  previous schema. Startup can provision migration access before the new
+  causal-attestation function exists, then requires its exact contract after
+  migration. Includes the learning stabilization and default-off passive
+  evidence capability from 0.1.41. Existing entry mode, execution and risk
+  controls persist across the update and restarts.
