@@ -1,5 +1,19 @@
 # ZapBot on Umbrel — restart-safe package
 
+Package revision `0.1.43` prepares a genuinely fresh PostgreSQL data directory
+without weakening the existing recovery path. Before migrations it provisions
+only the owner and migrator roles, retains administrator ownership of `vector`
+while historic replay is applied, and uses a migration-session-compatible schema
+creation path. The full role and schema ACL contract remains fail-closed: the
+post-migration bootstrap and verifier must both pass before application
+admission.
+
+Credential initialization completes before the release-SQL exporter runs. The
+exporter then runs before every SQL consumer, exports the reviewed files from
+the immutable image, and requires each consumer to verify their checksums. It
+then permits the ordered migration and full post-migration verification
+sequence.
+
 Package revision `0.1.42` also installs its reviewed scripts from the community
 store during the Umbrel `pre-start` hook. This compensates for the legacy
 updater whitelist, which otherwise refreshes Compose and hooks but leaves an
@@ -103,9 +117,9 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `bc7bf159d07c738fd89bc2df9c0d855428ad60e0` on native
+reviewed source revision `67a77fea388f98e7ce75ad5f6205bdf3e1a7b88e` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:9d7c34c20e26beebbf66ab6eab67ae89945a9db5941bedd8648fcdd062651a1a`.
+`sha256:2c0b6924a5de3176b19fa36c1e0d23bd62e0ebc95cc3179fcfdb966e3a0caf1a`.
 Do not substitute `latest` or an unreviewed tag.
 
 Open-position plans carry the canonical continuous exposure reconstructed from
@@ -144,8 +158,9 @@ All persistent state is under `${APP_DATA_DIR}/data`:
 - `tls/` — separated client CA, server material, and init-only CA signing key;
 - `import/zapbot.dump` — optional PostgreSQL custom-format import;
 - `import/.restored-sha256` — only written after a successful restore;
-- `release-sql/` — exact reviewed `bootstrap_database_roles.sql` and
-  `verify_database_roles.sql` exported from the immutable release image;
+- `release-sql/` — exact reviewed `provision_migration_roles.sql`,
+  `bootstrap_database_roles.sql` and `verify_database_roles.sql` exported from
+  the immutable release image, with SHA-256 checksums and a completion marker;
 - `env/app/config.env` — optional private web configuration;
 - `env/producer-*/config.env` — optional, producer-specific configuration;
 - `env/execution-coverage-acquirer/config.env` — temporary isolated LN Markets
@@ -168,10 +183,11 @@ secrets.
 ## Bootstrap and migration sequence
 
 PostgreSQL starts with TLS but no host port. The release-SQL exporter copies
-only `/app/lib/api-*/priv/sql/bootstrap_database_roles.sql` and
-`verify_database_roles.sql`; it fails if the release image does not contain
-exactly one matching source directory. Optional restore, restored-object
-ownership normalization, role bootstrap, one-shot migration, then
+only `provision_migration_roles.sql`, `bootstrap_database_roles.sql` and
+`verify_database_roles.sql` from `/app/lib/api-*/priv/sql`; it fails if the release
+image does not contain exactly one matching source directory. Each SQL consumer
+verifies the exported checksums before use. Optional restore, restored-object
+ownership normalization, migration-role provisioning, one-shot migration, then
 post-migration bootstrap/verifier run in that order. All jobs fail closed and
 are safe to repeat:
 
@@ -187,13 +203,18 @@ are safe to repeat:
 3. A one-shot credential initializer derives a distinct password per LOGIN
    role from a validated non-empty Umbrel app seed and writes only
    service-scoped `0600` files.
-   The owner is `NOLOGIN`; the migrator is
-   the sole non-admin member of it. PostgreSQL creates `vector`, `pgcrypto`,
-   and `pg_stat_statements`, then executes the official bootstrap and verifier
-   as the PostgreSQL administrator.
+   The administrator creates `vector`, `pgcrypto` and `pg_stat_statements`,
+   then runs the migration-only provisioner. It creates or hardens only the
+   `NOLOGIN` owner and non-superuser migrator. Runtime, evaluator and producer
+   roles are created by the full bootstrap after migrations; a partially
+   populated existing role inventory is rejected before provisioning.
 4. Migrations use only `zapbot_migrator` plus `SET ROLE zapbot_owner`; the web
-   runtime never receives a migration URL.
-5. The post-migration step reruns the official bootstrap and verifier as the
+   runtime never receives a migration URL. Their connection uses
+   `search_path=public,pg_temp` so historical unqualified DDL creates application
+   objects in `public`, while PostgreSQL still searches the implicitly included
+   catalog first. Persisted role defaults and runtime search paths remain
+   unchanged. See the [PostgreSQL search-path contract](https://www.postgresql.org/docs/18/runtime-config-client.html#GUC-SEARCH-PATH).
+5. The post-migration step runs the full official bootstrap and verifier as the
    PostgreSQL administrator. It does not alter `internal_settings` or force a
    trading mode. The web healthcheck verifies application readiness, live
    process state and non-observation mode without rewriting the persisted
@@ -202,6 +223,20 @@ are safe to repeat:
 Do not put an import dump in place while another authoritative ZapBot stack is
 still writing to it. This descriptor has no replication, dual-write, traffic
 cutover, rollback, or order-management authority.
+
+Package regression checks run from the Store repository root:
+
+```sh
+sh tests/zapbot-release-sql.sh
+sh tests/zapbot-bootstrap-export-order.sh
+```
+
+They exercise the actual exporter and credential initializer in disposable
+containers, including an absent data directory, repeat startup and corrupted or
+incomplete exports. The `ZapBot package tests` workflow runs both on package PRs.
+The source repository separately verifies fresh, existing-schema upgrade and
+ownerless restore through the migration role and full administrative verifier;
+its CI pins the reviewed Store normalizer used for that restore test.
 
 ## Explicit application admission
 
