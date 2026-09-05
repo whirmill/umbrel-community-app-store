@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.42"
+version: "0.1.43"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,9 +23,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Corrects the database bootstrap check that prevented upgrades from the
-  previous schema. Startup can provision migration access before the new
-  causal-attestation function exists, then requires its exact contract after
-  migration. Includes the learning stabilization and default-off passive
-  evidence capability from 0.1.41. Existing entry mode, execution and risk
-  controls persist across the update and restarts.
+  Adds fresh-database bootstrap support. Startup prepares only migration roles,
+  retains administrator ownership of vector across historic replay, and creates
+  schemas compatibly in the migration session. Role and schema ACL checks fail
+  closed. Credential initialization precedes release-SQL export, and SQL
+  consumers verify checksums; post-migration bootstrap and verification then
+  require the full least-privilege contract.

@@ -1,0 +1,37 @@
+name: ZapBot package tests
+
+on:
+  pull_request:
+    paths:
+      - 'whirmill-zapbot/**'
+      - 'tests/zapbot-*.sh'
+      - '.github/workflows/zapbot-package-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check script syntax
+        run: sh -n whirmill-zapbot/scripts/export-release-sql.sh tests/zapbot-release-sql.sh tests/zapbot-bootstrap-export-order.sh
+      - name: Verify SQL export and failure handling
+        run: sh tests/zapbot-release-sql.sh
+      - name: Verify initialization order with absent data directory and repeat
+        run: sh tests/zapbot-bootstrap-export-order.sh
+      - name: Verify immutable image through fresh, restore and restart package lifecycles
+        run: |
+          ZAPBOT_PACKAGE_IMAGE="$(yq e '.services.migrate.image' whirmill-zapbot/docker-compose.yml)" \
+          ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT="$RUNNER_TEMP/zapbot-package-lifecycle.log" \
+            sh tests/zapbot-package-lifecycle.sh
+      - name: Preserve package lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zapbot-package-lifecycle
+          path: ${{ runner.temp }}/zapbot-package-lifecycle.log
+          if-no-files-found: ignore
