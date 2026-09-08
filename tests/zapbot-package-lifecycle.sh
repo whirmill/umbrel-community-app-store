@@ -26,6 +26,8 @@ done
 
 package_version=${ZAPBOT_PACKAGE_VERSION:-$(awk -F'"' '/^version: / { print $2; exit }' "$package_root/umbrel-app.yml")}
 test -n "$package_version"
+expected_schema_migrations_count=228
+expected_schema_migrations_latest_version=20260908100000
 : "${ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT:?set ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT to a new absolute log path outside the disposable fixture}"
 receipt=$ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT
 case "$receipt" in /*) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT must be an absolute path' >&2; exit 64 ;; esac
@@ -276,7 +278,8 @@ assert_postgres_secret_readable() {
 assert_final_state() {
   project=$1
   data_dir=$2
-  test "$(pg_query "$project" "$data_dir" 'SELECT count(*) FROM public.schema_migrations')" = '227'
+  test "$(pg_query "$project" "$data_dir" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
+  test "$(pg_query "$project" "$data_dir" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
   test "$(pg_query "$project" "$data_dir" "SELECT (to_regprocedure('public.validate_forward_return_label_causal_attestation()') IS NOT NULL)::text || ':' || (EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'learning_forward_return_labels_v2_causal_attestation_guard'))::text")" = 'true:true'
   compose "$project" "$data_dir" logs normalize-and-verify | grep -F 'verification_safe= t' >/dev/null
   assert_export_matches_image "$data_dir"
@@ -370,6 +373,39 @@ repeat_package() {
   assert_final_state "$project" "$data_dir"
 }
 
+assert_restore_normalizer_rejects_tampered_freeze() {
+  project=$1
+  data_dir=$2
+  freeze_signature='public.freeze_h4_canary_frozen_budget(text,text,bigint,text,jsonb)'
+
+  pg_exec "$project" "$data_dir" "ALTER FUNCTION $freeze_signature SET search_path TO pg_catalog"
+  if compose "$project" "$data_dir" run --rm --no-deps restore-ownership-normalize >>"$receipt" 2>&1; then
+    echo 'restore normalizer accepted the freeze function with an altered search_path' >&2
+    exit 1
+  fi
+
+  pg_exec "$project" "$data_dir" "ALTER FUNCTION $freeze_signature SET search_path TO pg_catalog, public"
+  pg_exec "$project" "$data_dir" '
+    CREATE OR REPLACE FUNCTION public.freeze_h4_canary_frozen_budget(
+      p_account_id text, p_budget_epoch text, p_frozen_capital_sats bigint,
+      p_idempotency_key text, p_baseline_evidence jsonb
+    ) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path = pg_catalog, public
+    AS $freeze$
+    BEGIN
+      RETURN NULL;
+    END
+    $freeze$
+  '
+  if compose "$project" "$data_dir" run --rm --no-deps restore-ownership-normalize >>"$receipt" 2>&1; then
+    echo 'restore normalizer accepted the freeze function with an altered body' >&2
+    exit 1
+  fi
+
+  log 'restore_normalizer_freeze_tamper_rejection=pass'
+}
+
 migrate_source_to_224() {
   project=$1
   data_dir=$2
@@ -402,6 +438,7 @@ start_full_package "$fresh_project" "$fresh_data"
 pg_exec "$fresh_project" "$fresh_data" "INSERT INTO public.internal_settings (key, value, inserted_at, updated_at) VALUES ('package_lifecycle_sentinel', 'enabled', clock_timestamp(), clock_timestamp()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at"
 repeat_package "$fresh_project" "$fresh_data"
 test "$(pg_query "$fresh_project" "$fresh_data" "SELECT value FROM public.internal_settings WHERE key = 'package_lifecycle_sentinel'")" = 'enabled'
+assert_restore_normalizer_rejects_tampered_freeze "$fresh_project" "$fresh_data"
 
 if [ "$run_restore_224" = 1 ]; then
   prepare_scripts "$source224_data"

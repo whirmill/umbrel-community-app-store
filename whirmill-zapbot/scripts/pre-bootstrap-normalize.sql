@@ -24,6 +24,9 @@ DO $$
 DECLARE
   allowed_security_definer_functions oid[] := pg_catalog.array_remove(
     ARRAY[
+      pg_catalog.to_regprocedure(
+        'public.freeze_h4_canary_frozen_budget(text,text,bigint,text,jsonb)'
+      )::oid,
       pg_catalog.to_regprocedure('public.guard_attested_causal_event_correction()')::oid,
       pg_catalog.to_regprocedure('public.record_causal_event_producer_receipt()')::oid,
       pg_catalog.to_regprocedure('public.validate_forward_return_label_causal_attestation()')::oid,
@@ -57,15 +60,38 @@ DECLARE
     ],
     NULL
   );
+  freeze_function oid := pg_catalog.to_regprocedure(
+    'public.freeze_h4_canary_frozen_budget(text,text,bigint,text,jsonb)'
+  );
+  freeze_function_reviewed boolean;
   reviewed_count integer;
 BEGIN
+  -- This normalizer precedes migrations on an empty or 224 restore. Once the
+  -- M1b function exists, however, accept only its exact reviewed contract.
+  IF freeze_function IS NULL THEN
+    freeze_function_reviewed := true;
+  ELSE
+    SELECT
+      function.prosecdef
+        AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+        AND pg_catalog.encode(
+          pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')),
+          'hex'
+        ) = '20c7eb1b056883ce6e80a2f34a5dd7f077c50004e521d606d4554c33efea6169'
+    INTO freeze_function_reviewed
+    FROM pg_catalog.pg_proc function
+    WHERE function.oid = freeze_function;
+  END IF;
+
   SELECT count(*)
   INTO reviewed_count
   FROM pg_catalog.pg_proc function
   WHERE function.oid = ANY (allowed_security_definer_functions)
     AND function.prosecdef;
 
-  IF reviewed_count <> pg_catalog.cardinality(allowed_security_definer_functions) OR EXISTS (
+  IF reviewed_count <> pg_catalog.cardinality(allowed_security_definer_functions)
+     OR freeze_function_reviewed IS NOT TRUE
+     OR EXISTS (
     SELECT 1
     FROM pg_catalog.pg_proc function
     JOIN pg_catalog.pg_namespace namespace ON namespace.oid = function.pronamespace
