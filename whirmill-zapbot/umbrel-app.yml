@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.45"
+version: "0.1.46"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,7 +23,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Adds read-only canonical H4 canary budget readiness: the receipt records the
-  explicit total balance and conditionally available balance, with a complete
-  fees and funding receipt. It does not activate trading; policy remains
-  disabled.
+  Prepares dormant H4 canary policy admission with persisted provenance and
+  atomic one-position reservation binding. It remains default-disabled and
+  preserves manage_only; no trading activation is performed.
