@@ -462,20 +462,40 @@ fixture_state_marker() {
   data_dir=$2
   action=$3
   marker=$4
+  marker_path="$data_dir/data/state/$marker"
   case "$marker" in
     app-enabled|producer-lnmarkets-candles-enabled|producer-coinbase-candles-enabled|producer-lnmarkets-funding-enabled|producer-risk-authority-snapshot-enabled) ;;
     *) echo "unexpected fixture state marker: $marker" >&2; exit 64 ;;
   esac
   # The app/producers mount state read-only. Use the same root-owned bootstrap
-  # service that owns fixture data initialization, without invoking its normal
-  # credential-writing entrypoint or weakening host permissions.
-  compose "$project" "$data_dir" run --rm --no-deps --user 0:0 --entrypoint /bin/sh credential-init -ec "
+  # service that owns fixture data initialization, with an explicit nested bind
+  # to the exact APP_DATA_DIR/data/state path consumed by rollback. This avoids
+  # a Compose-run data-volume resolution from producing an unobserved marker.
+  compose "$project" "$data_dir" run --rm --no-deps --user 0:0 \
+    --volume "$data_dir/data/state:/data/state" \
+    --entrypoint /bin/sh credential-init -ec "
     case \"$action\" in
       create) : > /data/state/$marker ;;
       remove) rm -f /data/state/$marker ;;
       *) exit 64 ;;
     esac
   " >>"$receipt" 2>&1
+
+  web_id=$(compose "$project" "$data_dir" ps -q whirmill-zapbot-web)
+  test -n "$web_id"
+  mounted_state=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/state"}}{{.Source}}{{end}}{{end}}' "$web_id")
+  expected_state=$(CDPATH= cd -- "$data_dir/data/state" && pwd -P)
+  test "$mounted_state" = "$expected_state"
+  case "$action" in
+    create)
+      test -f "$marker_path"
+      compose "$project" "$data_dir" exec -T whirmill-zapbot-web /bin/sh -ec "test -f /state/$marker"
+      ;;
+    remove)
+      test ! -e "$marker_path"
+      compose "$project" "$data_dir" exec -T whirmill-zapbot-web /bin/sh -ec "test ! -e /state/$marker"
+      ;;
+  esac
 }
 
 assert_marker_after_rollback_stays_fenced() {
