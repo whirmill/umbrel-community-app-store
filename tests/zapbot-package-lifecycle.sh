@@ -6,9 +6,11 @@ set -eu
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 package_root=${ZAPBOT_PACKAGE_ROOT:-"$repo_root/whirmill-zapbot"}
 package_compose="$package_root/docker-compose.yml"
+rollback_compose="$package_root/docker-compose.rollback-0.1.46.yml"
 
 : "${ZAPBOT_PACKAGE_IMAGE:?set ZAPBOT_PACKAGE_IMAGE to ghcr.io/...@sha256:<64 lowercase hex>}"
 image=$ZAPBOT_PACKAGE_IMAGE
+legacy_image='ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e'
 case "$image" in
   *@sha256:*) ;;
   *) echo 'ZAPBOT_PACKAGE_IMAGE must be an immutable image digest reference' >&2; exit 64 ;;
@@ -19,15 +21,16 @@ if ! printf '%s' "$image" | grep -Eq '@sha256:[0-9a-f]{64}$'; then
 fi
 
 test -f "$package_compose"
+test -f "$rollback_compose"
 test -x "$package_root/hooks/pre-start"
-for script in export-release-sql.sh pre-bootstrap-normalize.sql runtime-env.sh recover-execution-economics-handoff.sh; do
+for script in export-release-sql.sh pre-bootstrap-normalize.sql runtime-env.sh recover-execution-economics-handoff.sh rollback-0.1.46.sh; do
   test -s "$package_root/scripts/$script"
 done
 
 package_version=${ZAPBOT_PACKAGE_VERSION:-$(awk -F'"' '/^version: / { print $2; exit }' "$package_root/umbrel-app.yml")}
 test -n "$package_version"
-expected_schema_migrations_count=229
-expected_schema_migrations_latest_version=20260909100000
+expected_schema_migrations_count=230
+expected_schema_migrations_latest_version=20260910100000
 : "${ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT:?set ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT to a new absolute log path outside the disposable fixture}"
 receipt=$ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT
 case "$receipt" in /*) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT must be an absolute path' >&2; exit 64 ;; esac
@@ -37,7 +40,7 @@ if [ -e "$receipt" ]; then
 fi
 mkdir -p "$(dirname "$receipt")"
 : > "$receipt"
-run_restore_224=${ZAPBOT_PACKAGE_TEST_RESTORE_224:-1}
+run_restore_224=${ZAPBOT_PACKAGE_TEST_RESTORE_224:-0}
 case "$run_restore_224" in 0|1) ;; *) echo 'ZAPBOT_PACKAGE_TEST_RESTORE_224 must be 0 or 1' >&2; exit 64 ;; esac
 keep_failure_fixture=${ZAPBOT_PACKAGE_LIFECYCLE_KEEP_FAILURE_FIXTURE:-0}
 case "$keep_failure_fixture" in 0|1) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_KEEP_FAILURE_FIXTURE must be 0 or 1' >&2; exit 64 ;; esac
@@ -54,9 +57,11 @@ project_base="zapbot-package-lifecycle-$$"
 fresh_project="${project_base}-fresh"
 source224_project="${project_base}-source224"
 restore_project="${project_base}-restore"
+upgrade229_project="${project_base}-upgrade229"
 fresh_data="$fixture_dir/fresh-app"
 source224_data="$fixture_dir/source224-app"
 restore_data="$fixture_dir/restore-app"
+upgrade229_data="$fixture_dir/upgrade229-app"
 
 log() {
   printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$receipt"
@@ -73,6 +78,30 @@ compose() {
       -f "$fixture_dir/$project.override.yml" "$@"
 }
 
+compose_rollback() {
+  project=$1
+  data_dir=$2
+  shift 2
+  APP_DATA_DIR="$data_dir" APP_VERSION="$package_version" \
+    APP_SEED='zapbot-package-lifecycle-dummy-seed-not-a-secret-0001' \
+    docker compose -p "$project" \
+      -f "$package_compose" \
+      -f "$rollback_compose" \
+      -f "$fixture_dir/$project.override.yml" "$@"
+}
+
+compose_legacy_migrate() {
+  project=$1
+  data_dir=$2
+  shift 2
+  APP_DATA_DIR="$data_dir" APP_VERSION="$package_version" \
+    APP_SEED='zapbot-package-lifecycle-dummy-seed-not-a-secret-0001' \
+    docker compose -p "$project" \
+      -f "$package_compose" \
+      -f "$fixture_dir/$project.override.yml" \
+      -f "$fixture_dir/legacy-migrate.override.yml" "$@"
+}
+
 write_override() {
   project=$1
   cat > "$fixture_dir/$project.override.yml" <<YAML
@@ -83,6 +112,14 @@ services:
     container_name: ${project}-postgres
   whirmill-zapbot-web:
     container_name: ${project}-web
+YAML
+}
+
+write_legacy_migrate_override() {
+  cat > "$fixture_dir/legacy-migrate.override.yml" <<YAML
+services:
+  migrate:
+    image: ${legacy_image}
 YAML
 }
 
@@ -102,6 +139,20 @@ assert_package_image_pins() {
   attestor_command=$(printf '%s' "$config_json" | jq -r '.services["trusted-v2-attestor"].command | join(" ")')
   expected_digest=${image##*@}
   printf '%s\n' "$attestor_command" | grep -F "ZAPBOT_RELEASE_IMAGE_DIGEST=$expected_digest" >/dev/null
+}
+
+assert_rollback_image_split() {
+  project=$1
+  data_dir=$2
+  config_json=$(COMPOSE_PROFILES='trusted-v2-ops,execution-economics-ops' compose_rollback "$project" "$data_dir" config --format json)
+  for service in whirmill-zapbot-web producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-risk-authority-snapshot; do
+    configured_image=$(printf '%s' "$config_json" | jq -r --arg service "$service" '.services[$service].image // empty')
+    test "$configured_image" = "$legacy_image"
+  done
+  for service in release-sql-export migrate trusted-v2-sealer trusted-v2-attestor trusted-v2-report-writer execution-coverage-acquirer execution-economics-producer; do
+    configured_image=$(printf '%s' "$config_json" | jq -r --arg service "$service" '.services[$service].image // empty')
+    test "$configured_image" = "$image"
+  done
 }
 
 assert_canonical_fixture_binds() {
@@ -131,7 +182,7 @@ prepare_scripts() {
   APP_DATA_DIR="$data_dir" APP_VERSION="$package_version" \
     SCRIPT_APP_REPO_DIR="$package_root" "$package_root/hooks/pre-start"
   test "$(cat "$data_dir/scripts/.package-version")" = "$package_version"
-  for script in export-release-sql.sh pre-bootstrap-normalize.sql runtime-env.sh recover-execution-economics-handoff.sh; do
+  for script in export-release-sql.sh pre-bootstrap-normalize.sql runtime-env.sh recover-execution-economics-handoff.sh rollback-0.1.46.sh; do
     cmp "$package_root/scripts/$script" "$data_dir/scripts/$script"
   done
 }
@@ -166,6 +217,7 @@ cleanup_projects() {
   cleanup_project "$fresh_project" "$fresh_data"
   cleanup_project "$source224_project" "$source224_data"
   cleanup_project "$restore_project" "$restore_data"
+  cleanup_project "$upgrade229_project" "$upgrade229_data"
 }
 
 remove_fixture() {
@@ -185,6 +237,7 @@ on_exit() {
     capture_project_failure "$fresh_project" "$fresh_data"
     capture_project_failure "$source224_project" "$source224_data"
     capture_project_failure "$restore_project" "$restore_data"
+    capture_project_failure "$upgrade229_project" "$upgrade229_data"
   fi
   cleanup_projects
   if [ "$exit_status" -eq 0 ] || [ "$keep_failure_fixture" = 0 ]; then
@@ -332,6 +385,188 @@ start_full_package() {
   assert_final_state "$project" "$data_dir"
 }
 
+start_compatibility_rollback() {
+  project=$1
+  data_dir=$2
+  log "starting actual installed schema-230 compatibility rollback script project=$project"
+  (
+    unset APP_SEED
+    APP_DATA_DIR="$data_dir" \
+      ZAPBOT_PACKAGE_COMPOSE="$package_compose" \
+      COMPOSE_PROJECT_NAME="$project" \
+      "$data_dir/scripts/rollback-0.1.46.sh"
+  ) >>"$receipt" 2>&1
+  await_lifecycle_ready "$project" "$data_dir"
+  assert_rollback_final_state "$project" "$data_dir"
+  assert_rollback_image_split "$project" "$data_dir"
+  for service in whirmill-zapbot-web producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-risk-authority-snapshot; do
+    container_id=$(compose_rollback "$project" "$data_dir" ps -q "$service")
+    test -n "$container_id"
+    test "$(docker inspect -f '{{.Config.Image}}' "$container_id")" = "$legacy_image"
+  done
+  for service in release-sql-export migrate; do
+    container_id=$(compose_rollback "$project" "$data_dir" ps -aq "$service" | tail -n 1)
+    test -n "$container_id"
+    test "$(docker inspect -f '{{.Config.Image}}' "$container_id")" = "$image"
+  done
+}
+
+run_partial_legacy_split() {
+  project=$1
+  data_dir=$2
+  log "creating intentional partial 0.1.46 split project=$project"
+  compose_rollback "$project" "$data_dir" up -d --no-deps --force-recreate \
+    whirmill-zapbot-web producer-lnmarkets-candles >>"$receipt" 2>&1
+  for service in whirmill-zapbot-web producer-lnmarkets-candles; do
+    container_id=$(compose_rollback "$project" "$data_dir" ps -q "$service")
+    test "$(docker inspect -f '{{.Config.Image}}' "$container_id")" = "$legacy_image"
+  done
+  for service in producer-coinbase-candles producer-lnmarkets-funding producer-risk-authority-snapshot; do
+    container_id=$(compose "$project" "$data_dir" ps -q "$service")
+    test "$(docker inspect -f '{{.Config.Image}}' "$container_id")" = "$image"
+  done
+  log 'intentional_partial_legacy_split=pass'
+}
+
+assert_rollback_fenced_services() {
+  project=$1
+  data_dir=$2
+  for service in whirmill-zapbot-web producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-risk-authority-snapshot; do
+    container_id=$(compose_rollback "$project" "$data_dir" ps -q "$service")
+    test -n "$container_id"
+    test "$(docker inspect -f '{{.State.Status}}:{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")" = 'running:healthy'
+    case "$service" in
+      whirmill-zapbot-web) expected_process=tail ;;
+      *) expected_process=sleep ;;
+    esac
+    compose_rollback "$project" "$data_dir" exec -T "$service" /bin/sh -ec "
+      ps -o comm | grep -Fx $expected_process >/dev/null
+      ! ps -o comm | grep -Eq '^(beam|beam.smp|elixir)$'
+    "
+  done
+}
+
+assert_rollback_final_state() {
+  project=$1
+  data_dir=$2
+  test "$(pg_query "$project" "$data_dir" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
+  test "$(pg_query "$project" "$data_dir" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
+  compose "$project" "$data_dir" logs normalize-and-verify | grep -F 'verification_safe= t' >/dev/null
+  assert_export_matches_image "$data_dir"
+  assert_postgres_secret_readable "$project" "$data_dir"
+  assert_rollback_fenced_services "$project" "$data_dir"
+}
+
+assert_marker_after_rollback_stays_fenced() {
+  project=$1
+  data_dir=$2
+  for marker in app-enabled producer-lnmarkets-candles-enabled producer-coinbase-candles-enabled producer-lnmarkets-funding-enabled producer-risk-authority-snapshot-enabled; do
+    touch "$data_dir/data/state/$marker"
+  done
+  sleep 2
+  assert_rollback_fenced_services "$project" "$data_dir"
+  rm -f "$data_dir/data/state/"*-enabled
+  log 'rollback_marker_after_replacement_stays_fenced=pass'
+}
+
+assert_all_legacy_retry_is_verification_only() {
+  project=$1
+  data_dir=$2
+  ids_file="$fixture_dir/$project.legacy-ids"
+  : > "$ids_file"
+  for service in whirmill-zapbot-web producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-risk-authority-snapshot; do
+    printf '%s %s\n' "$service" "$(compose_rollback "$project" "$data_dir" ps -q "$service")" >>"$ids_file"
+  done
+  start_compatibility_rollback "$project" "$data_dir"
+  while IFS=' ' read -r service before_id; do
+    test "$(compose_rollback "$project" "$data_dir" ps -q "$service")" = "$before_id"
+  done < "$ids_file"
+  grep -F 'rollback_0_1_46_verification_only=pass' "$receipt" >/dev/null
+  log 'all_legacy_retry_verification_only=pass'
+}
+
+assert_exited_target_retry_recovers() {
+  project=$1
+  data_dir=$2
+  service=$3
+  expected_image=$4
+  label=$5
+  if [ "$expected_image" = "$image" ]; then
+    compose "$project" "$data_dir" up -d --no-deps --force-recreate "$service" >>"$receipt" 2>&1
+  fi
+  container_id=$(compose_rollback "$project" "$data_dir" ps -q "$service")
+  test -n "$container_id"
+  test "$(docker inspect -f '{{.Config.Image}}:{{.State.Status}}' "$container_id")" = "$expected_image:running"
+  docker stop "$container_id" >>"$receipt" 2>&1
+  test "$(docker inspect -f '{{.Config.Image}}:{{.State.Status}}' "$container_id")" = "$expected_image:exited"
+  start_compatibility_rollback "$project" "$data_dir"
+  assert_identity_contract "$project" "$data_dir"
+  log "$label=pass"
+}
+
+assert_current_runtime_image_split() {
+  project=$1
+  data_dir=$2
+  for service in whirmill-zapbot-web producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-risk-authority-snapshot; do
+    container_id=$(compose "$project" "$data_dir" ps -q "$service")
+    test -n "$container_id"
+    test "$(docker inspect -f '{{.Config.Image}}:{{.State.Status}}' "$container_id")" = "$image:running"
+  done
+  for service in release-sql-export migrate normalize-and-verify; do
+    container_id=$(compose "$project" "$data_dir" ps -aq "$service" | tail -n 1)
+    test -n "$container_id"
+    test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$container_id")" = 'exited:0'
+  done
+}
+
+assert_installed_rollback_refuses_enabled_marker() {
+  project=$1
+  data_dir=$2
+  touch "$data_dir/data/state/app-enabled"
+  if (
+    unset APP_SEED
+    APP_DATA_DIR="$data_dir" \
+      ZAPBOT_PACKAGE_COMPOSE="$package_compose" \
+      COMPOSE_PROJECT_NAME="$project" \
+      "$data_dir/scripts/rollback-0.1.46.sh"
+  ) >>"$receipt" 2>&1; then
+    echo 'installed rollback accepted an enabled app marker' >&2
+    exit 1
+  fi
+  rm -f "$data_dir/data/state/app-enabled"
+  assert_current_runtime_image_split "$project" "$data_dir"
+  log 'installed_rollback_enabled_marker_refusal=pass'
+}
+
+record_identity_observation() {
+  project=$1
+  data_dir=$2
+  pg_exec "$project" "$data_dir" "
+    DO \$\$
+    BEGIN
+      SET LOCAL ROLE zapbot_runtime;
+      PERFORM * FROM public.record_lnmarkets_account_identity_observation(
+        'default', '00000000-0000-4000-8000-000000000147', 'lifecycle-account-0147', 'ok', clock_timestamp()
+      );
+    END
+    \$\$
+  "
+}
+
+assert_identity_contract() {
+  project=$1
+  data_dir=$2
+  test "$(pg_query "$project" "$data_dir" "
+    SELECT
+      (SELECT count(*) FROM public.lnmarkets_account_scope_bindings)::text || ':' ||
+      (SELECT count(*) FROM public.lnmarkets_account_identity_observations)::text || ':' ||
+      (SELECT status FROM public.lnmarkets_account_identity_status('default')) || ':' ||
+      (SELECT account_id FROM public.lnmarkets_account_identity_status('default')) || ':' ||
+      (SELECT count(*) FROM pg_trigger WHERE tgname IN ('lnmarkets_account_scope_bindings_immutable', 'lnmarkets_account_scope_bindings_truncate_guard', 'lnmarkets_account_identity_observations_immutable', 'lnmarkets_account_identity_observations_truncate_guard') AND tgenabled = 'A')::text
+  ")" = '1:1:ok:lifecycle-account-0147:4'
+  test "$(pg_query "$project" "$data_dir" "SELECT has_function_privilege('zapbot_runtime', 'public.record_lnmarkets_account_identity_observation(text,text,text,text,timestamp with time zone)', 'EXECUTE')::text || ':' || has_function_privilege('zapbot_runtime', 'public.lnmarkets_account_identity_status(text)', 'EXECUTE')::text")" = 'true:true'
+}
+
 one_shot_id() {
   project=$1
   data_dir=$2
@@ -422,10 +657,19 @@ migrate_source_to_224() {
   ' >>"$receipt" 2>&1
 }
 
-for project in "$fresh_project" "$source224_project" "$restore_project"; do
+migrate_source_to_229() {
+  project=$1
+  data_dir=$2
+  log 'migrating clean package source only to schema ledger 20260909100000 with the immutable 0.1.46 image'
+  compose_legacy_migrate "$project" "$data_dir" run --rm --no-deps migrate >>"$receipt" 2>&1
+}
+
+for project in "$fresh_project" "$source224_project" "$restore_project" "$upgrade229_project"; do
   write_override "$project"
 done
+write_legacy_migrate_override
 assert_package_image_pins "$fresh_project" "$fresh_data"
+assert_rollback_image_split "$upgrade229_project" "$upgrade229_data"
 assert_canonical_fixture_binds "$restore_project" "$restore_data"
 
 # Pull exactly the supplied digest before creating any containers. A mutable tag
@@ -439,6 +683,34 @@ pg_exec "$fresh_project" "$fresh_data" "INSERT INTO public.internal_settings (ke
 repeat_package "$fresh_project" "$fresh_data"
 test "$(pg_query "$fresh_project" "$fresh_data" "SELECT value FROM public.internal_settings WHERE key = 'package_lifecycle_sentinel'")" = 'enabled'
 assert_restore_normalizer_rejects_tampered_freeze "$fresh_project" "$fresh_data"
+
+# This is an upgrade without any restore dump: create schema 229 using the
+# immutable 0.1.46 release, advance it with 0.1.47, write an identity receipt
+# through the runtime grant, then run only the old long-lived services.
+prepare_scripts "$upgrade229_data"
+log 'starting current release/bootstrap chain before the 229-to-230 compatibility upgrade'
+run_one_shot "$upgrade229_project" "$upgrade229_data" migration-role-provision
+migrate_source_to_229 "$upgrade229_project" "$upgrade229_data"
+test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = '229'
+test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = '20260909100000'
+log 'advancing the populated 229 schema to 230 with the immutable 0.1.47 migration image'
+compose "$upgrade229_project" "$upgrade229_data" run --rm --no-deps migrate >>"$receipt" 2>&1
+test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
+test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
+run_one_shot "$upgrade229_project" "$upgrade229_data" normalize-and-verify
+record_identity_observation "$upgrade229_project" "$upgrade229_data"
+assert_identity_contract "$upgrade229_project" "$upgrade229_data"
+start_full_package "$upgrade229_project" "$upgrade229_data"
+assert_current_runtime_image_split "$upgrade229_project" "$upgrade229_data"
+assert_installed_rollback_refuses_enabled_marker "$upgrade229_project" "$upgrade229_data"
+run_partial_legacy_split "$upgrade229_project" "$upgrade229_data"
+start_compatibility_rollback "$upgrade229_project" "$upgrade229_data"
+assert_identity_contract "$upgrade229_project" "$upgrade229_data"
+assert_marker_after_rollback_stays_fenced "$upgrade229_project" "$upgrade229_data"
+assert_all_legacy_retry_is_verification_only "$upgrade229_project" "$upgrade229_data"
+assert_exited_target_retry_recovers "$upgrade229_project" "$upgrade229_data" producer-coinbase-candles "$image" exited_current_target_retry_recovers
+assert_exited_target_retry_recovers "$upgrade229_project" "$upgrade229_data" whirmill-zapbot-web "$legacy_image" exited_legacy_target_retry_recovers
+log 'schema_230_populated_identity_0_1_46_compatibility_rollback=pass'
 
 if [ "$run_restore_224" = 1 ]; then
   prepare_scripts "$source224_data"

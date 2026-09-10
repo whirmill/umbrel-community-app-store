@@ -1,0 +1,36 @@
+# Compatibility rollback only: keep the 0.1.47 release SQL export, migration,
+# normalization, and verifier from docker-compose.yml. This file swaps only
+# the long-lived application and continuous producer processes to 0.1.46.
+services:
+  whirmill-zapbot-web:
+    image: ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e
+    # Never read an enable marker in rollback mode. This safe idle process is
+    # deliberate: a marker created after preflight cannot start a BEAM runtime.
+    command: [/bin/sh, -ec, 'exec tail -f /dev/null']
+    healthcheck:
+      disable: false
+      test: [CMD-SHELL, 'ps -o comm | grep -Fx tail >/dev/null']
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 2s
+
+  producer-lnmarkets-candles:
+    image: ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e
+    command: [/bin/sh, -ec, 'exec sleep 2147483647']
+    healthcheck: {disable: false, test: [CMD-SHELL, 'ps -o comm | grep -Fx sleep >/dev/null'], interval: 5s, timeout: 5s, retries: 6, start_period: 2s}
+
+  producer-coinbase-candles:
+    image: ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e
+    command: [/bin/sh, -ec, 'exec sleep 2147483647']
+    healthcheck: {disable: false, test: [CMD-SHELL, 'ps -o comm | grep -Fx sleep >/dev/null'], interval: 5s, timeout: 5s, retries: 6, start_period: 2s}
+
+  producer-lnmarkets-funding:
+    image: ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e
+    command: [/bin/sh, -ec, 'exec sleep 2147483647']
+    healthcheck: {disable: false, test: [CMD-SHELL, 'ps -o comm | grep -Fx sleep >/dev/null'], interval: 5s, timeout: 5s, retries: 6, start_period: 2s}
+
+  producer-risk-authority-snapshot:
+    image: ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e
+    command: [/bin/sh, -ec, 'exec sleep 2147483647']
+    healthcheck: {disable: false, test: [CMD-SHELL, 'ps -o comm | grep -Fx sleep >/dev/null'], interval: 5s, timeout: 5s, retries: 6, start_period: 2s}
