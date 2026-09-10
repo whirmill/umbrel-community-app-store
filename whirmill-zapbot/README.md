@@ -1,12 +1,16 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.43` prepares a genuinely fresh PostgreSQL data directory
-without weakening the existing recovery path. Before migrations it provisions
-only the owner and migrator roles, retains administrator ownership of `vector`
-while historic replay is applied, and uses a migration-session-compatible schema
-creation path. The full role and schema ACL contract remains fail-closed: the
-post-migration bootstrap and verifier must both pass before application
-admission.
+Package revision `0.1.47` pins ZapBot source revision
+`a825a10f1af60256040e60312a914f16f4f9661e`. Its released schema ledger has
+230 migrations through `20260910100000_create_lnm_account_identity_bindings`.
+Account-identity collection is automatic from the authenticated LN Markets
+account read. H4 admission remains default-disabled and `manage_only`; this
+package does not activate trading. It retains the fresh PostgreSQL data directory
+path without weakening recovery: before migrations it provisions only the owner
+and migrator roles, retains administrator ownership of `vector` while historic
+replay is applied, and uses a migration-session-compatible schema creation path.
+The full role and schema ACL contract remains fail-closed: the post-migration
+bootstrap and verifier must both pass before application admission.
 
 Credential initialization completes before the release-SQL exporter runs. The
 exporter then runs before every SQL consumer, exports the reviewed files from
@@ -117,10 +121,48 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `67a77fea388f98e7ce75ad5f6205bdf3e1a7b88e` on native
+reviewed source revision `a825a10f1af60256040e60312a914f16f4f9661e` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:2c0b6924a5de3176b19fa36c1e0d23bd62e0ebc95cc3179fcfdb966e3a0caf1a`.
+`sha256:6b610b85864d7f8b96630ce9a2889efab7e54cd154e78e8a1751de29904adfed`.
 Do not substitute `latest` or an unreviewed tag.
+
+## Compatibility rollback to 0.1.46
+
+The package provides a compatibility rollback for the 0.1.46 long-lived web
+runtime and four continuous producers. It keeps the 0.1.47 release-SQL export,
+migration, bootstrap and verifier path, so the database remains at schema 230
+and preserves both account-identity tables, observations, functions and
+immutable triggers. It never drops data, runs a down migration, or changes a
+persisted authority setting.
+
+Use it only after confirming `manage_only`, entry mode, H4 admission and every
+producer marker are disabled. The rollback script refuses every enabled marker
+and verifies the schema/trigger contract plus the exact old runtime and current
+release image split. Start the fenced 0.1.47 package successfully first: its
+release export, migration and normalizer/verifier one-shots must already have
+completed. The script recreates only web and the four producers with
+`--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
+does not create a backup.
+
+The command is resumable. It accepts only the pinned 0.1.47 or pinned 0.1.46
+image for each of its five targets, completes a partial split, and rejects any
+other image. A retry after all five are safely fenced is verification-only. The
+rollback overlay runs the web as `tail` and producers as `sleep`, with explicit
+health checks; these commands never read enable markers, so a marker created
+after preflight cannot start application or producer execution.
+
+```sh
+APP_DATA_DIR=/absolute/umbrel/app-data/whirmill-zapbot \
+ZAPBOT_PACKAGE_COMPOSE=/absolute/umbrel/app-store/whirmill-zapbot/docker-compose.yml \
+"$APP_DATA_DIR/scripts/rollback-0.1.46.sh" --dry-run
+```
+
+After the dry run, repeat the command without `--dry-run` only in the installed
+Umbrel compose context, then verify the normalizer receipt and the fenced web
+and producer state. The optional compose overlay is
+`docker-compose.rollback-0.1.46.yml`; it pins only the prior long-lived
+components. Do not apply it to the migration, release-SQL export, verifier, or
+profile-only jobs.
 
 Open-position plans carry the canonical continuous exposure reconstructed from
 filled and pending venue state, in-flight commands and live reservations, plus

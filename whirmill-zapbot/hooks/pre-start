@@ -19,12 +19,14 @@ if [ -n "${SCRIPT_APP_REPO_DIR:-}" ] && [ -d "$source_dir" ]; then
     install -m 0644 "$source_dir/pre-bootstrap-normalize.sql" "$staging_dir/pre-bootstrap-normalize.sql"
     install -m 0755 "$source_dir/runtime-env.sh" "$staging_dir/runtime-env.sh"
     install -m 0755 "$source_dir/recover-execution-economics-handoff.sh" "$staging_dir/recover-execution-economics-handoff.sh"
+    install -m 0755 "$source_dir/rollback-0.1.46.sh" "$staging_dir/rollback-0.1.46.sh"
 
     for staged_file in \
       export-release-sql.sh \
       pre-bootstrap-normalize.sql \
       runtime-env.sh \
-      recover-execution-economics-handoff.sh
+      recover-execution-economics-handoff.sh \
+      rollback-0.1.46.sh
     do
       cmp "$source_dir/$staged_file" "$staging_dir/$staged_file"
       mv -f "$staging_dir/$staged_file" "$destination_dir/$staged_file"
@@ -47,7 +49,8 @@ for required_file in \
   export-release-sql.sh \
   pre-bootstrap-normalize.sql \
   runtime-env.sh \
-  recover-execution-economics-handoff.sh
+  recover-execution-economics-handoff.sh \
+  rollback-0.1.46.sh
 do
   test -s "$destination_dir/$required_file" || {
     echo "missing required ZapBot runtime script: $required_file" >&2

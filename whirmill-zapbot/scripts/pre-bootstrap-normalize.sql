@@ -27,6 +27,12 @@ DECLARE
       pg_catalog.to_regprocedure(
         'public.freeze_h4_canary_frozen_budget(text,text,bigint,text,jsonb)'
       )::oid,
+      pg_catalog.to_regprocedure(
+        'public.record_lnmarkets_account_identity_observation(text,text,text,text,timestamp with time zone)'
+      )::oid,
+      pg_catalog.to_regprocedure(
+        'public.lnmarkets_account_identity_status(text)'
+      )::oid,
       pg_catalog.to_regprocedure('public.guard_attested_causal_event_correction()')::oid,
       pg_catalog.to_regprocedure('public.record_causal_event_producer_receipt()')::oid,
       pg_catalog.to_regprocedure('public.validate_forward_return_label_causal_attestation()')::oid,
