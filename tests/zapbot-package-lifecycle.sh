@@ -290,27 +290,52 @@ assert_export_matches_image() {
 assert_fenced_services() {
   project=$1
   data_dir=$2
-  compose "$project" "$data_dir" exec -T whirmill-zapbot-web /bin/sh -ec '
-    test -d /state && test -r /state && test -x /state
-    test ! -e /state/app-enabled
+  if ! web_fence=$(compose "$project" "$data_dir" exec -T whirmill-zapbot-web /bin/sh -ec '
+    state_access=missing
+    test -d /state && test -r /state && test -x /state && state_access=ready
+    app_enabled=absent
+    test -e /state/app-enabled && app_enabled=present
     marker_count="$(find /state -maxdepth 1 -type f -name "*enabled" | wc -l | tr -d " ")"
+    processes="$(ps -o comm | tr "\n" "," | sed "s/,$//")"
+    printf "state_access=%s app_enabled=%s marker_count=%s processes=%s\n" "$state_access" "$app_enabled" "$marker_count" "$processes"
+    test "$state_access" = ready
+    test "$app_enabled" = absent
     test "$marker_count" = 0
-    ps -o comm | grep -Fx tail >/dev/null
-    ! ps -o comm | grep -Eq "^(beam|beam.smp|elixir)$"
-  '
-  compose "$project" "$data_dir" logs whirmill-zapbot-web | \
-    grep -F 'ZapBot remains fenced: create data/state/app-enabled after reviewed cutover' >/dev/null
+    printf "%s\n" "$processes" | tr "," "\n" | grep -Fx tail >/dev/null
+    ! printf "%s\n" "$processes" | tr "," "\n" | grep -Eq "^(beam|beam.smp|elixir)$"
+  '); then
+    printf 'assert_final_state failed assertion=fenced_web expected=state_access=ready,app_enabled=absent,marker_count=0,tail_without_beam actual=%s\n' "$web_fence" >&2
+    return 1
+  fi
+  if ! compose "$project" "$data_dir" logs whirmill-zapbot-web | \
+    grep -F 'ZapBot remains fenced: create data/state/app-enabled after reviewed cutover' >/dev/null; then
+    printf 'assert_final_state failed assertion=fenced_web_log expected=fenced_startup_message actual=missing\n' >&2
+    return 1
+  fi
   for service in producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-risk-authority-snapshot; do
-    test "$(compose "$project" "$data_dir" ps --services --filter status=running | grep -Fx "$service")" = "$service"
-    compose "$project" "$data_dir" exec -T "$service" /bin/sh -ec '
-      test -d /state && test -r /state && test -x /state
-      test ! -e /state/app-enabled
+    running_service=$(compose "$project" "$data_dir" ps --services --filter status=running | grep -Fx "$service" || true)
+    if [ "$running_service" != "$service" ]; then
+      printf 'assert_final_state failed assertion=fenced_producer_running expected=%s actual=%s\n' "$service" "${running_service:-absent}" >&2
+      return 1
+    fi
+    if ! producer_fence=$(compose "$project" "$data_dir" exec -T "$service" /bin/sh -ec '
+      state_access=missing
+      test -d /state && test -r /state && test -x /state && state_access=ready
+      app_enabled=absent
+      test -e /state/app-enabled && app_enabled=present
       marker_count="$(find /state -maxdepth 1 -type f -name "*enabled" | wc -l | tr -d " ")"
+      processes="$(ps -o comm | tr "\n" "," | sed "s/,$//")"
+      printf "state_access=%s app_enabled=%s marker_count=%s processes=%s\n" "$state_access" "$app_enabled" "$marker_count" "$processes"
+      test "$state_access" = ready
+      test "$app_enabled" = absent
       test "$marker_count" = 0
-      ps -o comm | grep -Fx sh >/dev/null
-      ps -o comm | grep -Fx sleep >/dev/null
-      ! ps -o comm | grep -Eq "^(beam|beam.smp|elixir)$"
-    '
+      printf "%s\n" "$processes" | tr "," "\n" | grep -Fx sh >/dev/null
+      printf "%s\n" "$processes" | tr "," "\n" | grep -Fx sleep >/dev/null
+      ! printf "%s\n" "$processes" | tr "," "\n" | grep -Eq "^(beam|beam.smp|elixir)$"
+    '); then
+      printf 'assert_final_state failed assertion=fenced_producer expected=%s:state_access=ready,app_enabled=absent,marker_count=0,sh_and_sleep_without_beam actual=%s\n' "$service" "$producer_fence" >&2
+      return 1
+    fi
   done
   if compose "$project" "$data_dir" ps -a --services | grep -Eq '^(trusted-v2-|execution-economics-|execution-coverage-)'; then
     echo 'an opt-in trusted-v2 or execution-economics profile service was created' >&2
@@ -324,18 +349,58 @@ assert_postgres_secret_readable() {
   # Test the exact PostgreSQL mount namespace as its non-root UID without
   # reading or emitting the credential. A separate Docker Desktop bind mount
   # can expose different host UID mapping semantics.
-  compose "$project" "$data_dir" exec -T --user 999:999 whirmill-zapbot-postgres \
-    /bin/sh -ec 'test -x /run/zapbot-secret && test -r /run/zapbot-secret/password && test -s /run/zapbot-secret/password'
+  if ! secret_access=$(compose "$project" "$data_dir" exec -T --user 999:999 whirmill-zapbot-postgres \
+    /bin/sh -ec '
+      directory=not_searchable
+      test -x /run/zapbot-secret && directory=searchable
+      password=not_readable
+      test -r /run/zapbot-secret/password && password=readable
+      nonempty=false
+      test -s /run/zapbot-secret/password && nonempty=true
+      printf "directory=%s password=%s nonempty=%s\n" "$directory" "$password" "$nonempty"
+      test "$directory" = searchable && test "$password" = readable && test "$nonempty" = true
+    '); then
+    printf 'assert_final_state failed assertion=postgres_secret_access expected=directory=searchable,password=readable,nonempty=true actual=%s\n' "$secret_access" >&2
+    return 1
+  fi
+}
+
+assert_final_value() {
+  assertion=$1
+  expected=$2
+  actual=$3
+  if [ "$actual" != "$expected" ]; then
+    printf 'assert_final_state failed assertion=%s expected=%s actual=%s\n' "$assertion" "$expected" "$actual" >&2
+    return 1
+  fi
 }
 
 assert_final_state() {
   project=$1
   data_dir=$2
-  test "$(pg_query "$project" "$data_dir" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
-  test "$(pg_query "$project" "$data_dir" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
-  test "$(pg_query "$project" "$data_dir" "SELECT (to_regprocedure('public.validate_forward_return_label_causal_attestation()') IS NOT NULL)::text || ':' || (EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'learning_forward_return_labels_v2_causal_attestation_guard'))::text")" = 'true:true'
-  compose "$project" "$data_dir" logs normalize-and-verify | grep -F 'verification_safe= t' >/dev/null
-  assert_export_matches_image "$data_dir"
+  if migration_count=$(pg_query "$project" "$data_dir" 'SELECT count(*) FROM public.schema_migrations'); then :; else
+    printf 'assert_final_state failed assertion=schema_migrations_count expected=%s actual=query_error\n' "$expected_schema_migrations_count" >&2
+    return 1
+  fi
+  assert_final_value schema_migrations_count "$expected_schema_migrations_count" "$migration_count"
+  if migration_latest=$(pg_query "$project" "$data_dir" 'SELECT max(version) FROM public.schema_migrations'); then :; else
+    printf 'assert_final_state failed assertion=schema_migrations_latest expected=%s actual=query_error\n' "$expected_schema_migrations_latest_version" >&2
+    return 1
+  fi
+  assert_final_value schema_migrations_latest "$expected_schema_migrations_latest_version" "$migration_latest"
+  if causal_attestation=$(pg_query "$project" "$data_dir" "SELECT (to_regprocedure('public.validate_forward_return_label_causal_attestation()') IS NOT NULL)::text || ':' || (EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'learning_forward_return_labels_v2_causal_attestation_guard'))::text"); then :; else
+    printf 'assert_final_state failed assertion=causal_attestation_function_and_trigger expected=true:true actual=query_error\n' >&2
+    return 1
+  fi
+  assert_final_value causal_attestation_function_and_trigger true:true "$causal_attestation"
+  if ! compose "$project" "$data_dir" logs normalize-and-verify | grep -F 'verification_safe= t' >/dev/null; then
+    printf 'assert_final_state failed assertion=normalize_and_verify expected=verification_safe=t actual=missing\n' >&2
+    return 1
+  fi
+  if ! assert_export_matches_image "$data_dir"; then
+    printf 'assert_final_state failed assertion=release_sql_export expected=image_embedded_sql_matches_export actual=verification_failed\n' >&2
+    return 1
+  fi
   assert_postgres_secret_readable "$project" "$data_dir"
   assert_fenced_services "$project" "$data_dir"
 }
@@ -369,6 +434,25 @@ await_healthy_service() {
   done
 }
 
+await_fenced_web_log() {
+  project=$1
+  data_dir=$2
+  timeout_seconds=$3
+  deadline=$(( $(date +%s) + timeout_seconds ))
+
+  while :; do
+    if compose "$project" "$data_dir" logs whirmill-zapbot-web | \
+      grep -F 'ZapBot remains fenced: create data/state/app-enabled after reviewed cutover' >/dev/null; then
+      return 0
+    fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      printf 'assert_final_state failed assertion=fenced_web_log expected=fenced_startup_message actual=missing_after_%ss\n' "$timeout_seconds" >&2
+      return 1
+    fi
+    sleep 1
+  done
+}
+
 await_lifecycle_ready() {
   project=$1
   data_dir=$2
@@ -382,6 +466,9 @@ start_full_package() {
   log "starting full fenced Compose lifecycle project=$project"
   compose "$project" "$data_dir" up -d $fenced_services >>"$receipt" 2>&1
   await_lifecycle_ready "$project" "$data_dir"
+  # Fenced web health is intentionally immediate before its startup message is
+  # necessarily visible to Compose logs. Wait for that observable fence proof.
+  await_fenced_web_log "$project" "$data_dir" 30
   assert_final_state "$project" "$data_dir"
 }
 
