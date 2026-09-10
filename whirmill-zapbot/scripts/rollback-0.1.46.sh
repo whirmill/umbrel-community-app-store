@@ -39,18 +39,23 @@ test "$(cat "$version_file" 2>/dev/null || true)" = "$package_version" || {
   exit 65
 }
 
-for marker in \
-  app-enabled \
-  producer-lnmarkets-candles-enabled \
-  producer-coinbase-candles-enabled \
-  producer-lnmarkets-funding-enabled \
-  producer-risk-authority-snapshot-enabled
-do
-  test ! -e "$APP_DATA_DIR/data/state/$marker" || {
-    echo "refusing compatibility rollback while $marker is enabled" >&2
-    exit 66
-  }
-done
+# Inspect the exact bind as root: a host user unable to traverse a
+# mode-0700 state directory must never mistake an enabled marker for absence.
+# --mount refuses a missing source; the isolated check starts no application.
+docker run --rm --network none --read-only --user 0:0 \
+  --mount "type=bind,src=$APP_DATA_DIR/data/state,dst=/state,readonly" \
+  --entrypoint /bin/sh "$current_image" -ec '
+    test -d /state && test -r /state && test -x /state || {
+      echo "rollback state directory is not accessible" >&2
+      exit 66
+    }
+    for marker in app-enabled producer-lnmarkets-candles-enabled producer-coinbase-candles-enabled producer-lnmarkets-funding-enabled producer-risk-authority-snapshot-enabled; do
+      test ! -e "/state/$marker" || {
+        echo "refusing compatibility rollback while $marker is enabled" >&2
+        exit 66
+      }
+    done
+  '
 
 compose() {
   # Define the unused interpolation as empty so Compose does not request a

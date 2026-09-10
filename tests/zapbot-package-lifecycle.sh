@@ -472,6 +472,7 @@ start_full_package() {
   else
     compose_up_status=$?
   fi
+  log "compose_up_returned project=$project status=$compose_up_status"
   cat "$compose_up_log" >>"$receipt"
   if [ "$compose_up_status" -ne 0 ]; then
     log "compose_up_nonzero project=$project exit_status=$compose_up_status; validating converged final state"
@@ -480,16 +481,19 @@ start_full_package() {
     log "compose_up_final_state=failed project=$project exit_status=$compose_up_status phase=health"
     return 1
   fi
+  log "compose_health=pass project=$project"
   # Fenced web health is intentionally immediate before its startup message is
   # necessarily visible to Compose logs. Wait for that observable fence proof.
   if ! await_fenced_web_log "$project" "$data_dir" 30; then
     log "compose_up_final_state=failed project=$project exit_status=$compose_up_status phase=fenced_web_log"
     return 1
   fi
+  log "compose_fence_log=pass project=$project"
   if ! assert_final_state "$project" "$data_dir"; then
     log "compose_up_final_state=failed project=$project exit_status=$compose_up_status phase=assert_final_state"
     return 1
   fi
+  log "compose_final_state=pass project=$project"
   if [ "$compose_up_status" -ne 0 ]; then
     log "compose_up_nonzero_final_state=pass project=$project exit_status=$compose_up_status"
   fi
@@ -572,7 +576,6 @@ fixture_state_marker() {
   data_dir=$2
   action=$3
   marker=$4
-  marker_path="$data_dir/data/state/$marker"
   case "$marker" in
     app-enabled|producer-lnmarkets-candles-enabled|producer-coinbase-candles-enabled|producer-lnmarkets-funding-enabled|producer-risk-authority-snapshot-enabled) ;;
     *) echo "unexpected fixture state marker: $marker" >&2; exit 64 ;;
@@ -591,6 +594,7 @@ fixture_state_marker() {
     esac
   " >>"$receipt" 2>&1
 
+  log "fixture_marker_written action=$action marker=$marker; verifying runtime mount"
   web_id=$(compose "$project" "$data_dir" ps -q whirmill-zapbot-web)
   test -n "$web_id"
   mounted_state=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/state"}}{{.Source}}{{end}}{{end}}' "$web_id")
@@ -602,11 +606,9 @@ fixture_state_marker() {
   test "$mounted_state" = "$expected_state"
   case "$action" in
     create)
-      test -f "$marker_path"
       compose "$project" "$data_dir" exec -T whirmill-zapbot-web /bin/sh -ec "test -f /state/$marker"
       ;;
     remove)
-      test ! -e "$marker_path"
       compose "$project" "$data_dir" exec -T whirmill-zapbot-web /bin/sh -ec "test ! -e /state/$marker"
       ;;
   esac
@@ -729,10 +731,15 @@ assert_installed_rollback_refuses_enabled_marker() {
       ZAPBOT_PACKAGE_COMPOSE="$package_compose" \
       COMPOSE_PROJECT_NAME="$project" \
       "$data_dir/scripts/rollback-0.1.46.sh"
-  ) >>"$receipt" 2>&1; then
+  ) >"$fixture_dir/marker-refusal.log" 2>&1; then
     echo 'installed rollback accepted an enabled app marker' >&2
     exit 1
+  else
+    marker_refusal_status=$?
   fi
+  cat "$fixture_dir/marker-refusal.log" >>"$receipt"
+  test "$marker_refusal_status" = 66
+  grep -Fx 'refusing compatibility rollback while app-enabled is enabled' "$fixture_dir/marker-refusal.log" >/dev/null
   fixture_state_marker "$project" "$data_dir" remove app-enabled
   assert_current_runtime_image_split "$project" "$data_dir"
   log 'installed_rollback_enabled_marker_refusal=pass'
@@ -976,6 +983,7 @@ record_identity_observation "$upgrade229_project" "$upgrade229_data"
 assert_identity_contract "$upgrade229_project" "$upgrade229_data"
 start_full_package "$upgrade229_project" "$upgrade229_data"
 assert_current_runtime_image_split "$upgrade229_project" "$upgrade229_data"
+log current_runtime_image_split=pass
 assert_installed_rollback_refuses_enabled_marker "$upgrade229_project" "$upgrade229_data"
 run_partial_legacy_split "$upgrade229_project" "$upgrade229_data"
 start_compatibility_rollback "$upgrade229_project" "$upgrade229_data"

@@ -94,7 +94,7 @@ services:
       postgres-tls-init:
         condition: service_completed_successfully
     healthcheck:
-      test: [CMD-SHELL, 'pg_isready -U postgres -d zapbot']
+      test: [CMD-SHELL, 'PGPASSWORD="$$(cat /run/zapbot-secret/password)" psql -h 127.0.0.1 -U postgres -d zapbot -X -qAt -v ON_ERROR_STOP=1 -c "SELECT 1" >/dev/null']
       interval: 5s
       timeout: 5s
       retries: 30
