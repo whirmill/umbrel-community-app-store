@@ -484,7 +484,11 @@ fixture_state_marker() {
   web_id=$(compose "$project" "$data_dir" ps -q whirmill-zapbot-web)
   test -n "$web_id"
   mounted_state=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/state"}}{{.Source}}{{end}}{{end}}' "$web_id")
-  expected_state=$(CDPATH= cd -- "$data_dir/data/state" && pwd -P)
+  # credential-init owns data/state as mode 0700, so derive the canonical
+  # expected bind source from the accessible package root without traversing
+  # the protected state directory on the host runner.
+  canonical_data_dir=$(CDPATH= cd -- "$data_dir" && pwd -P)
+  expected_state="$canonical_data_dir/data/state"
   test "$mounted_state" = "$expected_state"
   case "$action" in
     create)
