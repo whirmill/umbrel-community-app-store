@@ -457,15 +457,38 @@ assert_rollback_final_state() {
   assert_rollback_fenced_services "$project" "$data_dir"
 }
 
+fixture_state_marker() {
+  project=$1
+  data_dir=$2
+  action=$3
+  marker=$4
+  case "$marker" in
+    app-enabled|producer-lnmarkets-candles-enabled|producer-coinbase-candles-enabled|producer-lnmarkets-funding-enabled|producer-risk-authority-snapshot-enabled) ;;
+    *) echo "unexpected fixture state marker: $marker" >&2; exit 64 ;;
+  esac
+  # The app/producers mount state read-only. Use the same root-owned bootstrap
+  # service that owns fixture data initialization, without invoking its normal
+  # credential-writing entrypoint or weakening host permissions.
+  compose "$project" "$data_dir" run --rm --no-deps --user 0:0 --entrypoint /bin/sh credential-init -ec "
+    case \"$action\" in
+      create) : > /data/state/$marker ;;
+      remove) rm -f /data/state/$marker ;;
+      *) exit 64 ;;
+    esac
+  " >>"$receipt" 2>&1
+}
+
 assert_marker_after_rollback_stays_fenced() {
   project=$1
   data_dir=$2
   for marker in app-enabled producer-lnmarkets-candles-enabled producer-coinbase-candles-enabled producer-lnmarkets-funding-enabled producer-risk-authority-snapshot-enabled; do
-    touch "$data_dir/data/state/$marker"
+    fixture_state_marker "$project" "$data_dir" create "$marker"
   done
   sleep 2
   assert_rollback_fenced_services "$project" "$data_dir"
-  rm -f "$data_dir/data/state/"*-enabled
+  for marker in app-enabled producer-lnmarkets-candles-enabled producer-coinbase-candles-enabled producer-lnmarkets-funding-enabled producer-risk-authority-snapshot-enabled; do
+    fixture_state_marker "$project" "$data_dir" remove "$marker"
+  done
   log 'rollback_marker_after_replacement_stays_fenced=pass'
 }
 
@@ -522,7 +545,7 @@ assert_current_runtime_image_split() {
 assert_installed_rollback_refuses_enabled_marker() {
   project=$1
   data_dir=$2
-  touch "$data_dir/data/state/app-enabled"
+  fixture_state_marker "$project" "$data_dir" create app-enabled
   if (
     unset APP_SEED
     APP_DATA_DIR="$data_dir" \
@@ -533,7 +556,7 @@ assert_installed_rollback_refuses_enabled_marker() {
     echo 'installed rollback accepted an enabled app marker' >&2
     exit 1
   fi
-  rm -f "$data_dir/data/state/app-enabled"
+  fixture_state_marker "$project" "$data_dir" remove app-enabled
   assert_current_runtime_image_split "$project" "$data_dir"
   log 'installed_rollback_enabled_marker_refusal=pass'
 }
