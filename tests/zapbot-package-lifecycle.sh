@@ -44,6 +44,8 @@ run_restore_224=${ZAPBOT_PACKAGE_TEST_RESTORE_224:-0}
 case "$run_restore_224" in 0|1) ;; *) echo 'ZAPBOT_PACKAGE_TEST_RESTORE_224 must be 0 or 1' >&2; exit 64 ;; esac
 keep_failure_fixture=${ZAPBOT_PACKAGE_LIFECYCLE_KEEP_FAILURE_FIXTURE:-0}
 case "$keep_failure_fixture" in 0|1) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_KEEP_FAILURE_FIXTURE must be 0 or 1' >&2; exit 64 ;; esac
+assert_selftest=${ZAPBOT_PACKAGE_LIFECYCLE_ASSERT_SELFTEST:-0}
+case "$assert_selftest" in 0|1) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_ASSERT_SELFTEST must be 0 or 1' >&2; exit 64 ;; esac
 fenced_services='whirmill-zapbot-web producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-risk-authority-snapshot'
 
 # Docker Desktop can treat an otherwise equivalent doubled slash in a bind source
@@ -382,17 +384,17 @@ assert_final_state() {
     printf 'assert_final_state failed assertion=schema_migrations_count expected=%s actual=query_error\n' "$expected_schema_migrations_count" >&2
     return 1
   fi
-  assert_final_value schema_migrations_count "$expected_schema_migrations_count" "$migration_count"
+  assert_final_value schema_migrations_count "$expected_schema_migrations_count" "$migration_count" || return 1
   if migration_latest=$(pg_query "$project" "$data_dir" 'SELECT max(version) FROM public.schema_migrations'); then :; else
     printf 'assert_final_state failed assertion=schema_migrations_latest expected=%s actual=query_error\n' "$expected_schema_migrations_latest_version" >&2
     return 1
   fi
-  assert_final_value schema_migrations_latest "$expected_schema_migrations_latest_version" "$migration_latest"
+  assert_final_value schema_migrations_latest "$expected_schema_migrations_latest_version" "$migration_latest" || return 1
   if causal_attestation=$(pg_query "$project" "$data_dir" "SELECT (to_regprocedure('public.validate_forward_return_label_causal_attestation()') IS NOT NULL)::text || ':' || (EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'learning_forward_return_labels_v2_causal_attestation_guard'))::text"); then :; else
     printf 'assert_final_state failed assertion=causal_attestation_function_and_trigger expected=true:true actual=query_error\n' >&2
     return 1
   fi
-  assert_final_value causal_attestation_function_and_trigger true:true "$causal_attestation"
+  assert_final_value causal_attestation_function_and_trigger true:true "$causal_attestation" || return 1
   if ! compose "$project" "$data_dir" logs normalize-and-verify | grep -F 'verification_safe= t' >/dev/null; then
     printf 'assert_final_state failed assertion=normalize_and_verify expected=verification_safe=t actual=missing\n' >&2
     return 1
@@ -401,8 +403,8 @@ assert_final_state() {
     printf 'assert_final_state failed assertion=release_sql_export expected=image_embedded_sql_matches_export actual=verification_failed\n' >&2
     return 1
   fi
-  assert_postgres_secret_readable "$project" "$data_dir"
-  assert_fenced_services "$project" "$data_dir"
+  assert_postgres_secret_readable "$project" "$data_dir" || return 1
+  assert_fenced_services "$project" "$data_dir" || return 1
 }
 
 await_healthy_service() {
@@ -463,13 +465,34 @@ await_lifecycle_ready() {
 start_full_package() {
   project=$1
   data_dir=$2
+  compose_up_log="$fixture_dir/$project.compose-up.log"
   log "starting full fenced Compose lifecycle project=$project"
-  compose "$project" "$data_dir" up -d $fenced_services >>"$receipt" 2>&1
-  await_lifecycle_ready "$project" "$data_dir"
+  if compose "$project" "$data_dir" up -d $fenced_services >"$compose_up_log" 2>&1; then
+    compose_up_status=0
+  else
+    compose_up_status=$?
+  fi
+  cat "$compose_up_log" >>"$receipt"
+  if [ "$compose_up_status" -ne 0 ]; then
+    log "compose_up_nonzero project=$project exit_status=$compose_up_status; validating converged final state"
+  fi
+  if ! await_lifecycle_ready "$project" "$data_dir"; then
+    log "compose_up_final_state=failed project=$project exit_status=$compose_up_status phase=health"
+    return 1
+  fi
   # Fenced web health is intentionally immediate before its startup message is
   # necessarily visible to Compose logs. Wait for that observable fence proof.
-  await_fenced_web_log "$project" "$data_dir" 30
-  assert_final_state "$project" "$data_dir"
+  if ! await_fenced_web_log "$project" "$data_dir" 30; then
+    log "compose_up_final_state=failed project=$project exit_status=$compose_up_status phase=fenced_web_log"
+    return 1
+  fi
+  if ! assert_final_state "$project" "$data_dir"; then
+    log "compose_up_final_state=failed project=$project exit_status=$compose_up_status phase=assert_final_state"
+    return 1
+  fi
+  if [ "$compose_up_status" -ne 0 ]; then
+    log "compose_up_nonzero_final_state=pass project=$project exit_status=$compose_up_status"
+  fi
 }
 
 start_compatibility_rollback() {
@@ -797,6 +820,69 @@ migrate_source_to_229() {
   log 'migrating clean package source only to schema ledger 20260909100000 with the immutable 0.1.46 image'
   compose_legacy_migrate "$project" "$data_dir" run --rm --no-deps migrate >>"$receipt" 2>&1
 }
+
+run_assert_final_state_negative_selftests() {
+  selftest_case=ok
+
+  pg_query() {
+    case "$3" in
+      *'count(*) FROM public.schema_migrations'*)
+        case "$selftest_case" in migration_count) printf '229\n' ;; *) printf '%s\n' "$expected_schema_migrations_count" ;; esac
+        ;;
+      *'max(version) FROM public.schema_migrations'*)
+        case "$selftest_case" in migration_latest) printf '20260909100000\n' ;; *) printf '%s\n' "$expected_schema_migrations_latest_version" ;; esac
+        ;;
+      *'to_regprocedure'*)
+        case "$selftest_case" in causal_attestation) printf 'false:true\n' ;; *) printf 'true:true\n' ;; esac
+        ;;
+      *) return 64 ;;
+    esac
+  }
+  compose() {
+    project=$1
+    data_dir=$2
+    shift 2
+    case "$1" in
+      up) printf 'selftest compose up\n' ;;
+      ps) printf 'selftest-container\n' ;;
+      logs) printf 'verification_safe= t\nZapBot remains fenced: create data/state/app-enabled after reviewed cutover\n' ;;
+      *) return 64 ;;
+    esac
+  }
+  docker() {
+    case "$1" in inspect) printf 'running:healthy\n' ;; *) command docker "$@" ;; esac
+  }
+  assert_export_matches_image() { return 0; }
+  assert_postgres_secret_readable() {
+    case "$selftest_case" in postgres_secret) return 1 ;; *) return 0 ;; esac
+  }
+  assert_fenced_services() { return 0; }
+
+  for selftest_case in migration_count migration_latest causal_attestation postgres_secret; do
+    if assert_final_state selftest "$fixture_dir/selftest"; then
+      printf 'assert_final_state negative selftest unexpectedly passed case=%s\n' "$selftest_case" >&2
+      return 1
+    fi
+    log "assert_final_state_negative_case=$selftest_case result=nonzero"
+  done
+
+  selftest_case=migration_count
+  if start_full_package selftest "$fixture_dir/selftest"; then
+    echo 'start_full_package negative selftest unexpectedly passed' >&2
+    return 1
+  fi
+  if ! grep -F 'compose_up_final_state=failed project=selftest exit_status=0 phase=assert_final_state' "$receipt" >/dev/null; then
+    echo 'start_full_package negative selftest did not record assert_final_state phase' >&2
+    return 1
+  fi
+  log 'assert_final_state_negative_selftests=pass'
+}
+
+if [ "$assert_selftest" = 1 ]; then
+  run_assert_final_state_negative_selftests
+  cat "$receipt"
+  exit 0
+fi
 
 for project in "$fresh_project" "$source224_project" "$restore_project" "$upgrade229_project"; do
   write_override "$project"
