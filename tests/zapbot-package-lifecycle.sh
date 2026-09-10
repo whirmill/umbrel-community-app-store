@@ -661,18 +661,61 @@ assert_exited_target_retry_recovers() {
   log "$label=pass"
 }
 
+canonical_immutable_image_reference() {
+  reference=$1
+  case "$reference" in *@sha256:*) ;; *) return 1 ;; esac
+  digest=${reference##*@}
+  image_name=${reference%@sha256:*}
+  case "${image_name##*/}" in *:*) repository=${image_name%:*} ;; *) repository=$image_name ;; esac
+  test -n "$repository"
+  printf '%s@%s\n' "$repository" "$digest"
+}
+
+container_resolves_expected_image() {
+  container_id=$1
+  expected_canonical=$(canonical_immutable_image_reference "$image") || return 1
+  configured_image=$(docker inspect -f '{{.Config.Image}}' "$container_id") || return 1
+  if configured_canonical=$(canonical_immutable_image_reference "$configured_image"); then
+    test "$configured_canonical" = "$expected_canonical" && return 0
+  fi
+  repo_digests=$(docker inspect -f '{{range .RepoDigests}}{{println .}}{{end}}' "$container_id") || return 1
+  for resolved_image in $repo_digests; do
+    if resolved_canonical=$(canonical_immutable_image_reference "$resolved_image"); then
+      test "$resolved_canonical" = "$expected_canonical" && return 0
+    fi
+  done
+  printf 'current_runtime_image_mismatch container=%s expected=%s configured=%s repo_digests=%s\n' \
+    "$container_id" "$expected_canonical" "$configured_image" "${repo_digests:-none}" >&2
+  return 1
+}
+
 assert_current_runtime_image_split() {
   project=$1
   data_dir=$2
   for service in whirmill-zapbot-web producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-risk-authority-snapshot; do
     container_id=$(compose "$project" "$data_dir" ps -q "$service")
-    test -n "$container_id"
-    test "$(docker inspect -f '{{.Config.Image}}:{{.State.Status}}' "$container_id")" = "$image:running"
+    if [ -z "$container_id" ]; then
+      printf 'current_runtime_service_missing service=%s\n' "$service" >&2
+      return 1
+    fi
+    runtime_state=$(docker inspect -f '{{.State.Status}}' "$container_id")
+    if [ "$runtime_state" != running ]; then
+      printf 'current_runtime_service_state service=%s expected=running actual=%s container=%s\n' "$service" "$runtime_state" "$container_id" >&2
+      return 1
+    fi
+    container_resolves_expected_image "$container_id" || return 1
   done
   for service in release-sql-export migrate normalize-and-verify; do
     container_id=$(compose "$project" "$data_dir" ps -aq "$service" | tail -n 1)
-    test -n "$container_id"
-    test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$container_id")" = 'exited:0'
+    if [ -z "$container_id" ]; then
+      printf 'current_runtime_one_shot_missing service=%s\n' "$service" >&2
+      return 1
+    fi
+    one_shot_state=$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$container_id")
+    if [ "$one_shot_state" != 'exited:0' ]; then
+      printf 'current_runtime_one_shot_state service=%s expected=exited:0 actual=%s container=%s\n' "$service" "$one_shot_state" "$container_id" >&2
+      return 1
+    fi
   done
 }
 
@@ -823,6 +866,17 @@ migrate_source_to_229() {
 
 run_assert_final_state_negative_selftests() {
   selftest_case=ok
+  expected_canonical=$(canonical_immutable_image_reference "$image")
+  expected_digest=${image##*@}
+  expected_repository=${expected_canonical%@*}
+  test "$(canonical_immutable_image_reference "$image")" = "$expected_canonical"
+  test "$(canonical_immutable_image_reference "$expected_repository@$expected_digest")" = "$expected_canonical"
+  if canonical_immutable_image_reference "${image%@sha256:*}" >/dev/null; then
+    echo 'runtime image reference selftest accepted a mutable tag' >&2
+    return 1
+  fi
+  test "$(canonical_immutable_image_reference "$expected_repository@sha256:0000000000000000000000000000000000000000000000000000000000000000")" != "$expected_canonical"
+  log 'runtime_image_reference_selftest=pass'
 
   pg_query() {
     case "$3" in
