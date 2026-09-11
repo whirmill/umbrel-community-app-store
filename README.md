@@ -15,20 +15,19 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-simplex-turn` | `4.16.0-5` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
-| `whirmill-zapbot` | `0.1.55` | installata dal Community App Store | — |
+| `whirmill-zapbot` | `0.1.56` | installata dal Community App Store | — |
 
-ZapBot 0.1.55 riutilizza per i segnali gli input sanificati già acquisiti nella
-stessa richiesta di Operator Posture. Le dipendenze in attesa non occupano
-slot e i controlli runtime originari mantengono la priorità. Il riepilogo
-conserva la condivisione delle richieste simultanee identiche, senza nuova
-cache, e le ricevute esplicite per informazioni mancanti o scadute.
-Il limite comune della raccolta resta invariato e non garantisce il completamento.
-Non attiva operazioni live né modifica schema o impostazioni di autorità.
+ZapBot 0.1.56 rende più leggera la raccolta dello stato operatore, omettendo il
+calcolo di apprendimento non utilizzato. L'arricchimento dei fallimenti dei
+comandi seleziona tre percorsi JSON e conserva il fallback. Non modifica
+deadline globale, TTL delle cache, pool, schema, impostazioni di rischio o autorità, né
+attiva operazioni live.
 La raccolta delle evidenze economiche H4 resta limitata a 20 secondi e H4 CLI
 usa un timeout di ricezione HTTP di 30 secondi; questi limiti non garantiscono
 il completamento. L'ammissione H4 resta disabilitata, OPS002 di trasporto resta
 aperto, insieme al follow-up OPS010 sul primo avvio di un database vuoto.
-La qualificazione runtime delle prestazioni resta necessaria.
+La lettura alleggerita usa una chiave cache distinta; il percorso completo conserva
+la chiave e il TTL esistenti. La qualificazione delle prestazioni OPS009 nel browser normale resta necessaria.
 
 La verifica del 4 agosto 2026 non ha trovato questi ID nello store ufficiale
 `getumbrel/umbrel-apps`. `cloudflared` è un'app ufficiale diversa: fornisce un
