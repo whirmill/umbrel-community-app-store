@@ -15,17 +15,18 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-simplex-turn` | `4.16.0-5` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
-| `whirmill-zapbot` | `0.1.53` | installata dal Community App Store | — |
+| `whirmill-zapbot` | `0.1.54` | installata dal Community App Store | — |
 
-ZapBot 0.1.53 raccoglie salute runtime e qualità LN entro la scadenza residua
-comune di Operator Posture. Conserva i sotto-risultati completati quando una
-fonte fallisce o scade ed elimina un riepilogo degli ingressi non usato dalle
-card. Le ricevute sanitizzate mantengono esplicite le informazioni mancanti.
+ZapBot 0.1.54 condivide un solo calcolo tra le richieste simultanee e identiche
+del riepilogo dashboard, usato dal Monitor e da Operator Posture. Non aggiunge
+cache: le richieste successive avviano un nuovo calcolo. Conserva le ricevute
+esplicite per le informazioni mancanti e il limite comune della raccolta.
 Non attiva operazioni live né modifica schema o impostazioni di autorità.
 La raccolta delle evidenze economiche H4 resta limitata a 20 secondi e H4 CLI
 usa un timeout di ricezione HTTP di 30 secondi; questi limiti non garantiscono
 il completamento. L'ammissione H4 resta disabilitata, OPS002 di trasporto resta
-aperto e la qualificazione runtime delle prestazioni resta necessaria.
+aperto, insieme al follow-up OPS010 sul primo avvio di un database vuoto.
+La qualificazione runtime delle prestazioni resta necessaria.
 
 La verifica del 4 agosto 2026 non ha trovato questi ID nello store ufficiale
 `getumbrel/umbrel-apps`. `cloudflared` è un'app ufficiale diversa: fornisce un
