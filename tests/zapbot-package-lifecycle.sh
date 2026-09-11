@@ -458,8 +458,8 @@ await_fenced_web_log() {
 await_lifecycle_ready() {
   project=$1
   data_dir=$2
-  await_healthy_service "$project" "$data_dir" whirmill-zapbot-postgres 240
-  await_healthy_service "$project" "$data_dir" whirmill-zapbot-web 240
+  await_healthy_service "$project" "$data_dir" whirmill-zapbot-postgres 240 || return 1
+  await_healthy_service "$project" "$data_dir" whirmill-zapbot-web 240 || return 1
 }
 
 start_full_package() {
@@ -936,6 +936,22 @@ run_assert_final_state_negative_selftests() {
     echo 'start_full_package negative selftest did not record assert_final_state phase' >&2
     return 1
   fi
+  (
+    health_calls="$fixture_dir/selftest-health-calls"
+    await_healthy_service() {
+      case "$3" in
+        whirmill-zapbot-postgres) printf 'postgres\n' > "$health_calls"; return 1 ;;
+        whirmill-zapbot-web) printf 'web\n' >> "$health_calls"; return 0 ;;
+        *) return 64 ;;
+      esac
+    }
+    if await_lifecycle_ready selftest "$fixture_dir/selftest"; then
+      exit 1
+    fi
+    test "$(cat "$health_calls")" = postgres
+  ) || { echo 'await_lifecycle_ready postgres failure selftest failed' >&2; return 1; }
+  log 'await_lifecycle_ready_postgres_failure_short_circuits=pass'
+
   log 'assert_final_state_negative_selftests=pass'
 }
 
