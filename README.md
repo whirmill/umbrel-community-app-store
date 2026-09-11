@@ -15,18 +15,17 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-simplex-turn` | `4.16.0-5` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
-| `whirmill-zapbot` | `0.1.50` | installata dal Community App Store | — |
+| `whirmill-zapbot` | `0.1.51` | installata dal Community App Store | — |
 
-ZapBot 0.1.50 isola il feedback accettato del dispatcher dall'analisi
-opzionale, crea un ticket fresco a ogni riconnessione con fencing di sessione
-e backoff, esegue l'HTTP di reconcile fuori dalla transazione mantenendo
-scritture atomiche, e propaga gli errori del restore locale. Aggiunge inoltre
-diagnostica H4 con campi allowlisted. La raccolta delle evidenze economiche H4 resta limitata a 20
-secondi e H4 CLI usa un timeout di ricezione HTTP di 30 secondi come margine;
-questi limiti non garantiscono il completamento. L'ammissione H4 resta
-disabilitata e la pubblicazione non attiva trading, non modifica lo schema o
-le impostazioni di autorità. OPS002 intermittente e OPS004 DB15s restano
-aperti.
+ZapBot 0.1.51 rende durevoli l'input e il job di confronto e riduce il lavoro
+con un cursore indicizzato in batch di al massimo 128 elementi, senza cron su
+tutta la cronologia. Mantiene il flag esistente e non attiva operazioni live.
+La raccolta delle evidenze economiche H4 resta limitata a 20 secondi e H4 CLI
+usa un timeout di ricezione HTTP di 30 secondi come margine; questi limiti non
+garantiscono il completamento. L'ammissione H4 resta disabilitata e la
+pubblicazione non modifica schema o impostazioni di autorità. OPS002 di
+trasporto resta aperto e la qualificazione delle prestazioni richiede ancora
+installazione e verifica runtime.
 
 La verifica del 4 agosto 2026 non ha trovato questi ID nello store ufficiale
 `getumbrel/umbrel-apps`. `cloudflared` è un'app ufficiale diversa: fornisce un
