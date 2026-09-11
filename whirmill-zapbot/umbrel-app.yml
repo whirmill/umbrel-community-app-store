@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.49"
+version: "0.1.50"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,9 +23,12 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Bounds H4 economics acquisition to 20 seconds and provides a 30-second HTTP
-  receive timeout as H4 CLI headroom; neither bound guarantees completion. The
-  schema ledger remains at 230
-  migrations through 20260910100000 and retains the verified 0.1.46
-  compatibility rollback. It preserves manage_only; no trading activation is
-  performed.
+  Isolates accepted dispatcher feedback from optional analysis, creates a fresh
+  ticket for every reconnect with session fencing and backoff, moves reconcile
+  HTTP outside the transaction while retaining atomic writes, and propagates
+  local restore failures. Adds allowlisted H4 diagnostics. H4 economics acquisition
+  remains bounded to 20 seconds and H4 CLI keeps a 30-second HTTP receive
+  timeout; neither guarantees completion. Schema remains 230 through
+  20260910100000; manage_only, disabled H4 admission, and the verified 0.1.46
+  compatibility rollback remain. OPS002 intermittent behavior and OPS004 DB15s
+  are not resolved; no trading activation is performed.

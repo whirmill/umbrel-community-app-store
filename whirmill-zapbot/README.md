@@ -1,13 +1,18 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.49` pins ZapBot source revision
-`fbd840cd5611212493e619ba3a6927bea4272359`. Its released schema ledger has
+Package revision `0.1.50` pins ZapBot source revision
+`6638e347596d4b6b4ee28c8d6946aa6c559112a8`. Its released schema ledger has
 230 migrations through `20260910100000_create_lnm_account_identity_bindings`.
-Account-identity collection is automatic from the authenticated LN Markets
-account read. H4 economics acquisition is bounded to 20 seconds and the H4 CLI
-has a 30-second HTTP receive timeout as headroom; neither bound guarantees
-completion. H4 admission remains default-disabled and `manage_only`; this package does not activate
-trading or alter the schema. It retains the fresh PostgreSQL data directory
+It isolates accepted dispatcher feedback from optional analysis, creates a
+fresh ticket on each reconnect with session fencing and backoff, performs
+reconcile HTTP outside the transaction while retaining atomic writes, and
+propagates local restore failures. Sanitized H4 diagnostics expose only
+allowlisted fields. Account-identity collection is automatic from the
+authenticated LN Markets account read. H4 economics acquisition is bounded to
+20 seconds and the H4 CLI has a 30-second HTTP receive timeout as headroom;
+neither bound guarantees completion. H4 admission remains default-disabled and
+`manage_only`; this package does not activate trading or alter the schema.
+OPS002 intermittent behavior and OPS004 DB15s remain unresolved. It retains the fresh PostgreSQL data directory
 path without weakening recovery: before migrations it provisions only the owner
 and migrator roles, retains administrator ownership of `vector` while historic
 replay is applied, and uses a migration-session-compatible schema creation path.
@@ -123,15 +128,15 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `fbd840cd5611212493e619ba3a6927bea4272359` on native
+reviewed source revision `6638e347596d4b6b4ee28c8d6946aa6c559112a8` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:6b50f5c71c083e3716d6f9bf42ab6d7a5539fdb226bdbc19f73be185cfc1e95c`.
+`sha256:eed5e7de7478af9e7333337a0ef9b53a05357d4028adf0b2312ab1c3792da859`.
 Do not substitute `latest` or an unreviewed tag.
 
 ## Compatibility rollback to 0.1.46
 
 The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. It keeps the 0.1.49 release-SQL export,
+runtime and four continuous producers. It keeps the 0.1.50 release-SQL export,
 migration, bootstrap and verifier path, so the database remains at schema 230
 and preserves both account-identity tables, observations, functions and
 immutable triggers. It never drops data, runs a down migration, or changes a
@@ -140,13 +145,13 @@ persisted authority setting.
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
 producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the schema/trigger contract plus the exact old runtime and current
-release image split. Start the fenced 0.1.49 package successfully first: its
+release image split. Start the fenced 0.1.50 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
-The command is resumable. It accepts only the pinned 0.1.49 or pinned 0.1.46
+The command is resumable. It accepts only the pinned 0.1.50 or pinned 0.1.46
 image for each of its five targets, completes a partial split, and rejects any
 other image. A retry after all five are safely fenced is verification-only. The
 rollback overlay runs the web as `tail` and producers as `sleep`, with explicit
