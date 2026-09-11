@@ -1,24 +1,17 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.51` pins ZapBot source revision
-`f9c217a4016c695b46998b69a5905b2c12579596`. Its released schema ledger has
-230 migrations through `20260910100000_create_lnm_account_identity_bindings`.
-It persists comparison input and its durable job, then reduces the comparison
-through an indexed cursor in batches of at most 128 items; it does not run a
-global-history cron. The existing flag still controls the path. The earlier
-dispatcher, reconnect, reconcile, restore-failure, and allowlisted H4
-diagnostic corrections remain present. Account-identity collection is automatic
-from the authenticated LN Markets account read. H4 economics acquisition is
-bounded to 20 seconds and the H4 CLI has a 30-second HTTP receive timeout as
-headroom; neither bound guarantees completion. H4 admission remains
-default-disabled and `manage_only`; this package does not activate trading or
-alter the schema. OPS002 transport remains open, and real performance requires
-installation and runtime qualification. It retains the fresh PostgreSQL data directory
-path without weakening recovery: before migrations it provisions only the owner
-and migrator roles, retains administrator ownership of `vector` while historic
-replay is applied, and uses a migration-session-compatible schema creation path.
-The full role and schema ACL contract remains fail-closed: the post-migration
-bootstrap and verifier must both pass before application admission.
+Package revision `0.1.52` pins ZapBot source revision
+`00e5e8b98e28ad33e0897beaa397d5d7fbeaf923`. Its released schema ledger remains at 230 migrations through
+`20260910100000_create_lnm_account_identity_bindings`. Operator Posture now
+uses an explicit early bounded source order and emits sanitized per-source
+lifecycle receipts. Its deadline guard preserves the interactive budget: nested
+source errors and unfinished work propagate as incomplete receipts rather than
+as successful collection. The semantic live region no longer clips the visible
+operator alert. These changes do not resolve OPS002 transport or qualify runtime
+performance; they do not activate trading, alter authority settings, or change
+the schema. H4 economics acquisition remains bounded to 20 seconds and the H4
+CLI keeps a 30-second HTTP receive timeout as headroom; neither bound guarantees
+completion. H4 admission remains default-disabled and `manage_only`.
 
 Credential initialization completes before the release-SQL exporter runs. The
 exporter then runs before every SQL consumer, exports the reviewed files from
@@ -129,15 +122,15 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `f9c217a4016c695b46998b69a5905b2c12579596` on native
+reviewed source revision `00e5e8b98e28ad33e0897beaa397d5d7fbeaf923` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:5af8e5a919ca11a4d2b0b1545cf6655bdcffcb71f4c475555063e56953f630b7`.
+`sha256:8284ce45998a23d253e7428050823eb18a477d0171c93dcac3faa382c616e4b7`.
 Do not substitute `latest` or an unreviewed tag.
 
 ## Compatibility rollback to 0.1.46
 
 The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. It keeps the 0.1.51 release-SQL export,
+runtime and four continuous producers. It keeps the 0.1.52 release-SQL export,
 migration, bootstrap and verifier path, so the database remains at schema 230
 and preserves both account-identity tables, observations, functions and
 immutable triggers. It never drops data, runs a down migration, or changes a
@@ -146,13 +139,13 @@ persisted authority setting.
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
 producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the schema/trigger contract plus the exact old runtime and current
-release image split. Start the fenced 0.1.51 package successfully first: its
+release image split. Start the fenced 0.1.52 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
-The command is resumable. It accepts only the pinned 0.1.51 or pinned 0.1.46
+The command is resumable. It accepts only the pinned 0.1.52 or pinned 0.1.46
 image for each of its five targets, completes a partial split, and rejects any
 other image. A retry after all five are safely fenced is verification-only. The
 rollback overlay runs the web as `tail` and producers as `sleep`, with explicit

@@ -15,17 +15,19 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-simplex-turn` | `4.16.0-5` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
-| `whirmill-zapbot` | `0.1.51` | installata dal Community App Store | — |
+| `whirmill-zapbot` | `0.1.52` | installata dal Community App Store | — |
 
-ZapBot 0.1.51 rende durevoli l'input e il job di confronto e riduce il lavoro
-con un cursore indicizzato in batch di al massimo 128 elementi, senza cron su
-tutta la cronologia. Mantiene il flag esistente e non attiva operazioni live.
-La raccolta delle evidenze economiche H4 resta limitata a 20 secondi e H4 CLI
-usa un timeout di ricezione HTTP di 30 secondi come margine; questi limiti non
-garantiscono il completamento. L'ammissione H4 resta disabilitata e la
-pubblicazione non modifica schema o impostazioni di autorità. OPS002 di
-trasporto resta aperto e la qualificazione delle prestazioni richiede ancora
-installazione e verifica runtime.
+ZapBot 0.1.52 rende esplicito l'ordine iniziale delle fonti nella raccolta
+Operator Posture e conserva ricevute di ciclo di vita sanitizzate per ogni fonte
+incompleta. Il limite interattivo resta invariato: errori annidati e scadenze
+sono propagati come raccolta incompleta, senza dichiarare disponibile una fonte
+non conclusa. Il live region semantico non nasconde più l'avviso visibile.
+Questa pubblicazione non attiva operazioni live né modifica schema o impostazioni
+di autorità. La raccolta delle evidenze economiche H4 resta limitata a 20 secondi
+ed H4 CLI usa un timeout di ricezione HTTP di 30 secondi come margine; questi
+limiti non garantiscono il completamento. L'ammissione H4 resta disabilitata,
+OPS002 di trasporto resta aperto e la qualificazione runtime delle prestazioni
+resta necessaria.
 
 La verifica del 4 agosto 2026 non ha trovato questi ID nello store ufficiale
 `getumbrel/umbrel-apps`. `cloudflared` è un'app ufficiale diversa: fornisce un
