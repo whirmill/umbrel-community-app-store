@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.52"
+version: "0.1.53"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,12 +23,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Makes Operator Posture source order explicit and records sanitized lifecycle
-  receipts for incomplete sources. Nested failures and deadline expiry propagate
-  honestly instead of appearing successful, while the semantic live region no
-  longer clips the visible alert. No live activation occurs. H4 economics
-  acquisition stays bounded to 20 seconds and H4 CLI keeps a 30-second HTTP
-  receive timeout; neither guarantees completion. Schema remains 230 through
-  20260910100000; manage_only, disabled H4 admission, and verified 0.1.46
-  compatibility rollback remain. OPS002 transport remains open and runtime
-  performance qualification is still required.
+  Improves runtime Operator Posture receipts: incomplete sources retain the last
+  complete snapshot and propagate nested failures or deadline expiry honestly.
+  No live activation occurs. Schema remains 230 through 20260910100000;
+  manage_only, disabled H4 admission, and verified 0.1.46 compatibility rollback
+  remain. OPS002 transport remains open and runtime performance qualification is
+  still required.
