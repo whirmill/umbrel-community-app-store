@@ -15,12 +15,14 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-simplex-turn` | `4.16.0-5` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
-| `whirmill-zapbot` | `0.1.54` | installata dal Community App Store | — |
+| `whirmill-zapbot` | `0.1.55` | installata dal Community App Store | — |
 
-ZapBot 0.1.54 condivide un solo calcolo tra le richieste simultanee e identiche
-del riepilogo dashboard, usato dal Monitor e da Operator Posture. Non aggiunge
-cache: le richieste successive avviano un nuovo calcolo. Conserva le ricevute
-esplicite per le informazioni mancanti e il limite comune della raccolta.
+ZapBot 0.1.55 riutilizza per i segnali gli input sanificati già acquisiti nella
+stessa richiesta di Operator Posture. Le dipendenze in attesa non occupano
+slot e i controlli runtime originari mantengono la priorità. Il riepilogo
+conserva la condivisione delle richieste simultanee identiche, senza nuova
+cache, e le ricevute esplicite per informazioni mancanti o scadute.
+Il limite comune della raccolta resta invariato e non garantisce il completamento.
 Non attiva operazioni live né modifica schema o impostazioni di autorità.
 La raccolta delle evidenze economiche H4 resta limitata a 20 secondi e H4 CLI
 usa un timeout di ricezione HTTP di 30 secondi; questi limiti non garantiscono
