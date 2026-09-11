@@ -1,4 +1,4 @@
-# Compatibility rollback only: keep the 0.1.49 release SQL export, migration,
+# Compatibility rollback only: keep the 0.1.50 release SQL export, migration,
 # normalization, and verifier from docker-compose.yml. This file swaps only
 # the long-lived application and continuous producer processes to 0.1.46.
 services:
