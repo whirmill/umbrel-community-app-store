@@ -15,11 +15,11 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-simplex-turn` | `4.16.0-5` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
-| `whirmill-zapbot` | `0.1.47` | installata dal Community App Store | — |
+| `whirmill-zapbot` | `0.1.48` | installata dal Community App Store | — |
 
-ZapBot 0.1.47 raccoglie automaticamente l'identità dell'account LN Markets
-autenticato come evidenza immutabile. L'ammissione H4 resta disabilitata e la
-pubblicazione non attiva trading o modifica le impostazioni di autorità.
+ZapBot 0.1.48 completa la lettura delle evidenze economiche H4 e la
+cancellazione limitata dei worker di acquisizione in corso. L'ammissione H4 resta disabilitata e la pubblicazione non attiva
+trading, non modifica lo schema o le impostazioni di autorità.
 
 La verifica del 4 agosto 2026 non ha trovato questi ID nello store ufficiale
 `getumbrel/umbrel-apps`. `cloudflared` è un'app ufficiale diversa: fornisce un

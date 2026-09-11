@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.47"
+version: "0.1.48"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,7 +23,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Automatically records authenticated LN Markets account identity while H4
-  admission remains disabled. The schema ledger advances to 230 migrations
-  through 20260910100000 and includes a verified 0.1.46 compatibility rollback.
-  It preserves manage_only; no trading activation is performed.
+  Completes bounded H4 economics reads and cancellation while admission remains
+  disabled. The schema ledger remains at 230 migrations through 20260910100000
+  and retains the verified 0.1.46 compatibility rollback. It preserves
+  manage_only; no trading activation is performed.
