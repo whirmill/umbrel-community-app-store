@@ -458,8 +458,8 @@ await_fenced_web_log() {
 await_lifecycle_ready() {
   project=$1
   data_dir=$2
-  await_healthy_service "$project" "$data_dir" whirmill-zapbot-postgres 240
-  await_healthy_service "$project" "$data_dir" whirmill-zapbot-web 240
+  await_healthy_service "$project" "$data_dir" whirmill-zapbot-postgres 240 || return 1
+  await_healthy_service "$project" "$data_dir" whirmill-zapbot-web 240 || return 1
 }
 
 start_full_package() {
@@ -936,6 +936,22 @@ run_assert_final_state_negative_selftests() {
     echo 'start_full_package negative selftest did not record assert_final_state phase' >&2
     return 1
   fi
+  (
+    health_calls="$fixture_dir/selftest-health-calls"
+    await_healthy_service() {
+      case "$3" in
+        whirmill-zapbot-postgres) printf 'postgres\n' > "$health_calls"; return 1 ;;
+        whirmill-zapbot-web) printf 'web\n' >> "$health_calls"; return 0 ;;
+        *) return 64 ;;
+      esac
+    }
+    if await_lifecycle_ready selftest "$fixture_dir/selftest"; then
+      exit 1
+    fi
+    test "$(cat "$health_calls")" = postgres
+  ) || { echo 'await_lifecycle_ready postgres failure selftest failed' >&2; return 1; }
+  log 'await_lifecycle_ready_postgres_failure_short_circuits=pass'
+
   log 'assert_final_state_negative_selftests=pass'
 }
 
@@ -966,7 +982,7 @@ test "$(pg_query "$fresh_project" "$fresh_data" "SELECT value FROM public.intern
 assert_restore_normalizer_rejects_tampered_freeze "$fresh_project" "$fresh_data"
 
 # This is an upgrade without any restore dump: create schema 229 using the
-# immutable 0.1.46 release, advance it with 0.1.52, write an identity receipt
+# immutable 0.1.46 release, advance it with 0.1.53, write an identity receipt
 # through the runtime grant, then run only the old long-lived services.
 prepare_scripts "$upgrade229_data"
 log 'starting current release/bootstrap chain before the 229-to-230 compatibility upgrade'
@@ -974,7 +990,7 @@ run_one_shot "$upgrade229_project" "$upgrade229_data" migration-role-provision
 migrate_source_to_229 "$upgrade229_project" "$upgrade229_data"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = '229'
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = '20260909100000'
-log 'advancing the populated 229 schema to 230 with the immutable 0.1.52 migration image'
+log 'advancing the populated 229 schema to 230 with the immutable 0.1.53 migration image'
 compose "$upgrade229_project" "$upgrade229_data" run --rm --no-deps migrate >>"$receipt" 2>&1
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
