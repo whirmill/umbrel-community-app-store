@@ -15,7 +15,7 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-simplex-turn` | `4.16.0-5` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
-| `whirmill-zapbot` | `0.1.52` | installata dal Community App Store | — |
+| `whirmill-zapbot` | `0.1.53` | installata dal Community App Store | — |
 
 ZapBot 0.1.53 rende più affidabile la raccolta runtime di Operator Posture: conserva l’ultimo quadro completo mentre le fonti incomplete riportano ricevute sanitizzate, con errori annidati e scadenze propagati senza indicare una raccolta riuscita. Non attiva operazioni live né modifica schema o impostazioni di autorità. La raccolta H4 resta limitata a 20 secondi e H4 CLI usa 30 secondi di timeout HTTP; OPS002 resta aperto e la qualificazione runtime delle prestazioni resta necessaria.
 
