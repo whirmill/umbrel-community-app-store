@@ -1,17 +1,18 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.55` pins ZapBot source revision
-`bc617e351e74bea7f8d2d5e35a8e8289585e8b55`. Its released schema ledger remains at 230 migrations through
-`20260910100000_create_lnm_account_identity_bindings`. Operator Posture now
-uses an explicit early bounded source order and emits sanitized per-source
-lifecycle receipts. Its deadline guard preserves the interactive budget: nested
-source errors and unfinished work propagate as incomplete receipts rather than
-as successful collection. The semantic live region no longer clips the visible
-operator alert. These changes do not resolve OPS002 transport or qualify runtime
-performance; they do not activate trading, alter authority settings, or change
-the schema. H4 economics acquisition remains bounded to 20 seconds and the H4
-CLI keeps a 30-second HTTP receive timeout as headroom; neither bound guarantees
-completion. H4 admission remains default-disabled and `manage_only`.
+Package revision `0.1.56` pins ZapBot source revision
+`9aeb4a2a466077750d0eb0c6a3e1065f229d34bf`. Its released schema ledger remains at 230 migrations through
+`20260910100000_create_lnm_account_identity_bindings`. The lightweight Operator
+Posture health path omits unused learning computation. Command-failure enrichment
+selects three JSON paths while retaining the existing fallback. It changes no
+global deadline, cache TTL, pool, schema, risk, or authority setting and does not
+activate trading. These changes do not resolve OPS002 transport, and OPS009
+performance remains pending normal-browser qualification. OPS010 fresh-bootstrap
+follow-up also remains open. Lightweight health has a distinct cache key; full
+health keeps its existing key and TTL. H4 economics acquisition
+remains bounded to 20 seconds and the H4 CLI keeps a 30-second HTTP receive
+timeout as headroom; neither bound guarantees completion. H4 admission remains
+default-disabled and `manage_only`.
 
 Credential initialization completes before the release-SQL exporter runs. The
 exporter then runs before every SQL consumer, exports the reviewed files from
@@ -122,15 +123,15 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `bc617e351e74bea7f8d2d5e35a8e8289585e8b55` on native
+reviewed source revision `9aeb4a2a466077750d0eb0c6a3e1065f229d34bf` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:ca1374d7f5a80a519c5d0d4e24a571d8d180bf3739a8518daf7ddd042c8f5d77`.
+`sha256:6ccab024c9c300f403e3f5f855cfa373e2b96e58ff72c66fabb673e0c782f2b8`.
 Do not substitute `latest` or an unreviewed tag.
 
 ## Compatibility rollback to 0.1.46
 
 The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. It keeps the 0.1.55 release-SQL export,
+runtime and four continuous producers. It keeps the 0.1.56 release-SQL export,
 migration, bootstrap and verifier path, so the database remains at schema 230
 and preserves both account-identity tables, observations, functions and
 immutable triggers. It never drops data, runs a down migration, or changes a
@@ -139,13 +140,13 @@ persisted authority setting.
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
 producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the schema/trigger contract plus the exact old runtime and current
-release image split. Start the fenced 0.1.55 package successfully first: its
+release image split. Start the fenced 0.1.56 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
-The command is resumable. It accepts only the pinned 0.1.55 or pinned 0.1.46
+The command is resumable. It accepts only the pinned 0.1.56 or pinned 0.1.46
 image for each of its five targets, completes a partial split, and rejects any
 other image. A retry after all five are safely fenced is verification-only. The
 rollback overlay runs the web as `tail` and producers as `sleep`, with explicit
