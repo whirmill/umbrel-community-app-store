@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-tdarr
 category: media
 name: Tdarr
-version: "2.87.01"
+version: "2.87.01-1"
 tagline: Distributed media transcoding and library optimization
 description: >-
   Tdarr converts and optimizes media libraries with FFmpeg and hardware
@@ -19,5 +19,8 @@ gallery: []
 defaultUsername: ""
 defaultPassword: ""
 dependencies: []
+permissions:
+  - GPU
 releaseNotes: >-
-  Update Tdarr to 2.87.01 with a verified immutable image digest. Preserves Intel GPU access, library mounts, resource limits, and paused worker startup.
+  Declare the GPU permission required by current umbrelOS to expose hardware
+  acceleration to Tdarr. Keeps Tdarr 2.87.01 and paused worker startup.

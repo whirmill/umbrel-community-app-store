@@ -9,7 +9,7 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | Nuovo ID | Versione | Stato prima della migrazione | Vecchio ID |
 | --- | --- | --- | --- |
 | `whirmill-byparr` | `3.0.4` | installata direttamente | `byparr` |
-| `whirmill-tdarr` | `2.87.01` | installata direttamente | `tdarr` |
+| `whirmill-tdarr` | `2.87.01-1` | installata direttamente | `tdarr` |
 | `whirmill-simplex-smp` | `7.0.1` | installata direttamente | `simplex-smp` |
 | `whirmill-simplex-xftp` | `7.0.1-1` | installata direttamente | `simplex-xftp` |
 | `whirmill-simplex-turn` | `4.18.0` | installata direttamente | `simplex-turn` |
