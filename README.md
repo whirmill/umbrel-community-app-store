@@ -15,11 +15,12 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-simplex-turn` | `4.16.0-5` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
-| `whirmill-zapbot` | `0.1.56` | installata dal Community App Store | — |
+| `whirmill-zapbot` | `0.1.57` | installata dal Community App Store | — |
 
-ZapBot 0.1.56 rende più leggera la raccolta dello stato operatore, omettendo il
+ZapBot 0.1.57 rende più leggera la raccolta dello stato operatore, omettendo il
 calcolo di apprendimento non utilizzato. L'arricchimento dei fallimenti dei
-comandi seleziona tre percorsi JSON e conserva il fallback. Non modifica
+comandi evita l'estrazione JSON quando prevale la colonna tipizzata. Il fallback
+per SQL NULL e preflight JSON null conserva la classificazione esistente. Non modifica
 deadline globale, TTL delle cache, pool, schema, impostazioni di rischio o autorità, né
 attiva operazioni live.
 La raccolta delle evidenze economiche H4 resta limitata a 20 secondi e H4 CLI
