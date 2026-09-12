@@ -1,10 +1,11 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.56` pins ZapBot source revision
-`9aeb4a2a466077750d0eb0c6a3e1065f229d34bf`. Its released schema ledger remains at 230 migrations through
+Package revision `0.1.57` pins ZapBot source revision
+`2ad9fa0fa6ae2efd3492668637df1f2a49e92af1`. Its released schema ledger remains at 230 migrations through
 `20260910100000_create_lnm_account_identity_bindings`. The lightweight Operator
 Posture health path omits unused learning computation. Command-failure enrichment
-selects three JSON paths while retaining the existing fallback. It changes no
+skips JSON extraction when the typed column takes precedence. SQL NULL and
+preflight JSON null retain the existing fallback and classification. It changes no
 global deadline, cache TTL, pool, schema, risk, or authority setting and does not
 activate trading. These changes do not resolve OPS002 transport, and OPS009
 performance remains pending normal-browser qualification. OPS010 fresh-bootstrap
@@ -123,15 +124,15 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `9aeb4a2a466077750d0eb0c6a3e1065f229d34bf` on native
+reviewed source revision `2ad9fa0fa6ae2efd3492668637df1f2a49e92af1` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:6ccab024c9c300f403e3f5f855cfa373e2b96e58ff72c66fabb673e0c782f2b8`.
+`sha256:bf566b618b4aa6dc9d4e6d06ed30e4bde9cc77edb47d408c2923b12230544d5a`.
 Do not substitute `latest` or an unreviewed tag.
 
 ## Compatibility rollback to 0.1.46
 
 The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. It keeps the 0.1.56 release-SQL export,
+runtime and four continuous producers. It keeps the 0.1.57 release-SQL export,
 migration, bootstrap and verifier path, so the database remains at schema 230
 and preserves both account-identity tables, observations, functions and
 immutable triggers. It never drops data, runs a down migration, or changes a
@@ -140,13 +141,13 @@ persisted authority setting.
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
 producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the schema/trigger contract plus the exact old runtime and current
-release image split. Start the fenced 0.1.56 package successfully first: its
+release image split. Start the fenced 0.1.57 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
-The command is resumable. It accepts only the pinned 0.1.56 or pinned 0.1.46
+The command is resumable. It accepts only the pinned 0.1.57 or pinned 0.1.46
 image for each of its five targets, completes a partial split, and rejects any
 other image. A retry after all five are safely fenced is verification-only. The
 rollback overlay runs the web as `tail` and producers as `sleep`, with explicit
