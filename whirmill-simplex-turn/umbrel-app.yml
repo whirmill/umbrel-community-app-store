@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-simplex-turn
 category: networking
 name: SimpleX TURN Relay
-version: "4.16.0-5"
+version: "4.18.0"
 tagline: Private WebRTC media relay
 description: >-
   Runs a STUN and authenticated TURN WebRTC relay on Umbrel for SimpleX audio
@@ -20,6 +20,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Detects stable public IPv4 changes automatically and restarts Coturn so TURN
-  relay candidates stay aligned with dynamic DNS without host or Docker socket
-  access.
+  Update Coturn to 4.18.0-r0 with a verified immutable image digest. Preserves relay authentication, network restrictions, quotas, and automatic public IPv4 detection.

@@ -8,11 +8,11 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 
 | Nuovo ID | Versione | Stato prima della migrazione | Vecchio ID |
 | --- | --- | --- | --- |
-| `whirmill-byparr` | `2.1.0` | installata direttamente | `byparr` |
-| `whirmill-tdarr` | `2.81.01` | installata direttamente | `tdarr` |
+| `whirmill-byparr` | `3.0.4` | installata direttamente | `byparr` |
+| `whirmill-tdarr` | `2.87.01` | installata direttamente | `tdarr` |
 | `whirmill-simplex-smp` | `7.0.1` | installata direttamente | `simplex-smp` |
 | `whirmill-simplex-xftp` | `7.0.1-1` | installata direttamente | `simplex-xftp` |
-| `whirmill-simplex-turn` | `4.16.0-5` | installata direttamente | `simplex-turn` |
+| `whirmill-simplex-turn` | `4.18.0` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
 | `whirmill-zapbot` | `0.1.57` | installata dal Community App Store | — |

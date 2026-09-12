@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-tdarr
 category: media
 name: Tdarr
-version: "2.81.01"
+version: "2.87.01"
 tagline: Distributed media transcoding and library optimization
 description: >-
   Tdarr converts and optimizes media libraries with FFmpeg and hardware
@@ -20,6 +20,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Initial local Umbrel package for Tdarr 2.81.01 on Intel N100. The internal
-  node uses /dev/dri when enabled in Tdarr and starts paused to prevent any
-  conversion before the library profiles are reviewed.
+  Update Tdarr to 2.87.01 with a verified immutable image digest. Preserves Intel GPU access, library mounts, resource limits, and paused worker startup.

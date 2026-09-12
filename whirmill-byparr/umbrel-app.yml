@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-byparr
 category: networking
 name: Byparr
-version: "2.1.0"
+version: "3.0.4"
 tagline: Browser-based anti-bot proxy for Prowlarr
 description: >-
   Byparr runs a Camoufox browser and exposes a FlareSolverr-compatible API.
@@ -22,6 +22,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Initial local Umbrel package for Byparr 2.1.0, pinned to the verified amd64
-  image digest. Includes an authenticated Umbrel app-proxy entry and a
-  resource-limited browser service for Prowlarr.
+  Update Byparr to 3.0.4 with improved browser TLS matching and Cloudflare challenge handling. Preserves the Prowlarr endpoint and resource limits.
