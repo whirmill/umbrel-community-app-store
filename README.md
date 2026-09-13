@@ -15,13 +15,14 @@ prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 | `whirmill-simplex-turn` | `4.18.0` | installata direttamente | `simplex-turn` |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
 | `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
-| `whirmill-zapbot` | `0.1.58` | installata dal Community App Store | — |
+| `whirmill-zapbot` | `0.1.59` | installata dal Community App Store | — |
 
-ZapBot 0.1.58 espone nella diagnostica operatore i tempi nativi, senza payload,
-di attesa del permesso condiviso e di lavoro. Registra soltanto durata e modalità
-di acquisizione, anche quando il lavoro solleva un'eccezione. Non modifica deadline
-globale, TTL delle cache, pool, schema, impostazioni di rischio o autorità, né attiva
-operazioni live o garantisce un miglioramento della latenza.
+ZapBot 0.1.59 raggruppa la diagnostica delle code Oban da 54 letture equivalenti
+a due proiezioni per snapshot. Conserva conteggi di code e worker, classificazione
+dei fallimenti, semantica del backlog inattivo, cache, gate di readiness e controlli
+fail-closed. Non modifica deadline globale, TTL delle cache, pool, schema,
+impostazioni di rischio o autorità, né attiva operazioni live o dimostra che il
+Monitor normale sia già risolto prima della verifica installata.
 La raccolta delle evidenze economiche H4 resta limitata a 20 secondi e H4 CLI
 usa un timeout di ricezione HTTP di 30 secondi; questi limiti non garantiscono
 il completamento. L'ammissione H4 resta disabilitata, OPS002 di trasporto resta
