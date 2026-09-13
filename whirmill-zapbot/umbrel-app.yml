@@ -23,12 +23,12 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Adds payload-free timing telemetry that separates shared-budget permit wait
-  from work duration. Events contain only duration and acquisition mode.
-  This diagnostic release does not establish a latency improvement or resolve
-  partial Operator Posture collection. No global deadline, cache TTL, pool,
-  schema, risk, or authority setting changes; no live activation.
-  H4 economics stays bounded to 20 seconds and H4 CLI keeps a 30-second receive
-  timeout without guaranteeing completion. OPS002 transport and OPS010
-  fresh-bootstrap follow-up remain open; OPS009 still requires attribution
-  and normal-browser qualification.
+  Batches Oban queue diagnostics from 54 database reads into two projections,
+  preserving queue and worker counts, active versus inactive backlog, oldest
+  timestamps, retry attempts, and latest failures. This reduces repeated scans
+  of completed job history without deleting jobs. Live SQL comparison supports
+  the optimization; full Monitor collection still requires normal-browser
+  qualification after installation and OPS009 remains open until then.
+  No global deadline, cache TTL, pool, schema, risk, or authority setting
+  changes; no live activation. OPS002 transport and OPS010 fresh-bootstrap
+  follow-up remain open.
