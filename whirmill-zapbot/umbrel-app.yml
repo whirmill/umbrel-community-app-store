@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.57"
+version: "0.1.58"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,12 +23,12 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Lightweight Operator Posture health omits unused learning computation.
-  Command-failure enrichment skips JSON extraction when the typed column takes precedence.
-  SQL NULL and preflight JSON null retain the existing fallback and classification.
-  Lightweight health uses a separate cache key; full health keeps its key and TTL.
-  No global deadline, cache TTL, pool, schema, risk, or authority setting changes;
-  no live activation. H4 economics stays bounded to 20 seconds and H4 CLI keeps
-  a 30-second receive timeout without guaranteeing completion. OPS002 remains
-  open, OPS010 fresh-bootstrap follow-up remains open, and OPS009 performance
-  awaits normal-browser qualification.
+  Adds payload-free timing telemetry that separates shared-budget permit wait
+  from work duration. Events contain only duration and acquisition mode.
+  This diagnostic release does not establish a latency improvement or resolve
+  partial Operator Posture collection. No global deadline, cache TTL, pool,
+  schema, risk, or authority setting changes; no live activation.
+  H4 economics stays bounded to 20 seconds and H4 CLI keeps a 30-second receive
+  timeout without guaranteeing completion. OPS002 transport and OPS010
+  fresh-bootstrap follow-up remain open; OPS009 still requires attribution
+  and normal-browser qualification.

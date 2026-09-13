@@ -1,19 +1,17 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.57` pins ZapBot source revision
-`2ad9fa0fa6ae2efd3492668637df1f2a49e92af1`. Its released schema ledger remains at 230 migrations through
-`20260910100000_create_lnm_account_identity_bindings`. The lightweight Operator
-Posture health path omits unused learning computation. Command-failure enrichment
-skips JSON extraction when the typed column takes precedence. SQL NULL and
-preflight JSON null retain the existing fallback and classification. It changes no
-global deadline, cache TTL, pool, schema, risk, or authority setting and does not
-activate trading. These changes do not resolve OPS002 transport, and OPS009
-performance remains pending normal-browser qualification. OPS010 fresh-bootstrap
-follow-up also remains open. Lightweight health has a distinct cache key; full
-health keeps its existing key and TTL. H4 economics acquisition
-remains bounded to 20 seconds and the H4 CLI keeps a 30-second HTTP receive
-timeout as headroom; neither bound guarantees completion. H4 admission remains
-default-disabled and `manage_only`.
+Package revision `0.1.58` pins ZapBot source revision
+`ab4c0a47186858f10d108372d08be77290160542`. Its released schema ledger remains at 230 migrations through
+`20260910100000_create_lnm_account_identity_bindings`. It adds payload-free native
+timing telemetry for shared-budget permit wait and work, recording only duration
+and acquisition mode. It changes no global deadline, cache TTL, pool, schema, risk,
+or authority setting and does not activate trading or claim a latency improvement.
+These changes do not resolve OPS002 transport, and OPS009 performance remains
+pending normal-browser qualification. OPS010 fresh-bootstrap follow-up also remains
+open. Lightweight health has a distinct cache key; full health keeps its existing
+key and TTL. H4 economics acquisition remains bounded to 20 seconds and the H4 CLI
+keeps a 30-second HTTP receive timeout as headroom; neither bound guarantees
+completion. H4 admission remains default-disabled and `manage_only`.
 
 Credential initialization completes before the release-SQL exporter runs. The
 exporter then runs before every SQL consumer, exports the reviewed files from
@@ -124,15 +122,15 @@ application container ports remain private.
 ## Image admission
 
 Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `2ad9fa0fa6ae2efd3492668637df1f2a49e92af1` on native
+reviewed source revision `ab4c0a47186858f10d108372d08be77290160542` on native
 amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:bf566b618b4aa6dc9d4e6d06ed30e4bde9cc77edb47d408c2923b12230544d5a`.
+`sha256:9f9b81bcd282b0dcca1b9a2d44772db62cc1f4bc5247b786f0de99a786c37c3c`.
 Do not substitute `latest` or an unreviewed tag.
 
 ## Compatibility rollback to 0.1.46
 
 The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. It keeps the 0.1.57 release-SQL export,
+runtime and four continuous producers. It keeps the 0.1.58 release-SQL export,
 migration, bootstrap and verifier path, so the database remains at schema 230
 and preserves both account-identity tables, observations, functions and
 immutable triggers. It never drops data, runs a down migration, or changes a
@@ -141,13 +139,13 @@ persisted authority setting.
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
 producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the schema/trigger contract plus the exact old runtime and current
-release image split. Start the fenced 0.1.57 package successfully first: its
+release image split. Start the fenced 0.1.58 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
-The command is resumable. It accepts only the pinned 0.1.57 or pinned 0.1.46
+The command is resumable. It accepts only the pinned 0.1.58 or pinned 0.1.46
 image for each of its five targets, completes a partial split, and rejects any
 other image. A retry after all five are safely fenced is verification-only. The
 rollback overlay runs the web as `tail` and producers as `sleep`, with explicit
