@@ -1,17 +1,17 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.60` pins ZapBot source revision
-`38ffc1b04f4de9894205424435a8251ac7818fb8`. Its released schema ledger remains at 230 migrations through
-`20260910100000_create_lnm_account_identity_bindings`. The first no-schema
-query-flow wave includes P1 settings and runtime-SLO query-path cleanup; P2
-Monitor query-flow stabilization; F05 bounded reconcile polling with per-account
-concurrency serialization and batched freshness updates; and Q12/Q13 query-path
-improvements. It changes no global deadline, cache TTL, pool, schema,
-risk, or authority setting and does not activate trading or claim that normal
-Monitor qualification is complete. OPS002 transport, OPS009 installation and
-normal-browser qualification, and OPS010 fresh-bootstrap follow-up remain open;
-F07, F09, F10, and F11 remain separate candidates under P9. Lightweight health
-has a distinct cache key; full health keeps its existing key and TTL. H4 economics
+Package revision `0.1.61` advances the released schema ledger to 233 migrations
+through `20260913102000_add_passive_execution_causal_trade_lookup_index`. It
+adds two concurrent, self-healing causal-event lookup indexes and a guarded
+trusted-v2 append-function predicate rewrite. The final post-merge source SHA
+and immutable multi-architecture image digest are pending: every provisional
+0.1.60 image reference must be replaced together before publication. This
+release changes no global deadline, cache TTL, pool, risk, authority, or
+activation setting and does not activate trading or claim that normal Monitor
+qualification is complete. OPS002 transport, OPS009 installation and normal-
+browser qualification, and OPS010 fresh-bootstrap follow-up remain open; F07,
+F09, F10, and F11 remain separate candidates under P9. Lightweight health has a
+distinct cache key; full health keeps its existing key and TTL. H4 economics
 acquisition remains bounded to 20 seconds and the H4 CLI keeps a 30-second HTTP
 receive timeout as headroom; neither bound guarantees completion. H4 admission
 remains default-disabled and `manage_only`.
@@ -124,17 +124,19 @@ application container ports remain private.
 
 ## Image admission
 
-Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `38ffc1b04f4de9894205424435a8251ac7818fb8` on native
-amd64 and arm64 runners, and pinned to the immutable index digest
+Until the 0.1.61 release identity is supplied, the checked-in image references
+remain the verified 0.1.60 multi-architecture image for source revision
+`38ffc1b04f4de9894205424435a8251ac7818fb8` at index digest
 `sha256:e28bd4bca39dbec1ee7534146b23b04c4ed6b647e0ab0c80c8c46085bd770f63`.
-Do not substitute `latest` or an unreviewed tag.
+They are not a deployable 0.1.61 identity. Before publication, replace every
+ZapBot service reference and the attestor digest with one final reviewed
+multi-architecture tag@index; never substitute `latest` or an unreviewed tag.
 
 ## Compatibility rollback to 0.1.46
 
 The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. It keeps the 0.1.60 release-SQL export,
-migration, bootstrap and verifier path, so the database remains at schema 230
+runtime and four continuous producers. It keeps the 0.1.61 release-SQL export,
+migration, bootstrap and verifier path, so the database remains at schema 233
 and preserves both account-identity tables, observations, functions and
 immutable triggers. It never drops data, runs a down migration, or changes a
 persisted authority setting.
@@ -142,13 +144,13 @@ persisted authority setting.
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
 producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the schema/trigger contract plus the exact old runtime and current
-release image split. Start the fenced 0.1.60 package successfully first: its
+release image split. Start the fenced 0.1.61 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
-The command is resumable. It accepts only the pinned 0.1.60 or pinned 0.1.46
+The command is resumable. It accepts only the pinned 0.1.61 or pinned 0.1.46
 image for each of its five targets, completes a partial split, and rejects any
 other image. A retry after all five are safely fenced is verification-only. The
 rollback overlay runs the web as `tail` and producers as `sleep`, with explicit

@@ -1,14 +1,16 @@
 #!/bin/sh
-# Run only after reviewing a 0.1.60 rollback. This is a compatibility rollback:
-# it retains schema 230 and all account-identity evidence, and never downgrades
+# Run only after reviewing a 0.1.61 rollback. This is a compatibility rollback:
+# it retains schema 233 and all account-identity evidence, and never downgrades
 # the database or changes persisted authority settings. It requires the fenced
-# 0.1.60 package graph to have completed first; it never initializes credentials
+# 0.1.61 package graph to have completed first; it never initializes credentials
 # or starts bootstrap dependencies.
 set -eu
 
-package_version=0.1.60
+package_version=0.1.61
 legacy_image='ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e'
 current_image='ghcr.io/whirmill/zapbot:umbrel-query-flow-wave1-38ffc1b04f4de9894205424435a8251ac7818fb8@sha256:e28bd4bca39dbec1ee7534146b23b04c4ed6b647e0ab0c80c8c46085bd770f63'
+# Pending final 0.1.61 source SHA and index digest: replace current_image and
+# every Compose image identity together before this package is published.
 
 : "${APP_DATA_DIR:?APP_DATA_DIR is required}"
 : "${ZAPBOT_PACKAGE_COMPOSE:?ZAPBOT_PACKAGE_COMPOSE must name the installed docker-compose.yml}"
@@ -72,8 +74,27 @@ verify_schema() {
     export PGPASSWORD="$(cat /run/zapbot-secret/password)"
     psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d zapbot -c "
       SELECT CASE WHEN
-        (SELECT count(*) FROM public.schema_migrations) = 230
-        AND (SELECT max(version) FROM public.schema_migrations) = 20260910100000
+        (SELECT count(*) FROM public.schema_migrations) = 233
+        AND (SELECT max(version) FROM public.schema_migrations) = 20260913102000
+        AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = \$\$public.causal_events_trusted_v2_series_latest_idx\$\$::regclass)
+        AND pg_catalog.pg_get_indexdef(\$\$public.causal_events_trusted_v2_series_latest_idx\$\$::regclass) = \$idx\$CREATE INDEX causal_events_trusted_v2_series_latest_idx ON public.causal_events USING btree (source, stream_id, account_scope, market_key, split_part((source_event_id)::text, \$\$:revision:\$\$::text, 1), ledger_seq DESC)\$idx\$
+        AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = \$\$public.causal_events_passive_execution_trade_lookup_idx\$\$::regclass)
+        AND pg_catalog.pg_get_indexdef(\$\$public.causal_events_passive_execution_trade_lookup_idx\$\$::regclass) = \$idx\$CREATE INDEX causal_events_passive_execution_trade_lookup_idx ON public.causal_events USING btree (source, kind, account_scope, market_key, ((payload ->> \$\$provider_trade_id\$\$::text)), ledger_seq)\$idx\$
+        AND pg_catalog.strpos(pg_catalog.regexp_replace(pg_catalog.pg_get_functiondef(pg_catalog.to_regprocedure(\$\$public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)\$\$)), \$\$[[:space:]]+\$\$, \$\$ \$\$, \$\$g\$\$), \$predicate\$AND pg_catalog.split_part( event.source_event_id, ':revision:', 1 ) = p_source_event_id\$predicate\$) > 0
+        AND pg_catalog.strpos(pg_catalog.regexp_replace(pg_catalog.pg_get_functiondef(pg_catalog.to_regprocedure(\$\$public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)\$\$)), \$\$[[:space:]]+\$\$, \$\$ \$\$, \$\$g\$\$), \$legacy\$AND ( event.source_event_id = p_source_event_id OR pg_catalog.left( event.source_event_id, pg_catalog.length(p_source_event_id || ':revision:') ) = p_source_event_id || ':revision:' )\$legacy\$) = 0
+        AND (SELECT proc.prosecdef FROM pg_catalog.pg_proc proc WHERE proc.oid = pg_catalog.to_regprocedure(\$\$public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)\$\$))
+        AND (SELECT proc.proconfig IS NOT DISTINCT FROM ARRAY[\$\$search_path=pg_catalog, public\$\$, \$\$lock_timeout=1s\$\$] FROM pg_catalog.pg_proc proc WHERE proc.oid = pg_catalog.to_regprocedure(\$\$public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)\$\$))
+        AND (SELECT pg_catalog.pg_get_userbyid(proc.proowner) = \$\$zapbot_owner\$\$ FROM pg_catalog.pg_proc proc WHERE proc.oid = pg_catalog.to_regprocedure(\$\$public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)\$\$))
+        AND NOT EXISTS (
+          SELECT 1
+          FROM pg_catalog.pg_proc proc
+          CROSS JOIN LATERAL pg_catalog.aclexplode(
+            coalesce(proc.proacl, pg_catalog.acldefault(\$\$f\$\$, proc.proowner))
+          ) acl
+          WHERE proc.oid = pg_catalog.to_regprocedure(\$\$public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)\$\$)
+            AND acl.grantee = 0
+            AND acl.privilege_type = \$\$EXECUTE\$\$
+        )
         AND to_regclass(\$\$public.lnmarkets_account_scope_bindings\$\$) IS NOT NULL
         AND to_regclass(\$\$public.lnmarkets_account_identity_observations\$\$) IS NOT NULL
         AND to_regprocedure(\$\$public.record_lnmarkets_account_identity_observation(text,text,text,text,timestamp with time zone)\$\$) IS NOT NULL
@@ -91,7 +112,7 @@ verify_images() {
 
   for service in release-sql-export migrate; do
     image=$(compose ps -aq "$service" | tail -n 1 | xargs docker inspect -f '{{.Config.Image}}')
-    test "$image" = "$current_image" || { echo "unexpected 0.1.60 release image for $service" >&2; exit 67; }
+    test "$image" = "$current_image" || { echo "unexpected 0.1.61 release image for $service" >&2; exit 67; }
   done
 }
 
@@ -137,9 +158,9 @@ classify_runtime() {
 
   for service in release-sql-export migrate normalize-and-verify; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
-    test -n "$service_id" || { echo "missing completed 0.1.60 bootstrap service: $service" >&2; exit 67; }
+    test -n "$service_id" || { echo "missing completed 0.1.61 bootstrap service: $service" >&2; exit 67; }
     test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$service_id")" = 'exited:0' || {
-      echo "rollback requires completed 0.1.60 bootstrap service: $service" >&2
+      echo "rollback requires completed 0.1.61 bootstrap service: $service" >&2
       exit 67
     }
   done
@@ -147,7 +168,7 @@ classify_runtime() {
   for service in release-sql-export migrate; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
     test "$(docker inspect -f '{{.Config.Image}}' "$service_id")" = "$current_image" || {
-      echo "rollback requires current 0.1.60 release image for $service" >&2
+      echo "rollback requires current 0.1.61 release image for $service" >&2
       exit 67
     }
   done

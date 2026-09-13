@@ -1,4 +1,6 @@
 services:
+  # 0.1.61 release identity is pending the final post-merge multi-architecture
+  # build. Replace every ZapBot image reference and the attestor digest together.
   app_proxy:
     environment:
       APP_HOST: whirmill-zapbot-web
