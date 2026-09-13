@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.59"
+version: "0.1.60"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,12 +23,12 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Batches Oban queue diagnostics from 54 database reads into two projections,
-  preserving queue and worker counts, active versus inactive backlog, oldest
-  timestamps, retry attempts, and latest failures. This reduces repeated scans
-  of completed job history without deleting jobs. Live SQL comparison supports
-  the optimization; full Monitor collection still requires normal-browser
-  qualification after installation and OPS009 remains open until then.
-  No global deadline, cache TTL, pool, schema, risk, or authority setting
-  changes; no live activation. OPS002 transport and OPS010 fresh-bootstrap
-  follow-up remain open.
+  First no-schema query-flow wave: P1 settings and runtime-SLO query-path
+  cleanup; P2 Monitor query-flow stabilization; F05 bounded reconcile polling
+  with per-account concurrency serialization and batched freshness updates; and
+  Q12/Q13 query-path improvements. All ZapBot services pin the same immutable
+  multi-architecture image for source revision
+  38ffc1b04f4de9894205424435a8251ac7818fb8. No schema, global deadline,
+  cache TTL, pool, risk, authority, or activation change is included.
+  OPS009 remains under installation and normal-browser qualification; F07,
+  F09, F10, and F11 remain separate candidates under P9.
