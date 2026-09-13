@@ -29,8 +29,8 @@ done
 
 package_version=${ZAPBOT_PACKAGE_VERSION:-$(awk -F'"' '/^version: / { print $2; exit }' "$package_root/umbrel-app.yml")}
 test -n "$package_version"
-expected_schema_migrations_count=230
-expected_schema_migrations_latest_version=20260910100000
+expected_schema_migrations_count=233
+expected_schema_migrations_latest_version=20260913102000
 : "${ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT:?set ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT to a new absolute log path outside the disposable fixture}"
 receipt=$ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT
 case "$receipt" in /*) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT must be an absolute path' >&2; exit 64 ;; esac
@@ -46,6 +46,9 @@ keep_failure_fixture=${ZAPBOT_PACKAGE_LIFECYCLE_KEEP_FAILURE_FIXTURE:-0}
 case "$keep_failure_fixture" in 0|1) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_KEEP_FAILURE_FIXTURE must be 0 or 1' >&2; exit 64 ;; esac
 assert_selftest=${ZAPBOT_PACKAGE_LIFECYCLE_ASSERT_SELFTEST:-0}
 case "$assert_selftest" in 0|1) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_ASSERT_SELFTEST must be 0 or 1' >&2; exit 64 ;; esac
+assert_schema_verifier_expansion=${ZAPBOT_PACKAGE_LIFECYCLE_ASSERT_SCHEMA_VERIFIER_EXPANSION:-0}
+case "$assert_schema_verifier_expansion" in 0|1) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_ASSERT_SCHEMA_VERIFIER_EXPANSION must be 0 or 1' >&2; exit 64 ;; esac
+schema_verifier_container=${ZAPBOT_PACKAGE_SCHEMA_VERIFIER_CONTAINER:-}
 fenced_services='whirmill-zapbot-web producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-risk-authority-snapshot'
 
 # Docker Desktop can treat an otherwise equivalent doubled slash in a bind source
@@ -377,6 +380,16 @@ assert_final_value() {
   fi
 }
 
+assert_schema_233_contract() {
+  project=$1
+  data_dir=$2
+  if contract=$(pg_query "$project" "$data_dir" "SELECT (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = 'public.causal_events_trusted_v2_series_latest_idx'::regclass)::text || ':' || (pg_catalog.pg_get_indexdef('public.causal_events_trusted_v2_series_latest_idx'::regclass) = \$\$CREATE INDEX causal_events_trusted_v2_series_latest_idx ON public.causal_events USING btree (source, stream_id, account_scope, market_key, split_part((source_event_id)::text, ':revision:'::text, 1), ledger_seq DESC)\$\$)::text || ':' || (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = 'public.causal_events_passive_execution_trade_lookup_idx'::regclass)::text || ':' || (pg_catalog.pg_get_indexdef('public.causal_events_passive_execution_trade_lookup_idx'::regclass) = \$\$CREATE INDEX causal_events_passive_execution_trade_lookup_idx ON public.causal_events USING btree (source, kind, account_scope, market_key, ((payload ->> 'provider_trade_id'::text)), ledger_seq)\$\$)::text || ':' || (pg_catalog.strpos(pg_catalog.regexp_replace(pg_catalog.pg_get_functiondef('public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)'::regprocedure), \$\$[[:space:]]+\$\$, \$\$ \$\$, \$\$g\$\$), \$predicate\$AND pg_catalog.split_part( event.source_event_id, ':revision:', 1 ) = p_source_event_id\$predicate\$) > 0)::text || ':' || (pg_catalog.strpos(pg_catalog.regexp_replace(pg_catalog.pg_get_functiondef('public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)'::regprocedure), \$\$[[:space:]]+\$\$, \$\$ \$\$, \$\$g\$\$), \$legacy\$AND ( event.source_event_id = p_source_event_id OR pg_catalog.left( event.source_event_id, pg_catalog.length(p_source_event_id || ':revision:') ) = p_source_event_id || ':revision:' )\$legacy\$) = 0)::text || ':' || (SELECT proc.prosecdef FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)'::regprocedure)::text || ':' || (SELECT proc.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, public', 'lock_timeout=1s'] FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)'::regprocedure)::text || ':' || (SELECT pg_catalog.pg_get_userbyid(proc.proowner) = 'zapbot_owner' FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)'::regprocedure)::text || ':' || (NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc proc CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(proc.proacl, pg_catalog.acldefault('f', proc.proowner))) acl WHERE proc.oid = 'public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)'::regprocedure AND acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'))::text"); then :; else
+    printf 'assert_final_state failed assertion=schema_233_index_predicate_and_function_posture_contract expected=true:true:true:true:true:true:true:true:true:true actual=query_error\n' >&2
+    return 1
+  fi
+  assert_final_value schema_233_index_predicate_and_function_posture_contract true:true:true:true:true:true:true:true:true:true "$contract"
+}
+
 assert_final_state() {
   project=$1
   data_dir=$2
@@ -390,6 +403,7 @@ assert_final_state() {
     return 1
   fi
   assert_final_value schema_migrations_latest "$expected_schema_migrations_latest_version" "$migration_latest" || return 1
+  assert_schema_233_contract "$project" "$data_dir" || return 1
   if causal_attestation=$(pg_query "$project" "$data_dir" "SELECT (to_regprocedure('public.validate_forward_return_label_causal_attestation()') IS NOT NULL)::text || ':' || (EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'learning_forward_return_labels_v2_causal_attestation_guard'))::text"); then :; else
     printf 'assert_final_state failed assertion=causal_attestation_function_and_trigger expected=true:true actual=query_error\n' >&2
     return 1
@@ -502,7 +516,7 @@ start_full_package() {
 start_compatibility_rollback() {
   project=$1
   data_dir=$2
-  log "starting actual installed schema-230 compatibility rollback script project=$project"
+  log "starting actual installed schema-233 compatibility rollback script project=$project"
   (
     unset APP_SEED
     APP_DATA_DIR="$data_dir" \
@@ -565,6 +579,7 @@ assert_rollback_final_state() {
   data_dir=$2
   test "$(pg_query "$project" "$data_dir" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
   test "$(pg_query "$project" "$data_dir" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
+  assert_schema_233_contract "$project" "$data_dir"
   compose "$project" "$data_dir" logs normalize-and-verify | grep -F 'verification_safe= t' >/dev/null
   assert_export_matches_image "$data_dir"
   assert_postgres_secret_readable "$project" "$data_dir"
@@ -893,6 +908,18 @@ run_assert_final_state_negative_selftests() {
       *'max(version) FROM public.schema_migrations'*)
         case "$selftest_case" in migration_latest) printf '20260909100000\n' ;; *) printf '%s\n' "$expected_schema_migrations_latest_version" ;; esac
         ;;
+      *'causal_events_trusted_v2_series_latest_idx'*)
+        case "$selftest_case" in
+          schema_233_wrong_predicate) printf 'true:true:true:true:false:true:true:true:true:true\n' ;;
+          schema_233_legacy_predicate) printf 'true:true:true:true:true:false:true:true:true:true\n' ;;
+          schema_233_insecure_posture) printf 'true:true:true:true:true:true:false:true:true:true\n' ;;
+          schema_233_proconfig) printf 'true:true:true:true:true:true:true:false:true:true\n' ;;
+          schema_233_owner) printf 'true:true:true:true:true:true:true:true:false:true\n' ;;
+          schema_233_public_acl) printf 'true:true:true:true:true:true:true:true:true:false\n' ;;
+          schema_233_contract) printf 'true:false:true:true:true:true:true:true:true:true\n' ;;
+          *) printf 'true:true:true:true:true:true:true:true:true:true\n' ;;
+        esac
+        ;;
       *'to_regprocedure'*)
         case "$selftest_case" in causal_attestation) printf 'false:true\n' ;; *) printf 'true:true\n' ;; esac
         ;;
@@ -919,7 +946,7 @@ run_assert_final_state_negative_selftests() {
   }
   assert_fenced_services() { return 0; }
 
-  for selftest_case in migration_count migration_latest causal_attestation postgres_secret; do
+  for selftest_case in migration_count migration_latest schema_233_contract schema_233_wrong_predicate schema_233_legacy_predicate schema_233_insecure_posture schema_233_proconfig schema_233_owner schema_233_public_acl causal_attestation postgres_secret; do
     if assert_final_state selftest "$fixture_dir/selftest"; then
       printf 'assert_final_state negative selftest unexpectedly passed case=%s\n' "$selftest_case" >&2
       return 1
@@ -955,6 +982,121 @@ run_assert_final_state_negative_selftests() {
   log 'assert_final_state_negative_selftests=pass'
 }
 
+run_schema_verifier_expansion_test() {
+  test -n "$schema_verifier_container" || {
+    echo 'ZAPBOT_PACKAGE_SCHEMA_VERIFIER_CONTAINER is required when asserting verifier expansion' >&2
+    return 64
+  }
+  command -v docker >/dev/null
+  test "$(docker inspect -f '{{.State.Running}}' "$schema_verifier_container")" = true
+
+  verifier_fixture="$fixture_dir/schema-verifier-expansion"
+  verifier_package="$verifier_fixture/package"
+  verifier_bin="$verifier_fixture/bin"
+  verifier_inner_bin="$verifier_fixture/inner-bin"
+  captured_verifier="$verifier_fixture/captured-verifier.sh"
+  captured_legacy_verifier="$verifier_fixture/captured-legacy-verifier.sh"
+  legacy_rollback="$verifier_fixture/rollback-eba1091.sh"
+  mkdir -p "$verifier_package" "$verifier_bin" "$verifier_inner_bin" "$verifier_fixture/app/scripts"
+  : > "$verifier_package/docker-compose.yml"
+  : > "$verifier_package/docker-compose.rollback-0.1.46.yml"
+  printf '%s\n' "$package_version" > "$verifier_fixture/app/scripts/.package-version"
+
+  real_docker=$(command -v docker)
+  cat > "$verifier_bin/docker" <<'SH'
+#!/bin/sh
+set -eu
+case "$1" in
+  run)
+    exit 0
+    ;;
+  compose)
+    verifier_command=
+    for argument in "$@"; do
+      verifier_command=$argument
+    done
+    printf '%s' "$verifier_command" > "$CAPTURED_VERIFIER"
+    if [ "${VERIFIER_FAKE_MODE:-new}" = old_capture ]; then
+      printf '%s\n' rollback_schema_contract=fail
+      exit 0
+    fi
+    # Run the exact captured command through its inner `sh -ec`. The fixture
+    # adapter only replaces credential and client binaries: fake cat supplies
+    # the unavailable package-secret path and fake psql forwards unchanged SQL
+    # stdin to the owned database principal.
+    PATH="$VERIFIER_INNER_BIN:$PATH" /bin/sh -ec "$verifier_command"
+    ;;
+  *)
+    echo "unexpected fake docker command: $1" >&2
+    exit 64
+    ;;
+esac
+SH
+  chmod 700 "$verifier_bin/docker"
+  cat > "$verifier_inner_bin/cat" <<'SH'
+#!/bin/sh
+case "$1" in
+  /run/zapbot-secret/password) printf '%s\n' fixture-only-password ;;
+  *) exec /bin/cat "$@" ;;
+esac
+SH
+  cat > "$verifier_inner_bin/psql" <<'SH'
+#!/bin/sh
+exec "$REAL_DOCKER" exec -i "$SCHEMA_VERIFIER_CONTAINER" /bin/sh -ec \
+  'export PGPASSWORD="$POSTGRES_PASSWORD"; exec psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+SH
+  chmod 700 "$verifier_inner_bin/cat" "$verifier_inner_bin/psql"
+
+  git -C "$repo_root" show eba1091:whirmill-zapbot/scripts/rollback-0.1.46.sh | \
+    awk '/^verify_images\(\) \{$/ { print "verify_schema"; print "exit $?"; exit } { print }' > "$legacy_rollback"
+  if PATH="$verifier_bin:$PATH" \
+    REAL_DOCKER="$real_docker" \
+    CAPTURED_VERIFIER="$captured_legacy_verifier" \
+    VERIFIER_FAKE_MODE=old_capture \
+    VERIFIER_INNER_BIN="$verifier_inner_bin" \
+    SCHEMA_VERIFIER_CONTAINER="$schema_verifier_container" \
+    APP_DATA_DIR="$verifier_fixture/app" \
+    ZAPBOT_PACKAGE_COMPOSE="$verifier_package/docker-compose.yml" \
+    sh "$legacy_rollback"; then
+    echo 'pre-fix rollback verifier unexpectedly passed its shell quoting probe' >&2
+    return 1
+  fi
+  test -s "$captured_legacy_verifier"
+  grep -F ':revision:' "$captured_legacy_verifier" >/dev/null
+  if grep -F "':revision:'" "$captured_legacy_verifier" >/dev/null; then
+    echo 'pre-fix rollback verifier retained SQL string-literal quotes unexpectedly' >&2
+    return 1
+  fi
+  if grep -F "\$predicate\$AND pg_catalog.split_part( event.source_event_id, ':revision:', 1 ) = p_source_event_id\$predicate\$" "$captured_legacy_verifier" >/dev/null; then
+    echo 'pre-fix rollback verifier retained quoted predicate unexpectedly' >&2
+    return 1
+  fi
+
+  if ! PATH="$verifier_bin:$PATH" \
+    REAL_DOCKER="$real_docker" \
+    CAPTURED_VERIFIER="$captured_verifier" \
+    VERIFIER_INNER_BIN="$verifier_inner_bin" \
+    SCHEMA_VERIFIER_CONTAINER="$schema_verifier_container" \
+    APP_DATA_DIR="$verifier_fixture/app" \
+    ZAPBOT_PACKAGE_COMPOSE="$verifier_package/docker-compose.yml" \
+    ZAPBOT_ROLLBACK_VERIFY_SCHEMA_ONLY=1 \
+    sh "$package_root/scripts/rollback-0.1.46.sh"; then
+    echo 'installed rollback verifier failed against the owned schema-233 fixture' >&2
+    return 1
+  fi
+
+  test -s "$captured_verifier"
+  grep -F "\$predicate\$AND pg_catalog.split_part( event.source_event_id, ':revision:', 1 ) = p_source_event_id\$predicate\$" "$captured_verifier" >/dev/null
+  grep -F "\$legacy\$AND ( event.source_event_id = p_source_event_id OR pg_catalog.left( event.source_event_id, pg_catalog.length(p_source_event_id || ':revision:') ) = p_source_event_id || ':revision:' )\$legacy\$" "$captured_verifier" >/dev/null
+  log "rollback_schema_verifier_shell_expansion=pass legacy_shell_expansion=failed_as_expected container=$schema_verifier_container capture_sha256=$(sha256sum "$captured_verifier" | awk '{print $1}')"
+}
+
+if [ "$assert_schema_verifier_expansion" = 1 ]; then
+  run_schema_verifier_expansion_test
+  cat "$receipt"
+  exit 0
+fi
+
 if [ "$assert_selftest" = 1 ]; then
   run_assert_final_state_negative_selftests
   cat "$receipt"
@@ -982,15 +1124,15 @@ test "$(pg_query "$fresh_project" "$fresh_data" "SELECT value FROM public.intern
 assert_restore_normalizer_rejects_tampered_freeze "$fresh_project" "$fresh_data"
 
 # This is an upgrade without any restore dump: create schema 229 using the
-# immutable 0.1.46 release, advance it with 0.1.59, write an identity receipt
+# immutable 0.1.46 release, advance it through schema 233, write an identity receipt
 # through the runtime grant, then run only the old long-lived services.
 prepare_scripts "$upgrade229_data"
-log 'starting current release/bootstrap chain before the 229-to-230 compatibility upgrade'
+log 'starting current release/bootstrap chain before the 229-to-233 compatibility upgrade'
 run_one_shot "$upgrade229_project" "$upgrade229_data" migration-role-provision
 migrate_source_to_229 "$upgrade229_project" "$upgrade229_data"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = '229'
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = '20260909100000'
-log 'advancing the populated 229 schema to 230 with the immutable 0.1.59 migration image'
+log 'advancing the populated 229 schema to 233 with the immutable current migration image'
 compose "$upgrade229_project" "$upgrade229_data" run --rm --no-deps migrate >>"$receipt" 2>&1
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
@@ -1008,7 +1150,7 @@ assert_marker_after_rollback_stays_fenced "$upgrade229_project" "$upgrade229_dat
 assert_all_legacy_retry_is_verification_only "$upgrade229_project" "$upgrade229_data"
 assert_exited_target_retry_recovers "$upgrade229_project" "$upgrade229_data" producer-coinbase-candles "$image" exited_current_target_retry_recovers
 assert_exited_target_retry_recovers "$upgrade229_project" "$upgrade229_data" whirmill-zapbot-web "$legacy_image" exited_legacy_target_retry_recovers
-log 'schema_230_populated_identity_0_1_46_compatibility_rollback=pass'
+log 'schema_233_populated_identity_0_1_46_compatibility_rollback=pass'
 
 if [ "$run_restore_224" = 1 ]; then
   prepare_scripts "$source224_data"
