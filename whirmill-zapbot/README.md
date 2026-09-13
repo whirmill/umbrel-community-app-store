@@ -8,8 +8,9 @@ to `ghcr.io/whirmill/zapbot:umbrel-query-flow-complete-61bd1305b2f6801d4901f481e
 release changes no global deadline, cache TTL, pool, risk, authority, or
 activation setting and does not activate trading or claim that normal Monitor
 qualification is complete. OPS002 transport, OPS009 installation and normal-
-browser qualification, and OPS010 fresh-bootstrap follow-up remain open; F07,
-F09, F10, and F11 remain separate candidates under P9. Lightweight health has a
+browser qualification, and OPS010 fresh-bootstrap follow-up remain open. F07,
+F09, F10, and F11 are included in 0.1.61; local P9 validation passed, while
+installed normal-browser qualification remains pending. Lightweight health has a
 distinct cache key; full health keeps its existing key and TTL. H4 economics
 acquisition remains bounded to 20 seconds and the H4 CLI keeps a 30-second HTTP
 receive timeout as headroom; neither bound guarantees completion. H4 admission
