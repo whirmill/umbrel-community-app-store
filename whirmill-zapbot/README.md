@@ -3,9 +3,8 @@
 Package revision `0.1.61` advances the released schema ledger to 233 migrations
 through `20260913102000_add_passive_execution_causal_trade_lookup_index`. It
 adds two concurrent, self-healing causal-event lookup indexes and a guarded
-trusted-v2 append-function predicate rewrite. The final post-merge source SHA
-and immutable multi-architecture image digest are pending: every provisional
-0.1.60 image reference must be replaced together before publication. This
+trusted-v2 append-function predicate rewrite. It pins source revision `61bd1305b2f6801d4901f481e7a07985015a346d`
+to `ghcr.io/whirmill/zapbot:umbrel-query-flow-complete-61bd1305b2f6801d4901f481e7a07985015a346d@sha256:31ebfd865b5f5e22093696370c100bc7357fcff352d1ba503f7bbe9700a68091` for every ZapBot service and the Trusted V2 attestor. This
 release changes no global deadline, cache TTL, pool, risk, authority, or
 activation setting and does not activate trading or claim that normal Monitor
 qualification is complete. OPS002 transport, OPS009 installation and normal-
@@ -124,13 +123,10 @@ application container ports remain private.
 
 ## Image admission
 
-Until the 0.1.61 release identity is supplied, the checked-in image references
-remain the verified 0.1.60 multi-architecture image for source revision
-`38ffc1b04f4de9894205424435a8251ac7818fb8` at index digest
-`sha256:e28bd4bca39dbec1ee7534146b23b04c4ed6b647e0ab0c80c8c46085bd770f63`.
-They are not a deployable 0.1.61 identity. Before publication, replace every
-ZapBot service reference and the attestor digest with one final reviewed
-multi-architecture tag@index; never substitute `latest` or an unreviewed tag.
+Package 0.1.61 pins the reviewed multi-architecture image for source revision
+`61bd1305b2f6801d4901f481e7a07985015a346d` at index digest `sha256:31ebfd865b5f5e22093696370c100bc7357fcff352d1ba503f7bbe9700a68091`. Every ZapBot service and the Trusted V2
+attestor use `ghcr.io/whirmill/zapbot:umbrel-query-flow-complete-61bd1305b2f6801d4901f481e7a07985015a346d@sha256:31ebfd865b5f5e22093696370c100bc7357fcff352d1ba503f7bbe9700a68091`. Keep this reviewed tag@index identity intact;
+never substitute `latest` or an unreviewed tag.
 
 ## Compatibility rollback to 0.1.46
 

@@ -46,6 +46,9 @@ keep_failure_fixture=${ZAPBOT_PACKAGE_LIFECYCLE_KEEP_FAILURE_FIXTURE:-0}
 case "$keep_failure_fixture" in 0|1) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_KEEP_FAILURE_FIXTURE must be 0 or 1' >&2; exit 64 ;; esac
 assert_selftest=${ZAPBOT_PACKAGE_LIFECYCLE_ASSERT_SELFTEST:-0}
 case "$assert_selftest" in 0|1) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_ASSERT_SELFTEST must be 0 or 1' >&2; exit 64 ;; esac
+assert_schema_verifier_expansion=${ZAPBOT_PACKAGE_LIFECYCLE_ASSERT_SCHEMA_VERIFIER_EXPANSION:-0}
+case "$assert_schema_verifier_expansion" in 0|1) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_ASSERT_SCHEMA_VERIFIER_EXPANSION must be 0 or 1' >&2; exit 64 ;; esac
+schema_verifier_container=${ZAPBOT_PACKAGE_SCHEMA_VERIFIER_CONTAINER:-}
 fenced_services='whirmill-zapbot-web producer-lnmarkets-candles producer-coinbase-candles producer-lnmarkets-funding producer-risk-authority-snapshot'
 
 # Docker Desktop can treat an otherwise equivalent doubled slash in a bind source
@@ -978,6 +981,121 @@ run_assert_final_state_negative_selftests() {
 
   log 'assert_final_state_negative_selftests=pass'
 }
+
+run_schema_verifier_expansion_test() {
+  test -n "$schema_verifier_container" || {
+    echo 'ZAPBOT_PACKAGE_SCHEMA_VERIFIER_CONTAINER is required when asserting verifier expansion' >&2
+    return 64
+  }
+  command -v docker >/dev/null
+  test "$(docker inspect -f '{{.State.Running}}' "$schema_verifier_container")" = true
+
+  verifier_fixture="$fixture_dir/schema-verifier-expansion"
+  verifier_package="$verifier_fixture/package"
+  verifier_bin="$verifier_fixture/bin"
+  verifier_inner_bin="$verifier_fixture/inner-bin"
+  captured_verifier="$verifier_fixture/captured-verifier.sh"
+  captured_legacy_verifier="$verifier_fixture/captured-legacy-verifier.sh"
+  legacy_rollback="$verifier_fixture/rollback-eba1091.sh"
+  mkdir -p "$verifier_package" "$verifier_bin" "$verifier_inner_bin" "$verifier_fixture/app/scripts"
+  : > "$verifier_package/docker-compose.yml"
+  : > "$verifier_package/docker-compose.rollback-0.1.46.yml"
+  printf '%s\n' "$package_version" > "$verifier_fixture/app/scripts/.package-version"
+
+  real_docker=$(command -v docker)
+  cat > "$verifier_bin/docker" <<'SH'
+#!/bin/sh
+set -eu
+case "$1" in
+  run)
+    exit 0
+    ;;
+  compose)
+    verifier_command=
+    for argument in "$@"; do
+      verifier_command=$argument
+    done
+    printf '%s' "$verifier_command" > "$CAPTURED_VERIFIER"
+    if [ "${VERIFIER_FAKE_MODE:-new}" = old_capture ]; then
+      printf '%s\n' rollback_schema_contract=fail
+      exit 0
+    fi
+    # Run the exact captured command through its inner `sh -ec`. The fixture
+    # adapter only replaces credential and client binaries: fake cat supplies
+    # the unavailable package-secret path and fake psql forwards unchanged SQL
+    # stdin to the owned database principal.
+    PATH="$VERIFIER_INNER_BIN:$PATH" /bin/sh -ec "$verifier_command"
+    ;;
+  *)
+    echo "unexpected fake docker command: $1" >&2
+    exit 64
+    ;;
+esac
+SH
+  chmod 700 "$verifier_bin/docker"
+  cat > "$verifier_inner_bin/cat" <<'SH'
+#!/bin/sh
+case "$1" in
+  /run/zapbot-secret/password) printf '%s\n' fixture-only-password ;;
+  *) exec /bin/cat "$@" ;;
+esac
+SH
+  cat > "$verifier_inner_bin/psql" <<'SH'
+#!/bin/sh
+exec "$REAL_DOCKER" exec -i "$SCHEMA_VERIFIER_CONTAINER" /bin/sh -ec \
+  'export PGPASSWORD="$POSTGRES_PASSWORD"; exec psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+SH
+  chmod 700 "$verifier_inner_bin/cat" "$verifier_inner_bin/psql"
+
+  git -C "$repo_root" show eba1091:whirmill-zapbot/scripts/rollback-0.1.46.sh | \
+    awk '/^verify_images\(\) \{$/ { print "verify_schema"; print "exit $?"; exit } { print }' > "$legacy_rollback"
+  if PATH="$verifier_bin:$PATH" \
+    REAL_DOCKER="$real_docker" \
+    CAPTURED_VERIFIER="$captured_legacy_verifier" \
+    VERIFIER_FAKE_MODE=old_capture \
+    VERIFIER_INNER_BIN="$verifier_inner_bin" \
+    SCHEMA_VERIFIER_CONTAINER="$schema_verifier_container" \
+    APP_DATA_DIR="$verifier_fixture/app" \
+    ZAPBOT_PACKAGE_COMPOSE="$verifier_package/docker-compose.yml" \
+    sh "$legacy_rollback"; then
+    echo 'pre-fix rollback verifier unexpectedly passed its shell quoting probe' >&2
+    return 1
+  fi
+  test -s "$captured_legacy_verifier"
+  grep -F ':revision:' "$captured_legacy_verifier" >/dev/null
+  if grep -F "':revision:'" "$captured_legacy_verifier" >/dev/null; then
+    echo 'pre-fix rollback verifier retained SQL string-literal quotes unexpectedly' >&2
+    return 1
+  fi
+  if grep -F "\$predicate\$AND pg_catalog.split_part( event.source_event_id, ':revision:', 1 ) = p_source_event_id\$predicate\$" "$captured_legacy_verifier" >/dev/null; then
+    echo 'pre-fix rollback verifier retained quoted predicate unexpectedly' >&2
+    return 1
+  fi
+
+  if ! PATH="$verifier_bin:$PATH" \
+    REAL_DOCKER="$real_docker" \
+    CAPTURED_VERIFIER="$captured_verifier" \
+    VERIFIER_INNER_BIN="$verifier_inner_bin" \
+    SCHEMA_VERIFIER_CONTAINER="$schema_verifier_container" \
+    APP_DATA_DIR="$verifier_fixture/app" \
+    ZAPBOT_PACKAGE_COMPOSE="$verifier_package/docker-compose.yml" \
+    ZAPBOT_ROLLBACK_VERIFY_SCHEMA_ONLY=1 \
+    sh "$package_root/scripts/rollback-0.1.46.sh"; then
+    echo 'installed rollback verifier failed against the owned schema-233 fixture' >&2
+    return 1
+  fi
+
+  test -s "$captured_verifier"
+  grep -F "\$predicate\$AND pg_catalog.split_part( event.source_event_id, ':revision:', 1 ) = p_source_event_id\$predicate\$" "$captured_verifier" >/dev/null
+  grep -F "\$legacy\$AND ( event.source_event_id = p_source_event_id OR pg_catalog.left( event.source_event_id, pg_catalog.length(p_source_event_id || ':revision:') ) = p_source_event_id || ':revision:' )\$legacy\$" "$captured_verifier" >/dev/null
+  log "rollback_schema_verifier_shell_expansion=pass legacy_shell_expansion=failed_as_expected container=$schema_verifier_container capture_sha256=$(sha256sum "$captured_verifier" | awk '{print $1}')"
+}
+
+if [ "$assert_schema_verifier_expansion" = 1 ]; then
+  run_schema_verifier_expansion_test
+  cat "$receipt"
+  exit 0
+fi
 
 if [ "$assert_selftest" = 1 ]; then
   run_assert_final_state_negative_selftests
