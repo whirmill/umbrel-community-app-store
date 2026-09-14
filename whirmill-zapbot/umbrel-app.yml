@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.62"
+version: "0.1.63"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,11 +23,11 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Monitor-stage observability release: it records fail-open, read-only stage
-  attribution across 12 Monitor stages, bounded to 24/10, through sanitized
-  CLI and RPC receipts. It improves attribution of intermittent cost; it does
-  not claim a latency fix. Schema 233 is unchanged. All ZapBot services and
-  Trusted V2 attestation use source revision `7b61a440d1848c013c299202674105b5bc2eebb0` pinned to immutable
-  image index `sha256:48e79ceef7a8e4a519999ad4e879dd76d5992181848c596ec6bc0d2f69bb9691`. No timing budget, cache TTL, pool, risk,
-  authority, or activation change is included. OPS009 installation and normal-
-  browser qualification remain open.
+  Reduces repeated execution-outcome reads and the work needed to inspect
+  historical Oban queues, preserving complete results and backlog checks.
+  Local equivalence and performance tests passed; installed Monitor timing
+  still requires verification. Schema 233 is unchanged. All ZapBot services
+  and Trusted V2 attestation use source revision `30470c8e300b301b2ae2dd29cffd227b549d27fc`
+  pinned to immutable image index `sha256:2a1b41c1c8b9b05a0e267a67fb51a6a7a2b1502e50c6dada4400b7acf6d18227`.
+  No timing budget, cache TTL, pool, risk, authority, or activation change is
+  included. This release does not enable trading or close OPS009 by itself.
