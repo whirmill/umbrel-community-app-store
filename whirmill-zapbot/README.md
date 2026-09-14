@@ -1,20 +1,19 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.61` advances the released schema ledger to 233 migrations
-through `20260913102000_add_passive_execution_causal_trade_lookup_index`. It
-adds two concurrent, self-healing causal-event lookup indexes and a guarded
-trusted-v2 append-function predicate rewrite. It pins source revision `61bd1305b2f6801d4901f481e7a07985015a346d`
-to `ghcr.io/whirmill/zapbot:umbrel-query-flow-complete-61bd1305b2f6801d4901f481e7a07985015a346d@sha256:31ebfd865b5f5e22093696370c100bc7357fcff352d1ba503f7bbe9700a68091` for every ZapBot service and the Trusted V2 attestor. This
-release changes no global deadline, cache TTL, pool, risk, authority, or
-activation setting and does not activate trading or claim that normal Monitor
-qualification is complete. OPS002 transport, OPS009 installation and normal-
-browser qualification, and OPS010 fresh-bootstrap follow-up remain open. F07,
-F09, F10, and F11 are included in 0.1.61; local P9 validation passed, while
-installed normal-browser qualification remains pending. Lightweight health has a
-distinct cache key; full health keeps its existing key and TTL. H4 economics
-acquisition remains bounded to 20 seconds and the H4 CLI keeps a 30-second HTTP
-receive timeout as headroom; neither bound guarantees completion. H4 admission
-remains default-disabled and `manage_only`.
+Package revision `0.1.62` keeps the schema ledger at 233 migrations through
+`20260913102000_add_passive_execution_causal_trade_lookup_index`. It pins source
+revision `7b61a440d1848c013c299202674105b5bc2eebb0` to `ghcr.io/whirmill/zapbot:umbrel-monitor-stage-7b61a440d1848c013c299202674105b5bc2eebb0@sha256:48e79ceef7a8e4a519999ad4e879dd76d5992181848c596ec6bc0d2f69bb9691` for every ZapBot service and the
+Trusted V2 attestor. This observability-only release records fail-open,
+read-only Monitor stage attribution across 12 stages, bounded to 24/10, and
+exposes sanitized receipts through the CLI and RPC. It does not claim a latency
+fix or change any timing budget, cache TTL, pool, risk, authority, activation,
+execution, or entry setting. OPS002 transport, OPS009 installation and normal-
+browser qualification, and OPS010 fresh-bootstrap follow-up remain open. Local
+P9 validation passed; installed normal-browser qualification remains pending.
+Lightweight health has a distinct cache key; full health keeps its existing key
+and TTL. H4 economics acquisition remains bounded to 20 seconds and the H4 CLI
+keeps a 30-second HTTP receive timeout as headroom; neither bound guarantees
+completion. H4 admission remains default-disabled and `manage_only`.
 
 Credential initialization completes before the release-SQL exporter runs. The
 exporter then runs before every SQL consumer, exports the reviewed files from
@@ -124,15 +123,15 @@ application container ports remain private.
 
 ## Image admission
 
-Package 0.1.61 pins the reviewed multi-architecture image for source revision
-`61bd1305b2f6801d4901f481e7a07985015a346d` at index digest `sha256:31ebfd865b5f5e22093696370c100bc7357fcff352d1ba503f7bbe9700a68091`. Every ZapBot service and the Trusted V2
-attestor use `ghcr.io/whirmill/zapbot:umbrel-query-flow-complete-61bd1305b2f6801d4901f481e7a07985015a346d@sha256:31ebfd865b5f5e22093696370c100bc7357fcff352d1ba503f7bbe9700a68091`. Keep this reviewed tag@index identity intact;
-never substitute `latest` or an unreviewed tag.
+Package 0.1.62 pins the reviewed multi-architecture image for source revision
+`7b61a440d1848c013c299202674105b5bc2eebb0` at index digest `sha256:48e79ceef7a8e4a519999ad4e879dd76d5992181848c596ec6bc0d2f69bb9691`. Every ZapBot service and the
+Trusted V2 attestor use `ghcr.io/whirmill/zapbot:umbrel-monitor-stage-7b61a440d1848c013c299202674105b5bc2eebb0@sha256:48e79ceef7a8e4a519999ad4e879dd76d5992181848c596ec6bc0d2f69bb9691`. Keep this reviewed tag@index identity
+intact; never substitute `latest` or an unreviewed tag.
 
 ## Compatibility rollback to 0.1.46
 
 The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. It keeps the 0.1.61 release-SQL export,
+runtime and four continuous producers. It keeps the 0.1.62 release-SQL export,
 migration, bootstrap and verifier path, so the database remains at schema 233
 and preserves both account-identity tables, observations, functions and
 immutable triggers. It never drops data, runs a down migration, or changes a
@@ -141,13 +140,13 @@ persisted authority setting.
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
 producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the schema/trigger contract plus the exact old runtime and current
-release image split. Start the fenced 0.1.61 package successfully first: its
+release image split. Start the fenced 0.1.62 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
-The command is resumable. It accepts only the pinned 0.1.61 or pinned 0.1.46
+The command is resumable. It accepts only the pinned 0.1.62 or pinned 0.1.46
 image for each of its five targets, completes a partial split, and rejects any
 other image. A retry after all five are safely fenced is verification-only. The
 rollback overlay runs the web as `tail` and producers as `sleep`, with explicit
