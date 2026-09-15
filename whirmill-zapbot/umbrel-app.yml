@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.64"
+version: "0.1.65"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,13 +23,12 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Corrects H4 canary diagnostics when account identity is unavailable: missing
-  identity is distinguished from a confirmed mismatch. Both conditions keep
-  economics unknown and block activation without fetching economic history.
-  Focused tests, the full backend suite and independent review passed.
-  Schema 233 is unchanged. All ZapBot services and Trusted V2 attestation use
-  source revision `6e636710ffd2cf9d0c38f8786e07fe0d1ca5ab6d`
-  pinned to immutable image index `sha256:9906c9e8810a1635ee10f87c48a1edac96835b036dc5781796a2fd2142671871`.
-  No risk, ownership, acquisition timeout, recovery or activation change is
-  included. This does not resolve transient identity acquisition or Monitor
-  latency, and does not enable trading.
+  Adds scoped, redacted account-identity diagnostics to the existing readiness
+  exposure read. It changes no readiness query, TTL, gate or schedule, and does
+  not change risk, ownership, activation or trading behavior. The full 3,020
+  source tests and SPA checks passed; schema 233 is unchanged. All ZapBot
+  services and Trusted V2 attestation use source revision
+  `91363ae70c92bba1c0990ccfb8ab25210d0d6e37` pinned to immutable image index
+  `sha256:9c3a7a45066d522f6f7043282adeb656d7e23e7f4c5044362b4639a1baf30a85`.
+  This does not guarantee every restart outcome, close the Monitor SLO, or
+  enable activation.
