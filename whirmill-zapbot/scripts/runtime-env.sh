@@ -28,6 +28,10 @@ export GIT_COMMIT_SHA="$baked_revision"
 export ZAPBOT_START_DELIBERATION_RUNTIME=false
 export ZAPBOT_START_INTERNAL_CONSUMERS=false
 export ZAPBOT_START_MARKET_STREAM=false
+# The package starts reconciliation only from the admitted web command after
+# this common service environment has been loaded. Keep every other service
+# default-off even if an older transferred configuration contains the flag.
+export LNM_STARTUP_RECONCILE_ENABLED=false
 
 # No long-lived service may inherit release-administrator or cross-role database
 # credentials from a transferred config file.
