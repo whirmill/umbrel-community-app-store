@@ -146,6 +146,37 @@ assert_package_image_pins() {
   printf '%s\n' "$attestor_command" | grep -F "ZAPBOT_RELEASE_IMAGE_DIGEST=$expected_digest" >/dev/null
 }
 
+assert_startup_reconcile_scope() {
+  project=$1
+  data_dir=$2
+  config_json=$(COMPOSE_PROFILES='trusted-v2-ops,execution-economics-ops' compose "$project" "$data_dir" config --format json)
+  web_command=$(printf '%s' "$config_json" | jq -r '.services["whirmill-zapbot-web"].command | join(" ")')
+
+  case "$web_command" in
+    *'. /usr/local/bin/runtime-env'*'export LNM_STARTUP_RECONCILE_ENABLED=true'*) ;;
+    *)
+      echo 'web must enable startup reconciliation only after loading runtime-env' >&2
+      return 1
+      ;;
+  esac
+
+  enabled_services=$(printf '%s' "$config_json" | jq -r '
+    .services
+    | to_entries[]
+    | select((.value.command // [] | join(" ")) | contains("export LNM_STARTUP_RECONCILE_ENABLED=true"))
+    | .key
+  ')
+  test "$enabled_services" = 'whirmill-zapbot-web' || {
+    printf 'startup reconciliation must be enabled only by the web service; actual=%s\n' "${enabled_services:-none}" >&2
+    return 1
+  }
+
+  grep -Fx 'export LNM_STARTUP_RECONCILE_ENABLED=false' "$package_root/scripts/runtime-env.sh" >/dev/null || {
+    echo 'runtime-env must reset startup reconciliation to false before service-specific admission' >&2
+    return 1
+  }
+}
+
 assert_rollback_image_split() {
   project=$1
   data_dir=$2
@@ -1108,6 +1139,7 @@ for project in "$fresh_project" "$source224_project" "$restore_project" "$upgrad
 done
 write_legacy_migrate_override
 assert_package_image_pins "$fresh_project" "$fresh_data"
+assert_startup_reconcile_scope "$fresh_project" "$fresh_data"
 assert_rollback_image_split "$upgrade229_project" "$upgrade229_data"
 assert_canonical_fixture_binds "$restore_project" "$restore_data"
 

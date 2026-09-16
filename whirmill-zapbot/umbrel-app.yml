@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.65"
+version: "0.1.66"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,12 +23,14 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Adds scoped, redacted account-identity diagnostics to the existing readiness
-  exposure read. It changes no readiness query, TTL, gate or schedule, and does
-  not change risk, ownership, activation or trading behavior. The full 3,020
-  source tests and SPA checks passed; schema 233 is unchanged. All ZapBot
-  services and Trusted V2 attestation use source revision
-  `91363ae70c92bba1c0990ccfb8ab25210d0d6e37` pinned to immutable image index
-  `sha256:9c3a7a45066d522f6f7043282adeb656d7e23e7f4c5044362b4639a1baf30a85`.
-  This does not guarantee every restart outcome, close the Monitor SLO, or
-  enable activation.
+  Adds a default-OFF LN Markets startup-reconcile path for the supported single
+  long-lived Umbrel web runtime. The package resets the flag for every service,
+  then enables it only in the admitted web command after runtime-env. The
+  source keeps API runtime, benchmark, observation-only, repository and
+  internal-consumer fences authoritative; producers and other topologies remain
+  off. It does not change readiness TTLs or gates, cron cadence, risk,
+  ownership, activation, entry mode, exposure, or producer admission. Source
+  revision `6f6267e737307b8004cd79855365f5ba3b7e653e` and every service/attestor
+  are pinned to immutable multi-architecture index
+  `sha256:39fbb5914238f84fd76585f0aa51908e72f1e4a19b1aef1b106c638006ae5c56`.
+  Schema 233 and the fenced 0.1.46 compatibility rollback are retained.
