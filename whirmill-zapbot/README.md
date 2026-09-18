@@ -1,17 +1,22 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.66` keeps the schema ledger at 233 migrations through
-`20260913102000_add_passive_execution_causal_trade_lookup_index`. It pins source
-revision `6f6267e737307b8004cd79855365f5ba3b7e653e` to `ghcr.io/whirmill/zapbot:umbrel-identity-startup-6f6267e737307b8004cd79855365f5ba3b7e653e@sha256:39fbb5914238f84fd76585f0aa51908e72f1e4a19b1aef1b106c638006ae5c56` for every ZapBot service and the
-Trusted V2 attestor. It resets startup reconciliation to false for all services,
-then enables it only in the admitted single long-lived Umbrel web command after
-loading the runtime environment. API runtime, benchmark, observation-only,
-repository, and internal-consumer fences remain authoritative. It changes no
-readiness TTL or gate, cron cadence, risk, authority, activation, execution,
-entry, exposure, or producer admission setting. Installed browser qualification
-remains pending.
-keeps a 30-second HTTP receive timeout as headroom; neither bound guarantees
-completion. H4 admission remains default-disabled and `manage_only`.
+Package revision `0.1.67` keeps the schema ledger at 233 migrations through
+`20260913102000_add_passive_execution_causal_trade_lookup_index`. Every ZapBot
+service and the Trusted V2 attestor use source revision `d388db41e99685b8031c484fa0b92e5f77310196` and
+`ghcr.io/whirmill/zapbot:umbrel-reservation-ttl-lock-order-d388db41e99685b8031c484fa0b92e5f77310196@sha256:e824f56c1dffc181e7294c1c02691b023de46db1c522594275795498601eb283`.
+
+This release corrects exposure-reservation accounting and expiry locking.
+Consumed (`claimed`) commitments continue to count after their original TTL;
+only unconsumed active reservations expire by time. Expiry acquires scope locks
+before row locks and rechecks status after waiting. Canonical-command coverage
+still deduplicates the reservation. Authoritative settlement must be qualified
+before live H4 claim/consume wiring; elapsed time never proves settlement.
+
+No migration, risk limit, entry mode or activation setting changes. H4 admission
+remains disabled. The existing single-web startup reconciliation and producer
+fences are preserved. This release does not close Monitor latency qualification
+or establish empirical trading readiness. Package CI explicitly includes the
+schema-224 restore fixture using this package's actual scripts.
 
 Credential initialization completes before the release-SQL exporter runs. The
 exporter then runs before every SQL consumer, exports the reviewed files from
@@ -121,15 +126,15 @@ application container ports remain private.
 
 ## Image admission
 
-Package 0.1.66 pins the reviewed multi-architecture image for source revision
-`6f6267e737307b8004cd79855365f5ba3b7e653e` at index digest `sha256:39fbb5914238f84fd76585f0aa51908e72f1e4a19b1aef1b106c638006ae5c56`. Every ZapBot service and the
-Trusted V2 attestor use `ghcr.io/whirmill/zapbot:umbrel-identity-startup-6f6267e737307b8004cd79855365f5ba3b7e653e@sha256:39fbb5914238f84fd76585f0aa51908e72f1e4a19b1aef1b106c638006ae5c56`. Keep this reviewed tag@index identity
+Package 0.1.67 pins the reviewed multi-architecture image for source revision
+`d388db41e99685b8031c484fa0b92e5f77310196` at index digest `sha256:e824f56c1dffc181e7294c1c02691b023de46db1c522594275795498601eb283`. Every ZapBot service and the
+Trusted V2 attestor use `ghcr.io/whirmill/zapbot:umbrel-reservation-ttl-lock-order-d388db41e99685b8031c484fa0b92e5f77310196@sha256:e824f56c1dffc181e7294c1c02691b023de46db1c522594275795498601eb283`. Keep this reviewed tag@index identity
 intact; never substitute `latest` or an unreviewed tag.
 
 ## Compatibility rollback to 0.1.46
 
 The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. It keeps the 0.1.66 release-SQL export,
+runtime and four continuous producers. It keeps the 0.1.67 release-SQL export,
 migration, bootstrap and verifier path, so the database remains at schema 233
 and preserves both account-identity tables, observations, functions and
 immutable triggers. It never drops data, runs a down migration, or changes a
@@ -138,13 +143,13 @@ persisted authority setting.
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
 producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the schema/trigger contract plus the exact old runtime and current
-release image split. Start the fenced 0.1.66 package successfully first: its
+release image split. Start the fenced 0.1.67 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
-The command is resumable. It accepts only the pinned 0.1.66 or pinned 0.1.46
+The command is resumable. It accepts only the pinned 0.1.67 or pinned 0.1.46
 image for each of its five targets, completes a partial split, and rejects any
 other image. A retry after all five are safely fenced is verification-only. The
 rollback overlay runs the web as `tail` and producers as `sleep`, with explicit

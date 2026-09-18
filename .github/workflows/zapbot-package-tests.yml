@@ -24,6 +24,8 @@ jobs:
       - name: Verify initialization order with absent data directory and repeat
         run: sh tests/zapbot-bootstrap-export-order.sh
       - name: Verify immutable image through fresh, restore and restart package lifecycles
+        env:
+          ZAPBOT_PACKAGE_TEST_RESTORE_224: "1"
         run: |
           ZAPBOT_PACKAGE_IMAGE="$(yq e '.services.migrate.image' whirmill-zapbot/docker-compose.yml)" \
           ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT="$RUNNER_TEMP/zapbot-package-lifecycle.log" \
