@@ -1,22 +1,25 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.67` keeps the schema ledger at 233 migrations through
-`20260913102000_add_passive_execution_causal_trade_lookup_index`. Every ZapBot
-service and the Trusted V2 attestor use source revision `d388db41e99685b8031c484fa0b92e5f77310196` and
-`ghcr.io/whirmill/zapbot:umbrel-reservation-ttl-lock-order-d388db41e99685b8031c484fa0b92e5f77310196@sha256:e824f56c1dffc181e7294c1c02691b023de46db1c522594275795498601eb283`.
+Package revision `0.1.68` carries schema 234 through
+`20260919110000_create_h4_canary_economics_evidence_receipts`, built from merged
+source `b9cdcd80f18203eb88703612ccd752331568d6e3`. Every current-package service
+is pinned to its reviewed immutable multi-architecture tag@index identity.
+Package installation is not claimed here; it remains subject to the recorded
+local lifecycle qualification and a separately authenticated operator action.
 
-This release corrects exposure-reservation accounting and expiry locking.
-Consumed (`claimed`) commitments continue to count after their original TTL;
-only unconsumed active reservations expire by time. Expiry acquires scope locks
-before row locks and rechecks status after waiting. Canonical-command coverage
-still deduplicates the reservation. Authoritative settlement must be qualified
-before live H4 claim/consume wiring; elapsed time never proves settlement.
+The intended migration adds `h4_canary_economics_evidence_receipts` and
+`materialize_h4_canary_economics_evidence(uuid)`. It can derive an internal,
+append-only receipt from canonical execution-economics heartbeat, artifact and
+producer-receipt lineage. Each row is constrained to `authority=none`,
+`admission_eligible=false`, and `TERMINAL_REALIZED_ONLY`; it has no live
+admission, execution, scheduling, producer, risk, entry-mode, exposure or
+activation wiring. The materializer is expected to retain source hash
+`0608e68275edf2b1faf82641f104a887ef0127b400f9bd15724a7f6434d7995e`.
 
-No migration, risk limit, entry mode or activation setting changes. H4 admission
-remains disabled. The existing single-web startup reconciliation and producer
-fences are preserved. This release does not close Monitor latency qualification
-or establish empirical trading readiness. Package CI explicitly includes the
-schema-224 restore fixture using this package's actual scripts.
+Package qualification must run the fresh, schema-224 restore, restart, ACL and
+0.1.46 compatibility rollback lifecycles against that exact image. The release
+SQL exporter remains authoritative for the source bootstrap and verifier SQL;
+the package does not copy or recreate those contracts.
 
 Credential initialization completes before the release-SQL exporter runs. The
 exporter then runs before every SQL consumer, exports the reviewed files from
@@ -126,30 +129,33 @@ application container ports remain private.
 
 ## Image admission
 
-Package 0.1.67 pins the reviewed multi-architecture image for source revision
-`d388db41e99685b8031c484fa0b92e5f77310196` at index digest `sha256:e824f56c1dffc181e7294c1c02691b023de46db1c522594275795498601eb283`. Every ZapBot service and the
-Trusted V2 attestor use `ghcr.io/whirmill/zapbot:umbrel-reservation-ttl-lock-order-d388db41e99685b8031c484fa0b92e5f77310196@sha256:e824f56c1dffc181e7294c1c02691b023de46db1c522594275795498601eb283`. Keep this reviewed tag@index identity
-intact; never substitute `latest` or an unreviewed tag.
+Every current Compose reference, including the Trusted V2 attestor digest, is
+aligned to source `b9cdcd80f18203eb88703612ccd752331568d6e3` at immutable
+`ghcr.io/whirmill/zapbot:umbrel-h4-terminal-economics-b9cdcd80f18203eb88703612ccd752331568d6e3@sha256:e7b646d19e25932e5cd6101749f1651371e27a22d5f4cbd30fdfc677ff43c8d7`.
+The published OCI index carries native `linux/amd64` and `linux/arm64` manifests
+and revision label `b9cdcd80f18203eb88703612ccd752331568d6e3`. Never substitute
+`latest`, a mutable tag, or a different digest.
 
 ## Compatibility rollback to 0.1.46
 
 The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. It keeps the 0.1.67 release-SQL export,
-migration, bootstrap and verifier path, so the database remains at schema 233
-and preserves both account-identity tables, observations, functions and
-immutable triggers. It never drops data, runs a down migration, or changes a
-persisted authority setting.
+runtime and four continuous producers. After the exact 0.1.68 image is
+qualified, it keeps that release-SQL export, migration, bootstrap and verifier
+path at schema 234, preserving the terminal-economics receipts, exact
+materializer, append-only triggers, runtime read/execute ACL and existing
+account-identity contract. It never drops data, runs a down migration, or
+changes a persisted authority setting.
 
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
 producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the schema/trigger contract plus the exact old runtime and current
-release image split. Start the fenced 0.1.67 package successfully first: its
+release image split. Start the fenced 0.1.68 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
-The command is resumable. It accepts only the pinned 0.1.67 or pinned 0.1.46
+The command is resumable. It accepts only the pinned 0.1.68 or pinned 0.1.46
 image for each of its five targets, completes a partial split, and rejects any
 other image. A retry after all five are safely fenced is verification-only. The
 rollback overlay runs the web as `tail` and producers as `sleep`, with explicit

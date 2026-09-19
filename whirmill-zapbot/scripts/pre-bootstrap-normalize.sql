@@ -28,6 +28,9 @@ DECLARE
         'public.freeze_h4_canary_frozen_budget(text,text,bigint,text,jsonb)'
       )::oid,
       pg_catalog.to_regprocedure(
+        'public.materialize_h4_canary_economics_evidence(uuid)'
+      )::oid,
+      pg_catalog.to_regprocedure(
         'public.record_lnmarkets_account_identity_observation(text,text,text,text,timestamp with time zone)'
       )::oid,
       pg_catalog.to_regprocedure(
@@ -69,7 +72,11 @@ DECLARE
   freeze_function oid := pg_catalog.to_regprocedure(
     'public.freeze_h4_canary_frozen_budget(text,text,bigint,text,jsonb)'
   );
+  materializer_function oid := pg_catalog.to_regprocedure(
+    'public.materialize_h4_canary_economics_evidence(uuid)'
+  );
   freeze_function_reviewed boolean;
+  materializer_function_reviewed boolean;
   reviewed_count integer;
 BEGIN
   -- This normalizer precedes migrations on an empty or 224 restore. Once the
@@ -89,6 +96,24 @@ BEGIN
     WHERE function.oid = freeze_function;
   END IF;
 
+  -- The schema-234 materializer may be absent before migration. When present,
+  -- retain only the reviewed SECDEF search path and immutable body before the
+  -- reownership loop below assigns zapbot_owner after an ownerless restore.
+  IF materializer_function IS NULL THEN
+    materializer_function_reviewed := true;
+  ELSE
+    SELECT
+      function.prosecdef
+        AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+        AND pg_catalog.encode(
+          pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')),
+          'hex'
+        ) = '0608e68275edf2b1faf82641f104a887ef0127b400f9bd15724a7f6434d7995e'
+    INTO materializer_function_reviewed
+    FROM pg_catalog.pg_proc function
+    WHERE function.oid = materializer_function;
+  END IF;
+
   SELECT count(*)
   INTO reviewed_count
   FROM pg_catalog.pg_proc function
@@ -97,6 +122,7 @@ BEGIN
 
   IF reviewed_count <> pg_catalog.cardinality(allowed_security_definer_functions)
      OR freeze_function_reviewed IS NOT TRUE
+     OR materializer_function_reviewed IS NOT TRUE
      OR EXISTS (
     SELECT 1
     FROM pg_catalog.pg_proc function
