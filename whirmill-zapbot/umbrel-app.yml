@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.67"
+version: "0.1.68"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,12 +23,13 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Fixes exposure-reservation accounting and expiry locking. Consumed reservations
-  continue to count after their original TTL; only unconsumed active reservations
-  expire by time. Expiry acquires scope locks before row locks and rechecks state
-  after waiting, preserving concurrent claims. Canonical-command deduplication
-  remains in place. This is a prerequisite correction for H4 admission, not its
-  activation. Risk limits, entry mode, startup protections and producer gates are
-  unchanged. Every service and attestor are pinned to source revision `d388db41e99685b8031c484fa0b92e5f77310196`
-  and immutable multi-architecture index `sha256:e824f56c1dffc181e7294c1c02691b023de46db1c522594275795498601eb283`. Schema 233 is unchanged;
-  the fenced 0.1.46 compatibility rollback is retained.
+  Schema-234 terminal-economics package from reviewed merged source
+  b9cdcd80f18203eb88703612ccd752331568d6e3. It adds an internal append-only
+  terminal-realized economics receipt relation and UUID-only materializer. Every
+  persisted receipt is permanently `authority=none` and `admission_eligible=false`;
+  it does not wire live admission, execution, producers, scheduling, risk, entry
+  mode, exposure or activation. The release SQL bootstrap/verifier proves the
+  exact function, append-only triggers and least-privilege runtime ACL. Its image
+  is a reviewed immutable linux/amd64+linux/arm64 index; this note makes no
+  installation claim. The fenced 0.1.46 compatibility rollback remains a
+  schema-234 verification path.

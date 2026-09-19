@@ -29,8 +29,8 @@ done
 
 package_version=${ZAPBOT_PACKAGE_VERSION:-$(awk -F'"' '/^version: / { print $2; exit }' "$package_root/umbrel-app.yml")}
 test -n "$package_version"
-expected_schema_migrations_count=233
-expected_schema_migrations_latest_version=20260913102000
+expected_schema_migrations_count=234
+expected_schema_migrations_latest_version=20260919110000
 : "${ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT:?set ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT to a new absolute log path outside the disposable fixture}"
 receipt=$ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT
 case "$receipt" in /*) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT must be an absolute path' >&2; exit 64 ;; esac
@@ -62,10 +62,12 @@ project_base="zapbot-package-lifecycle-$$"
 fresh_project="${project_base}-fresh"
 source224_project="${project_base}-source224"
 restore_project="${project_base}-restore"
+ownerless234_project="${project_base}-ownerless234"
 upgrade229_project="${project_base}-upgrade229"
 fresh_data="$fixture_dir/fresh-app"
 source224_data="$fixture_dir/source224-app"
 restore_data="$fixture_dir/restore-app"
+ownerless234_data="$fixture_dir/ownerless234-app"
 upgrade229_data="$fixture_dir/upgrade229-app"
 
 log() {
@@ -253,6 +255,7 @@ cleanup_projects() {
   cleanup_project "$fresh_project" "$fresh_data"
   cleanup_project "$source224_project" "$source224_data"
   cleanup_project "$restore_project" "$restore_data"
+  cleanup_project "$ownerless234_project" "$ownerless234_data"
   cleanup_project "$upgrade229_project" "$upgrade229_data"
 }
 
@@ -273,6 +276,7 @@ on_exit() {
     capture_project_failure "$fresh_project" "$fresh_data"
     capture_project_failure "$source224_project" "$source224_data"
     capture_project_failure "$restore_project" "$restore_data"
+    capture_project_failure "$ownerless234_project" "$ownerless234_data"
     capture_project_failure "$upgrade229_project" "$upgrade229_data"
   fi
   cleanup_projects
@@ -411,14 +415,19 @@ assert_final_value() {
   fi
 }
 
-assert_schema_233_contract() {
+assert_schema_234_contract() {
   project=$1
   data_dir=$2
   if contract=$(pg_query "$project" "$data_dir" "SELECT (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = 'public.causal_events_trusted_v2_series_latest_idx'::regclass)::text || ':' || (pg_catalog.pg_get_indexdef('public.causal_events_trusted_v2_series_latest_idx'::regclass) = \$\$CREATE INDEX causal_events_trusted_v2_series_latest_idx ON public.causal_events USING btree (source, stream_id, account_scope, market_key, split_part((source_event_id)::text, ':revision:'::text, 1), ledger_seq DESC)\$\$)::text || ':' || (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = 'public.causal_events_passive_execution_trade_lookup_idx'::regclass)::text || ':' || (pg_catalog.pg_get_indexdef('public.causal_events_passive_execution_trade_lookup_idx'::regclass) = \$\$CREATE INDEX causal_events_passive_execution_trade_lookup_idx ON public.causal_events USING btree (source, kind, account_scope, market_key, ((payload ->> 'provider_trade_id'::text)), ledger_seq)\$\$)::text || ':' || (pg_catalog.strpos(pg_catalog.regexp_replace(pg_catalog.pg_get_functiondef('public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)'::regprocedure), \$\$[[:space:]]+\$\$, \$\$ \$\$, \$\$g\$\$), \$predicate\$AND pg_catalog.split_part( event.source_event_id, ':revision:', 1 ) = p_source_event_id\$predicate\$) > 0)::text || ':' || (pg_catalog.strpos(pg_catalog.regexp_replace(pg_catalog.pg_get_functiondef('public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)'::regprocedure), \$\$[[:space:]]+\$\$, \$\$ \$\$, \$\$g\$\$), \$legacy\$AND ( event.source_event_id = p_source_event_id OR pg_catalog.left( event.source_event_id, pg_catalog.length(p_source_event_id || ':revision:') ) = p_source_event_id || ':revision:' )\$legacy\$) = 0)::text || ':' || (SELECT proc.prosecdef FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)'::regprocedure)::text || ':' || (SELECT proc.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, public', 'lock_timeout=1s'] FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)'::regprocedure)::text || ':' || (SELECT pg_catalog.pg_get_userbyid(proc.proowner) = 'zapbot_owner' FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)'::regprocedure)::text || ':' || (NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc proc CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(proc.proacl, pg_catalog.acldefault('f', proc.proowner))) acl WHERE proc.oid = 'public.append_trusted_v2_causal_event(text,text,text,timestamp without time zone,timestamp without time zone,text,jsonb)'::regprocedure AND acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'))::text"); then :; else
-    printf 'assert_final_state failed assertion=schema_233_index_predicate_and_function_posture_contract expected=true:true:true:true:true:true:true:true:true:true actual=query_error\n' >&2
+    printf 'assert_final_state failed assertion=schema_234_legacy_index_predicate_and_function_posture_contract expected=true:true:true:true:true:true:true:true:true:true actual=query_error\n' >&2
     return 1
   fi
-  assert_final_value schema_233_index_predicate_and_function_posture_contract true:true:true:true:true:true:true:true:true:true "$contract"
+  assert_final_value schema_234_legacy_index_predicate_and_function_posture_contract true:true:true:true:true:true:true:true:true:true "$contract" || return 1
+  if contract=$(pg_query "$project" "$data_dir" "SELECT (to_regclass('public.h4_canary_economics_evidence_receipts') IS NOT NULL)::text || ':' || ((SELECT count(*) FROM pg_catalog.pg_trigger WHERE tgname IN ('h4_canary_economics_evidence_receipts_append_only', 'h4_canary_economics_evidence_receipts_truncate_guard') AND tgenabled = 'A') = 2)::text || ':' || (SELECT proc.prosecdef FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.materialize_h4_canary_economics_evidence(uuid)'::regprocedure)::text || ':' || (SELECT proc.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, public'] FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.materialize_h4_canary_economics_evidence(uuid)'::regprocedure)::text || ':' || (SELECT pg_catalog.pg_get_userbyid(proc.proowner) = 'zapbot_owner' FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.materialize_h4_canary_economics_evidence(uuid)'::regprocedure)::text || ':' || (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(proc.prosrc, 'UTF8')), 'hex') = '0608e68275edf2b1faf82641f104a887ef0127b400f9bd15724a7f6434d7995e' FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.materialize_h4_canary_economics_evidence(uuid)'::regprocedure)::text || ':' || (EXISTS (SELECT 1 FROM pg_catalog.pg_class relation CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(relation.relacl, pg_catalog.acldefault('r', relation.relowner))) acl WHERE relation.oid = 'public.h4_canary_economics_evidence_receipts'::regclass AND acl.grantee = pg_catalog.to_regrole('zapbot_runtime') AND acl.privilege_type = 'SELECT' AND NOT acl.is_grantable) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class relation CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(relation.relacl, pg_catalog.acldefault('r', relation.relowner))) acl WHERE relation.oid = 'public.h4_canary_economics_evidence_receipts'::regclass AND (acl.grantee = 0 OR acl.grantee NOT IN (pg_catalog.to_regrole('zapbot_owner'), pg_catalog.to_regrole('zapbot_runtime')) OR (acl.grantee = pg_catalog.to_regrole('zapbot_runtime') AND (acl.privilege_type <> 'SELECT' OR acl.is_grantable)))))::text || ':' || (EXISTS (SELECT 1 FROM pg_catalog.pg_proc function CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(function.proacl, pg_catalog.acldefault('f', function.proowner))) acl WHERE function.oid = 'public.materialize_h4_canary_economics_evidence(uuid)'::regprocedure AND acl.grantee = pg_catalog.to_regrole('zapbot_runtime') AND acl.privilege_type = 'EXECUTE' AND NOT acl.is_grantable) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc function CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(function.proacl, pg_catalog.acldefault('f', function.proowner))) acl WHERE function.oid = 'public.materialize_h4_canary_economics_evidence(uuid)'::regprocedure AND (acl.grantee = 0 OR acl.grantee NOT IN (pg_catalog.to_regrole('zapbot_owner'), pg_catalog.to_regrole('zapbot_runtime')) OR (acl.grantee = pg_catalog.to_regrole('zapbot_runtime') AND (acl.privilege_type <> 'EXECUTE' OR acl.is_grantable)))))::text || ':' || has_table_privilege('zapbot_runtime', 'public.h4_canary_economics_evidence_receipts', 'INSERT')::text || ':' || has_table_privilege('zapbot_runtime', 'public.h4_canary_economics_evidence_receipts', 'UPDATE')::text || ':' || has_table_privilege('zapbot_runtime', 'public.h4_canary_economics_evidence_receipts', 'DELETE')::text || ':' || has_table_privilege('zapbot_runtime', 'public.h4_canary_economics_evidence_receipts', 'TRUNCATE')::text || ':' || has_table_privilege('zapbot_runtime', 'public.h4_canary_economics_evidence_receipts', 'REFERENCES')::text || ':' || has_table_privilege('zapbot_runtime', 'public.h4_canary_economics_evidence_receipts', 'TRIGGER')::text"); then :; else
+    printf 'assert_final_state failed assertion=schema_234_terminal_economics_append_only_acl_contract expected=true:true:true:true:true:true:true:true:false:false:false:false:false:false actual=query_error\n' >&2
+    return 1
+  fi
+  assert_final_value schema_234_terminal_economics_append_only_acl_contract true:true:true:true:true:true:true:true:false:false:false:false:false:false "$contract"
 }
 
 assert_final_state() {
@@ -434,7 +443,7 @@ assert_final_state() {
     return 1
   fi
   assert_final_value schema_migrations_latest "$expected_schema_migrations_latest_version" "$migration_latest" || return 1
-  assert_schema_233_contract "$project" "$data_dir" || return 1
+  assert_schema_234_contract "$project" "$data_dir" || return 1
   if causal_attestation=$(pg_query "$project" "$data_dir" "SELECT (to_regprocedure('public.validate_forward_return_label_causal_attestation()') IS NOT NULL)::text || ':' || (EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'learning_forward_return_labels_v2_causal_attestation_guard'))::text"); then :; else
     printf 'assert_final_state failed assertion=causal_attestation_function_and_trigger expected=true:true actual=query_error\n' >&2
     return 1
@@ -547,7 +556,7 @@ start_full_package() {
 start_compatibility_rollback() {
   project=$1
   data_dir=$2
-  log "starting actual installed schema-233 compatibility rollback script project=$project"
+  log "starting actual installed schema-234 compatibility rollback script project=$project"
   (
     unset APP_SEED
     APP_DATA_DIR="$data_dir" \
@@ -610,7 +619,7 @@ assert_rollback_final_state() {
   data_dir=$2
   test "$(pg_query "$project" "$data_dir" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
   test "$(pg_query "$project" "$data_dir" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
-  assert_schema_233_contract "$project" "$data_dir"
+  assert_schema_234_contract "$project" "$data_dir"
   compose "$project" "$data_dir" logs normalize-and-verify | grep -F 'verification_safe= t' >/dev/null
   assert_export_matches_image "$data_dir"
   assert_postgres_secret_readable "$project" "$data_dir"
@@ -791,6 +800,103 @@ assert_installed_rollback_refuses_enabled_marker() {
   log 'installed_rollback_enabled_marker_refusal=pass'
 }
 
+rollback_schema_only() {
+  project=$1
+  data_dir=$2
+  (
+    unset APP_SEED
+    APP_DATA_DIR="$data_dir" \
+      ZAPBOT_PACKAGE_COMPOSE="$package_compose" \
+      COMPOSE_PROJECT_NAME="$project" \
+      ZAPBOT_ROLLBACK_VERIFY_SCHEMA_ONLY=1 \
+      "$data_dir/scripts/rollback-0.1.46.sh"
+  ) >>"$receipt" 2>&1
+}
+
+prepare_ownerless_234_restore() {
+  source_project=$1
+  source_data=$2
+  target_project=$3
+  target_data=$4
+  dump_path="$fixture_dir/zapbot-ownerless-234.dump"
+
+  compose "$source_project" "$source_data" exec -T whirmill-zapbot-postgres \
+    /bin/sh -ec 'export PGPASSWORD="$(cat /run/zapbot-secret/password)"; exec pg_dump -U postgres -d zapbot -Fc' \
+    >"$dump_path"
+  test -s "$dump_path"
+
+  prepare_scripts "$target_data"
+  mkdir -p "$target_data/data/import"
+  cp "$dump_path" "$target_data/data/import/zapbot.dump"
+  log 'starting ownerless current-schema-234 restore through restore service only'
+  compose "$target_project" "$target_data" up -d restore >>"$receipt" 2>&1
+  compose "$target_project" "$target_data" wait restore >>"$receipt" 2>&1
+  restore_id=$(one_shot_id "$target_project" "$target_data" restore)
+  test -n "$restore_id"
+  test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$restore_id")" = 'exited:0'
+  await_healthy_service "$target_project" "$target_data" whirmill-zapbot-postgres 240
+  test "$(pg_query "$target_project" "$target_data" "SELECT pg_catalog.pg_get_userbyid(proc.proowner) FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.materialize_h4_canary_economics_evidence(uuid)'::regprocedure")" = postgres
+  log 'ownerless_schema_234_materializer_owner_before_normalize=postgres'
+
+  run_one_shot "$target_project" "$target_data" restore-ownership-normalize
+  test "$(pg_query "$target_project" "$target_data" "SELECT pg_catalog.pg_get_userbyid(proc.proowner) FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.materialize_h4_canary_economics_evidence(uuid)'::regprocedure")" = zapbot_owner
+  log 'ownerless_schema_234_materializer_owner_after_normalize=zapbot_owner'
+  start_full_package "$target_project" "$target_data"
+  log 'ownerless_schema_234_restore_full_graph=pass'
+}
+
+assert_rollback_schema_rejects_terminal_economics_tampering() {
+  project=$1
+  data_dir=$2
+  materializer_signature='public.materialize_h4_canary_economics_evidence(uuid)'
+
+  pg_exec "$project" "$data_dir" "GRANT EXECUTE ON FUNCTION $materializer_signature TO zapbot_evaluator"
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted evaluator materializer execute' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "REVOKE ALL ON FUNCTION $materializer_signature FROM zapbot_evaluator"
+
+  pg_exec "$project" "$data_dir" 'GRANT INSERT ON TABLE public.h4_canary_economics_evidence_receipts TO zapbot_runtime'
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted runtime receipt insert' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" 'REVOKE ALL ON TABLE public.h4_canary_economics_evidence_receipts FROM zapbot_runtime'
+  pg_exec "$project" "$data_dir" 'GRANT SELECT ON TABLE public.h4_canary_economics_evidence_receipts TO zapbot_runtime'
+
+  pg_exec "$project" "$data_dir" 'ALTER TABLE public.h4_canary_economics_evidence_receipts DISABLE TRIGGER h4_canary_economics_evidence_receipts_append_only'
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted a disabled receipt append-only trigger' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" 'ALTER TABLE public.h4_canary_economics_evidence_receipts ENABLE ALWAYS TRIGGER h4_canary_economics_evidence_receipts_append_only'
+
+  original_materializer=$(pg_query "$project" "$data_dir" "SELECT pg_catalog.pg_get_functiondef('$materializer_signature'::regprocedure)")
+  test -n "$original_materializer"
+  pg_exec "$project" "$data_dir" "
+    CREATE OR REPLACE FUNCTION public.materialize_h4_canary_economics_evidence(p_frozen_budget_id uuid)
+    RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path = pg_catalog, public
+    AS \$fixture\$
+    BEGIN
+      RAISE EXCEPTION 'fixture-only materializer hash mismatch';
+    END
+    \$fixture\$
+  "
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted a materializer body mismatch' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "$original_materializer"
+  assert_schema_234_contract "$project" "$data_dir"
+  if ! rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier did not recover after terminal-economics fixture restoration' >&2
+    exit 1
+  fi
+  log 'rollback_schema_terminal_economics_acl_trigger_hash_tamper_rejection=pass'
+}
+
 record_identity_observation() {
   project=$1
   data_dir=$2
@@ -951,6 +1057,18 @@ run_assert_final_state_negative_selftests() {
           *) printf 'true:true:true:true:true:true:true:true:true:true\n' ;;
         esac
         ;;
+      *'h4_canary_economics_evidence_receipts'*)
+        case "$selftest_case" in
+          schema_234_terminal_relation) printf 'false:true:true:true:true:true:true:true:false:false:false:false:false:false\n' ;;
+          schema_234_terminal_triggers) printf 'true:false:true:true:true:true:true:true:false:false:false:false:false:false\n' ;;
+          schema_234_terminal_materializer_posture) printf 'true:true:false:true:true:true:true:true:false:false:false:false:false:false\n' ;;
+          schema_234_terminal_materializer_hash) printf 'true:true:true:true:true:false:true:true:false:false:false:false:false:false\n' ;;
+          schema_234_terminal_named_table_acl) printf 'true:true:true:true:true:true:false:true:false:false:false:false:false:false\n' ;;
+          schema_234_terminal_named_function_acl) printf 'true:true:true:true:true:true:true:false:false:false:false:false:false:false\n' ;;
+          schema_234_terminal_runtime_write_acl) printf 'true:true:true:true:true:true:true:true:true:false:false:false:false:false\n' ;;
+          *) printf 'true:true:true:true:true:true:true:true:false:false:false:false:false:false\n' ;;
+        esac
+        ;;
       *'to_regprocedure'*)
         case "$selftest_case" in causal_attestation) printf 'false:true\n' ;; *) printf 'true:true\n' ;; esac
         ;;
@@ -977,7 +1095,7 @@ run_assert_final_state_negative_selftests() {
   }
   assert_fenced_services() { return 0; }
 
-  for selftest_case in migration_count migration_latest schema_233_contract schema_233_wrong_predicate schema_233_legacy_predicate schema_233_insecure_posture schema_233_proconfig schema_233_owner schema_233_public_acl causal_attestation postgres_secret; do
+  for selftest_case in migration_count migration_latest schema_233_contract schema_233_wrong_predicate schema_233_legacy_predicate schema_233_insecure_posture schema_233_proconfig schema_233_owner schema_233_public_acl schema_234_terminal_relation schema_234_terminal_triggers schema_234_terminal_materializer_posture schema_234_terminal_materializer_hash schema_234_terminal_named_table_acl schema_234_terminal_named_function_acl schema_234_terminal_runtime_write_acl causal_attestation postgres_secret; do
     if assert_final_state selftest "$fixture_dir/selftest"; then
       printf 'assert_final_state negative selftest unexpectedly passed case=%s\n' "$selftest_case" >&2
       return 1
@@ -1112,7 +1230,7 @@ SH
     ZAPBOT_PACKAGE_COMPOSE="$verifier_package/docker-compose.yml" \
     ZAPBOT_ROLLBACK_VERIFY_SCHEMA_ONLY=1 \
     sh "$package_root/scripts/rollback-0.1.46.sh"; then
-    echo 'installed rollback verifier failed against the owned schema-233 fixture' >&2
+    echo 'installed rollback verifier failed against the owned schema-234 fixture' >&2
     return 1
   fi
 
@@ -1134,7 +1252,7 @@ if [ "$assert_selftest" = 1 ]; then
   exit 0
 fi
 
-for project in "$fresh_project" "$source224_project" "$restore_project" "$upgrade229_project"; do
+for project in "$fresh_project" "$source224_project" "$restore_project" "$ownerless234_project" "$upgrade229_project"; do
   write_override "$project"
 done
 write_legacy_migrate_override
@@ -1150,21 +1268,23 @@ docker pull "$image" >>"$receipt" 2>&1
 
 prepare_scripts "$fresh_data"
 start_full_package "$fresh_project" "$fresh_data"
+assert_rollback_schema_rejects_terminal_economics_tampering "$fresh_project" "$fresh_data"
+prepare_ownerless_234_restore "$fresh_project" "$fresh_data" "$ownerless234_project" "$ownerless234_data"
 pg_exec "$fresh_project" "$fresh_data" "INSERT INTO public.internal_settings (key, value, inserted_at, updated_at) VALUES ('package_lifecycle_sentinel', 'enabled', clock_timestamp(), clock_timestamp()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at"
 repeat_package "$fresh_project" "$fresh_data"
 test "$(pg_query "$fresh_project" "$fresh_data" "SELECT value FROM public.internal_settings WHERE key = 'package_lifecycle_sentinel'")" = 'enabled'
 assert_restore_normalizer_rejects_tampered_freeze "$fresh_project" "$fresh_data"
 
 # This is an upgrade without any restore dump: create schema 229 using the
-# immutable 0.1.46 release, advance it through schema 233, write an identity receipt
+# immutable 0.1.46 release, advance it through schema 234, write an identity receipt
 # through the runtime grant, then run only the old long-lived services.
 prepare_scripts "$upgrade229_data"
-log 'starting current release/bootstrap chain before the 229-to-233 compatibility upgrade'
+log 'starting current release/bootstrap chain before the 229-to-234 compatibility upgrade'
 run_one_shot "$upgrade229_project" "$upgrade229_data" migration-role-provision
 migrate_source_to_229 "$upgrade229_project" "$upgrade229_data"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = '229'
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = '20260909100000'
-log 'advancing the populated 229 schema to 233 with the immutable current migration image'
+log 'advancing the populated 229 schema to 234 with the immutable current migration image'
 compose "$upgrade229_project" "$upgrade229_data" run --rm --no-deps migrate >>"$receipt" 2>&1
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
@@ -1182,7 +1302,7 @@ assert_marker_after_rollback_stays_fenced "$upgrade229_project" "$upgrade229_dat
 assert_all_legacy_retry_is_verification_only "$upgrade229_project" "$upgrade229_data"
 assert_exited_target_retry_recovers "$upgrade229_project" "$upgrade229_data" producer-coinbase-candles "$image" exited_current_target_retry_recovers
 assert_exited_target_retry_recovers "$upgrade229_project" "$upgrade229_data" whirmill-zapbot-web "$legacy_image" exited_legacy_target_retry_recovers
-log 'schema_233_populated_identity_0_1_46_compatibility_rollback=pass'
+log 'schema_234_terminal_economics_0_1_46_compatibility_rollback=pass'
 
 if [ "$run_restore_224" = 1 ]; then
   prepare_scripts "$source224_data"
