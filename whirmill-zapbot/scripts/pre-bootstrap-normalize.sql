@@ -36,6 +36,12 @@ DECLARE
       pg_catalog.to_regprocedure(
         'public.lnmarkets_account_identity_status(text)'
       )::oid,
+      pg_catalog.to_regprocedure(
+        'public.reject_lnm_account_active_snapshot_mutation()'
+      )::oid,
+      pg_catalog.to_regprocedure(
+        'public.validate_lnm_account_active_snapshot_insert()'
+      )::oid,
       pg_catalog.to_regprocedure('public.guard_attested_causal_event_correction()')::oid,
       pg_catalog.to_regprocedure('public.record_causal_event_producer_receipt()')::oid,
       pg_catalog.to_regprocedure('public.validate_forward_return_label_causal_attestation()')::oid,
@@ -75,8 +81,16 @@ DECLARE
   materializer_function oid := pg_catalog.to_regprocedure(
     'public.materialize_h4_canary_economics_evidence(uuid)'
   );
+  account_snapshot_reject_function oid := pg_catalog.to_regprocedure(
+    'public.reject_lnm_account_active_snapshot_mutation()'
+  );
+  account_snapshot_validate_function oid := pg_catalog.to_regprocedure(
+    'public.validate_lnm_account_active_snapshot_insert()'
+  );
   freeze_function_reviewed boolean;
   materializer_function_reviewed boolean;
+  account_snapshot_reject_function_reviewed boolean;
+  account_snapshot_validate_function_reviewed boolean;
   reviewed_count integer;
 BEGIN
   -- This normalizer precedes migrations on an empty or 224 restore. Once the
@@ -94,6 +108,38 @@ BEGIN
     INTO freeze_function_reviewed
     FROM pg_catalog.pg_proc function
     WHERE function.oid = freeze_function;
+  END IF;
+
+  -- Schema 235 can be present in an ownerless current-schema restore. Verify
+  -- its exact source-approved SECDEF bodies before reownership below. An owner
+  -- predicate here would incorrectly reject the expected postgres owner from
+  -- pg_restore --no-owner; final bootstrap verifies zapbot_owner afterward.
+  IF account_snapshot_reject_function IS NULL THEN
+    account_snapshot_reject_function_reviewed := true;
+  ELSE
+    SELECT function.prosecdef
+      AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+      AND pg_catalog.encode(
+        pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')),
+        'hex'
+      ) = '891728553c3ea97c1fd070b5f0e28ece29036f3ba131d1aadda50b4a34142331'
+    INTO account_snapshot_reject_function_reviewed
+    FROM pg_catalog.pg_proc function
+    WHERE function.oid = account_snapshot_reject_function;
+  END IF;
+
+  IF account_snapshot_validate_function IS NULL THEN
+    account_snapshot_validate_function_reviewed := true;
+  ELSE
+    SELECT function.prosecdef
+      AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+      AND pg_catalog.encode(
+        pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')),
+        'hex'
+      ) = '8fbbe79f6eb6b486314317286cdd49afa8daa5274b3c1010207cdbbe1e13dd63'
+    INTO account_snapshot_validate_function_reviewed
+    FROM pg_catalog.pg_proc function
+    WHERE function.oid = account_snapshot_validate_function;
   END IF;
 
   -- The schema-234 materializer may be absent before migration. When present,
@@ -123,6 +169,8 @@ BEGIN
   IF reviewed_count <> pg_catalog.cardinality(allowed_security_definer_functions)
      OR freeze_function_reviewed IS NOT TRUE
      OR materializer_function_reviewed IS NOT TRUE
+     OR account_snapshot_reject_function_reviewed IS NOT TRUE
+     OR account_snapshot_validate_function_reviewed IS NOT TRUE
      OR EXISTS (
     SELECT 1
     FROM pg_catalog.pg_proc function

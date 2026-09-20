@@ -29,8 +29,8 @@ done
 
 package_version=${ZAPBOT_PACKAGE_VERSION:-$(awk -F'"' '/^version: / { print $2; exit }' "$package_root/umbrel-app.yml")}
 test -n "$package_version"
-expected_schema_migrations_count=234
-expected_schema_migrations_latest_version=20260919110000
+expected_schema_migrations_count=235
+expected_schema_migrations_latest_version=20260920100000
 : "${ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT:?set ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT to a new absolute log path outside the disposable fixture}"
 receipt=$ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT
 case "$receipt" in /*) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT must be an absolute path' >&2; exit 64 ;; esac
@@ -430,6 +430,33 @@ assert_schema_234_contract() {
   assert_final_value schema_234_terminal_economics_append_only_acl_contract true:true:true:true:true:true:true:true:false:false:false:false:false:false "$contract"
 }
 
+assert_schema_235_account_snapshot_contract() {
+  project=$1
+  data_dir=$2
+  if contract=$(pg_query "$project" "$data_dir" "SELECT (to_regclass('public.lnmarkets_account_active_snapshot_keys') IS NOT NULL)::text || ':' || (to_regclass('public.lnmarkets_account_active_snapshot_acquisitions') IS NOT NULL)::text || ':' || ((SELECT count(*) FROM pg_catalog.pg_trigger WHERE tgname IN ('lnmarkets_account_active_snapshot_keys_immutable', 'lnmarkets_account_active_snapshot_keys_truncate_guard', 'lnmarkets_account_active_snapshot_acquisitions_immutable', 'lnmarkets_account_active_snapshot_acquisitions_truncate_guard', 'lnm_account_active_snapshot_validate_insert') AND tgenabled = 'A') = 5)::text || ':' || (SELECT proc.prosecdef FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.reject_lnm_account_active_snapshot_mutation()'::regprocedure)::text || ':' || (SELECT proc.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, public'] FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.reject_lnm_account_active_snapshot_mutation()'::regprocedure)::text || ':' || (SELECT pg_catalog.pg_get_userbyid(proc.proowner) = 'zapbot_owner' FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.reject_lnm_account_active_snapshot_mutation()'::regprocedure)::text || ':' || (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(proc.prosrc, 'UTF8')), 'hex') = '891728553c3ea97c1fd070b5f0e28ece29036f3ba131d1aadda50b4a34142331' FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.reject_lnm_account_active_snapshot_mutation()'::regprocedure)::text || ':' || (SELECT proc.prosecdef FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.validate_lnm_account_active_snapshot_insert()'::regprocedure)::text || ':' || (SELECT proc.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, public'] FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.validate_lnm_account_active_snapshot_insert()'::regprocedure)::text || ':' || (SELECT pg_catalog.pg_get_userbyid(proc.proowner) = 'zapbot_owner' FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.validate_lnm_account_active_snapshot_insert()'::regprocedure)::text || ':' || (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(proc.prosrc, 'UTF8')), 'hex') = '8fbbe79f6eb6b486314317286cdd49afa8daa5274b3c1010207cdbbe1e13dd63' FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.validate_lnm_account_active_snapshot_insert()'::regprocedure)::text || ':' || (SELECT NOT role.rolcanlogin AND NOT role.rolinherit AND NOT role.rolsuper AND NOT role.rolcreatedb AND NOT role.rolcreaterole AND NOT role.rolreplication AND NOT role.rolbypassrls FROM pg_catalog.pg_roles role WHERE role.rolname = 'zapbot_producer_lnmarkets_account_reconcile')::text || ':' || has_table_privilege('zapbot_producer_lnmarkets_account_reconcile', 'public.lnmarkets_account_active_snapshot_acquisitions', 'INSERT')::text || ':' || has_column_privilege('zapbot_producer_lnmarkets_account_reconcile', 'public.lnmarkets_account_active_snapshot_acquisitions', 'id', 'SELECT')::text || ':' || has_column_privilege('zapbot_producer_lnmarkets_account_reconcile', 'public.lnmarkets_account_active_snapshot_keys', 'key_id', 'SELECT')::text || ':' || has_column_privilege('zapbot_producer_lnmarkets_account_reconcile', 'public.lnmarkets_account_active_snapshot_keys', 'public_key', 'SELECT')::text || ':' || has_column_privilege('zapbot_producer_lnmarkets_account_reconcile', 'public.lnmarkets_account_active_snapshot_keys', 'attestation_secret', 'SELECT')::text || ':' || has_table_privilege('zapbot_runtime', 'public.lnmarkets_account_active_snapshot_acquisitions', 'SELECT')::text || ':' || has_table_privilege('zapbot_runtime', 'public.lnmarkets_account_active_snapshot_keys', 'SELECT')::text"); then :; else
+    printf 'assert_final_state failed assertion=schema_235_account_snapshot_contract expected=present,immutable,secdef,no-login,narrow-acl,no-private-secret actual=query_error\n' >&2
+    return 1
+  fi
+  assert_final_value schema_235_account_snapshot_contract true:true:true:true:true:true:true:true:true:true:true:true:true:true:true:true:false:false:false "$contract"
+}
+
+assert_account_snapshot_is_unbound() {
+  project=$1
+  data_dir=$2
+  config_json=$(compose "$project" "$data_dir" config --format json)
+  test "$(printf '%s' "$config_json" | jq -r '.services | has("producer-lnmarkets-account-reconcile")')" = false
+
+  # The schema-235 role is deliberately NOLOGIN. Its absence from the generated
+  # secrets tree proves the package has not made a dormant database capability
+  # usable as a runtime credential or private-key mount.
+  docker run --rm --network none --read-only \
+    --mount "type=bind,src=$data_dir/data,dst=/data,readonly" \
+    alpine:3.22 /bin/sh -ec '
+      test ! -e /data/secrets/producer-lnmarkets-account-reconcile
+      test ! -e /data/env/producer-lnmarkets-account-reconcile
+    '
+}
+
 assert_final_state() {
   project=$1
   data_dir=$2
@@ -444,6 +471,8 @@ assert_final_state() {
   fi
   assert_final_value schema_migrations_latest "$expected_schema_migrations_latest_version" "$migration_latest" || return 1
   assert_schema_234_contract "$project" "$data_dir" || return 1
+  assert_schema_235_account_snapshot_contract "$project" "$data_dir" || return 1
+  assert_account_snapshot_is_unbound "$project" "$data_dir" || return 1
   if causal_attestation=$(pg_query "$project" "$data_dir" "SELECT (to_regprocedure('public.validate_forward_return_label_causal_attestation()') IS NOT NULL)::text || ':' || (EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'learning_forward_return_labels_v2_causal_attestation_guard'))::text"); then :; else
     printf 'assert_final_state failed assertion=causal_attestation_function_and_trigger expected=true:true actual=query_error\n' >&2
     return 1
@@ -556,7 +585,7 @@ start_full_package() {
 start_compatibility_rollback() {
   project=$1
   data_dir=$2
-  log "starting actual installed schema-234 compatibility rollback script project=$project"
+  log "starting actual installed schema-235 compatibility rollback script project=$project"
   (
     unset APP_SEED
     APP_DATA_DIR="$data_dir" \
@@ -620,6 +649,8 @@ assert_rollback_final_state() {
   test "$(pg_query "$project" "$data_dir" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
   test "$(pg_query "$project" "$data_dir" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
   assert_schema_234_contract "$project" "$data_dir"
+  assert_schema_235_account_snapshot_contract "$project" "$data_dir"
+  assert_account_snapshot_is_unbound "$project" "$data_dir"
   compose "$project" "$data_dir" logs normalize-and-verify | grep -F 'verification_safe= t' >/dev/null
   assert_export_matches_image "$data_dir"
   assert_postgres_secret_readable "$project" "$data_dir"
@@ -813,12 +844,41 @@ rollback_schema_only() {
   ) >>"$receipt" 2>&1
 }
 
-prepare_ownerless_234_restore() {
+assert_ownerless_235_normalizer_rejects_tampered_snapshot_body() {
+  project=$1
+  data_dir=$2
+  definition_path="$fixture_dir/$project.ownerless-235-reject-function.sql"
+  signature='public.reject_lnm_account_active_snapshot_mutation()'
+
+  # This runs while pg_restore --no-owner still leaves the function owned by
+  # postgres. It proves the normalizer validates the reviewed body before its
+  # later reownership pass, rather than accepting a tampered ownerless dump.
+  pg_query "$project" "$data_dir" "SELECT pg_get_functiondef('$signature'::regprocedure)" >"$definition_path"
+  test -s "$definition_path"
+  pg_exec "$project" "$data_dir" '
+    CREATE OR REPLACE FUNCTION public.reject_lnm_account_active_snapshot_mutation()
+    RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $tampered$
+    BEGIN
+      RETURN NEW;
+    END
+    $tampered$
+  '
+  if compose "$project" "$data_dir" run --rm --no-deps restore-ownership-normalize >>"$receipt" 2>&1; then
+    echo 'ownerless schema-235 normalizer accepted a tampered snapshot immutable-trigger body' >&2
+    exit 1
+  fi
+  test "$(pg_query "$project" "$data_dir" "SELECT pg_catalog.pg_get_userbyid(proowner) FROM pg_catalog.pg_proc WHERE oid = '$signature'::regprocedure")" = postgres
+
+  pg_exec "$project" "$data_dir" "$(cat "$definition_path")"
+  log 'ownerless_schema_235_snapshot_body_tamper_before_reownership=rejected'
+}
+
+prepare_ownerless_235_restore() {
   source_project=$1
   source_data=$2
   target_project=$3
   target_data=$4
-  dump_path="$fixture_dir/zapbot-ownerless-234.dump"
+  dump_path="$fixture_dir/zapbot-ownerless-235.dump"
 
   compose "$source_project" "$source_data" exec -T whirmill-zapbot-postgres \
     /bin/sh -ec 'export PGPASSWORD="$(cat /run/zapbot-secret/password)"; exec pg_dump -U postgres -d zapbot -Fc' \
@@ -828,21 +888,22 @@ prepare_ownerless_234_restore() {
   prepare_scripts "$target_data"
   mkdir -p "$target_data/data/import"
   cp "$dump_path" "$target_data/data/import/zapbot.dump"
-  log 'starting ownerless current-schema-234 restore through restore service only'
+  log 'starting ownerless current-schema-235 restore through restore service only'
   compose "$target_project" "$target_data" up -d restore >>"$receipt" 2>&1
   compose "$target_project" "$target_data" wait restore >>"$receipt" 2>&1
   restore_id=$(one_shot_id "$target_project" "$target_data" restore)
   test -n "$restore_id"
   test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$restore_id")" = 'exited:0'
   await_healthy_service "$target_project" "$target_data" whirmill-zapbot-postgres 240
-  test "$(pg_query "$target_project" "$target_data" "SELECT pg_catalog.pg_get_userbyid(proc.proowner) FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.materialize_h4_canary_economics_evidence(uuid)'::regprocedure")" = postgres
-  log 'ownerless_schema_234_materializer_owner_before_normalize=postgres'
+  test "$(pg_query "$target_project" "$target_data" "SELECT string_agg(pg_catalog.pg_get_userbyid(proc.proowner), ':' ORDER BY proc.proname) FROM pg_catalog.pg_proc proc WHERE proc.oid IN ('public.reject_lnm_account_active_snapshot_mutation()'::regprocedure, 'public.validate_lnm_account_active_snapshot_insert()'::regprocedure)")" = postgres:postgres
+  log 'ownerless_schema_235_snapshot_functions_owner_before_normalize=postgres:postgres'
+  assert_ownerless_235_normalizer_rejects_tampered_snapshot_body "$target_project" "$target_data"
 
   run_one_shot "$target_project" "$target_data" restore-ownership-normalize
-  test "$(pg_query "$target_project" "$target_data" "SELECT pg_catalog.pg_get_userbyid(proc.proowner) FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.materialize_h4_canary_economics_evidence(uuid)'::regprocedure")" = zapbot_owner
-  log 'ownerless_schema_234_materializer_owner_after_normalize=zapbot_owner'
+  test "$(pg_query "$target_project" "$target_data" "SELECT string_agg(pg_catalog.pg_get_userbyid(proc.proowner), ':' ORDER BY proc.proname) FROM pg_catalog.pg_proc proc WHERE proc.oid IN ('public.reject_lnm_account_active_snapshot_mutation()'::regprocedure, 'public.validate_lnm_account_active_snapshot_insert()'::regprocedure)")" = zapbot_owner:zapbot_owner
+  log 'ownerless_schema_235_snapshot_functions_owner_after_normalize=zapbot_owner:zapbot_owner'
   start_full_package "$target_project" "$target_data"
-  log 'ownerless_schema_234_restore_full_graph=pass'
+  log 'ownerless_schema_235_restore_full_graph=pass'
 }
 
 assert_rollback_schema_rejects_terminal_economics_tampering() {
@@ -895,6 +956,84 @@ assert_rollback_schema_rejects_terminal_economics_tampering() {
     exit 1
   fi
   log 'rollback_schema_terminal_economics_acl_trigger_hash_tamper_rejection=pass'
+}
+
+assert_rollback_schema_rejects_account_snapshot_tampering() {
+  project=$1
+  data_dir=$2
+  producer_role=zapbot_producer_lnmarkets_account_reconcile
+  keys_table=public.lnmarkets_account_active_snapshot_keys
+  acquisitions_table=public.lnmarkets_account_active_snapshot_acquisitions
+  reject_signature='public.reject_lnm_account_active_snapshot_mutation()'
+  validate_signature='public.validate_lnm_account_active_snapshot_insert()'
+
+  pg_exec "$project" "$data_dir" "ALTER ROLE $producer_role LOGIN"
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted an account snapshot producer LOGIN role' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "ALTER ROLE $producer_role NOLOGIN NOINHERIT"
+
+  pg_exec "$project" "$data_dir" "GRANT zapbot_runtime TO $producer_role"
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted account snapshot producer membership' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "REVOKE zapbot_runtime FROM $producer_role"
+
+  pg_exec "$project" "$data_dir" "GRANT SELECT (attestation_secret) ON TABLE $keys_table TO $producer_role"
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted account snapshot attestation-secret access' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "REVOKE SELECT (attestation_secret) ON TABLE $keys_table FROM $producer_role"
+
+  pg_exec "$project" "$data_dir" "GRANT EXECUTE ON FUNCTION $validate_signature TO zapbot_runtime"
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted runtime account snapshot validator execute' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "REVOKE ALL ON FUNCTION $validate_signature FROM zapbot_runtime"
+
+  original_validate=$(pg_query "$project" "$data_dir" "SELECT pg_catalog.pg_get_functiondef('$validate_signature'::regprocedure)")
+  test -n "$original_validate"
+  pg_exec "$project" "$data_dir" '
+    CREATE OR REPLACE FUNCTION public.validate_lnm_account_active_snapshot_insert()
+    RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path = pg_catalog, public
+    AS $fixture$
+    BEGIN
+      RETURN NEW;
+    END
+    $fixture$
+  '
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted an account snapshot validator body mismatch' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "$original_validate"
+  pg_exec "$project" "$data_dir" "ALTER FUNCTION $validate_signature OWNER TO zapbot_owner; REVOKE ALL ON FUNCTION $validate_signature FROM PUBLIC"
+
+  pg_exec "$project" "$data_dir" "CREATE TRIGGER lnm_account_active_snapshot_fixture_extra BEFORE INSERT ON $acquisitions_table FOR EACH ROW EXECUTE FUNCTION $reject_signature; ALTER TABLE $acquisitions_table ENABLE ALWAYS TRIGGER lnm_account_active_snapshot_fixture_extra"
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted an extra account snapshot trigger' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "DROP TRIGGER lnm_account_active_snapshot_fixture_extra ON $acquisitions_table"
+
+  pg_exec "$project" "$data_dir" "DROP TRIGGER lnm_account_active_snapshot_validate_insert ON $acquisitions_table; CREATE TRIGGER lnm_account_active_snapshot_validate_insert BEFORE INSERT ON $acquisitions_table FOR EACH ROW EXECUTE FUNCTION $reject_signature; ALTER TABLE $acquisitions_table ENABLE ALWAYS TRIGGER lnm_account_active_snapshot_validate_insert"
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted a miswired account snapshot validator trigger' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "DROP TRIGGER lnm_account_active_snapshot_validate_insert ON $acquisitions_table; CREATE TRIGGER lnm_account_active_snapshot_validate_insert BEFORE INSERT ON $acquisitions_table FOR EACH ROW EXECUTE FUNCTION $validate_signature; ALTER TABLE $acquisitions_table ENABLE ALWAYS TRIGGER lnm_account_active_snapshot_validate_insert"
+
+  assert_schema_235_account_snapshot_contract "$project" "$data_dir"
+  if ! rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier did not recover after account snapshot fixture restoration' >&2
+    exit 1
+  fi
+  log 'rollback_schema_account_snapshot_role_acl_function_trigger_tamper_rejection=pass'
 }
 
 record_identity_observation() {
@@ -1069,6 +1208,12 @@ run_assert_final_state_negative_selftests() {
           *) printf 'true:true:true:true:true:true:true:true:false:false:false:false:false:false\n' ;;
         esac
         ;;
+      *'lnmarkets_account_active_snapshot_acquisitions'*)
+        case "$selftest_case" in
+          schema_235_snapshot) printf 'true:true:false:true:true:true:true:true:true:true:true:true:true:true:true:true:false:false:false\n' ;;
+          *) printf 'true:true:true:true:true:true:true:true:true:true:true:true:true:true:true:true:false:false:false\n' ;;
+        esac
+        ;;
       *'to_regprocedure'*)
         case "$selftest_case" in causal_attestation) printf 'false:true\n' ;; *) printf 'true:true\n' ;; esac
         ;;
@@ -1094,8 +1239,9 @@ run_assert_final_state_negative_selftests() {
     case "$selftest_case" in postgres_secret) return 1 ;; *) return 0 ;; esac
   }
   assert_fenced_services() { return 0; }
+  assert_account_snapshot_is_unbound() { return 0; }
 
-  for selftest_case in migration_count migration_latest schema_233_contract schema_233_wrong_predicate schema_233_legacy_predicate schema_233_insecure_posture schema_233_proconfig schema_233_owner schema_233_public_acl schema_234_terminal_relation schema_234_terminal_triggers schema_234_terminal_materializer_posture schema_234_terminal_materializer_hash schema_234_terminal_named_table_acl schema_234_terminal_named_function_acl schema_234_terminal_runtime_write_acl causal_attestation postgres_secret; do
+  for selftest_case in migration_count migration_latest schema_233_contract schema_233_wrong_predicate schema_233_legacy_predicate schema_233_insecure_posture schema_233_proconfig schema_233_owner schema_233_public_acl schema_234_terminal_relation schema_234_terminal_triggers schema_234_terminal_materializer_posture schema_234_terminal_materializer_hash schema_234_terminal_named_table_acl schema_234_terminal_named_function_acl schema_234_terminal_runtime_write_acl schema_235_snapshot causal_attestation postgres_secret; do
     if assert_final_state selftest "$fixture_dir/selftest"; then
       printf 'assert_final_state negative selftest unexpectedly passed case=%s\n' "$selftest_case" >&2
       return 1
@@ -1144,6 +1290,7 @@ run_schema_verifier_expansion_test() {
   verifier_bin="$verifier_fixture/bin"
   verifier_inner_bin="$verifier_fixture/inner-bin"
   captured_verifier="$verifier_fixture/captured-verifier.sh"
+  captured_exported_verifier="$verifier_fixture/captured-exported-verifier.sh"
   captured_legacy_verifier="$verifier_fixture/captured-legacy-verifier.sh"
   legacy_rollback="$verifier_fixture/rollback-eba1091.sh"
   mkdir -p "$verifier_package" "$verifier_bin" "$verifier_inner_bin" "$verifier_fixture/app/scripts"
@@ -1164,7 +1311,12 @@ case "$1" in
     for argument in "$@"; do
       verifier_command=$argument
     done
-    printf '%s' "$verifier_command" > "$CAPTURED_VERIFIER"
+    case "$verifier_command" in
+      *'psql -X -qAt'*) capture_path=${CAPTURED_INLINE_VERIFIER:?} ;;
+      *'psql -X -v ON_ERROR_STOP=1'*) capture_path=${CAPTURED_EXPORTED_VERIFIER:?} ;;
+      *) echo 'unexpected fake docker compose verifier command' >&2; exit 64 ;;
+    esac
+    printf '%s' "$verifier_command" > "$capture_path"
     if [ "${VERIFIER_FAKE_MODE:-new}" = old_capture ]; then
       printf '%s\n' rollback_schema_contract=fail
       exit 0
@@ -1200,7 +1352,8 @@ SH
     awk '/^verify_images\(\) \{$/ { print "verify_schema"; print "exit $?"; exit } { print }' > "$legacy_rollback"
   if PATH="$verifier_bin:$PATH" \
     REAL_DOCKER="$real_docker" \
-    CAPTURED_VERIFIER="$captured_legacy_verifier" \
+    CAPTURED_INLINE_VERIFIER="$captured_legacy_verifier" \
+    CAPTURED_EXPORTED_VERIFIER="$captured_exported_verifier" \
     VERIFIER_FAKE_MODE=old_capture \
     VERIFIER_INNER_BIN="$verifier_inner_bin" \
     SCHEMA_VERIFIER_CONTAINER="$schema_verifier_container" \
@@ -1223,20 +1376,23 @@ SH
 
   if ! PATH="$verifier_bin:$PATH" \
     REAL_DOCKER="$real_docker" \
-    CAPTURED_VERIFIER="$captured_verifier" \
+    CAPTURED_INLINE_VERIFIER="$captured_verifier" \
+    CAPTURED_EXPORTED_VERIFIER="$captured_exported_verifier" \
     VERIFIER_INNER_BIN="$verifier_inner_bin" \
     SCHEMA_VERIFIER_CONTAINER="$schema_verifier_container" \
     APP_DATA_DIR="$verifier_fixture/app" \
     ZAPBOT_PACKAGE_COMPOSE="$verifier_package/docker-compose.yml" \
     ZAPBOT_ROLLBACK_VERIFY_SCHEMA_ONLY=1 \
     sh "$package_root/scripts/rollback-0.1.46.sh"; then
-    echo 'installed rollback verifier failed against the owned schema-234 fixture' >&2
+    echo 'installed rollback verifier failed against the owned schema-235 fixture' >&2
     return 1
   fi
 
   test -s "$captured_verifier"
+  test -s "$captured_exported_verifier"
   grep -F "\$predicate\$AND pg_catalog.split_part( event.source_event_id, ':revision:', 1 ) = p_source_event_id\$predicate\$" "$captured_verifier" >/dev/null
   grep -F "\$legacy\$AND ( event.source_event_id = p_source_event_id OR pg_catalog.left( event.source_event_id, pg_catalog.length(p_source_event_id || ':revision:') ) = p_source_event_id || ':revision:' )\$legacy\$" "$captured_verifier" >/dev/null
+  grep -F 'psql -X -v ON_ERROR_STOP=1 -U postgres -d zapbot' "$captured_exported_verifier" >/dev/null
   log "rollback_schema_verifier_shell_expansion=pass legacy_shell_expansion=failed_as_expected container=$schema_verifier_container capture_sha256=$(sha256sum "$captured_verifier" | awk '{print $1}')"
 }
 
@@ -1269,22 +1425,23 @@ docker pull "$image" >>"$receipt" 2>&1
 prepare_scripts "$fresh_data"
 start_full_package "$fresh_project" "$fresh_data"
 assert_rollback_schema_rejects_terminal_economics_tampering "$fresh_project" "$fresh_data"
-prepare_ownerless_234_restore "$fresh_project" "$fresh_data" "$ownerless234_project" "$ownerless234_data"
+assert_rollback_schema_rejects_account_snapshot_tampering "$fresh_project" "$fresh_data"
+prepare_ownerless_235_restore "$fresh_project" "$fresh_data" "$ownerless234_project" "$ownerless234_data"
 pg_exec "$fresh_project" "$fresh_data" "INSERT INTO public.internal_settings (key, value, inserted_at, updated_at) VALUES ('package_lifecycle_sentinel', 'enabled', clock_timestamp(), clock_timestamp()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at"
 repeat_package "$fresh_project" "$fresh_data"
 test "$(pg_query "$fresh_project" "$fresh_data" "SELECT value FROM public.internal_settings WHERE key = 'package_lifecycle_sentinel'")" = 'enabled'
 assert_restore_normalizer_rejects_tampered_freeze "$fresh_project" "$fresh_data"
 
 # This is an upgrade without any restore dump: create schema 229 using the
-# immutable 0.1.46 release, advance it through schema 234, write an identity receipt
+# immutable 0.1.46 release, advance it through schema 235, write an identity receipt
 # through the runtime grant, then run only the old long-lived services.
 prepare_scripts "$upgrade229_data"
-log 'starting current release/bootstrap chain before the 229-to-234 compatibility upgrade'
+log 'starting current release/bootstrap chain before the 229-to-235 compatibility upgrade'
 run_one_shot "$upgrade229_project" "$upgrade229_data" migration-role-provision
 migrate_source_to_229 "$upgrade229_project" "$upgrade229_data"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = '229'
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = '20260909100000'
-log 'advancing the populated 229 schema to 234 with the immutable current migration image'
+log 'advancing the populated 229 schema to 235 with the immutable current migration image'
 compose "$upgrade229_project" "$upgrade229_data" run --rm --no-deps migrate >>"$receipt" 2>&1
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
@@ -1302,7 +1459,7 @@ assert_marker_after_rollback_stays_fenced "$upgrade229_project" "$upgrade229_dat
 assert_all_legacy_retry_is_verification_only "$upgrade229_project" "$upgrade229_data"
 assert_exited_target_retry_recovers "$upgrade229_project" "$upgrade229_data" producer-coinbase-candles "$image" exited_current_target_retry_recovers
 assert_exited_target_retry_recovers "$upgrade229_project" "$upgrade229_data" whirmill-zapbot-web "$legacy_image" exited_legacy_target_retry_recovers
-log 'schema_234_terminal_economics_0_1_46_compatibility_rollback=pass'
+log 'schema_235_account_snapshot_0_1_46_compatibility_rollback=pass'
 
 if [ "$run_restore_224" = 1 ]; then
   prepare_scripts "$source224_data"

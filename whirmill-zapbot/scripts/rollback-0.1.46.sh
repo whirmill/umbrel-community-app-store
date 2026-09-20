@@ -1,18 +1,19 @@
 #!/bin/sh
-# Run only after reviewing a 0.1.68 rollback. This is a compatibility rollback:
-# it retains schema 234, terminal-economics receipts and account-identity
-# evidence, and never downgrades the database or changes persisted authority
-# settings. It requires the fenced 0.1.68 package graph to have completed first;
+# Run only after reviewing a 0.1.69 rollback. This is a compatibility rollback:
+# it will retain schema 235, existing protected evidence, and the isolated
+# account-reconciliation snapshot contract without downgrading the database or
+# changing persisted authority settings. It requires the fenced 0.1.69 package
+# graph to have completed first; the pinned schema-235 image must match the
+# qualified immutable source revision.
 # it never initializes credentials
 # or starts bootstrap dependencies.
 set -eu
 
-package_version=0.1.68
+package_version=0.1.69
 legacy_image='ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e'
-current_image='ghcr.io/whirmill/zapbot:umbrel-h4-terminal-economics-b9cdcd80f18203eb88703612ccd752331568d6e3@sha256:e7b646d19e25932e5cd6101749f1651371e27a22d5f4cbd30fdfc677ff43c8d7'
-# current_image is the reviewed 0.1.68 terminal-economics multi-architecture
-# identity for merge commit b9cdcd80f18203eb88703612ccd752331568d6e3. Its immutable
-# tag@index is aligned with every current-package service and attestor digest.
+current_image='ghcr.io/whirmill/zapbot:umbrel-h4-account-b3b332923c95e260ea7931ab9797f181ccd24f8f@sha256:afb38843ab48c24e406670bb12ac78fb22542cab87afa58e2731f8915cdb091b'
+# current_image is the reviewed schema-235 multi-architecture identity.
+# The schema verifier below remains bound to that same source-contract revision.
 
 : "${APP_DATA_DIR:?APP_DATA_DIR is required}"
 : "${ZAPBOT_PACKAGE_COMPOSE:?ZAPBOT_PACKAGE_COMPOSE must name the installed docker-compose.yml}"
@@ -77,8 +78,8 @@ export PGPASSWORD="$(cat /run/zapbot-secret/password)"
 psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d zapbot <<'SQL'
 BEGIN READ ONLY;
 SELECT CASE WHEN
-  (SELECT count(*) FROM public.schema_migrations) = 234
-  AND (SELECT max(version) FROM public.schema_migrations) = 20260919110000
+  (SELECT count(*) FROM public.schema_migrations) = 235
+  AND (SELECT max(version) FROM public.schema_migrations) = 20260920100000
   AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = $$public.causal_events_trusted_v2_series_latest_idx$$::regclass)
   AND pg_catalog.pg_get_indexdef($$public.causal_events_trusted_v2_series_latest_idx$$::regclass) = $idx$CREATE INDEX causal_events_trusted_v2_series_latest_idx ON public.causal_events USING btree (source, stream_id, account_scope, market_key, split_part((source_event_id)::text, ':revision:'::text, 1), ledger_seq DESC)$idx$
   AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = $$public.causal_events_passive_execution_trade_lookup_idx$$::regclass)
@@ -164,12 +165,51 @@ SELECT CASE WHEN
   AND NOT pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.h4_canary_economics_evidence_receipts$$, $$TRUNCATE$$)
   AND NOT pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.h4_canary_economics_evidence_receipts$$, $$REFERENCES$$)
   AND NOT pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.h4_canary_economics_evidence_receipts$$, $$TRIGGER$$)
+  AND pg_catalog.to_regclass($$public.lnmarkets_account_active_snapshot_keys$$) IS NOT NULL
+  AND pg_catalog.to_regclass($$public.lnmarkets_account_active_snapshot_acquisitions$$) IS NOT NULL
+  AND pg_catalog.to_regprocedure($$public.reject_lnm_account_active_snapshot_mutation()$$) IS NOT NULL
+  AND pg_catalog.to_regprocedure($$public.validate_lnm_account_active_snapshot_insert()$$) IS NOT NULL
+  AND (SELECT proc.prosecdef FROM pg_catalog.pg_proc proc WHERE proc.oid = pg_catalog.to_regprocedure($$public.reject_lnm_account_active_snapshot_mutation()$$))
+  AND (SELECT proc.proconfig IS NOT DISTINCT FROM ARRAY[$$search_path=pg_catalog, public$$] FROM pg_catalog.pg_proc proc WHERE proc.oid = pg_catalog.to_regprocedure($$public.reject_lnm_account_active_snapshot_mutation()$$))
+  AND (SELECT pg_catalog.pg_get_userbyid(proc.proowner) = $$zapbot_owner$$ FROM pg_catalog.pg_proc proc WHERE proc.oid = pg_catalog.to_regprocedure($$public.reject_lnm_account_active_snapshot_mutation()$$))
+  AND (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(proc.prosrc, $$UTF8$$)), $$hex$$) = $$891728553c3ea97c1fd070b5f0e28ece29036f3ba131d1aadda50b4a34142331$$ FROM pg_catalog.pg_proc proc WHERE proc.oid = pg_catalog.to_regprocedure($$public.reject_lnm_account_active_snapshot_mutation()$$))
+  AND (SELECT proc.prosecdef FROM pg_catalog.pg_proc proc WHERE proc.oid = pg_catalog.to_regprocedure($$public.validate_lnm_account_active_snapshot_insert()$$))
+  AND (SELECT proc.proconfig IS NOT DISTINCT FROM ARRAY[$$search_path=pg_catalog, public$$] FROM pg_catalog.pg_proc proc WHERE proc.oid = pg_catalog.to_regprocedure($$public.validate_lnm_account_active_snapshot_insert()$$))
+  AND (SELECT pg_catalog.pg_get_userbyid(proc.proowner) = $$zapbot_owner$$ FROM pg_catalog.pg_proc proc WHERE proc.oid = pg_catalog.to_regprocedure($$public.validate_lnm_account_active_snapshot_insert()$$))
+  AND (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(proc.prosrc, $$UTF8$$)), $$hex$$) = $$8fbbe79f6eb6b486314317286cdd49afa8daa5274b3c1010207cdbbe1e13dd63$$ FROM pg_catalog.pg_proc proc WHERE proc.oid = pg_catalog.to_regprocedure($$public.validate_lnm_account_active_snapshot_insert()$$))
+  AND (SELECT count(*) FROM pg_catalog.pg_trigger WHERE tgname IN ($$lnmarkets_account_active_snapshot_keys_immutable$$, $$lnmarkets_account_active_snapshot_keys_truncate_guard$$, $$lnmarkets_account_active_snapshot_acquisitions_immutable$$, $$lnmarkets_account_active_snapshot_acquisitions_truncate_guard$$, $$lnm_account_active_snapshot_validate_insert$$) AND tgenabled = $$A$$) = 5
+  AND (SELECT NOT role.rolcanlogin AND NOT role.rolinherit AND NOT role.rolsuper AND NOT role.rolcreatedb AND NOT role.rolcreaterole AND NOT role.rolreplication AND NOT role.rolbypassrls FROM pg_catalog.pg_roles role WHERE role.rolname = $$zapbot_producer_lnmarkets_account_reconcile$$)
+  AND pg_catalog.has_table_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_account_active_snapshot_acquisitions$$, $$INSERT$$)
+  AND pg_catalog.has_column_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_account_active_snapshot_acquisitions$$, $$id$$, $$SELECT$$)
+  AND pg_catalog.has_column_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_account_active_snapshot_keys$$, $$key_id$$, $$SELECT$$)
+  AND pg_catalog.has_column_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_account_active_snapshot_keys$$, $$public_key$$, $$SELECT$$)
+  AND NOT pg_catalog.has_column_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_account_active_snapshot_keys$$, $$attestation_secret$$, $$SELECT$$)
+  AND NOT pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.lnmarkets_account_active_snapshot_acquisitions$$, $$SELECT$$)
+  AND NOT pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.lnmarkets_account_active_snapshot_keys$$, $$SELECT$$)
 THEN $$rollback_schema_contract=pass$$ ELSE $$rollback_schema_contract=fail$$ END;
 COMMIT;
 SQL
 SH
 )
   compose exec -T whirmill-zapbot-postgres /bin/sh -ec "$verifier_script" | grep -Fx rollback_schema_contract=pass
+
+  # The Postgres service does not mount release-sql. Validate the exact export
+  # offline before streaming the immutable current verifier into the database
+  # administrator session; never substitute package-local SQL here.
+  docker run --rm --network none --read-only --user 1000:1000 \
+    --mount "type=bind,src=$APP_DATA_DIR/data/release-sql,dst=/release-sql,readonly" \
+    --entrypoint /bin/sh "$current_image" -ec '
+      test -s /release-sql/.complete
+      sha256sum -c /release-sql/SHA256SUMS
+      test -s /release-sql/verify_database_roles.sql
+    '
+  docker run --rm --network none --read-only --user 1000:1000 \
+    --mount "type=bind,src=$APP_DATA_DIR/data/release-sql,dst=/release-sql,readonly" \
+    --entrypoint /bin/sh "$current_image" -ec 'cat /release-sql/verify_database_roles.sql' | \
+    compose exec -T whirmill-zapbot-postgres /bin/sh -ec '
+      export PGPASSWORD="$(cat /run/zapbot-secret/password)"
+      exec psql -X -v ON_ERROR_STOP=1 -U postgres -d zapbot
+    ' | grep -F 'verification_safe= t' >/dev/null
 }
 
 case "${ZAPBOT_ROLLBACK_VERIFY_SCHEMA_ONLY:-0}" in
@@ -189,7 +229,7 @@ verify_images() {
 
   for service in release-sql-export migrate; do
     image=$(compose ps -aq "$service" | tail -n 1 | xargs docker inspect -f '{{.Config.Image}}')
-    test "$image" = "$current_image" || { echo "unexpected 0.1.68 release image for $service" >&2; exit 67; }
+    test "$image" = "$current_image" || { echo "unexpected 0.1.69 release image for $service" >&2; exit 67; }
   done
 }
 
@@ -235,9 +275,9 @@ classify_runtime() {
 
   for service in release-sql-export migrate normalize-and-verify; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
-    test -n "$service_id" || { echo "missing completed 0.1.68 bootstrap service: $service" >&2; exit 67; }
+    test -n "$service_id" || { echo "missing completed 0.1.69 bootstrap service: $service" >&2; exit 67; }
     test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$service_id")" = 'exited:0' || {
-      echo "rollback requires completed 0.1.68 bootstrap service: $service" >&2
+      echo "rollback requires completed 0.1.69 bootstrap service: $service" >&2
       exit 67
     }
   done
@@ -245,7 +285,7 @@ classify_runtime() {
   for service in release-sql-export migrate; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
     test "$(docker inspect -f '{{.Config.Image}}' "$service_id")" = "$current_image" || {
-      echo "rollback requires current 0.1.68 release image for $service" >&2
+      echo "rollback requires current 0.1.69 release image for $service" >&2
       exit 67
     }
   done
