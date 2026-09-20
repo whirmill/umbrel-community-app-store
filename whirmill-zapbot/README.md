@@ -1,11 +1,18 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.68` carries schema 234 through
-`20260919110000_create_h4_canary_economics_evidence_receipts`, built from merged
-source `b9cdcd80f18203eb88703612ccd752331568d6e3`. Every current-package service
-is pinned to its reviewed immutable multi-architecture tag@index identity.
-Package installation is not claimed here; it remains subject to the recorded
-local lifecycle qualification and a separately authenticated operator action.
+Package revision `0.1.69` targets schema 235 through `20260920100000` and
+pins the published source revision `b3b332923c95e260ea7931ab9797f181ccd24f8f`.
+It carries the source-owned isolated LN Markets account-reconciliation snapshot
+contract. That contract remains `authority=none`, `admission_eligible=false`,
+`reconciliation=false`, and `liabilities=unknown`; it has no scheduler, RPC,
+live binding, current-producer activation, or secret-key access. The package
+pins the reviewed source bodies for
+`reject_lnm_account_active_snapshot_mutation()` and
+`validate_lnm_account_active_snapshot_insert()`.
+
+The active Compose references use the published immutable multi-architecture
+schema-235 image. Lifecycle qualification passed against that exact identity;
+independent store review and Git publication remain required before installation.
 
 The intended migration adds `h4_canary_economics_evidence_receipts` and
 `materialize_h4_canary_economics_evidence(uuid)`. It can derive an internal,
@@ -16,10 +23,11 @@ admission, execution, scheduling, producer, risk, entry-mode, exposure or
 activation wiring. The materializer is expected to retain source hash
 `0608e68275edf2b1faf82641f104a887ef0127b400f9bd15724a7f6434d7995e`.
 
-Package qualification must run the fresh, schema-224 restore, restart, ACL and
-0.1.46 compatibility rollback lifecycles against that exact image. The release
-SQL exporter remains authoritative for the source bootstrap and verifier SQL;
-the package does not copy or recreate those contracts.
+Package qualification ran fresh and repeat-startup, schema-229 upgrade, actual
+schema-224 restore, ownerless current-schema restore, ACL/tamper rejection, and
+0.1.46 compatibility rollback lifecycles against that exact image. The release SQL
+exporter remains authoritative for the source bootstrap and verifier SQL; the package
+does not copy or recreate those contracts.
 
 Credential initialization completes before the release-SQL exporter runs. The
 exporter then runs before every SQL consumer, exports the reviewed files from
@@ -129,33 +137,39 @@ application container ports remain private.
 
 ## Image admission
 
+This section records the published schema-235 image identity. Lifecycle
+qualification passed; independent store review and Git publication remain required
+before installation.
+
 Every current Compose reference, including the Trusted V2 attestor digest, is
-aligned to source `b9cdcd80f18203eb88703612ccd752331568d6e3` at immutable
-`ghcr.io/whirmill/zapbot:umbrel-h4-terminal-economics-b9cdcd80f18203eb88703612ccd752331568d6e3@sha256:e7b646d19e25932e5cd6101749f1651371e27a22d5f4cbd30fdfc677ff43c8d7`.
+aligned to source `b3b332923c95e260ea7931ab9797f181ccd24f8f` at immutable
+`ghcr.io/whirmill/zapbot:umbrel-h4-account-b3b332923c95e260ea7931ab9797f181ccd24f8f@sha256:afb38843ab48c24e406670bb12ac78fb22542cab87afa58e2731f8915cdb091b`.
 The published OCI index carries native `linux/amd64` and `linux/arm64` manifests
-and revision label `b9cdcd80f18203eb88703612ccd752331568d6e3`. Never substitute
+and revision label `b3b332923c95e260ea7931ab9797f181ccd24f8f`. Never substitute
 `latest`, a mutable tag, or a different digest.
 
 ## Compatibility rollback to 0.1.46
 
 The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. After the exact 0.1.68 image is
-qualified, it keeps that release-SQL export, migration, bootstrap and verifier
-path at schema 234, preserving the terminal-economics receipts, exact
-materializer, append-only triggers, runtime read/execute ACL and existing
-account-identity contract. It never drops data, runs a down migration, or
-changes a persisted authority setting.
+runtime and four continuous producers. After the exact schema-235 release image
+is qualified, it keeps that release-SQL export, migration, bootstrap and verifier
+path at schema 235, preserving existing contracts and the source-owned immutable
+account-reconciliation snapshot contract. It never drops data, runs a down
+migration, or changes a persisted authority setting.
 
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
 producer marker are disabled. The rollback script refuses every enabled marker
-and verifies the schema/trigger contract plus the exact old runtime and current
-release image split. Start the fenced 0.1.68 package successfully first: its
+and verifies the inline schema/trigger compatibility contract plus the
+checksum-validated, exported current `verify_database_roles.sql` contract before
+accepting the exact old runtime and current release image split. Start the fenced
+0.1.69 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
-The command is resumable. It accepts only the pinned 0.1.68 or pinned 0.1.46
+The command is resumable. After qualification, it accepts only the pinned 0.1.69
+or pinned 0.1.46
 image for each of its five targets, completes a partial split, and rejects any
 other image. A retry after all five are safely fenced is verification-only. The
 rollback overlay runs the web as `tail` and producers as `sleep`, with explicit
@@ -258,9 +272,13 @@ are safe to repeat:
    service-scoped `0600` files.
    The administrator creates `vector`, `pgcrypto` and `pg_stat_statements`,
    then runs the migration-only provisioner. It creates or hardens only the
-   `NOLOGIN` owner and non-superuser migrator. Runtime, evaluator and producer
-   roles are created by the full bootstrap after migrations; a partially
-   populated existing role inventory is rejected before provisioning.
+   `NOLOGIN` owner and non-superuser migrator. It also pre-provisions the
+   account-reconciliation role as `NOLOGIN` before owner migrations remove
+   `CREATEROLE`; the full bootstrap later grants its narrow table ACL. Runtime,
+   evaluator and other producer roles are created by the full bootstrap after
+   migrations; a partially populated existing role inventory is rejected before
+   provisioning. The account-reconciliation role receives no generated service
+   secret or private signing-key mount.
 4. Migrations use only `zapbot_migrator` plus `SET ROLE zapbot_owner`; the web
    runtime never receives a migration URL. Their connection uses
    `search_path=public,pg_temp` so historical unqualified DDL creates application
