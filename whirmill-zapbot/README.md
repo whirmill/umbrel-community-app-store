@@ -1,18 +1,30 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.69` targets schema 235 through `20260920100000` and
-pins the published source revision `b3b332923c95e260ea7931ab9797f181ccd24f8f`.
-It carries the source-owned isolated LN Markets account-reconciliation snapshot
-contract. That contract remains `authority=none`, `admission_eligible=false`,
-`reconciliation=false`, and `liabilities=unknown`; it has no scheduler, RPC,
-live binding, current-producer activation, or secret-key access. The package
-pins the reviewed source bodies for
-`reject_lnm_account_active_snapshot_mutation()` and
-`validate_lnm_account_active_snapshot_insert()`.
+Package revision `0.1.70` targets schema 236 through `20260922010000`. The
+local default lifecycle passed. An existing-data Umbrel update requires the
+full Linux restore-224 CI receipt and final security review before merge. Fresh
+empty-PGDATA installation is **BLOCKED** by the existing OPS-010 startup issue.
+Every active Compose reference is pinned to the exact immutable image below;
+that pin does not establish fresh-install qualification.
 
-The active Compose references use the published immutable multi-architecture
-schema-235 image. Lifecycle qualification passed against that exact identity;
-independent store review and Git publication remain required before installation.
+The package carries the source-owned
+`lnmarkets_account_active_snapshot_raw_evidence@v1` companion for the existing
+signed account-snapshot parent. Canonical text and its roots are replayable;
+JSONB values are non-authoritative projections. The companion is immutable and
+parent-bound with `authority=none`, `admission_eligible=false`, and
+`reconciliation_complete=false`. It adds no scheduler, RPC, live binding,
+current-producer activation, or secret-key access. The existing account
+reconciliation producer remains NOLOGIN, has no generated credential or runtime
+grant, and receives only the source-verified narrow relation ACL.
+
+Before an ownerless current-schema restore is re-owned, the package pins the
+exact helper and trigger-function bodies:
+`lnm_account_snapshot_raw_rows_valid(jsonb,text)`
+(`9deb39db22dbab0b42fac685cbde0cd9a0c156cfaeebcdf4069310997e78dcf9`),
+`reject_lnm_account_snapshot_raw_evidence_mutation()`
+(`aa21e2fdce4fe3725b0b8b25ad88db2a647887d5e3f6904ec8d2ae4778a02a53`), and
+`validate_lnm_account_snapshot_raw_evidence_insert()`
+(`3a09d84b1625edd066c3b7fcb14ff9290bb9a2c3d6aecb88c9800b0dab812192`).
 
 The intended migration adds `h4_canary_economics_evidence_receipts` and
 `materialize_h4_canary_economics_evidence(uuid)`. It can derive an internal,
@@ -23,11 +35,13 @@ admission, execution, scheduling, producer, risk, entry-mode, exposure or
 activation wiring. The materializer is expected to retain source hash
 `0608e68275edf2b1faf82641f104a887ef0127b400f9bd15724a7f6434d7995e`.
 
-Package qualification ran fresh and repeat-startup, schema-229 upgrade, actual
-schema-224 restore, ownerless current-schema restore, ACL/tamper rejection, and
-0.1.46 compatibility rollback lifecycles against that exact image. The release SQL
-exporter remains authoritative for the source bootstrap and verifier SQL; the package
-does not copy or recreate those contracts.
+The local default lifecycle passed fresh and repeat startup, schema-229 upgrade,
+ownerless current-schema restore, ACL/tamper rejection, and the actual 0.1.46
+compatibility rollback test against that exact image. Two local full restore-224
+attempts failed under OPS-010; the required full Linux restore-224 CI receipt is
+the gate before package merge. The release SQL exporter remains authoritative for
+the source bootstrap and verifier SQL; the package does not copy or recreate
+those contracts.
 
 Credential initialization completes before the release-SQL exporter runs. The
 exporter then runs before every SQL consumer, exports the reviewed files from
@@ -137,24 +151,38 @@ application container ports remain private.
 
 ## Image admission
 
-This section records the published schema-235 image identity. Lifecycle
-qualification passed; independent store review and Git publication remain required
-before installation.
-
 Every current Compose reference, including the Trusted V2 attestor digest, is
-aligned to source `b3b332923c95e260ea7931ab9797f181ccd24f8f` at immutable
-`ghcr.io/whirmill/zapbot:umbrel-h4-account-b3b332923c95e260ea7931ab9797f181ccd24f8f@sha256:afb38843ab48c24e406670bb12ac78fb22542cab87afa58e2731f8915cdb091b`.
+aligned to source `e62f32ed7c2c0477f116c9d84ab3cbcf71afa353` at immutable
+`ghcr.io/whirmill/zapbot:umbrel-h4-account-replay-e62f32ed7c2c0477f116c9d84ab3cbcf71afa353@sha256:fba74d2e7c697b7c6c110fb9efe3dbdee92d617e5cf596a6badaf8702e3122e4`.
 The published OCI index carries native `linux/amd64` and `linux/arm64` manifests
-and revision label `b3b332923c95e260ea7931ab9797f181ccd24f8f`. Never substitute
-`latest`, a mutable tag, or a different digest.
+and the same revision label. Never substitute `latest`, a mutable tag, or a
+different digest.
+
+## Qualification scope
+
+The local default lifecycle passed repeat startup, ownerless schema-236 restore,
+schema-229-to-236 upgrade, raw-evidence tamper rejection, and the 0.1.46
+compatibility rollback test. It excludes full restore-224. Two local full
+restore-224 attempts failed under
+OPS-010. A full Linux restore-224 CI receipt is required before package merge.
+An existing-data Umbrel update remains subject to final security review of the
+unchanged PostgreSQL configuration and that Linux CI result.
+
+Fresh empty-PGDATA installation remains **BLOCKED** by OPS-010. Both local full
+restore-224 observations include an initial temporary `pg_ctl` wrong-ownership
+failure during PostgreSQL initialization before a later normal server start; they
+do not prove the root cause or the safety of the UID 0/999 transition. The
+PostgreSQL image and service configuration are unchanged in this package. Do not
+treat a later healthy process, an existing-data update result, or the required
+Linux CI result as fresh-install qualification.
 
 ## Compatibility rollback to 0.1.46
 
 The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. After the exact schema-235 release image
-is qualified, it keeps that release-SQL export, migration, bootstrap and verifier
-path at schema 235, preserving existing contracts and the source-owned immutable
-account-reconciliation snapshot contract. It never drops data, runs a down
+runtime and four continuous producers. With the exact schema-236 release image
+verified, it keeps that release-SQL export, migration, bootstrap and verifier
+path at schema 236, preserving existing contracts and the source-owned immutable
+account-reconciliation snapshot and raw-evidence contracts. It never drops data, runs a down
 migration, or changes a persisted authority setting.
 
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
@@ -162,19 +190,20 @@ producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the inline schema/trigger compatibility contract plus the
 checksum-validated, exported current `verify_database_roles.sql` contract before
 accepting the exact old runtime and current release image split. Start the fenced
-0.1.69 package successfully first: its
+0.1.70 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
-The command is resumable. After qualification, it accepts only the pinned 0.1.69
-or pinned 0.1.46
-image for each of its five targets, completes a partial split, and rejects any
-other image. A retry after all five are safely fenced is verification-only. The
-rollback overlay runs the web as `tail` and producers as `sleep`, with explicit
-health checks; these commands never read enable markers, so a marker created
-after preflight cannot start application or producer execution.
+The command is resumable. For an existing-data update after the required Linux
+restore-224 CI and final review, it accepts only the pinned 0.1.70 or pinned
+0.1.46 image for each of its five targets, completes a partial split, and
+rejects any other image. A retry after all five are safely fenced is
+verification-only. The rollback overlay runs the web as `tail` and producers as
+`sleep`, with explicit health checks; these commands never read enable markers,
+so a marker created after preflight cannot start application or producer
+execution.
 
 ```sh
 APP_DATA_DIR=/absolute/umbrel/app-data/whirmill-zapbot \

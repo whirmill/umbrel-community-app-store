@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.69"
+version: "0.1.70"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,15 +23,20 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Schema-235 package qualification passed against the published immutable
-  multi-architecture source image. This release adds an isolated LN Markets
-  account-reconciliation snapshot
-  contract: `authority=none`, `admission_eligible=false`, reconciliation=false,
-  and liabilities unknown. Its dedicated producer role is NOLOGIN by default;
-  it has no scheduler, RPC, live binding, current-producer activation, or private
-  signing-key access. The two SECDEF body hashes, immutable trigger names, and
-  role/ACL contract are pinned. Fresh, repeat, schema-229 upgrade, actual
-  schema-224 restore, ownerless schema-235 restore, tamper rejection, and fenced
-  0.1.46 compatibility rollback lifecycles passed against the pinned image. Store
-  review and Git publication remain required before installation. The fenced 0.1.46
-  compatibility rollback retains the schema-235 verifier.
+  The schema-236 immutable source image is published and the local default
+  lifecycle passed. An existing-data Umbrel update requires full Linux
+  restore-224 CI and final security review before merge. Two local full
+  restore-224 attempts hit existing OPS-010. Fresh empty-PGDATA installation is
+  BLOCKED: temporary PostgreSQL init ownership failures recur, while UID 0/999
+  transition safety and root cause remain unproven. This package adds the
+  source-owned `lnmarkets_account_active_snapshot_raw_evidence@v1` companion to
+  the already signed account-snapshot parent. Its cryptographic canonical text is
+  replayable; JSONB fields are non-authoritative projections. The companion is
+  immutable, parent-bound, `authority=none`, `admission_eligible=false`, and
+  reconciliation=false. It keeps the existing dedicated producer role NOLOGIN,
+  with no generated credential, runtime grant, scheduler, RPC, live binding,
+  current-producer activation, or private signing-key access. The raw-row helper
+  and two trigger-function body hashes, trigger wiring, and exact ACL contract
+  are pinned. The local default lifecycle passed the compatibility rollback
+  contract; it makes no fresh-install, deployment, activation, or backup
+  qualification claim.

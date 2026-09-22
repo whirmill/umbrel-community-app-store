@@ -29,8 +29,8 @@ done
 
 package_version=${ZAPBOT_PACKAGE_VERSION:-$(awk -F'"' '/^version: / { print $2; exit }' "$package_root/umbrel-app.yml")}
 test -n "$package_version"
-expected_schema_migrations_count=235
-expected_schema_migrations_latest_version=20260920100000
+expected_schema_migrations_count=236
+expected_schema_migrations_latest_version=20260922010000
 : "${ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT:?set ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT to a new absolute log path outside the disposable fixture}"
 receipt=$ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT
 case "$receipt" in /*) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT must be an absolute path' >&2; exit 64 ;; esac
@@ -327,6 +327,38 @@ assert_export_matches_image() {
     '
 }
 
+assert_exported_verifier_rejects_raw_evidence_fixture() {
+  project=$1
+  data_dir=$2
+  label=$3
+  verifier_output="$fixture_dir/$project.raw-evidence-verifier-$label.log"
+
+  # The inline rollback gate is intentionally fast. This second assertion proves
+  # the exact checksum-validated source verifier also reports an unsafe schema;
+  # preserve its first output before the fixture is repaired.
+  # A safe verifier deliberately raises after printing verification_safe=f. Its
+  # nonzero psql status is expected here; validate the retained output below.
+  if ! docker run --rm --network none --read-only --user 1000:1000 \
+    --mount "type=bind,src=$data_dir/data/release-sql,dst=/release-sql,readonly" \
+    --entrypoint /bin/sh "$image" -ec 'cat /release-sql/verify_database_roles.sql' | \
+    compose "$project" "$data_dir" exec -T whirmill-zapbot-postgres /bin/sh -ec '
+      export PGPASSWORD="$(cat /run/zapbot-secret/password)"
+      exec psql -X -v ON_ERROR_STOP=1 -U postgres -d zapbot
+    ' >"$verifier_output" 2>&1; then
+    :
+  fi
+  cat "$verifier_output" >>"$receipt"
+  if grep -F 'verification_safe= t' "$verifier_output" >/dev/null; then
+    echo "exported verifier accepted raw-evidence fixture: $label" >&2
+    return 1
+  fi
+  grep -F 'verification_safe= f' "$verifier_output" >/dev/null || {
+    echo "exported verifier did not emit verification_safe=f for raw-evidence fixture: $label" >&2
+    return 1
+  }
+  log "exported_verifier_raw_evidence_fixture=$label result=verification_safe_f"
+}
+
 assert_fenced_services() {
   project=$1
   data_dir=$2
@@ -440,6 +472,16 @@ assert_schema_235_account_snapshot_contract() {
   assert_final_value schema_235_account_snapshot_contract true:true:true:true:true:true:true:true:true:true:true:true:true:true:true:true:false:false:false "$contract"
 }
 
+assert_schema_236_raw_evidence_contract() {
+  project=$1
+  data_dir=$2
+  if contract=$(pg_query "$project" "$data_dir" "SELECT (to_regclass('public.lnmarkets_account_active_snapshot_raw_evidence') IS NOT NULL)::text || ':' || ((SELECT count(*) FROM pg_catalog.pg_trigger WHERE tgrelid = 'public.lnmarkets_account_active_snapshot_raw_evidence'::regclass AND NOT tgisinternal) = 3)::text || ':' || ((SELECT count(*) FROM pg_catalog.pg_trigger WHERE tgname IN ('lnm_account_snapshot_raw_evidence_immutable', 'lnm_account_snapshot_raw_evidence_truncate_guard', 'lnm_account_snapshot_raw_evidence_validate_insert') AND tgenabled = 'A') = 3)::text || ':' || (SELECT NOT proc.prosecdef AND proc.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, public'] AND pg_catalog.pg_get_userbyid(proc.proowner) = 'zapbot_owner' AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(proc.prosrc, 'UTF8')), 'hex') = '9deb39db22dbab0b42fac685cbde0cd9a0c156cfaeebcdf4069310997e78dcf9' FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.lnm_account_snapshot_raw_rows_valid(jsonb,text)'::regprocedure)::text || ':' || (SELECT proc.prosecdef AND proc.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, public'] AND pg_catalog.pg_get_userbyid(proc.proowner) = 'zapbot_owner' AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(proc.prosrc, 'UTF8')), 'hex') = 'aa21e2fdce4fe3725b0b8b25ad88db2a647887d5e3f6904ec8d2ae4778a02a53' FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.reject_lnm_account_snapshot_raw_evidence_mutation()'::regprocedure)::text || ':' || (SELECT proc.prosecdef AND proc.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, public'] AND pg_catalog.pg_get_userbyid(proc.proowner) = 'zapbot_owner' AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(proc.prosrc, 'UTF8')), 'hex') = '3a09d84b1625edd066c3b7fcb14ff9290bb9a2c3d6aecb88c9800b0dab812192' FROM pg_catalog.pg_proc proc WHERE proc.oid = 'public.validate_lnm_account_snapshot_raw_evidence_insert()'::regprocedure)::text || ':' || (NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc proc CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(proc.proacl, pg_catalog.acldefault('f', proc.proowner))) acl WHERE proc.oid IN ('public.lnm_account_snapshot_raw_rows_valid(jsonb,text)'::regprocedure, 'public.reject_lnm_account_snapshot_raw_evidence_mutation()'::regprocedure, 'public.validate_lnm_account_snapshot_raw_evidence_insert()'::regprocedure) AND acl.grantee <> proc.proowner))::text || ':' || has_table_privilege('zapbot_producer_lnmarkets_account_reconcile', 'public.lnmarkets_account_active_snapshot_raw_evidence', 'SELECT')::text || ':' || has_table_privilege('zapbot_producer_lnmarkets_account_reconcile', 'public.lnmarkets_account_active_snapshot_raw_evidence', 'INSERT')::text || ':' || has_table_privilege('zapbot_producer_lnmarkets_account_reconcile', 'public.lnmarkets_account_active_snapshot_raw_evidence', 'UPDATE')::text || ':' || has_table_privilege('zapbot_runtime', 'public.lnmarkets_account_active_snapshot_raw_evidence', 'SELECT')::text"); then :; else
+    printf 'assert_final_state failed assertion=schema_236_raw_evidence_contract expected=present,immutable,canonical-function-pins,owner-only-function-acl,narrow-producer-acl,no-runtime-grant actual=query_error\n' >&2
+    return 1
+  fi
+  assert_final_value schema_236_raw_evidence_contract true:true:true:true:true:true:true:true:true:false:false "$contract"
+}
+
 assert_account_snapshot_is_unbound() {
   project=$1
   data_dir=$2
@@ -472,6 +514,7 @@ assert_final_state() {
   assert_final_value schema_migrations_latest "$expected_schema_migrations_latest_version" "$migration_latest" || return 1
   assert_schema_234_contract "$project" "$data_dir" || return 1
   assert_schema_235_account_snapshot_contract "$project" "$data_dir" || return 1
+  assert_schema_236_raw_evidence_contract "$project" "$data_dir" || return 1
   assert_account_snapshot_is_unbound "$project" "$data_dir" || return 1
   if causal_attestation=$(pg_query "$project" "$data_dir" "SELECT (to_regprocedure('public.validate_forward_return_label_causal_attestation()') IS NOT NULL)::text || ':' || (EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'learning_forward_return_labels_v2_causal_attestation_guard'))::text"); then :; else
     printf 'assert_final_state failed assertion=causal_attestation_function_and_trigger expected=true:true actual=query_error\n' >&2
@@ -585,7 +628,7 @@ start_full_package() {
 start_compatibility_rollback() {
   project=$1
   data_dir=$2
-  log "starting actual installed schema-235 compatibility rollback script project=$project"
+  log "starting actual installed schema-236 compatibility rollback script project=$project"
   (
     unset APP_SEED
     APP_DATA_DIR="$data_dir" \
@@ -650,6 +693,7 @@ assert_rollback_final_state() {
   test "$(pg_query "$project" "$data_dir" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
   assert_schema_234_contract "$project" "$data_dir"
   assert_schema_235_account_snapshot_contract "$project" "$data_dir"
+  assert_schema_236_raw_evidence_contract "$project" "$data_dir"
   assert_account_snapshot_is_unbound "$project" "$data_dir"
   compose "$project" "$data_dir" logs normalize-and-verify | grep -F 'verification_safe= t' >/dev/null
   assert_export_matches_image "$data_dir"
@@ -873,6 +917,45 @@ assert_ownerless_235_normalizer_rejects_tampered_snapshot_body() {
   log 'ownerless_schema_235_snapshot_body_tamper_before_reownership=rejected'
 }
 
+assert_ownerless_236_normalizer_rejects_tampered_raw_evidence_functions() {
+  project=$1
+  data_dir=$2
+  rows_signature='public.lnm_account_snapshot_raw_rows_valid(jsonb,text)'
+  reject_signature='public.reject_lnm_account_snapshot_raw_evidence_mutation()'
+  rows_definition_path="$fixture_dir/$project.ownerless-236-rows-valid.sql"
+  reject_definition_path="$fixture_dir/$project.ownerless-236-reject-function.sql"
+
+  # This runs after pg_restore --no-owner but before reownership. The raw
+  # canonical-text helper and its immutable trigger must retain their exact
+  # source contract before any owner change can make a tampered dump durable.
+  pg_query "$project" "$data_dir" "SELECT pg_get_functiondef('$rows_signature'::regprocedure)" >"$rows_definition_path"
+  pg_query "$project" "$data_dir" "SELECT pg_get_functiondef('$reject_signature'::regprocedure)" >"$reject_definition_path"
+  test -s "$rows_definition_path"
+  test -s "$reject_definition_path"
+
+  pg_exec "$project" "$data_dir" "ALTER FUNCTION $rows_signature SET search_path TO pg_catalog"
+  if compose "$project" "$data_dir" run --rm --no-deps restore-ownership-normalize >>"$receipt" 2>&1; then
+    echo 'ownerless schema-236 normalizer accepted a raw-evidence helper search_path mismatch' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "$(cat "$rows_definition_path")"
+
+  pg_exec "$project" "$data_dir" '
+    CREATE OR REPLACE FUNCTION public.reject_lnm_account_snapshot_raw_evidence_mutation()
+    RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $tampered$
+    BEGIN
+      RETURN NEW;
+    END
+    $tampered$
+  '
+  if compose "$project" "$data_dir" run --rm --no-deps restore-ownership-normalize >>"$receipt" 2>&1; then
+    echo 'ownerless schema-236 normalizer accepted a raw-evidence immutable-trigger body mismatch' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "$(cat "$reject_definition_path")"
+  log 'ownerless_schema_236_raw_evidence_function_tamper_before_reownership=rejected'
+}
+
 prepare_ownerless_235_restore() {
   source_project=$1
   source_data=$2
@@ -888,7 +971,7 @@ prepare_ownerless_235_restore() {
   prepare_scripts "$target_data"
   mkdir -p "$target_data/data/import"
   cp "$dump_path" "$target_data/data/import/zapbot.dump"
-  log 'starting ownerless current-schema-235 restore through restore service only'
+  log 'starting ownerless current-schema-236 restore through restore service only'
   compose "$target_project" "$target_data" up -d restore >>"$receipt" 2>&1
   compose "$target_project" "$target_data" wait restore >>"$receipt" 2>&1
   restore_id=$(one_shot_id "$target_project" "$target_data" restore)
@@ -898,12 +981,13 @@ prepare_ownerless_235_restore() {
   test "$(pg_query "$target_project" "$target_data" "SELECT string_agg(pg_catalog.pg_get_userbyid(proc.proowner), ':' ORDER BY proc.proname) FROM pg_catalog.pg_proc proc WHERE proc.oid IN ('public.reject_lnm_account_active_snapshot_mutation()'::regprocedure, 'public.validate_lnm_account_active_snapshot_insert()'::regprocedure)")" = postgres:postgres
   log 'ownerless_schema_235_snapshot_functions_owner_before_normalize=postgres:postgres'
   assert_ownerless_235_normalizer_rejects_tampered_snapshot_body "$target_project" "$target_data"
+  assert_ownerless_236_normalizer_rejects_tampered_raw_evidence_functions "$target_project" "$target_data"
 
   run_one_shot "$target_project" "$target_data" restore-ownership-normalize
   test "$(pg_query "$target_project" "$target_data" "SELECT string_agg(pg_catalog.pg_get_userbyid(proc.proowner), ':' ORDER BY proc.proname) FROM pg_catalog.pg_proc proc WHERE proc.oid IN ('public.reject_lnm_account_active_snapshot_mutation()'::regprocedure, 'public.validate_lnm_account_active_snapshot_insert()'::regprocedure)")" = zapbot_owner:zapbot_owner
   log 'ownerless_schema_235_snapshot_functions_owner_after_normalize=zapbot_owner:zapbot_owner'
   start_full_package "$target_project" "$target_data"
-  log 'ownerless_schema_235_restore_full_graph=pass'
+  log 'ownerless_schema_236_restore_full_graph=pass'
 }
 
 assert_rollback_schema_rejects_terminal_economics_tampering() {
@@ -1034,6 +1118,83 @@ assert_rollback_schema_rejects_account_snapshot_tampering() {
     exit 1
   fi
   log 'rollback_schema_account_snapshot_role_acl_function_trigger_tamper_rejection=pass'
+}
+
+assert_rollback_schema_rejects_raw_evidence_tampering() {
+  project=$1
+  data_dir=$2
+  producer_role=zapbot_producer_lnmarkets_account_reconcile
+  evidence_table=public.lnmarkets_account_active_snapshot_raw_evidence
+  rows_signature='public.lnm_account_snapshot_raw_rows_valid(jsonb,text)'
+  reject_signature='public.reject_lnm_account_snapshot_raw_evidence_mutation()'
+  validate_signature='public.validate_lnm_account_snapshot_raw_evidence_insert()'
+
+  pg_exec "$project" "$data_dir" "GRANT UPDATE ON TABLE $evidence_table TO $producer_role"
+  assert_exported_verifier_rejects_raw_evidence_fixture "$project" "$data_dir" producer_update_acl
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted raw-evidence producer UPDATE' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "REVOKE ALL ON TABLE $evidence_table FROM $producer_role; GRANT SELECT, INSERT ON TABLE $evidence_table TO $producer_role"
+
+  pg_exec "$project" "$data_dir" "GRANT EXECUTE ON FUNCTION $reject_signature TO zapbot_runtime"
+  assert_exported_verifier_rejects_raw_evidence_fixture "$project" "$data_dir" runtime_execute
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted runtime raw-evidence trigger EXECUTE' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "REVOKE ALL ON FUNCTION $reject_signature FROM zapbot_runtime"
+
+  pg_exec "$project" "$data_dir" "ALTER FUNCTION $rows_signature SET search_path TO pg_catalog"
+  assert_exported_verifier_rejects_raw_evidence_fixture "$project" "$data_dir" helper_search_path
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted raw-evidence helper search_path mismatch' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "ALTER FUNCTION $rows_signature SET search_path TO pg_catalog, public"
+
+  original_reject=$(pg_query "$project" "$data_dir" "SELECT pg_catalog.pg_get_functiondef('$reject_signature'::regprocedure)")
+  test -n "$original_reject"
+  pg_exec "$project" "$data_dir" '
+    CREATE OR REPLACE FUNCTION public.reject_lnm_account_snapshot_raw_evidence_mutation()
+    RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path = pg_catalog, public
+    AS $fixture$
+    BEGIN
+      RETURN NEW;
+    END
+    $fixture$
+  '
+  assert_exported_verifier_rejects_raw_evidence_fixture "$project" "$data_dir" immutable_trigger_body
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted a raw-evidence immutable-trigger body mismatch' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "$original_reject"
+  pg_exec "$project" "$data_dir" "ALTER FUNCTION $reject_signature OWNER TO zapbot_owner; REVOKE ALL ON FUNCTION $reject_signature FROM PUBLIC"
+
+  pg_exec "$project" "$data_dir" "ALTER TABLE $evidence_table DISABLE TRIGGER lnm_account_snapshot_raw_evidence_immutable"
+  assert_exported_verifier_rejects_raw_evidence_fixture "$project" "$data_dir" immutable_trigger_disabled
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted a disabled raw-evidence immutable trigger' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "ALTER TABLE $evidence_table ENABLE ALWAYS TRIGGER lnm_account_snapshot_raw_evidence_immutable"
+
+  pg_exec "$project" "$data_dir" "DROP TRIGGER lnm_account_snapshot_raw_evidence_validate_insert ON $evidence_table; CREATE TRIGGER lnm_account_snapshot_raw_evidence_validate_insert BEFORE INSERT ON $evidence_table FOR EACH ROW EXECUTE FUNCTION $reject_signature; ALTER TABLE $evidence_table ENABLE ALWAYS TRIGGER lnm_account_snapshot_raw_evidence_validate_insert"
+  assert_exported_verifier_rejects_raw_evidence_fixture "$project" "$data_dir" validator_trigger_miswired
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted a miswired raw-evidence validator trigger' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "DROP TRIGGER lnm_account_snapshot_raw_evidence_validate_insert ON $evidence_table; CREATE TRIGGER lnm_account_snapshot_raw_evidence_validate_insert BEFORE INSERT ON $evidence_table FOR EACH ROW EXECUTE FUNCTION $validate_signature; ALTER TABLE $evidence_table ENABLE ALWAYS TRIGGER lnm_account_snapshot_raw_evidence_validate_insert"
+
+  assert_schema_236_raw_evidence_contract "$project" "$data_dir"
+  if ! rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier did not recover after raw-evidence fixture restoration' >&2
+    exit 1
+  fi
+  log 'rollback_schema_raw_evidence_acl_function_trigger_tamper_rejection=pass'
 }
 
 record_identity_observation() {
@@ -1208,6 +1369,12 @@ run_assert_final_state_negative_selftests() {
           *) printf 'true:true:true:true:true:true:true:true:false:false:false:false:false:false\n' ;;
         esac
         ;;
+      *'lnmarkets_account_active_snapshot_raw_evidence'*)
+        case "$selftest_case" in
+          schema_236_raw_evidence) printf 'false:true:true:true:true:true:true:true:true:false:false\n' ;;
+          *) printf 'true:true:true:true:true:true:true:true:true:false:false\n' ;;
+        esac
+        ;;
       *'lnmarkets_account_active_snapshot_acquisitions'*)
         case "$selftest_case" in
           schema_235_snapshot) printf 'true:true:false:true:true:true:true:true:true:true:true:true:true:true:true:true:false:false:false\n' ;;
@@ -1241,7 +1408,7 @@ run_assert_final_state_negative_selftests() {
   assert_fenced_services() { return 0; }
   assert_account_snapshot_is_unbound() { return 0; }
 
-  for selftest_case in migration_count migration_latest schema_233_contract schema_233_wrong_predicate schema_233_legacy_predicate schema_233_insecure_posture schema_233_proconfig schema_233_owner schema_233_public_acl schema_234_terminal_relation schema_234_terminal_triggers schema_234_terminal_materializer_posture schema_234_terminal_materializer_hash schema_234_terminal_named_table_acl schema_234_terminal_named_function_acl schema_234_terminal_runtime_write_acl schema_235_snapshot causal_attestation postgres_secret; do
+  for selftest_case in migration_count migration_latest schema_233_contract schema_233_wrong_predicate schema_233_legacy_predicate schema_233_insecure_posture schema_233_proconfig schema_233_owner schema_233_public_acl schema_234_terminal_relation schema_234_terminal_triggers schema_234_terminal_materializer_posture schema_234_terminal_materializer_hash schema_234_terminal_named_table_acl schema_234_terminal_named_function_acl schema_234_terminal_runtime_write_acl schema_235_snapshot schema_236_raw_evidence causal_attestation postgres_secret; do
     if assert_final_state selftest "$fixture_dir/selftest"; then
       printf 'assert_final_state negative selftest unexpectedly passed case=%s\n' "$selftest_case" >&2
       return 1
@@ -1384,7 +1551,7 @@ SH
     ZAPBOT_PACKAGE_COMPOSE="$verifier_package/docker-compose.yml" \
     ZAPBOT_ROLLBACK_VERIFY_SCHEMA_ONLY=1 \
     sh "$package_root/scripts/rollback-0.1.46.sh"; then
-    echo 'installed rollback verifier failed against the owned schema-235 fixture' >&2
+    echo 'installed rollback verifier failed against the owned schema-236 fixture' >&2
     return 1
   fi
 
@@ -1426,6 +1593,7 @@ prepare_scripts "$fresh_data"
 start_full_package "$fresh_project" "$fresh_data"
 assert_rollback_schema_rejects_terminal_economics_tampering "$fresh_project" "$fresh_data"
 assert_rollback_schema_rejects_account_snapshot_tampering "$fresh_project" "$fresh_data"
+assert_rollback_schema_rejects_raw_evidence_tampering "$fresh_project" "$fresh_data"
 prepare_ownerless_235_restore "$fresh_project" "$fresh_data" "$ownerless234_project" "$ownerless234_data"
 pg_exec "$fresh_project" "$fresh_data" "INSERT INTO public.internal_settings (key, value, inserted_at, updated_at) VALUES ('package_lifecycle_sentinel', 'enabled', clock_timestamp(), clock_timestamp()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at"
 repeat_package "$fresh_project" "$fresh_data"
@@ -1433,15 +1601,15 @@ test "$(pg_query "$fresh_project" "$fresh_data" "SELECT value FROM public.intern
 assert_restore_normalizer_rejects_tampered_freeze "$fresh_project" "$fresh_data"
 
 # This is an upgrade without any restore dump: create schema 229 using the
-# immutable 0.1.46 release, advance it through schema 235, write an identity receipt
+# immutable 0.1.46 release, advance it through schema 236, write an identity receipt
 # through the runtime grant, then run only the old long-lived services.
 prepare_scripts "$upgrade229_data"
-log 'starting current release/bootstrap chain before the 229-to-235 compatibility upgrade'
+log 'starting current release/bootstrap chain before the 229-to-236 compatibility upgrade'
 run_one_shot "$upgrade229_project" "$upgrade229_data" migration-role-provision
 migrate_source_to_229 "$upgrade229_project" "$upgrade229_data"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = '229'
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = '20260909100000'
-log 'advancing the populated 229 schema to 235 with the immutable current migration image'
+log 'advancing the populated 229 schema to 236 with the immutable current migration image'
 compose "$upgrade229_project" "$upgrade229_data" run --rm --no-deps migrate >>"$receipt" 2>&1
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
@@ -1459,7 +1627,7 @@ assert_marker_after_rollback_stays_fenced "$upgrade229_project" "$upgrade229_dat
 assert_all_legacy_retry_is_verification_only "$upgrade229_project" "$upgrade229_data"
 assert_exited_target_retry_recovers "$upgrade229_project" "$upgrade229_data" producer-coinbase-candles "$image" exited_current_target_retry_recovers
 assert_exited_target_retry_recovers "$upgrade229_project" "$upgrade229_data" whirmill-zapbot-web "$legacy_image" exited_legacy_target_retry_recovers
-log 'schema_235_account_snapshot_0_1_46_compatibility_rollback=pass'
+log 'schema_236_account_snapshot_raw_evidence_0_1_46_compatibility_rollback=pass'
 
 if [ "$run_restore_224" = 1 ]; then
   prepare_scripts "$source224_data"

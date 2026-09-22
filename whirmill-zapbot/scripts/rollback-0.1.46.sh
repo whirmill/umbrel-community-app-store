@@ -1,19 +1,19 @@
 #!/bin/sh
-# Run only after reviewing a 0.1.69 rollback. This is a compatibility rollback:
-# it will retain schema 235, existing protected evidence, and the isolated
+# Run only after reviewing a 0.1.70 rollback. This is a compatibility rollback:
+# it will retain schema 236, existing protected evidence, and the isolated
 # account-reconciliation snapshot contract without downgrading the database or
-# changing persisted authority settings. It requires the fenced 0.1.69 package
-# graph to have completed first; the pinned schema-235 image must match the
+# changing persisted authority settings. It requires the fenced 0.1.70 package
+# graph to have completed first; the pinned schema-236 image must match the
 # qualified immutable source revision.
 # it never initializes credentials
 # or starts bootstrap dependencies.
 set -eu
 
-package_version=0.1.69
+package_version=0.1.70
 legacy_image='ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e'
-current_image='ghcr.io/whirmill/zapbot:umbrel-h4-account-b3b332923c95e260ea7931ab9797f181ccd24f8f@sha256:afb38843ab48c24e406670bb12ac78fb22542cab87afa58e2731f8915cdb091b'
-# current_image is the reviewed schema-235 multi-architecture identity.
-# The schema verifier below remains bound to that same source-contract revision.
+current_image='ghcr.io/whirmill/zapbot:umbrel-h4-account-replay-e62f32ed7c2c0477f116c9d84ab3cbcf71afa353@sha256:fba74d2e7c697b7c6c110fb9efe3dbdee92d617e5cf596a6badaf8702e3122e4'
+# current_image is the verified schema-236 immutable image. Do not run this
+# draft script until the separate package lifecycle qualification is complete.
 
 : "${APP_DATA_DIR:?APP_DATA_DIR is required}"
 : "${ZAPBOT_PACKAGE_COMPOSE:?ZAPBOT_PACKAGE_COMPOSE must name the installed docker-compose.yml}"
@@ -78,8 +78,8 @@ export PGPASSWORD="$(cat /run/zapbot-secret/password)"
 psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d zapbot <<'SQL'
 BEGIN READ ONLY;
 SELECT CASE WHEN
-  (SELECT count(*) FROM public.schema_migrations) = 235
-  AND (SELECT max(version) FROM public.schema_migrations) = 20260920100000
+  (SELECT count(*) FROM public.schema_migrations) = 236
+  AND (SELECT max(version) FROM public.schema_migrations) = 20260922010000
   AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = $$public.causal_events_trusted_v2_series_latest_idx$$::regclass)
   AND pg_catalog.pg_get_indexdef($$public.causal_events_trusted_v2_series_latest_idx$$::regclass) = $idx$CREATE INDEX causal_events_trusted_v2_series_latest_idx ON public.causal_events USING btree (source, stream_id, account_scope, market_key, split_part((source_event_id)::text, ':revision:'::text, 1), ledger_seq DESC)$idx$
   AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = $$public.causal_events_passive_execution_trade_lookup_idx$$::regclass)
@@ -186,6 +186,50 @@ SELECT CASE WHEN
   AND NOT pg_catalog.has_column_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_account_active_snapshot_keys$$, $$attestation_secret$$, $$SELECT$$)
   AND NOT pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.lnmarkets_account_active_snapshot_acquisitions$$, $$SELECT$$)
   AND NOT pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.lnmarkets_account_active_snapshot_keys$$, $$SELECT$$)
+  AND pg_catalog.to_regclass($$public.lnmarkets_account_active_snapshot_raw_evidence$$) IS NOT NULL
+  AND (SELECT relation.relkind = $$r$$::char AND pg_catalog.pg_get_userbyid(relation.relowner) = $$zapbot_owner$$ FROM pg_catalog.pg_class relation WHERE relation.oid = $$public.lnmarkets_account_active_snapshot_raw_evidence$$::regclass)
+  AND (SELECT NOT function.prosecdef AND function.proconfig IS NOT DISTINCT FROM ARRAY[$$search_path=pg_catalog, public$$] AND pg_catalog.pg_get_userbyid(function.proowner) = $$zapbot_owner$$ AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, $$UTF8$$)), $$hex$$) = $$9deb39db22dbab0b42fac685cbde0cd9a0c156cfaeebcdf4069310997e78dcf9$$ FROM pg_catalog.pg_proc function WHERE function.oid = $$public.lnm_account_snapshot_raw_rows_valid(jsonb,text)$$::regprocedure)
+  AND (SELECT function.prosecdef AND function.proconfig IS NOT DISTINCT FROM ARRAY[$$search_path=pg_catalog, public$$] AND pg_catalog.pg_get_userbyid(function.proowner) = $$zapbot_owner$$ AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, $$UTF8$$)), $$hex$$) = $$aa21e2fdce4fe3725b0b8b25ad88db2a647887d5e3f6904ec8d2ae4778a02a53$$ FROM pg_catalog.pg_proc function WHERE function.oid = $$public.reject_lnm_account_snapshot_raw_evidence_mutation()$$::regprocedure)
+  AND (SELECT function.prosecdef AND function.proconfig IS NOT DISTINCT FROM ARRAY[$$search_path=pg_catalog, public$$] AND pg_catalog.pg_get_userbyid(function.proowner) = $$zapbot_owner$$ AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, $$UTF8$$)), $$hex$$) = $$3a09d84b1625edd066c3b7fcb14ff9290bb9a2c3d6aecb88c9800b0dab812192$$ FROM pg_catalog.pg_proc function WHERE function.oid = $$public.validate_lnm_account_snapshot_raw_evidence_insert()$$::regprocedure)
+  AND NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_proc function
+    CROSS JOIN LATERAL pg_catalog.aclexplode(
+      coalesce(function.proacl, pg_catalog.acldefault($$f$$, function.proowner))
+    ) acl
+    WHERE function.oid IN (
+      $$public.lnm_account_snapshot_raw_rows_valid(jsonb,text)$$::regprocedure,
+      $$public.reject_lnm_account_snapshot_raw_evidence_mutation()$$::regprocedure,
+      $$public.validate_lnm_account_snapshot_raw_evidence_insert()$$::regprocedure
+    )
+      AND acl.grantee <> function.proowner
+  )
+  AND (SELECT count(*) = 3 FROM pg_catalog.pg_trigger trigger WHERE trigger.tgrelid = $$public.lnmarkets_account_active_snapshot_raw_evidence$$::regclass AND NOT trigger.tgisinternal)
+  AND (SELECT count(*) = 3 FROM (VALUES
+    ($$lnm_account_snapshot_raw_evidence_immutable$$::text, 27::smallint, $$public.reject_lnm_account_snapshot_raw_evidence_mutation()$$::regprocedure),
+    ($$lnm_account_snapshot_raw_evidence_truncate_guard$$::text, 34::smallint, $$public.reject_lnm_account_snapshot_raw_evidence_mutation()$$::regprocedure),
+    ($$lnm_account_snapshot_raw_evidence_validate_insert$$::text, 7::smallint, $$public.validate_lnm_account_snapshot_raw_evidence_insert()$$::regprocedure)
+  ) expected(trigger_name, trigger_type, function_oid)
+  JOIN pg_catalog.pg_trigger trigger ON trigger.tgrelid = $$public.lnmarkets_account_active_snapshot_raw_evidence$$::regclass AND trigger.tgname = expected.trigger_name AND trigger.tgtype = expected.trigger_type AND trigger.tgfoid = expected.function_oid AND trigger.tgenabled = $$A$$ AND trigger.tgqual IS NULL AND trigger.tgnargs = 0 AND trigger.tgargs = $$$$::bytea AND trigger.tgattr = $$$$::int2vector AND trigger.tgconstraint = 0 AND NOT trigger.tgdeferrable AND NOT trigger.tginitdeferred AND NOT trigger.tgisinternal)
+  AND pg_catalog.has_table_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_account_active_snapshot_raw_evidence$$, $$SELECT$$)
+  AND pg_catalog.has_table_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_account_active_snapshot_raw_evidence$$, $$INSERT$$)
+  AND NOT pg_catalog.has_table_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_account_active_snapshot_raw_evidence$$, $$UPDATE$$)
+  AND NOT pg_catalog.has_table_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_account_active_snapshot_raw_evidence$$, $$DELETE$$)
+  AND NOT pg_catalog.has_table_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_account_active_snapshot_raw_evidence$$, $$TRUNCATE$$)
+  AND NOT pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.lnmarkets_account_active_snapshot_raw_evidence$$, $$SELECT$$)
+  AND NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class relation
+    CROSS JOIN LATERAL pg_catalog.aclexplode(
+      coalesce(relation.relacl, pg_catalog.acldefault($$r$$, relation.relowner))
+    ) acl
+    WHERE relation.oid = $$public.lnmarkets_account_active_snapshot_raw_evidence$$::regclass
+      AND (
+        acl.grantee = 0
+        OR acl.grantee NOT IN (pg_catalog.to_regrole($$zapbot_owner$$), pg_catalog.to_regrole($$zapbot_producer_lnmarkets_account_reconcile$$))
+        OR (acl.grantee = pg_catalog.to_regrole($$zapbot_producer_lnmarkets_account_reconcile$$) AND (acl.privilege_type NOT IN ($$SELECT$$, $$INSERT$$) OR acl.is_grantable))
+      )
+  )
 THEN $$rollback_schema_contract=pass$$ ELSE $$rollback_schema_contract=fail$$ END;
 COMMIT;
 SQL
@@ -229,7 +273,7 @@ verify_images() {
 
   for service in release-sql-export migrate; do
     image=$(compose ps -aq "$service" | tail -n 1 | xargs docker inspect -f '{{.Config.Image}}')
-    test "$image" = "$current_image" || { echo "unexpected 0.1.69 release image for $service" >&2; exit 67; }
+    test "$image" = "$current_image" || { echo "unexpected 0.1.70 release image for $service" >&2; exit 67; }
   done
 }
 
@@ -275,9 +319,9 @@ classify_runtime() {
 
   for service in release-sql-export migrate normalize-and-verify; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
-    test -n "$service_id" || { echo "missing completed 0.1.69 bootstrap service: $service" >&2; exit 67; }
+    test -n "$service_id" || { echo "missing completed 0.1.70 bootstrap service: $service" >&2; exit 67; }
     test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$service_id")" = 'exited:0' || {
-      echo "rollback requires completed 0.1.69 bootstrap service: $service" >&2
+      echo "rollback requires completed 0.1.70 bootstrap service: $service" >&2
       exit 67
     }
   done
@@ -285,7 +329,7 @@ classify_runtime() {
   for service in release-sql-export migrate; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
     test "$(docker inspect -f '{{.Config.Image}}' "$service_id")" = "$current_image" || {
-      echo "rollback requires current 0.1.69 release image for $service" >&2
+      echo "rollback requires current 0.1.70 release image for $service" >&2
       exit 67
     }
   done

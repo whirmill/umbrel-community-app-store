@@ -42,6 +42,12 @@ DECLARE
       pg_catalog.to_regprocedure(
         'public.validate_lnm_account_active_snapshot_insert()'
       )::oid,
+      pg_catalog.to_regprocedure(
+        'public.reject_lnm_account_snapshot_raw_evidence_mutation()'
+      )::oid,
+      pg_catalog.to_regprocedure(
+        'public.validate_lnm_account_snapshot_raw_evidence_insert()'
+      )::oid,
       pg_catalog.to_regprocedure('public.guard_attested_causal_event_correction()')::oid,
       pg_catalog.to_regprocedure('public.record_causal_event_producer_receipt()')::oid,
       pg_catalog.to_regprocedure('public.validate_forward_return_label_causal_attestation()')::oid,
@@ -87,10 +93,22 @@ DECLARE
   account_snapshot_validate_function oid := pg_catalog.to_regprocedure(
     'public.validate_lnm_account_active_snapshot_insert()'
   );
+  raw_evidence_rows_valid_function oid := pg_catalog.to_regprocedure(
+    'public.lnm_account_snapshot_raw_rows_valid(jsonb,text)'
+  );
+  raw_evidence_reject_function oid := pg_catalog.to_regprocedure(
+    'public.reject_lnm_account_snapshot_raw_evidence_mutation()'
+  );
+  raw_evidence_validate_function oid := pg_catalog.to_regprocedure(
+    'public.validate_lnm_account_snapshot_raw_evidence_insert()'
+  );
   freeze_function_reviewed boolean;
   materializer_function_reviewed boolean;
   account_snapshot_reject_function_reviewed boolean;
   account_snapshot_validate_function_reviewed boolean;
+  raw_evidence_rows_valid_function_reviewed boolean;
+  raw_evidence_reject_function_reviewed boolean;
+  raw_evidence_validate_function_reviewed boolean;
   reviewed_count integer;
 BEGIN
   -- This normalizer precedes migrations on an empty or 224 restore. Once the
@@ -142,6 +160,52 @@ BEGIN
     WHERE function.oid = account_snapshot_validate_function;
   END IF;
 
+  -- Schema 236 raw evidence is a cryptographically replayable text witness for
+  -- the already signed account-snapshot parent. Validate every function that
+  -- participates in its immutable insert path before ownerless restores are
+  -- re-owned below; JSONB is only a non-authoritative projection.
+  IF raw_evidence_rows_valid_function IS NULL THEN
+    raw_evidence_rows_valid_function_reviewed := true;
+  ELSE
+    SELECT NOT function.prosecdef
+      AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+      AND pg_catalog.encode(
+        pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')),
+        'hex'
+      ) = '9deb39db22dbab0b42fac685cbde0cd9a0c156cfaeebcdf4069310997e78dcf9'
+    INTO raw_evidence_rows_valid_function_reviewed
+    FROM pg_catalog.pg_proc function
+    WHERE function.oid = raw_evidence_rows_valid_function;
+  END IF;
+
+  IF raw_evidence_reject_function IS NULL THEN
+    raw_evidence_reject_function_reviewed := true;
+  ELSE
+    SELECT function.prosecdef
+      AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+      AND pg_catalog.encode(
+        pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')),
+        'hex'
+      ) = 'aa21e2fdce4fe3725b0b8b25ad88db2a647887d5e3f6904ec8d2ae4778a02a53'
+    INTO raw_evidence_reject_function_reviewed
+    FROM pg_catalog.pg_proc function
+    WHERE function.oid = raw_evidence_reject_function;
+  END IF;
+
+  IF raw_evidence_validate_function IS NULL THEN
+    raw_evidence_validate_function_reviewed := true;
+  ELSE
+    SELECT function.prosecdef
+      AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+      AND pg_catalog.encode(
+        pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')),
+        'hex'
+      ) = '3a09d84b1625edd066c3b7fcb14ff9290bb9a2c3d6aecb88c9800b0dab812192'
+    INTO raw_evidence_validate_function_reviewed
+    FROM pg_catalog.pg_proc function
+    WHERE function.oid = raw_evidence_validate_function;
+  END IF;
+
   -- The schema-234 materializer may be absent before migration. When present,
   -- retain only the reviewed SECDEF search path and immutable body before the
   -- reownership loop below assigns zapbot_owner after an ownerless restore.
@@ -171,6 +235,9 @@ BEGIN
      OR materializer_function_reviewed IS NOT TRUE
      OR account_snapshot_reject_function_reviewed IS NOT TRUE
      OR account_snapshot_validate_function_reviewed IS NOT TRUE
+     OR raw_evidence_rows_valid_function_reviewed IS NOT TRUE
+     OR raw_evidence_reject_function_reviewed IS NOT TRUE
+     OR raw_evidence_validate_function_reviewed IS NOT TRUE
      OR EXISTS (
     SELECT 1
     FROM pg_catalog.pg_proc function
