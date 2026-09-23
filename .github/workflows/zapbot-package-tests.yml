@@ -4,7 +4,8 @@ on:
   pull_request:
     paths:
       - 'whirmill-zapbot/**'
-      - 'tests/zapbot-*.sh'
+      - 'tests/zapbot-*'
+      - 'tests/test_zapbot_postgres_startup_assess.py'
       - '.github/workflows/zapbot-package-tests.yml'
   workflow_dispatch:
 
@@ -12,6 +13,31 @@ permissions:
   contents: read
 
 jobs:
+  postgres-startup-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check diagnostic and assessment logic
+        run: |
+          sh -n tests/zapbot-postgres-startup-diagnostic.sh
+          python3 -m unittest discover -s tests -p 'test_zapbot_postgres_startup_assess.py'
+      - name: Probe empty PostgreSQL data on a bind mount
+        id: bind
+        run: sh tests/zapbot-postgres-startup-diagnostic.sh "$RUNNER_TEMP/zapbot-pg-bind" bind
+      - name: Probe empty PostgreSQL data on a named volume
+        if: ${{ !cancelled() && steps.bind.outcome != 'skipped' }}
+        run: sh tests/zapbot-postgres-startup-diagnostic.sh "$RUNNER_TEMP/zapbot-pg-named" named
+      - name: Preserve startup diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zapbot-postgres-startup-diagnostic
+          path: |
+            ${{ runner.temp }}/zapbot-pg-bind/
+            ${{ runner.temp }}/zapbot-pg-named/
+          if-no-files-found: ignore
+
   export-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 20
