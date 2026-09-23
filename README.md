@@ -30,6 +30,43 @@ aperto, insieme al follow-up OPS010 sul primo avvio di un database vuoto.
 La lettura alleggerita usa una chiave cache distinta; il percorso completo conserva
 la chiave e il TTL esistenti. La qualificazione delle prestazioni OPS009 nel browser normale resta necessaria.
 
+## Diagnostica PostgreSQL OPS010
+
+Il primo avvio con `PGDATA` vuoto è ancora un gate aperto. Due tentativi locali
+Docker Desktop del ciclo completo con restore dalla schema 224 si sono fermati
+prima del dump: `pg_ctl` ha segnalato temporaneamente che la directory dati
+aveva il proprietario errato. Nel secondo tentativo PostgreSQL è diventato
+pronto dopo l'errore iniziale. Il ciclo completo restore-224 è già passato in
+CI Linux; quel risultato e l'aggiornamento Umbrel con dati esistenti non
+qualificano da soli una nuova installazione Umbrel.
+
+Il job `postgres-startup-diagnostic` esegue su Linux due avvii piccoli e
+separati con dati sintetici: uno usa il bind mount del pacchetto, l'altro un
+volume Docker nominato per il solo database. Registra l'immagine PostgreSQL
+pinning digest, la configurazione e i mount risolti, proprietario numerico e
+inode prima e dopo l'avvio, l'utente effettivo di `pg_ctl`, stato e riavvii del
+container. Produce due esiti distinti, `startup` e `ownership_coherence`;
+un `FATAL` iniziale o un riavvio fanno fallire `startup` anche se poi il
+database diventa sano. La verifica del ciclo completo del pacchetto resta un
+job indipendente e invariato.
+
+Per una singola verifica su una macchina di sviluppo con Docker, `jq` e
+Python 3:
+
+```sh
+sh tests/zapbot-postgres-startup-diagnostic.sh /percorso/privato/receipt-bind bind
+sh tests/zapbot-postgres-startup-diagnostic.sh /percorso/privato/receipt-named named
+```
+
+Usare due directory ricevuta nuove. Lo script crea soltanto fixture temporanee,
+non accetta la directory dati di un'app e conserva le ricevute; trattiene la
+fixture host se l'esito o la pulizia fallisce. I container e i volumi del probe
+vengono rimossi quando la pulizia riesce, anche se la verifica fallisce. Un
+esito coerente in CI Linux è
+evidenza del piccolo grafo PostgreSQL su quel runner, non una prova del percorso
+Umbrel completo né la spiegazione definitiva delle letture incoerenti osservate
+su Docker Desktop.
+
 La verifica del 4 agosto 2026 non ha trovato questi ID nello store ufficiale
 `getumbrel/umbrel-apps`. `cloudflared` è un'app ufficiale diversa: fornisce un
 Cloudflare Tunnel, non l'aggiornamento DDNS dei record A.
