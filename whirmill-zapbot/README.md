@@ -1,13 +1,23 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.70` targets schema 236 through `20260922010000`. The
-local default lifecycle passed. An existing-data Umbrel update requires the
-full Linux restore-224 CI receipt and final security review before merge. Fresh
-empty-PGDATA installation is **BLOCKED** by the existing OPS-010 startup issue.
-Every active Compose reference is pinned to the exact immutable image below;
-that pin does not establish fresh-install qualification.
+Package revision `0.1.71` targets schema 237 through `20260924010000` using the
+immutable source image below. The full Linux package lifecycle and final review
+are required before an existing-data Umbrel update. Fresh empty-PGDATA
+installation remains **BLOCKED** by OPS-010; an image pin or existing-data
+update does not qualify it.
 
-The package carries the source-owned
+Schema 237 adds immutable `lnmarkets_global_current_reconciliation_receipts`.
+For the flat default account, a receipt binds the signed account acquisition,
+canonical raw evidence, identity observation, outstanding command and
+reservation roots, and terminal execution-economics coverage. Missing or
+conflicting evidence produces a blocked receipt. Every receipt has
+`authority=none` and `admission_eligible=false`; no H4 admission, live trading
+authority, scheduler, producer credential, or new exposure is enabled. The
+source verifier pins the table shape, constraints, function bodies, ACLs, and
+immutable triggers. The package normalizer checks the two SECURITY DEFINER
+bodies before re-owning an ownerless restore.
+
+The package retains the source-owned
 `lnmarkets_account_active_snapshot_raw_evidence@v1` companion for the existing
 signed account-snapshot parent. Canonical text and its roots are replayable;
 JSONB values are non-authoritative projections. The companion is immutable and
@@ -35,13 +45,13 @@ admission, execution, scheduling, producer, risk, entry-mode, exposure or
 activation wiring. The materializer is expected to retain source hash
 `0608e68275edf2b1faf82641f104a887ef0127b400f9bd15724a7f6434d7995e`.
 
-The local default lifecycle passed fresh and repeat startup, schema-229 upgrade,
-ownerless current-schema restore, ACL/tamper rejection, and the actual 0.1.46
-compatibility rollback test against that exact image. Two local full restore-224
-attempts failed under OPS-010; the required full Linux restore-224 CI receipt is
-the gate before package merge. The release SQL exporter remains authoritative for
-the source bootstrap and verifier SQL; the package does not copy or recreate
-those contracts.
+The prior schema-236 package passed fresh and repeat startup, schema-229 upgrade,
+ownerless restore, ACL/tamper rejection, and its 0.1.46 compatibility rollback
+test. The schema-237 package needs a new lifecycle receipt against the exact
+image below. Two earlier local full restore-224 attempts failed under OPS-010;
+the full Linux restore-224 CI receipt is the gate before package merge. The
+release SQL exporter remains authoritative for source bootstrap and verifier
+SQL; the package does not copy or recreate those contracts.
 
 Credential initialization completes before the release-SQL exporter runs. The
 exporter then runs before every SQL consumer, exports the reviewed files from
@@ -152,21 +162,23 @@ application container ports remain private.
 ## Image admission
 
 Every current Compose reference, including the Trusted V2 attestor digest, is
-aligned to source `e62f32ed7c2c0477f116c9d84ab3cbcf71afa353` at immutable
-`ghcr.io/whirmill/zapbot:umbrel-h4-account-replay-e62f32ed7c2c0477f116c9d84ab3cbcf71afa353@sha256:fba74d2e7c697b7c6c110fb9efe3dbdee92d617e5cf596a6badaf8702e3122e4`.
-The published OCI index carries native `linux/amd64` and `linux/arm64` manifests
-and the same revision label. Never substitute `latest`, a mutable tag, or a
-different digest.
+aligned to source `ca47d0392909555ab44c7c8c791331c85391e43c` at immutable
+`ghcr.io/whirmill/zapbot:umbrel-h4-flat-reconcile-ca47d0392909555ab44c7c8c791331c85391e43c@sha256:76fa7322f429892dfaa2de8a7470bde8d5bb9d7865a8cebfc1ff306bb92a313c`.
+The published OCI index carries native `linux/amd64` manifest
+`sha256:90429917339a980d2470ec9e71c663ed2ad76952d04994899b018601ddf3cb17`
+and `linux/arm64` manifest
+`sha256:b000ce88c883386236948f05096caf665c922d77716cbf64a121f5101bc52392`,
+both labeled with that source revision. Never substitute `latest`, a mutable
+tag, or a different digest.
 
 ## Qualification scope
 
-The local default lifecycle passed repeat startup, ownerless schema-236 restore,
-schema-229-to-236 upgrade, raw-evidence tamper rejection, and the 0.1.46
-compatibility rollback test. It excludes full restore-224. Two local full
-restore-224 attempts failed under
-OPS-010. A full Linux restore-224 CI receipt is required before package merge.
-An existing-data Umbrel update remains subject to final security review of the
-unchanged PostgreSQL configuration and that Linux CI result.
+The schema-237 lifecycle checks fresh and repeat startup, ownerless current
+schema restore, schema-229-to-237 upgrade, function/ACL/trigger/constraint
+tampering, and the fenced 0.1.46 compatibility overlay. Its full Linux
+restore-224 CI receipt and final review are required before package merge.
+Earlier local full restore-224 attempts failed under OPS-010. An existing-data
+Umbrel update requires the exact merged manifest and image readback.
 
 Fresh empty-PGDATA installation remains **BLOCKED** by OPS-010. Both local full
 restore-224 observations include an initial temporary `pg_ctl` wrong-ownership
@@ -178,11 +190,11 @@ Linux CI result as fresh-install qualification.
 
 ## Compatibility rollback to 0.1.46
 
-The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. With the exact schema-236 release image
-verified, it keeps that release-SQL export, migration, bootstrap and verifier
-path at schema 236, preserving existing contracts and the source-owned immutable
-account-reconciliation snapshot and raw-evidence contracts. It never drops data, runs a down
+The package provides a compatibility overlay for the 0.1.46 long-lived web
+runtime and four continuous producers. With the exact schema-237 release image
+verified, it keeps the current release-SQL export, migration, bootstrap and
+verifier path at schema 237, preserving the immutable account snapshot, raw
+evidence and global reconciliation receipts. It never drops data, runs a down
 migration, or changes a persisted authority setting.
 
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
@@ -190,14 +202,14 @@ producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the inline schema/trigger compatibility contract plus the
 checksum-validated, exported current `verify_database_roles.sql` contract before
 accepting the exact old runtime and current release image split. Start the fenced
-0.1.70 package successfully first: its
+0.1.71 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
 The command is resumable. For an existing-data update after the required Linux
-restore-224 CI and final review, it accepts only the pinned 0.1.70 or pinned
+restore-224 CI and final review, it accepts only the pinned 0.1.71 or pinned
 0.1.46 image for each of its five targets, completes a partial split, and
 rejects any other image. A retry after all five are safely fenced is
 verification-only. The rollback overlay runs the web as `tail` and producers as

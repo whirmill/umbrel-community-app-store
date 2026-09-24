@@ -29,8 +29,8 @@ done
 
 package_version=${ZAPBOT_PACKAGE_VERSION:-$(awk -F'"' '/^version: / { print $2; exit }' "$package_root/umbrel-app.yml")}
 test -n "$package_version"
-expected_schema_migrations_count=236
-expected_schema_migrations_latest_version=20260922010000
+expected_schema_migrations_count=237
+expected_schema_migrations_latest_version=20260924010000
 : "${ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT:?set ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT to a new absolute log path outside the disposable fixture}"
 receipt=$ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT
 case "$receipt" in /*) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT must be an absolute path' >&2; exit 64 ;; esac
@@ -327,13 +327,13 @@ assert_export_matches_image() {
     '
 }
 
-assert_exported_verifier_rejects_raw_evidence_fixture() {
+assert_exported_verifier_rejects_fixture() {
   project=$1
   data_dir=$2
   label=$3
-  verifier_output="$fixture_dir/$project.raw-evidence-verifier-$label.log"
+  verifier_output="$fixture_dir/$project.verifier-$label.log"
 
-  # The inline rollback gate is intentionally fast. This second assertion proves
+  # The inline rollback gate is intentionally fast. This assertion proves
   # the exact checksum-validated source verifier also reports an unsafe schema;
   # preserve its first output before the fixture is repaired.
   # A safe verifier deliberately raises after printing verification_safe=f. Its
@@ -349,14 +349,15 @@ assert_exported_verifier_rejects_raw_evidence_fixture() {
   fi
   cat "$verifier_output" >>"$receipt"
   if grep -F 'verification_safe= t' "$verifier_output" >/dev/null; then
-    echo "exported verifier accepted raw-evidence fixture: $label" >&2
+    echo "exported verifier accepted tampered fixture: $label" >&2
     return 1
   fi
-  grep -F 'verification_safe= f' "$verifier_output" >/dev/null || {
-    echo "exported verifier did not emit verification_safe=f for raw-evidence fixture: $label" >&2
+  if ! grep -F 'verification_safe= f' "$verifier_output" >/dev/null &&
+     ! grep -F 'database role verification failed closed: global reconciliation contract' "$verifier_output" >/dev/null; then
+    echo "exported verifier did not reject fixture: $label" >&2
     return 1
-  }
-  log "exported_verifier_raw_evidence_fixture=$label result=verification_safe_f"
+  fi
+  log "exported_verifier_fixture=$label result=rejected"
 }
 
 assert_fenced_services() {
@@ -482,6 +483,55 @@ assert_schema_236_raw_evidence_contract() {
   assert_final_value schema_236_raw_evidence_contract true:true:true:true:true:true:true:true:true:false:false "$contract"
 }
 
+assert_schema_237_global_reconciliation_contract() {
+  project=$1
+  data_dir=$2
+  sql=$(cat <<'SQL'
+SELECT (
+  SELECT relation.relkind = 'r' AND pg_catalog.pg_get_userbyid(relation.relowner) = 'zapbot_owner'
+  FROM pg_catalog.pg_class relation
+  WHERE relation.oid = 'public.lnmarkets_global_current_reconciliation_receipts'::regclass
+)::text || ':' || (
+  SELECT count(*) = 2 AND pg_catalog.bool_and(trigger.tgenabled = 'A'
+    AND trigger.tgfoid = 'public.reject_lnmarkets_global_current_reconciliation_mutation()'::regprocedure
+    AND ((trigger.tgname = 'lnm_global_reconciliation_immutable' AND trigger.tgtype = 27)
+      OR (trigger.tgname = 'lnm_global_reconciliation_truncate_guard' AND trigger.tgtype = 34)))
+  FROM pg_catalog.pg_trigger trigger
+  WHERE trigger.tgrelid = 'public.lnmarkets_global_current_reconciliation_receipts'::regclass
+    AND NOT trigger.tgisinternal
+)::text || ':' || (
+  SELECT function.prosecdef AND function.provolatile = 'v'
+    AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+    AND pg_catalog.pg_get_userbyid(function.proowner) = 'zapbot_owner'
+    AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')), 'hex') =
+      '65658dc42dbdd35670a559ab8f88462e988a779a7d35f097f735e6fede4953d2'
+  FROM pg_catalog.pg_proc function
+  WHERE function.oid = 'public.materialize_lnmarkets_global_current_reconciliation(text)'::regprocedure
+)::text || ':' || (
+  SELECT function.prosecdef AND function.provolatile = 'v'
+    AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+    AND pg_catalog.pg_get_userbyid(function.proowner) = 'zapbot_owner'
+    AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')), 'hex') =
+      '7b72f62c78e7cbe96e2c23d427a73efcddb57660c145256f0110d0667a36a2dc'
+  FROM pg_catalog.pg_proc function
+  WHERE function.oid = 'public.reject_lnmarkets_global_current_reconciliation_mutation()'::regprocedure
+)::text || ':' || pg_catalog.has_table_privilege('zapbot_runtime',
+  'public.lnmarkets_global_current_reconciliation_receipts', 'SELECT')::text || ':' ||
+pg_catalog.has_function_privilege('zapbot_runtime',
+  'public.materialize_lnmarkets_global_current_reconciliation(text)', 'EXECUTE')::text || ':' ||
+pg_catalog.has_table_privilege('zapbot_runtime',
+  'public.lnmarkets_global_current_reconciliation_receipts', 'INSERT')::text || ':' ||
+pg_catalog.has_table_privilege('zapbot_producer_lnmarkets_account_reconcile',
+  'public.lnmarkets_global_current_reconciliation_receipts', 'SELECT')::text;
+SQL
+)
+  if contract=$(pg_query "$project" "$data_dir" "$sql"); then :; else
+    printf 'assert_final_state failed assertion=schema_237_global_reconciliation_contract actual=query_error\n' >&2
+    return 1
+  fi
+  assert_final_value schema_237_global_reconciliation_contract true:true:true:true:true:true:false:false "$contract"
+}
+
 assert_account_snapshot_is_unbound() {
   project=$1
   data_dir=$2
@@ -515,6 +565,7 @@ assert_final_state() {
   assert_schema_234_contract "$project" "$data_dir" || return 1
   assert_schema_235_account_snapshot_contract "$project" "$data_dir" || return 1
   assert_schema_236_raw_evidence_contract "$project" "$data_dir" || return 1
+  assert_schema_237_global_reconciliation_contract "$project" "$data_dir" || return 1
   assert_account_snapshot_is_unbound "$project" "$data_dir" || return 1
   if causal_attestation=$(pg_query "$project" "$data_dir" "SELECT (to_regprocedure('public.validate_forward_return_label_causal_attestation()') IS NOT NULL)::text || ':' || (EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'learning_forward_return_labels_v2_causal_attestation_guard'))::text"); then :; else
     printf 'assert_final_state failed assertion=causal_attestation_function_and_trigger expected=true:true actual=query_error\n' >&2
@@ -628,7 +679,7 @@ start_full_package() {
 start_compatibility_rollback() {
   project=$1
   data_dir=$2
-  log "starting actual installed schema-236 compatibility rollback script project=$project"
+  log "starting actual installed schema-237 compatibility rollback script project=$project"
   (
     unset APP_SEED
     APP_DATA_DIR="$data_dir" \
@@ -694,6 +745,7 @@ assert_rollback_final_state() {
   assert_schema_234_contract "$project" "$data_dir"
   assert_schema_235_account_snapshot_contract "$project" "$data_dir"
   assert_schema_236_raw_evidence_contract "$project" "$data_dir"
+  assert_schema_237_global_reconciliation_contract "$project" "$data_dir"
   assert_account_snapshot_is_unbound "$project" "$data_dir"
   compose "$project" "$data_dir" logs normalize-and-verify | grep -F 'verification_safe= t' >/dev/null
   assert_export_matches_image "$data_dir"
@@ -956,6 +1008,36 @@ assert_ownerless_236_normalizer_rejects_tampered_raw_evidence_functions() {
   log 'ownerless_schema_236_raw_evidence_function_tamper_before_reownership=rejected'
 }
 
+assert_ownerless_237_normalizer_rejects_tampered_reconciliation_functions() {
+  project=$1
+  data_dir=$2
+  materializer='public.materialize_lnmarkets_global_current_reconciliation(text)'
+  reject='public.reject_lnmarkets_global_current_reconciliation_mutation()'
+  original_materializer="$fixture_dir/$project.ownerless-237-materializer.sql"
+  pg_query "$project" "$data_dir" "SELECT pg_catalog.pg_get_functiondef('$materializer'::regprocedure)" >"$original_materializer"
+  test -s "$original_materializer"
+
+  pg_exec "$project" "$data_dir" "ALTER FUNCTION $reject SET search_path TO pg_catalog"
+  if compose "$project" "$data_dir" run --rm --no-deps restore-ownership-normalize >>"$receipt" 2>&1; then
+    echo 'ownerless schema-237 normalizer accepted reconciliation reject-function search_path tampering' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "ALTER FUNCTION $reject SET search_path TO pg_catalog, public"
+
+  pg_exec "$project" "$data_dir" '
+    CREATE OR REPLACE FUNCTION public.materialize_lnmarkets_global_current_reconciliation(p_account_scope text)
+    RETURNS uuid LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, public AS $tampered$
+      SELECT NULL::uuid
+    $tampered$
+  '
+  if compose "$project" "$data_dir" run --rm --no-deps restore-ownership-normalize >>"$receipt" 2>&1; then
+    echo 'ownerless schema-237 normalizer accepted reconciliation materializer body tampering' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "$(cat "$original_materializer")"
+  log 'ownerless_schema_237_reconciliation_function_tamper_before_reownership=rejected'
+}
+
 prepare_ownerless_235_restore() {
   source_project=$1
   source_data=$2
@@ -971,7 +1053,7 @@ prepare_ownerless_235_restore() {
   prepare_scripts "$target_data"
   mkdir -p "$target_data/data/import"
   cp "$dump_path" "$target_data/data/import/zapbot.dump"
-  log 'starting ownerless current-schema-236 restore through restore service only'
+  log 'starting ownerless current-schema-237 restore through restore service only'
   compose "$target_project" "$target_data" up -d restore >>"$receipt" 2>&1
   compose "$target_project" "$target_data" wait restore >>"$receipt" 2>&1
   restore_id=$(one_shot_id "$target_project" "$target_data" restore)
@@ -982,12 +1064,13 @@ prepare_ownerless_235_restore() {
   log 'ownerless_schema_235_snapshot_functions_owner_before_normalize=postgres:postgres'
   assert_ownerless_235_normalizer_rejects_tampered_snapshot_body "$target_project" "$target_data"
   assert_ownerless_236_normalizer_rejects_tampered_raw_evidence_functions "$target_project" "$target_data"
+  assert_ownerless_237_normalizer_rejects_tampered_reconciliation_functions "$target_project" "$target_data"
 
   run_one_shot "$target_project" "$target_data" restore-ownership-normalize
   test "$(pg_query "$target_project" "$target_data" "SELECT string_agg(pg_catalog.pg_get_userbyid(proc.proowner), ':' ORDER BY proc.proname) FROM pg_catalog.pg_proc proc WHERE proc.oid IN ('public.reject_lnm_account_active_snapshot_mutation()'::regprocedure, 'public.validate_lnm_account_active_snapshot_insert()'::regprocedure)")" = zapbot_owner:zapbot_owner
   log 'ownerless_schema_235_snapshot_functions_owner_after_normalize=zapbot_owner:zapbot_owner'
   start_full_package "$target_project" "$target_data"
-  log 'ownerless_schema_236_restore_full_graph=pass'
+  log 'ownerless_schema_237_restore_full_graph=pass'
 }
 
 assert_rollback_schema_rejects_terminal_economics_tampering() {
@@ -1130,7 +1213,7 @@ assert_rollback_schema_rejects_raw_evidence_tampering() {
   validate_signature='public.validate_lnm_account_snapshot_raw_evidence_insert()'
 
   pg_exec "$project" "$data_dir" "GRANT UPDATE ON TABLE $evidence_table TO $producer_role"
-  assert_exported_verifier_rejects_raw_evidence_fixture "$project" "$data_dir" producer_update_acl
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" producer_update_acl
   if rollback_schema_only "$project" "$data_dir"; then
     echo 'rollback schema verifier accepted raw-evidence producer UPDATE' >&2
     exit 1
@@ -1138,7 +1221,7 @@ assert_rollback_schema_rejects_raw_evidence_tampering() {
   pg_exec "$project" "$data_dir" "REVOKE ALL ON TABLE $evidence_table FROM $producer_role; GRANT SELECT, INSERT ON TABLE $evidence_table TO $producer_role"
 
   pg_exec "$project" "$data_dir" "GRANT EXECUTE ON FUNCTION $reject_signature TO zapbot_runtime"
-  assert_exported_verifier_rejects_raw_evidence_fixture "$project" "$data_dir" runtime_execute
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" runtime_execute
   if rollback_schema_only "$project" "$data_dir"; then
     echo 'rollback schema verifier accepted runtime raw-evidence trigger EXECUTE' >&2
     exit 1
@@ -1146,7 +1229,7 @@ assert_rollback_schema_rejects_raw_evidence_tampering() {
   pg_exec "$project" "$data_dir" "REVOKE ALL ON FUNCTION $reject_signature FROM zapbot_runtime"
 
   pg_exec "$project" "$data_dir" "ALTER FUNCTION $rows_signature SET search_path TO pg_catalog"
-  assert_exported_verifier_rejects_raw_evidence_fixture "$project" "$data_dir" helper_search_path
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" helper_search_path
   if rollback_schema_only "$project" "$data_dir"; then
     echo 'rollback schema verifier accepted raw-evidence helper search_path mismatch' >&2
     exit 1
@@ -1165,7 +1248,7 @@ assert_rollback_schema_rejects_raw_evidence_tampering() {
     END
     $fixture$
   '
-  assert_exported_verifier_rejects_raw_evidence_fixture "$project" "$data_dir" immutable_trigger_body
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" immutable_trigger_body
   if rollback_schema_only "$project" "$data_dir"; then
     echo 'rollback schema verifier accepted a raw-evidence immutable-trigger body mismatch' >&2
     exit 1
@@ -1174,7 +1257,7 @@ assert_rollback_schema_rejects_raw_evidence_tampering() {
   pg_exec "$project" "$data_dir" "ALTER FUNCTION $reject_signature OWNER TO zapbot_owner; REVOKE ALL ON FUNCTION $reject_signature FROM PUBLIC"
 
   pg_exec "$project" "$data_dir" "ALTER TABLE $evidence_table DISABLE TRIGGER lnm_account_snapshot_raw_evidence_immutable"
-  assert_exported_verifier_rejects_raw_evidence_fixture "$project" "$data_dir" immutable_trigger_disabled
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" immutable_trigger_disabled
   if rollback_schema_only "$project" "$data_dir"; then
     echo 'rollback schema verifier accepted a disabled raw-evidence immutable trigger' >&2
     exit 1
@@ -1182,7 +1265,7 @@ assert_rollback_schema_rejects_raw_evidence_tampering() {
   pg_exec "$project" "$data_dir" "ALTER TABLE $evidence_table ENABLE ALWAYS TRIGGER lnm_account_snapshot_raw_evidence_immutable"
 
   pg_exec "$project" "$data_dir" "DROP TRIGGER lnm_account_snapshot_raw_evidence_validate_insert ON $evidence_table; CREATE TRIGGER lnm_account_snapshot_raw_evidence_validate_insert BEFORE INSERT ON $evidence_table FOR EACH ROW EXECUTE FUNCTION $reject_signature; ALTER TABLE $evidence_table ENABLE ALWAYS TRIGGER lnm_account_snapshot_raw_evidence_validate_insert"
-  assert_exported_verifier_rejects_raw_evidence_fixture "$project" "$data_dir" validator_trigger_miswired
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" validator_trigger_miswired
   if rollback_schema_only "$project" "$data_dir"; then
     echo 'rollback schema verifier accepted a miswired raw-evidence validator trigger' >&2
     exit 1
@@ -1195,6 +1278,86 @@ assert_rollback_schema_rejects_raw_evidence_tampering() {
     exit 1
   fi
   log 'rollback_schema_raw_evidence_acl_function_trigger_tamper_rejection=pass'
+}
+
+assert_rollback_schema_rejects_global_reconciliation_tampering() {
+  project=$1
+  data_dir=$2
+  receipt_table=public.lnmarkets_global_current_reconciliation_receipts
+  materializer='public.materialize_lnmarkets_global_current_reconciliation(text)'
+  reject='public.reject_lnmarkets_global_current_reconciliation_mutation()'
+
+  pg_exec "$project" "$data_dir" "GRANT INSERT ON TABLE $receipt_table TO zapbot_runtime"
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" reconciliation_runtime_insert
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted runtime reconciliation INSERT' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "REVOKE INSERT ON TABLE $receipt_table FROM zapbot_runtime"
+
+  pg_exec "$project" "$data_dir" "GRANT EXECUTE ON FUNCTION $reject TO zapbot_runtime"
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" reconciliation_reject_execute
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted runtime reconciliation reject-function EXECUTE' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "REVOKE EXECUTE ON FUNCTION $reject FROM zapbot_runtime"
+
+  pg_exec "$project" "$data_dir" "ALTER FUNCTION $materializer SET search_path TO pg_catalog"
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" reconciliation_materializer_search_path
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted reconciliation materializer search_path tampering' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "ALTER FUNCTION $materializer SET search_path TO pg_catalog, public"
+
+  original_materializer=$(pg_query "$project" "$data_dir" "SELECT pg_catalog.pg_get_functiondef('$materializer'::regprocedure)")
+  test -n "$original_materializer"
+  pg_exec "$project" "$data_dir" '
+    CREATE OR REPLACE FUNCTION public.materialize_lnmarkets_global_current_reconciliation(p_account_scope text)
+    RETURNS uuid LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, public AS $tampered$
+      SELECT NULL::uuid
+    $tampered$
+  '
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" reconciliation_materializer_body
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted reconciliation materializer body tampering' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "$original_materializer"
+
+  pg_exec "$project" "$data_dir" "ALTER TABLE $receipt_table DISABLE TRIGGER lnm_global_reconciliation_immutable"
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" reconciliation_immutable_trigger_disabled
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted disabled reconciliation immutable trigger' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "ALTER TABLE $receipt_table ENABLE ALWAYS TRIGGER lnm_global_reconciliation_immutable"
+
+  status_constraint=$(pg_query "$project" "$data_dir" "SELECT pg_catalog.pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid = '$receipt_table'::regclass AND conname = 'lnm_global_reconciliation_status_check'")
+  test -n "$status_constraint"
+  pg_exec "$project" "$data_dir" "ALTER TABLE $receipt_table DROP CONSTRAINT lnm_global_reconciliation_status_check"
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" reconciliation_status_constraint_dropped
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted a missing reconciliation status constraint' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "ALTER TABLE $receipt_table ADD CONSTRAINT lnm_global_reconciliation_status_check $status_constraint"
+
+  pg_exec "$project" "$data_dir" "ALTER TABLE $receipt_table ADD COLUMN fixture_unreviewed text"
+  assert_exported_verifier_rejects_fixture "$project" "$data_dir" reconciliation_extra_column
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo 'rollback schema verifier accepted an extra reconciliation column' >&2
+    exit 1
+  fi
+  pg_exec "$project" "$data_dir" "ALTER TABLE $receipt_table DROP COLUMN fixture_unreviewed"
+
+  assert_schema_237_global_reconciliation_contract "$project" "$data_dir"
+  rollback_schema_only "$project" "$data_dir" || {
+    echo 'rollback schema verifier did not recover after reconciliation fixture restoration' >&2
+    exit 1
+  }
+  log 'rollback_schema_global_reconciliation_acl_function_trigger_tamper_rejection=pass'
 }
 
 record_identity_observation() {
@@ -1369,6 +1532,12 @@ run_assert_final_state_negative_selftests() {
           *) printf 'true:true:true:true:true:true:true:true:false:false:false:false:false:false\n' ;;
         esac
         ;;
+      *'lnmarkets_global_current_reconciliation_receipts'*)
+        case "$selftest_case" in
+          schema_237_global_reconciliation) printf 'false:true:true:true:true:true:false:false\n' ;;
+          *) printf 'true:true:true:true:true:true:false:false\n' ;;
+        esac
+        ;;
       *'lnmarkets_account_active_snapshot_raw_evidence'*)
         case "$selftest_case" in
           schema_236_raw_evidence) printf 'false:true:true:true:true:true:true:true:true:false:false\n' ;;
@@ -1408,7 +1577,7 @@ run_assert_final_state_negative_selftests() {
   assert_fenced_services() { return 0; }
   assert_account_snapshot_is_unbound() { return 0; }
 
-  for selftest_case in migration_count migration_latest schema_233_contract schema_233_wrong_predicate schema_233_legacy_predicate schema_233_insecure_posture schema_233_proconfig schema_233_owner schema_233_public_acl schema_234_terminal_relation schema_234_terminal_triggers schema_234_terminal_materializer_posture schema_234_terminal_materializer_hash schema_234_terminal_named_table_acl schema_234_terminal_named_function_acl schema_234_terminal_runtime_write_acl schema_235_snapshot schema_236_raw_evidence causal_attestation postgres_secret; do
+  for selftest_case in migration_count migration_latest schema_233_contract schema_233_wrong_predicate schema_233_legacy_predicate schema_233_insecure_posture schema_233_proconfig schema_233_owner schema_233_public_acl schema_234_terminal_relation schema_234_terminal_triggers schema_234_terminal_materializer_posture schema_234_terminal_materializer_hash schema_234_terminal_named_table_acl schema_234_terminal_named_function_acl schema_234_terminal_runtime_write_acl schema_235_snapshot schema_236_raw_evidence schema_237_global_reconciliation causal_attestation postgres_secret; do
     if assert_final_state selftest "$fixture_dir/selftest"; then
       printf 'assert_final_state negative selftest unexpectedly passed case=%s\n' "$selftest_case" >&2
       return 1
@@ -1551,7 +1720,7 @@ SH
     ZAPBOT_PACKAGE_COMPOSE="$verifier_package/docker-compose.yml" \
     ZAPBOT_ROLLBACK_VERIFY_SCHEMA_ONLY=1 \
     sh "$package_root/scripts/rollback-0.1.46.sh"; then
-    echo 'installed rollback verifier failed against the owned schema-236 fixture' >&2
+    echo 'installed rollback verifier failed against the owned schema-237 fixture' >&2
     return 1
   fi
 
@@ -1594,6 +1763,7 @@ start_full_package "$fresh_project" "$fresh_data"
 assert_rollback_schema_rejects_terminal_economics_tampering "$fresh_project" "$fresh_data"
 assert_rollback_schema_rejects_account_snapshot_tampering "$fresh_project" "$fresh_data"
 assert_rollback_schema_rejects_raw_evidence_tampering "$fresh_project" "$fresh_data"
+assert_rollback_schema_rejects_global_reconciliation_tampering "$fresh_project" "$fresh_data"
 prepare_ownerless_235_restore "$fresh_project" "$fresh_data" "$ownerless234_project" "$ownerless234_data"
 pg_exec "$fresh_project" "$fresh_data" "INSERT INTO public.internal_settings (key, value, inserted_at, updated_at) VALUES ('package_lifecycle_sentinel', 'enabled', clock_timestamp(), clock_timestamp()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at"
 repeat_package "$fresh_project" "$fresh_data"
@@ -1601,15 +1771,15 @@ test "$(pg_query "$fresh_project" "$fresh_data" "SELECT value FROM public.intern
 assert_restore_normalizer_rejects_tampered_freeze "$fresh_project" "$fresh_data"
 
 # This is an upgrade without any restore dump: create schema 229 using the
-# immutable 0.1.46 release, advance it through schema 236, write an identity receipt
+# immutable 0.1.46 release, advance it through schema 237, write an identity receipt
 # through the runtime grant, then run only the old long-lived services.
 prepare_scripts "$upgrade229_data"
-log 'starting current release/bootstrap chain before the 229-to-236 compatibility upgrade'
+log 'starting current release/bootstrap chain before the 229-to-237 compatibility upgrade'
 run_one_shot "$upgrade229_project" "$upgrade229_data" migration-role-provision
 migrate_source_to_229 "$upgrade229_project" "$upgrade229_data"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = '229'
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = '20260909100000'
-log 'advancing the populated 229 schema to 236 with the immutable current migration image'
+log 'advancing the populated 229 schema to 237 with the immutable current migration image'
 compose "$upgrade229_project" "$upgrade229_data" run --rm --no-deps migrate >>"$receipt" 2>&1
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
@@ -1627,7 +1797,7 @@ assert_marker_after_rollback_stays_fenced "$upgrade229_project" "$upgrade229_dat
 assert_all_legacy_retry_is_verification_only "$upgrade229_project" "$upgrade229_data"
 assert_exited_target_retry_recovers "$upgrade229_project" "$upgrade229_data" producer-coinbase-candles "$image" exited_current_target_retry_recovers
 assert_exited_target_retry_recovers "$upgrade229_project" "$upgrade229_data" whirmill-zapbot-web "$legacy_image" exited_legacy_target_retry_recovers
-log 'schema_236_account_snapshot_raw_evidence_0_1_46_compatibility_rollback=pass'
+log 'schema_237_global_current_reconciliation_0_1_46_compatibility_rollback=pass'
 
 if [ "$run_restore_224" = 1 ]; then
   prepare_scripts "$source224_data"
