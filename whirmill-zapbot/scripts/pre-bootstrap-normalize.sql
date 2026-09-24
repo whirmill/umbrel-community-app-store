@@ -48,6 +48,12 @@ DECLARE
       pg_catalog.to_regprocedure(
         'public.validate_lnm_account_snapshot_raw_evidence_insert()'
       )::oid,
+      pg_catalog.to_regprocedure(
+        'public.reject_lnmarkets_global_current_reconciliation_mutation()'
+      )::oid,
+      pg_catalog.to_regprocedure(
+        'public.materialize_lnmarkets_global_current_reconciliation(text)'
+      )::oid,
       pg_catalog.to_regprocedure('public.guard_attested_causal_event_correction()')::oid,
       pg_catalog.to_regprocedure('public.record_causal_event_producer_receipt()')::oid,
       pg_catalog.to_regprocedure('public.validate_forward_return_label_causal_attestation()')::oid,
@@ -102,6 +108,12 @@ DECLARE
   raw_evidence_validate_function oid := pg_catalog.to_regprocedure(
     'public.validate_lnm_account_snapshot_raw_evidence_insert()'
   );
+  global_reconciliation_reject_function oid := pg_catalog.to_regprocedure(
+    'public.reject_lnmarkets_global_current_reconciliation_mutation()'
+  );
+  global_reconciliation_materializer_function oid := pg_catalog.to_regprocedure(
+    'public.materialize_lnmarkets_global_current_reconciliation(text)'
+  );
   freeze_function_reviewed boolean;
   materializer_function_reviewed boolean;
   account_snapshot_reject_function_reviewed boolean;
@@ -109,6 +121,8 @@ DECLARE
   raw_evidence_rows_valid_function_reviewed boolean;
   raw_evidence_reject_function_reviewed boolean;
   raw_evidence_validate_function_reviewed boolean;
+  global_reconciliation_reject_function_reviewed boolean;
+  global_reconciliation_materializer_function_reviewed boolean;
   reviewed_count integer;
 BEGIN
   -- This normalizer precedes migrations on an empty or 224 restore. Once the
@@ -206,6 +220,36 @@ BEGIN
     WHERE function.oid = raw_evidence_validate_function;
   END IF;
 
+  -- Schema 237 may be absent on an earlier restore. If it is present, pin
+  -- both SECURITY DEFINER bodies before ownerless reownership can occur.
+  IF global_reconciliation_reject_function IS NULL THEN
+    global_reconciliation_reject_function_reviewed := true;
+  ELSE
+    SELECT function.prosecdef
+      AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+      AND pg_catalog.encode(
+        pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')),
+        'hex'
+      ) = '7b72f62c78e7cbe96e2c23d427a73efcddb57660c145256f0110d0667a36a2dc'
+    INTO global_reconciliation_reject_function_reviewed
+    FROM pg_catalog.pg_proc function
+    WHERE function.oid = global_reconciliation_reject_function;
+  END IF;
+
+  IF global_reconciliation_materializer_function IS NULL THEN
+    global_reconciliation_materializer_function_reviewed := true;
+  ELSE
+    SELECT function.prosecdef
+      AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+      AND pg_catalog.encode(
+        pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')),
+        'hex'
+      ) = '65658dc42dbdd35670a559ab8f88462e988a779a7d35f097f735e6fede4953d2'
+    INTO global_reconciliation_materializer_function_reviewed
+    FROM pg_catalog.pg_proc function
+    WHERE function.oid = global_reconciliation_materializer_function;
+  END IF;
+
   -- The schema-234 materializer may be absent before migration. When present,
   -- retain only the reviewed SECDEF search path and immutable body before the
   -- reownership loop below assigns zapbot_owner after an ownerless restore.
@@ -238,6 +282,8 @@ BEGIN
      OR raw_evidence_rows_valid_function_reviewed IS NOT TRUE
      OR raw_evidence_reject_function_reviewed IS NOT TRUE
      OR raw_evidence_validate_function_reviewed IS NOT TRUE
+     OR global_reconciliation_reject_function_reviewed IS NOT TRUE
+     OR global_reconciliation_materializer_function_reviewed IS NOT TRUE
      OR EXISTS (
     SELECT 1
     FROM pg_catalog.pg_proc function
