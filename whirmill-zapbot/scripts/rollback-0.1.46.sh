@@ -1,18 +1,17 @@
 #!/bin/sh
-# Run only after reviewing a 0.1.70 rollback. This is a compatibility rollback:
-# it will retain schema 236, existing protected evidence, and the isolated
-# account-reconciliation snapshot contract without downgrading the database or
-# changing persisted authority settings. It requires the fenced 0.1.70 package
-# graph to have completed first; the pinned schema-236 image must match the
+# Run only after reviewing a 0.1.71 rollback. This is a compatibility rollback:
+# it retains schema 237 and protected evidence without downgrading the database
+# or changing persisted authority settings. It requires the fenced 0.1.71 package
+# graph to have completed first; the pinned schema-237 image must match the
 # qualified immutable source revision.
 # it never initializes credentials
 # or starts bootstrap dependencies.
 set -eu
 
-package_version=0.1.70
+package_version=0.1.71
 legacy_image='ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e'
-current_image='ghcr.io/whirmill/zapbot:umbrel-h4-account-replay-e62f32ed7c2c0477f116c9d84ab3cbcf71afa353@sha256:fba74d2e7c697b7c6c110fb9efe3dbdee92d617e5cf596a6badaf8702e3122e4'
-# current_image is the verified schema-236 immutable image. Do not run this
+current_image='ghcr.io/whirmill/zapbot:umbrel-h4-flat-reconcile-ca47d0392909555ab44c7c8c791331c85391e43c@sha256:76fa7322f429892dfaa2de8a7470bde8d5bb9d7865a8cebfc1ff306bb92a313c'
+# current_image is the verified schema-237 immutable image. Do not run this
 # draft script until the separate package lifecycle qualification is complete.
 
 : "${APP_DATA_DIR:?APP_DATA_DIR is required}"
@@ -78,8 +77,8 @@ export PGPASSWORD="$(cat /run/zapbot-secret/password)"
 psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d zapbot <<'SQL'
 BEGIN READ ONLY;
 SELECT CASE WHEN
-  (SELECT count(*) FROM public.schema_migrations) = 236
-  AND (SELECT max(version) FROM public.schema_migrations) = 20260922010000
+  (SELECT count(*) FROM public.schema_migrations) = 237
+  AND (SELECT max(version) FROM public.schema_migrations) = 20260924010000
   AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = $$public.causal_events_trusted_v2_series_latest_idx$$::regclass)
   AND pg_catalog.pg_get_indexdef($$public.causal_events_trusted_v2_series_latest_idx$$::regclass) = $idx$CREATE INDEX causal_events_trusted_v2_series_latest_idx ON public.causal_events USING btree (source, stream_id, account_scope, market_key, split_part((source_event_id)::text, ':revision:'::text, 1), ledger_seq DESC)$idx$
   AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = $$public.causal_events_passive_execution_trade_lookup_idx$$::regclass)
@@ -230,6 +229,36 @@ SELECT CASE WHEN
         OR (acl.grantee = pg_catalog.to_regrole($$zapbot_producer_lnmarkets_account_reconcile$$) AND (acl.privilege_type NOT IN ($$SELECT$$, $$INSERT$$) OR acl.is_grantable))
       )
   )
+  AND pg_catalog.to_regclass($$public.lnmarkets_global_current_reconciliation_receipts$$) IS NOT NULL
+  AND (SELECT relation.relkind = $$r$$::char AND pg_catalog.pg_get_userbyid(relation.relowner) = $$zapbot_owner$$
+       FROM pg_catalog.pg_class relation
+       WHERE relation.oid = $$public.lnmarkets_global_current_reconciliation_receipts$$::regclass)
+  AND (SELECT function.prosecdef AND function.provolatile = $$v$$::char
+       AND function.proconfig IS NOT DISTINCT FROM ARRAY[$$search_path=pg_catalog, public$$]
+       AND pg_catalog.pg_get_userbyid(function.proowner) = $$zapbot_owner$$
+       AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, $$UTF8$$)), $$hex$$) = $$65658dc42dbdd35670a559ab8f88462e988a779a7d35f097f735e6fede4953d2$$
+       FROM pg_catalog.pg_proc function
+       WHERE function.oid = $$public.materialize_lnmarkets_global_current_reconciliation(text)$$::regprocedure)
+  AND (SELECT function.prosecdef AND function.provolatile = $$v$$::char
+       AND function.proconfig IS NOT DISTINCT FROM ARRAY[$$search_path=pg_catalog, public$$]
+       AND pg_catalog.pg_get_userbyid(function.proowner) = $$zapbot_owner$$
+       AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, $$UTF8$$)), $$hex$$) = $$7b72f62c78e7cbe96e2c23d427a73efcddb57660c145256f0110d0667a36a2dc$$
+       FROM pg_catalog.pg_proc function
+       WHERE function.oid = $$public.reject_lnmarkets_global_current_reconciliation_mutation()$$::regprocedure)
+  AND (SELECT count(*) = 2 FROM (VALUES
+       ($$lnm_global_reconciliation_immutable$$::text, 27::smallint),
+       ($$lnm_global_reconciliation_truncate_guard$$::text, 34::smallint)
+       ) expected(trigger_name, trigger_type)
+       JOIN pg_catalog.pg_trigger trigger ON
+         trigger.tgrelid = $$public.lnmarkets_global_current_reconciliation_receipts$$::regclass
+         AND trigger.tgname = expected.trigger_name AND trigger.tgtype = expected.trigger_type
+         AND trigger.tgfoid = $$public.reject_lnmarkets_global_current_reconciliation_mutation()$$::regprocedure
+         AND trigger.tgenabled = $$A$$ AND NOT trigger.tgisinternal)
+  AND pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.lnmarkets_global_current_reconciliation_receipts$$, $$SELECT$$)
+  AND pg_catalog.has_function_privilege($$zapbot_runtime$$, $$public.materialize_lnmarkets_global_current_reconciliation(text)$$, $$EXECUTE$$)
+  AND NOT pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.lnmarkets_global_current_reconciliation_receipts$$, $$INSERT$$)
+  AND NOT pg_catalog.has_table_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_global_current_reconciliation_receipts$$, $$SELECT$$)
+  AND NOT pg_catalog.has_function_privilege($$zapbot_runtime$$, $$public.reject_lnmarkets_global_current_reconciliation_mutation()$$, $$EXECUTE$$)
 THEN $$rollback_schema_contract=pass$$ ELSE $$rollback_schema_contract=fail$$ END;
 COMMIT;
 SQL
@@ -273,7 +302,7 @@ verify_images() {
 
   for service in release-sql-export migrate; do
     image=$(compose ps -aq "$service" | tail -n 1 | xargs docker inspect -f '{{.Config.Image}}')
-    test "$image" = "$current_image" || { echo "unexpected 0.1.70 release image for $service" >&2; exit 67; }
+    test "$image" = "$current_image" || { echo "unexpected 0.1.71 release image for $service" >&2; exit 67; }
   done
 }
 
@@ -319,9 +348,9 @@ classify_runtime() {
 
   for service in release-sql-export migrate normalize-and-verify; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
-    test -n "$service_id" || { echo "missing completed 0.1.70 bootstrap service: $service" >&2; exit 67; }
+    test -n "$service_id" || { echo "missing completed 0.1.71 bootstrap service: $service" >&2; exit 67; }
     test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$service_id")" = 'exited:0' || {
-      echo "rollback requires completed 0.1.70 bootstrap service: $service" >&2
+      echo "rollback requires completed 0.1.71 bootstrap service: $service" >&2
       exit 67
     }
   done
@@ -329,7 +358,7 @@ classify_runtime() {
   for service in release-sql-export migrate; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
     test "$(docker inspect -f '{{.Config.Image}}' "$service_id")" = "$current_image" || {
-      echo "rollback requires current 0.1.70 release image for $service" >&2
+      echo "rollback requires current 0.1.71 release image for $service" >&2
       exit 67
     }
   done
