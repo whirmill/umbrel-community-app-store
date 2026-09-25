@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.71"
+version: "0.1.72"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,9 +23,10 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Adds immutable LN Markets flat-account reconciliation receipts that bind the
-  signed account snapshot, raw evidence, identity, outstanding commands and
-  reservations, and terminal execution-economics coverage. Receipts remain
-  observation-only with authority=none and admission_eligible=false; this update
-  does not activate H4 or create live trading authority. Existing-data updates
-  target schema 237. Fresh empty-PGDATA installation remains blocked by OPS-010.
+  Adds a signed portable acquisition artifact for observed funding rows of
+  trades running in a signed account snapshot, using bounded reads and a
+  dedicated read-only LN Markets credential. It does not persist funding or
+  complete liability reconciliation; live pagination and integral-satoshi fee
+  scope remain unqualified. The artifact carries no H4 or trading authority.
+  Existing-data updates keep schema 237. Fresh empty-PGDATA installation
+  remains blocked by OPS-010.

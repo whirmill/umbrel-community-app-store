@@ -1,10 +1,18 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.71` targets schema 237 through `20260924010000` using the
-immutable source image below. The full Linux package lifecycle and final review
+Package revision `0.1.72` targets schema 237 through `20260924010000` using the
+immutable source image below. Its full Linux package lifecycle and final review
 are required before an existing-data Umbrel update. Fresh empty-PGDATA
 installation remains **BLOCKED** by OPS-010; an image pin or existing-data
 update does not qualify it.
+
+This revision adds a portable, signed acquisition artifact for observed funding
+rows of trades that were running in an existing signed account snapshot. It
+uses a dedicated read-only LN Markets credential, fixed snapshot cutoff,
+bounded pagination, and a post-read identity check. Its integral-satoshi fee
+scope and the live venue pagination behavior still need qualification. The
+artifact has no database intake, scheduler, admission or trading authority;
+its liabilities and capital remain unknown.
 
 Schema 237 adds immutable `lnmarkets_global_current_reconciliation_receipts`.
 For the flat default account, a receipt binds the signed account acquisition,
@@ -36,7 +44,7 @@ exact helper and trigger-function bodies:
 `validate_lnm_account_snapshot_raw_evidence_insert()`
 (`3a09d84b1625edd066c3b7fcb14ff9290bb9a2c3d6aecb88c9800b0dab812192`).
 
-The intended migration adds `h4_canary_economics_evidence_receipts` and
+The existing migration added `h4_canary_economics_evidence_receipts` and
 `materialize_h4_canary_economics_evidence(uuid)`. It can derive an internal,
 append-only receipt from canonical execution-economics heartbeat, artifact and
 producer-receipt lineage. Each row is constrained to `authority=none`,
@@ -45,12 +53,11 @@ admission, execution, scheduling, producer, risk, entry-mode, exposure or
 activation wiring. The materializer is expected to retain source hash
 `0608e68275edf2b1faf82641f104a887ef0127b400f9bd15724a7f6434d7995e`.
 
-The prior schema-236 package passed fresh and repeat startup, schema-229 upgrade,
-ownerless restore, ACL/tamper rejection, and its 0.1.46 compatibility rollback
-test. The schema-237 package needs a new lifecycle receipt against the exact
-image below. Two earlier local full restore-224 attempts failed under OPS-010;
-the full Linux restore-224 CI receipt is the gate before package merge. The
-release SQL exporter remains authoritative for source bootstrap and verifier
+The preceding 0.1.71 schema-237 package passed its full Linux lifecycle in CI.
+This 0.1.72 image requires a new full Linux restore-224 CI receipt before
+package merge. Earlier local full restore-224 attempts failed under OPS-010;
+that fresh-install blocker remains open. The release SQL exporter remains
+authoritative for source bootstrap and verifier
 SQL; the package does not copy or recreate those contracts.
 
 Credential initialization completes before the release-SQL exporter runs. The
@@ -162,20 +169,21 @@ application container ports remain private.
 ## Image admission
 
 Every current Compose reference, including the Trusted V2 attestor digest, is
-aligned to source `ca47d0392909555ab44c7c8c791331c85391e43c` at immutable
-`ghcr.io/whirmill/zapbot:umbrel-h4-flat-reconcile-ca47d0392909555ab44c7c8c791331c85391e43c@sha256:76fa7322f429892dfaa2de8a7470bde8d5bb9d7865a8cebfc1ff306bb92a313c`.
+aligned to source `9c7b494ed6cd150397973465a36258bf344f382c` at immutable
+`ghcr.io/whirmill/zapbot:umbrel-active-funding-9c7b494ed6cd150397973465a36258bf344f382c@sha256:89e2225b95f756f442d9f8e6f989661e1035d7af1501da0f8d5e45b1a4bbc3c5`.
 The published OCI index carries native `linux/amd64` manifest
-`sha256:90429917339a980d2470ec9e71c663ed2ad76952d04994899b018601ddf3cb17`
+`sha256:b9ce686903614a30d96dd4b6c8acec9e606cf33960eed670e5edfc15dc20c206`
 and `linux/arm64` manifest
-`sha256:b000ce88c883386236948f05096caf665c922d77716cbf64a121f5101bc52392`,
+`sha256:2039c4803b785229bcee8326bf842450e289f5f671784f702e9737a48353b344`,
 both labeled with that source revision. Never substitute `latest`, a mutable
 tag, or a different digest.
 
 ## Qualification scope
 
-The schema-237 lifecycle checks fresh and repeat startup, ownerless current
-schema restore, schema-229-to-237 upgrade, function/ACL/trigger/constraint
-tampering, and the fenced 0.1.46 compatibility overlay. Its full Linux
+The preceding 0.1.71 schema-237 package passed its full Linux lifecycle. The
+0.1.72 lifecycle checks fresh and repeat startup, ownerless current-schema
+restore, schema-229-to-237 upgrade, function/ACL/trigger/constraint tampering,
+and the fenced 0.1.46 compatibility overlay. Its exact-image full Linux
 restore-224 CI receipt and final review are required before package merge.
 Earlier local full restore-224 attempts failed under OPS-010. An existing-data
 Umbrel update requires the exact merged manifest and image readback.
@@ -202,14 +210,14 @@ producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the inline schema/trigger compatibility contract plus the
 checksum-validated, exported current `verify_database_roles.sql` contract before
 accepting the exact old runtime and current release image split. Start the fenced
-0.1.71 package successfully first: its
+0.1.72 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
 The command is resumable. For an existing-data update after the required Linux
-restore-224 CI and final review, it accepts only the pinned 0.1.71 or pinned
+restore-224 CI and final review, it accepts only the pinned 0.1.72 or pinned
 0.1.46 image for each of its five targets, completes a partial split, and
 rejects any other image. A retry after all five are safely fenced is
 verification-only. The rollback overlay runs the web as `tail` and producers as
