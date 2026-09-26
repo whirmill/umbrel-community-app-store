@@ -54,6 +54,8 @@ DECLARE
       pg_catalog.to_regprocedure(
         'public.materialize_lnmarkets_global_current_reconciliation(text)'
       )::oid,
+      pg_catalog.to_regprocedure('public.reject_lnm_active_funding_mutation()')::oid,
+      pg_catalog.to_regprocedure('public.validate_lnm_active_funding_insert()')::oid,
       pg_catalog.to_regprocedure('public.guard_attested_causal_event_correction()')::oid,
       pg_catalog.to_regprocedure('public.record_causal_event_producer_receipt()')::oid,
       pg_catalog.to_regprocedure('public.validate_forward_return_label_causal_attestation()')::oid,
@@ -114,6 +116,12 @@ DECLARE
   global_reconciliation_materializer_function oid := pg_catalog.to_regprocedure(
     'public.materialize_lnmarkets_global_current_reconciliation(text)'
   );
+  active_funding_reject_function oid := pg_catalog.to_regprocedure(
+    'public.reject_lnm_active_funding_mutation()'
+  );
+  active_funding_validate_function oid := pg_catalog.to_regprocedure(
+    'public.validate_lnm_active_funding_insert()'
+  );
   freeze_function_reviewed boolean;
   materializer_function_reviewed boolean;
   account_snapshot_reject_function_reviewed boolean;
@@ -123,6 +131,8 @@ DECLARE
   raw_evidence_validate_function_reviewed boolean;
   global_reconciliation_reject_function_reviewed boolean;
   global_reconciliation_materializer_function_reviewed boolean;
+  active_funding_reject_function_reviewed boolean;
+  active_funding_validate_function_reviewed boolean;
   reviewed_count integer;
 BEGIN
   -- This normalizer precedes migrations on an empty or 224 restore. Once the
@@ -250,6 +260,36 @@ BEGIN
     WHERE function.oid = global_reconciliation_materializer_function;
   END IF;
 
+  -- Schema 238 can be absent before migration. On an ownerless current-schema
+  -- restore, reown only the exact source-approved immutable insert path.
+  IF active_funding_reject_function IS NULL THEN
+    active_funding_reject_function_reviewed := true;
+  ELSE
+    SELECT function.prosecdef
+      AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+      AND pg_catalog.encode(
+        pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')),
+        'hex'
+      ) = 'c20dbdc6f6dc1282e8e57656f98fdcde9e08bd4393b61709b8d588060146f464'
+    INTO active_funding_reject_function_reviewed
+    FROM pg_catalog.pg_proc function
+    WHERE function.oid = active_funding_reject_function;
+  END IF;
+
+  IF active_funding_validate_function IS NULL THEN
+    active_funding_validate_function_reviewed := true;
+  ELSE
+    SELECT function.prosecdef
+      AND function.proconfig = ARRAY['search_path=pg_catalog, public']::text[]
+      AND pg_catalog.encode(
+        pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, 'UTF8')),
+        'hex'
+      ) = '24b8b4d2833348a332be313e9148ee8e94f1efe5c375e80d01f33f2c22937d56'
+    INTO active_funding_validate_function_reviewed
+    FROM pg_catalog.pg_proc function
+    WHERE function.oid = active_funding_validate_function;
+  END IF;
+
   -- The schema-234 materializer may be absent before migration. When present,
   -- retain only the reviewed SECDEF search path and immutable body before the
   -- reownership loop below assigns zapbot_owner after an ownerless restore.
@@ -284,6 +324,8 @@ BEGIN
      OR raw_evidence_validate_function_reviewed IS NOT TRUE
      OR global_reconciliation_reject_function_reviewed IS NOT TRUE
      OR global_reconciliation_materializer_function_reviewed IS NOT TRUE
+     OR active_funding_reject_function_reviewed IS NOT TRUE
+     OR active_funding_validate_function_reviewed IS NOT TRUE
      OR EXISTS (
     SELECT 1
     FROM pg_catalog.pg_proc function
