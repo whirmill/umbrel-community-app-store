@@ -1,18 +1,18 @@
 #!/bin/sh
-# Run only after reviewing a 0.1.72 rollback. This is a compatibility rollback:
-# it retains schema 237 and protected evidence without downgrading the database
-# or changing persisted authority settings. It requires the fenced 0.1.72 package
-# graph to have completed first; the pinned schema-237 image must match the
+# Run only after reviewing a 0.1.73 rollback. This is a compatibility rollback:
+# it retains schema 238 and protected evidence without downgrading the database
+# or changing persisted authority settings. It requires the fenced 0.1.73 package
+# graph to have completed first; the pinned schema-238 image must match the
 # qualified immutable source revision.
 # it never initializes credentials
 # or starts bootstrap dependencies.
 set -eu
 
-package_version=0.1.72
+package_version=0.1.73
 legacy_image='ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e'
-current_image='ghcr.io/whirmill/zapbot:umbrel-active-funding-9c7b494ed6cd150397973465a36258bf344f382c@sha256:89e2225b95f756f442d9f8e6f989661e1035d7af1501da0f8d5e45b1a4bbc3c5'
-# current_image is the verified schema-237 immutable image. Do not run this
-# draft script until the separate package lifecycle qualification is complete.
+current_image='ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f'
+# current_image is the verified schema-238 immutable image. Run this script
+# only after full package lifecycle qualification and a reviewed update.
 
 : "${APP_DATA_DIR:?APP_DATA_DIR is required}"
 : "${ZAPBOT_PACKAGE_COMPOSE:?ZAPBOT_PACKAGE_COMPOSE must name the installed docker-compose.yml}"
@@ -77,8 +77,8 @@ export PGPASSWORD="$(cat /run/zapbot-secret/password)"
 psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d zapbot <<'SQL'
 BEGIN READ ONLY;
 SELECT CASE WHEN
-  (SELECT count(*) FROM public.schema_migrations) = 237
-  AND (SELECT max(version) FROM public.schema_migrations) = 20260924010000
+  (SELECT count(*) FROM public.schema_migrations) = 238
+  AND (SELECT max(version) FROM public.schema_migrations) = 20260926010000
   AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = $$public.causal_events_trusted_v2_series_latest_idx$$::regclass)
   AND pg_catalog.pg_get_indexdef($$public.causal_events_trusted_v2_series_latest_idx$$::regclass) = $idx$CREATE INDEX causal_events_trusted_v2_series_latest_idx ON public.causal_events USING btree (source, stream_id, account_scope, market_key, split_part((source_event_id)::text, ':revision:'::text, 1), ledger_seq DESC)$idx$
   AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = $$public.causal_events_passive_execution_trade_lookup_idx$$::regclass)
@@ -259,6 +259,59 @@ SELECT CASE WHEN
   AND NOT pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.lnmarkets_global_current_reconciliation_receipts$$, $$INSERT$$)
   AND NOT pg_catalog.has_table_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_global_current_reconciliation_receipts$$, $$SELECT$$)
   AND NOT pg_catalog.has_function_privilege($$zapbot_runtime$$, $$public.reject_lnmarkets_global_current_reconciliation_mutation()$$, $$EXECUTE$$)
+  AND pg_catalog.to_regclass($$public.lnmarkets_active_funding_acquisitions$$) IS NOT NULL
+  AND (SELECT relation.relkind = $$r$$::char AND pg_catalog.pg_get_userbyid(relation.relowner) = $$zapbot_owner$$
+       FROM pg_catalog.pg_class relation
+       WHERE relation.oid = $$public.lnmarkets_active_funding_acquisitions$$::regclass)
+  AND (SELECT function.prosecdef AND function.provolatile = $$v$$::char
+       AND function.proconfig IS NOT DISTINCT FROM ARRAY[$$search_path=pg_catalog, public$$]
+       AND pg_catalog.pg_get_userbyid(function.proowner) = $$zapbot_owner$$
+       AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, $$UTF8$$)), $$hex$$) = $$c20dbdc6f6dc1282e8e57656f98fdcde9e08bd4393b61709b8d588060146f464$$
+       FROM pg_catalog.pg_proc function
+       WHERE function.oid = $$public.reject_lnm_active_funding_mutation()$$::regprocedure)
+  AND (SELECT function.prosecdef AND function.provolatile = $$v$$::char
+       AND function.proconfig IS NOT DISTINCT FROM ARRAY[$$search_path=pg_catalog, public$$]
+       AND pg_catalog.pg_get_userbyid(function.proowner) = $$zapbot_owner$$
+       AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(function.prosrc, $$UTF8$$)), $$hex$$) = $$24b8b4d2833348a332be313e9148ee8e94f1efe5c375e80d01f33f2c22937d56$$
+       FROM pg_catalog.pg_proc function
+       WHERE function.oid = $$public.validate_lnm_active_funding_insert()$$::regprocedure)
+  AND (SELECT count(*) = 3 FROM (VALUES
+       ($$lnm_active_funding_immutable$$::text, 27::smallint, $$public.reject_lnm_active_funding_mutation()$$::regprocedure),
+       ($$lnm_active_funding_truncate_guard$$::text, 34::smallint, $$public.reject_lnm_active_funding_mutation()$$::regprocedure),
+       ($$lnm_active_funding_validate_insert$$::text, 7::smallint, $$public.validate_lnm_active_funding_insert()$$::regprocedure)
+       ) expected(trigger_name, trigger_type, function_oid)
+       JOIN pg_catalog.pg_trigger trigger ON
+         trigger.tgrelid = $$public.lnmarkets_active_funding_acquisitions$$::regclass
+         AND trigger.tgname = expected.trigger_name AND trigger.tgtype = expected.trigger_type
+         AND trigger.tgfoid = expected.function_oid AND trigger.tgenabled = $$A$$
+         AND NOT trigger.tgisinternal)
+  AND (SELECT count(*) = 4 AND pg_catalog.bool_and(constraint_row.convalidated
+       AND NOT constraint_row.condeferrable AND NOT constraint_row.condeferred)
+       FROM pg_catalog.pg_constraint constraint_row
+       WHERE constraint_row.conrelid = $$public.lnmarkets_active_funding_acquisitions$$::regclass
+       AND (constraint_row.conname, constraint_row.contype) IN (
+         ($$lnm_active_funding_hashes_check$$, $$c$$::char),
+         ($$lnm_active_funding_nonadmission_check$$, $$c$$::char),
+         ($$lnmarkets_active_funding_acquisitions_acquisition_id_fkey$$, $$f$$::char),
+         ($$lnmarkets_active_funding_acquisitions_raw_evidence_id_fkey$$, $$f$$::char)))
+  AND (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+       pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+         $$name$$, constraint_row.conname, $$type$$, constraint_row.contype,
+         $$definition$$, pg_catalog.pg_get_constraintdef(constraint_row.oid),
+         $$validated$$, constraint_row.convalidated) ORDER BY constraint_row.conname)::text,
+       $$UTF8$$)), $$hex$$) = $$792582d775ab421ba6ed814dcd66c39bb1ad9cdcaf6baf90bcf4256a7e23112e$$
+       FROM pg_catalog.pg_constraint constraint_row
+       WHERE constraint_row.conrelid = $$public.lnmarkets_active_funding_acquisitions$$::regclass
+       AND constraint_row.conname IN (
+         $$lnm_active_funding_hashes_check$$, $$lnm_active_funding_nonadmission_check$$,
+         $$lnmarkets_active_funding_acquisitions_acquisition_id_fkey$$,
+         $$lnmarkets_active_funding_acquisitions_raw_evidence_id_fkey$$))
+  AND pg_catalog.has_table_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_active_funding_acquisitions$$, $$SELECT$$)
+  AND pg_catalog.has_table_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_active_funding_acquisitions$$, $$INSERT$$)
+  AND NOT pg_catalog.has_table_privilege($$zapbot_producer_lnmarkets_account_reconcile$$, $$public.lnmarkets_active_funding_acquisitions$$, $$UPDATE$$)
+  AND NOT pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.lnmarkets_active_funding_acquisitions$$, $$SELECT$$)
+  AND NOT pg_catalog.has_table_privilege($$zapbot_runtime$$, $$public.lnmarkets_active_funding_acquisitions$$, $$INSERT$$)
+  AND NOT pg_catalog.has_function_privilege($$zapbot_runtime$$, $$public.validate_lnm_active_funding_insert()$$, $$EXECUTE$$)
 THEN $$rollback_schema_contract=pass$$ ELSE $$rollback_schema_contract=fail$$ END;
 COMMIT;
 SQL
@@ -302,7 +355,7 @@ verify_images() {
 
   for service in release-sql-export migrate; do
     image=$(compose ps -aq "$service" | tail -n 1 | xargs docker inspect -f '{{.Config.Image}}')
-    test "$image" = "$current_image" || { echo "unexpected 0.1.72 release image for $service" >&2; exit 67; }
+    test "$image" = "$current_image" || { echo "unexpected 0.1.73 release image for $service" >&2; exit 67; }
   done
 }
 
@@ -348,9 +401,9 @@ classify_runtime() {
 
   for service in release-sql-export migrate normalize-and-verify; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
-    test -n "$service_id" || { echo "missing completed 0.1.72 bootstrap service: $service" >&2; exit 67; }
+    test -n "$service_id" || { echo "missing completed 0.1.73 bootstrap service: $service" >&2; exit 67; }
     test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$service_id")" = 'exited:0' || {
-      echo "rollback requires completed 0.1.72 bootstrap service: $service" >&2
+      echo "rollback requires completed 0.1.73 bootstrap service: $service" >&2
       exit 67
     }
   done
@@ -358,7 +411,7 @@ classify_runtime() {
   for service in release-sql-export migrate; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
     test "$(docker inspect -f '{{.Config.Image}}' "$service_id")" = "$current_image" || {
-      echo "rollback requires current 0.1.72 release image for $service" >&2
+      echo "rollback requires current 0.1.73 release image for $service" >&2
       exit 67
     }
   done
