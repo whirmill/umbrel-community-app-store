@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.73"
+version: "0.1.74"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,9 +23,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Persists parent-bound signed active-funding observations in immutable schema
-  238 evidence, with a narrow database producer role and no automatic collector
-  or capital admission. Funding completeness and live venue pagination remain
-  unqualified; H4 and trading authority remain disabled. Existing-data updates
-  preserve prior evidence. Fresh empty-PGDATA installation remains blocked by
-  OPS-010.
+  Pins the five external-network consumers to the two responsive existing DNS
+  upstreams, avoiding the observed silent first upstream while retaining Docker
+  private service resolution. Host DNS, internal-only services, resolver and
+  HTTP/risk deadlines remain unchanged. Reuses the exact 0.1.73 immutable image
+  and schema 238. Future slow failover or total DNS outage can still fail closed.
+  Fresh empty-PGDATA installation remains blocked by OPS-010.

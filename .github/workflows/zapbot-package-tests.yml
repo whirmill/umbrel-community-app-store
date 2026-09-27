@@ -13,6 +13,24 @@ permissions:
   contents: read
 
 jobs:
+  dns-selection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull the immutable package image
+        run: docker pull "$(yq e '.services.migrate.image' whirmill-zapbot/docker-compose.yml)"
+      - name: Verify native and Req resolution with isolated local upstreams
+        shell: bash
+        run: python3 tests/zapbot-dns-selection.py 2>&1 | tee "$RUNNER_TEMP/zapbot-dns-selection.log"
+      - name: Preserve DNS regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zapbot-dns-selection
+          path: ${{ runner.temp }}/zapbot-dns-selection.log
+          if-no-files-found: ignore
+
   postgres-startup-diagnostic:
     runs-on: ubuntu-latest
     timeout-minutes: 12
