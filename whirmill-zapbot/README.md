@@ -10,8 +10,8 @@ Revision `0.1.74` is a package-only DNS correction. The web runtime, three
 external market-data producers (LN Markets candles/funding and Coinbase
 candles), and the optional execution-coverage acquirer explicitly use
 `dns: [9.9.9.9, 8.8.8.8]`. These were the two responsive existing host
-upstreams during diagnosis; the preceding first upstream silently dropped
-requests. Docker embedded DNS still resolves private service aliases. The
+upstreams during diagnosis; queries to the preceding first upstream did not
+receive a response. Docker embedded DNS still resolves private service aliases. The
 host DNS configuration, database, migrations and internal-only services are
 unchanged. The exact `0.1.73` image and schema 238 are reused.
 
@@ -217,6 +217,13 @@ Both platform OCI revision labels match the source merge, and the immutable
 index. Do not substitute `latest`, a mutable tag or an unmatched digest.
 
 ## Qualification scope
+
+The lifecycle waits on exactly one container ID selected across all states.
+This avoids Compose versions that omit already-exited one-shot services from
+`compose wait`. Both Docker CLI failure and a nonzero container exit remain
+failures; success also requires `exited:0`. Run
+`sh tests/zapbot-one-shot-wait.sh` for the real-Docker regression covering fast
+success, fast failure, invalid/ambiguous IDs and a missing-container CLI error.
 
 The preceding 0.1.72 schema-237 package passed its full Linux lifecycle. The
 0.1.74 lifecycle checks fresh and repeat startup, ownerless current-schema

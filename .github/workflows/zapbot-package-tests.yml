@@ -20,6 +20,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Pull the immutable package image
         run: docker pull "$(yq e '.services.migrate.image' whirmill-zapbot/docker-compose.yml)"
+      - name: Verify already-completed one-shot success and failure handling
+        shell: bash
+        run: sh tests/zapbot-one-shot-wait.sh 2>&1 | tee "$RUNNER_TEMP/zapbot-one-shot-wait.log"
       - name: Verify native and Req resolution with isolated local upstreams
         shell: bash
         run: python3 tests/zapbot-dns-selection.py 2>&1 | tee "$RUNNER_TEMP/zapbot-dns-selection.log"
@@ -28,7 +31,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zapbot-dns-selection
-          path: ${{ runner.temp }}/zapbot-dns-selection.log
+          path: |
+            ${{ runner.temp }}/zapbot-dns-selection.log
+            ${{ runner.temp }}/zapbot-one-shot-wait.log
           if-no-files-found: ignore
 
   postgres-startup-diagnostic:
