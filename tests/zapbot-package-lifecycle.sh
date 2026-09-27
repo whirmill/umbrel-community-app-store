@@ -1182,11 +1182,8 @@ prepare_ownerless_235_restore() {
   mkdir -p "$target_data/data/import"
   cp "$dump_path" "$target_data/data/import/zapbot.dump"
   log 'starting ownerless current-schema-238 restore through restore service only'
-  compose "$target_project" "$target_data" up -d restore >>"$receipt" 2>&1
-  compose "$target_project" "$target_data" wait restore >>"$receipt" 2>&1
-  restore_id=$(one_shot_id "$target_project" "$target_data" restore)
-  test -n "$restore_id"
-  test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$restore_id")" = 'exited:0'
+  compose "$target_project" "$target_data" up -d restore >>"$receipt" 2>&1 || return $?
+  wait_one_shot "$target_project" "$target_data" restore
   await_healthy_service "$target_project" "$target_data" whirmill-zapbot-postgres 240
   test "$(pg_query "$target_project" "$target_data" "SELECT string_agg(pg_catalog.pg_get_userbyid(proc.proowner), ':' ORDER BY proc.proname) FROM pg_catalog.pg_proc proc WHERE proc.oid IN ('public.reject_lnm_account_active_snapshot_mutation()'::regprocedure, 'public.validate_lnm_account_active_snapshot_insert()'::regprocedure)")" = postgres:postgres
   log 'ownerless_schema_235_snapshot_functions_owner_before_normalize=postgres:postgres'
@@ -1573,16 +1570,29 @@ one_shot_id() {
   compose "$project" "$data_dir" ps -aq "$service" | tail -n 1
 }
 
+# Compose wait may omit an already-exited container. Select all states, then
+# wait on exactly one immutable container ID and verify its terminal result.
+wait_one_shot() {
+  wait_ids=$(compose "$1" "$2" ps -aq "$3") || return $?
+  set -- $wait_ids
+  test "$#" -eq 1 || { echo 'one-shot wait requires exactly one container ID' >&2; return 64; }
+  wait_id=$1
+  test "${#wait_id}" -eq 64 || { echo 'invalid one-shot container ID length' >&2; return 64; }
+  case "$wait_id" in *[!0-9a-f]*) echo 'invalid one-shot container ID' >&2; return 64 ;; esac
+  wait_result=$(docker wait "$wait_id" 2>>"$receipt") || return $?
+  printf 'one_shot_wait id=%s container_exit=%s\n' "$wait_id" "$wait_result" >>"$receipt"
+  test "$wait_result" = 0 || return 1
+  wait_state=$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$wait_id") || return $?
+  test "$wait_state" = 'exited:0'
+}
+
 run_one_shot() {
   project=$1
   data_dir=$2
   service=$3
   log "starting one-shot Compose service=$service project=$project"
-  compose "$project" "$data_dir" up -d "$service" >>"$receipt" 2>&1
-  compose "$project" "$data_dir" wait "$service" >>"$receipt" 2>&1
-  container_id=$(one_shot_id "$project" "$data_dir" "$service")
-  test -n "$container_id"
-  test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$container_id")" = 'exited:0'
+  compose "$project" "$data_dir" up -d "$service" >>"$receipt" 2>&1 || return $?
+  wait_one_shot "$project" "$data_dir" "$service"
 }
 
 repeat_package() {

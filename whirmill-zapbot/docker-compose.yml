@@ -1,5 +1,5 @@
 services:
-  # Package 0.1.73 uses the verified schema-238 immutable image below.
+  # Package 0.1.74 uses the verified schema-238 immutable image below.
   # Full package lifecycle and final review qualify this graph before update.
   app_proxy:
     environment:
@@ -287,6 +287,8 @@ services:
 
   whirmill-zapbot-web:
     image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    # Use the two responsive existing upstreams; keep Docker service-name resolution.
+    dns: [9.9.9.9, 8.8.8.8]
     container_name: whirmill-zapbot-web
     restart: on-failure
     environment:
@@ -331,6 +333,8 @@ services:
 
   producer-lnmarkets-candles:
     image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    # Use the two responsive existing upstreams; keep Docker service-name resolution.
+    dns: [9.9.9.9, 8.8.8.8]
     restart: unless-stopped
     environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_candles}
     volumes: ["${APP_DATA_DIR}/data/env/producer-lnmarkets-candles:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-lnmarkets-candles:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
@@ -343,6 +347,8 @@ services:
 
   producer-coinbase-candles:
     image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    # Use the two responsive existing upstreams; keep Docker service-name resolution.
+    dns: [9.9.9.9, 8.8.8.8]
     restart: unless-stopped
     environment: {ZAPBOT_DATABASE_ROLE: producer_coinbase_candles}
     volumes: ["${APP_DATA_DIR}/data/env/producer-coinbase-candles:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-coinbase-candles:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
@@ -355,6 +361,8 @@ services:
 
   producer-lnmarkets-funding:
     image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    # Use the two responsive existing upstreams; keep Docker service-name resolution.
+    dns: [9.9.9.9, 8.8.8.8]
     restart: unless-stopped
     environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_funding}
     volumes: ["${APP_DATA_DIR}/data/env/producer-lnmarkets-funding:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-lnmarkets-funding:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
@@ -506,6 +514,8 @@ services:
   execution-coverage-acquirer:
     profiles: [execution-economics-ops]
     image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    # Use the two responsive existing upstreams; keep Docker service-name resolution.
+    dns: [9.9.9.9, 8.8.8.8]
     restart: "no"
     user: "1000:1000"
     volumes:

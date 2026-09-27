@@ -1,10 +1,45 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.73` targets schema 238 through `20260926010000` using the
+Package revision `0.1.74` targets schema 238 through `20260926010000` using the
 immutable source image pinned for this release. Its full Linux package lifecycle
 and final review are required before an existing-data Umbrel update. Fresh empty-PGDATA
 installation remains **BLOCKED** by OPS-010; an image pin or existing-data
 update does not qualify it.
+
+Revision `0.1.74` is a package-only DNS correction. The web runtime, three
+external market-data producers (LN Markets candles/funding and Coinbase
+candles), and the optional execution-coverage acquirer explicitly use
+`dns: [9.9.9.9, 8.8.8.8]`. These were the two responsive existing host
+upstreams during diagnosis; queries to the preceding first upstream did not
+receive a response. Docker embedded DNS still resolves private service aliases. The
+host DNS configuration, database, migrations and internal-only services are
+unchanged. The exact `0.1.73` image and schema 238 are reused.
+
+Resolver and HTTP/connect deadlines remain unchanged. Increasing the libc
+resolver timeout alone failed native BEAM lookup; additionally increasing
+BEAM's startup resolver timeout allowed lookup but still exceeded the existing
+Req connect deadline. This package instead avoids the observed unresponsive
+upstream within the five external-consumer containers. If either selected
+upstream later becomes unresponsive, failover may again exceed the original
+request deadline; a total DNS outage still fails closed. This is not a general
+DNS-outage or slow-failover guarantee. Sites requiring private/split-horizon
+public-name resolution must review these explicit public resolvers before use.
+
+After update, verify the five containers' effective DNS list, native public-name
+resolution, private PostgreSQL resolution and application health. Configuration
+changes require container recreation. To reverse this correction, restore the
+reviewed `0.1.73` package through the normal package update path and recreate its
+services; no image rollback or down migration is needed, but the original
+inherited-upstream failure can return. Recheck health and persisted safety posture.
+
+`python3 tests/zapbot-dns-selection.py` runs the deterministic local Docker
+regression with the pinned image and disposable DNS/HTTP fixtures. It asserts
+the five-service scope, reproduces the old silent-first-upstream failure,
+checks native BEAM and Req against responsive selected upstreams, verifies
+private aliases, and checks bounded outage failure and subsequent recovery.
+Fixture DNS answers only `.invalid` names and never forwards. The test needs
+Docker and Python 3, uses no production credentials or public DNS, and removes
+its own containers and network on success, failure or interruption.
 
 Schema 238 stores a signed, parent-bound active-funding acquisition in an
 immutable table. Its validator binds the parent acquisition and canonical raw
@@ -55,7 +90,7 @@ activation wiring. The materializer is expected to retain source hash
 `0608e68275edf2b1faf82641f104a887ef0127b400f9bd15724a7f6434d7995e`.
 
 The preceding 0.1.72 schema-237 package passed its full Linux lifecycle in CI.
-This 0.1.73 image requires a new full Linux restore-224 CI receipt before
+This 0.1.74 image requires a new full Linux restore-224 CI receipt before
 package merge. Earlier local full restore-224 attempts failed under OPS-010;
 that fresh-install blocker remains open. The release SQL exporter remains
 authoritative for source bootstrap and verifier
@@ -183,8 +218,15 @@ index. Do not substitute `latest`, a mutable tag or an unmatched digest.
 
 ## Qualification scope
 
+The lifecycle waits on exactly one container ID selected across all states.
+This avoids Compose versions that omit already-exited one-shot services from
+`compose wait`. Both Docker CLI failure and a nonzero container exit remain
+failures; success also requires `exited:0`. Run
+`sh tests/zapbot-one-shot-wait.sh` for the real-Docker regression covering fast
+success, fast failure, invalid/ambiguous IDs and a missing-container CLI error.
+
 The preceding 0.1.72 schema-237 package passed its full Linux lifecycle. The
-0.1.73 lifecycle checks fresh and repeat startup, ownerless current-schema
+0.1.74 lifecycle checks fresh and repeat startup, ownerless current-schema
 restore, schema-229-to-238 upgrade, function/ACL/trigger/constraint tampering,
 and the fenced 0.1.46 compatibility overlay. Its exact-image full Linux
 restore-224 CI receipt and final review are required before package merge.
@@ -213,14 +255,14 @@ producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the inline schema/trigger compatibility contract plus the
 checksum-validated, exported current `verify_database_roles.sql` contract before
 accepting the exact old runtime and current release image split. Start the fenced
-0.1.73 package successfully first: its
+0.1.74 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
 The command is resumable. For an existing-data update after the required Linux
-restore-224 CI and final review, it accepts only the pinned 0.1.73 or pinned
+restore-224 CI and final review, it accepts only the pinned 0.1.74 or pinned
 0.1.46 image for each of its five targets, completes a partial split, and
 rejects any other image. A retry after all five are safely fenced is
 verification-only. The rollback overlay runs the web as `tail` and producers as
