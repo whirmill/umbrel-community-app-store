@@ -1,5 +1,5 @@
 services:
-  # Package 0.1.74 uses the verified schema-238 immutable image below.
+  # Package 0.1.75 uses the verified schema-238 immutable image below.
   # Full package lifecycle and final review qualify this graph before update.
   app_proxy:
     environment:
@@ -109,7 +109,7 @@ services:
     mem_limit: 4g
 
   release-sql-export:
-    image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    image: ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb
     restart: "no"
     user: "1000:1000"
     volumes:
@@ -214,7 +214,7 @@ services:
     mem_limit: 2g
 
   migrate:
-    image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    image: ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb
     restart: "no"
     environment:
       ZAPBOT_RUNTIME_MODE: production
@@ -286,7 +286,7 @@ services:
     mem_limit: 2g
 
   whirmill-zapbot-web:
-    image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    image: ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb
     # Use the two responsive existing upstreams; keep Docker service-name resolution.
     dns: [9.9.9.9, 8.8.8.8]
     container_name: whirmill-zapbot-web
@@ -332,7 +332,7 @@ services:
     mem_limit: 2g
 
   producer-lnmarkets-candles:
-    image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    image: ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb
     # Use the two responsive existing upstreams; keep Docker service-name resolution.
     dns: [9.9.9.9, 8.8.8.8]
     restart: unless-stopped
@@ -346,7 +346,7 @@ services:
     mem_limit: 384m
 
   producer-coinbase-candles:
-    image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    image: ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb
     # Use the two responsive existing upstreams; keep Docker service-name resolution.
     dns: [9.9.9.9, 8.8.8.8]
     restart: unless-stopped
@@ -360,7 +360,7 @@ services:
     mem_limit: 384m
 
   producer-lnmarkets-funding:
-    image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    image: ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb
     # Use the two responsive existing upstreams; keep Docker service-name resolution.
     dns: [9.9.9.9, 8.8.8.8]
     restart: unless-stopped
@@ -374,7 +374,7 @@ services:
     mem_limit: 384m
 
   producer-risk-authority-snapshot:
-    image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    image: ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb
     restart: unless-stopped
     environment: {ZAPBOT_DATABASE_ROLE: producer_risk_authority_snapshot}
     volumes: ["${APP_DATA_DIR}/data/env/producer-risk-authority-snapshot:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-risk-authority-snapshot:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
@@ -387,7 +387,7 @@ services:
 
   trusted-v2-sealer:
     profiles: [trusted-v2-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    image: ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb
     restart: "no"
     user: "1000:1000"
     environment: {ZAPBOT_DATABASE_ROLE: holdout_v2_sealer}
@@ -403,13 +403,13 @@ services:
 
   trusted-v2-attestor:
     profiles: [trusted-v2-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    image: ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb
     restart: "no"
     user: "1000:1000"
     environment: {ZAPBOT_DATABASE_ROLE: evaluator_attestor}
     volumes: ["${APP_DATA_DIR}/data/env/trusted-v2-lineage:/service-env:ro", "${APP_DATA_DIR}/data/secrets/evaluator-attestor:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
     depends_on: {trusted-v2-sealer: {condition: service_completed_successfully}}
-    command: [/bin/sh, -ec, '. /usr/local/bin/runtime-env; export POOL_SIZE=1; export ZAPBOT_RUNTIME_MODE=trusted_v2_attestor; export TRUSTED_V2_ATTESTATION_ENABLED=true; export ZAPBOT_RELEASE_IMAGE_DIGEST=sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f; exec bin/zapbot eval "Zapbot.Release.TrustedV2LineageRunner.run_from_env!(confirm: true)"']
+    command: [/bin/sh, -ec, '. /usr/local/bin/runtime-env; export POOL_SIZE=1; export ZAPBOT_RUNTIME_MODE=trusted_v2_attestor; export TRUSTED_V2_ATTESTATION_ENABLED=true; export ZAPBOT_RELEASE_IMAGE_DIGEST=sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb; exec bin/zapbot eval "Zapbot.Release.TrustedV2LineageRunner.run_from_env!(confirm: true)"']
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
     security_opt: [no-new-privileges:true]
@@ -419,7 +419,7 @@ services:
 
   trusted-v2-report-writer:
     profiles: [trusted-v2-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    image: ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb
     restart: "no"
     user: "1000:1000"
     environment: {ZAPBOT_DATABASE_ROLE: holdout_report_writer}
@@ -513,7 +513,7 @@ services:
 
   execution-coverage-acquirer:
     profiles: [execution-economics-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    image: ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb
     # Use the two responsive existing upstreams; keep Docker service-name resolution.
     dns: [9.9.9.9, 8.8.8.8]
     restart: "no"
@@ -557,7 +557,7 @@ services:
 
   execution-economics-producer:
     profiles: [execution-economics-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f
+    image: ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb
     restart: "no"
     user: "1000:1000"
     environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_execution_economics}
