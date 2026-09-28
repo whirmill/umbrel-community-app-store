@@ -1,19 +1,29 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.74` targets schema 238 through `20260926010000` using the
+Package revision `0.1.75` targets schema 238 through `20260926010000` using the
 immutable source image pinned for this release. Its full Linux package lifecycle
 and final review are required before an existing-data Umbrel update. Fresh empty-PGDATA
 installation remains **BLOCKED** by OPS-010; an image pin or existing-data
 update does not qualify it.
 
-Revision `0.1.74` is a package-only DNS correction. The web runtime, three
-external market-data producers (LN Markets candles/funding and Coinbase
-candles), and the optional execution-coverage acquirer explicitly use
+Revision `0.1.75` adds the pure, fixture-only `ActiveLiabilityAssessment`.
+It verifies the signed active-funding artifact before interpreting economic
+components, reports exact per-trade and separate open/running subtotals, and
+compares fixture commands with explicit trade/client identity and scope. Unknown
+or conflicting evidence never releases a reservation. It retains
+`authority=none`, `admission_eligible=false`, `funding_complete=false`,
+`liabilities_status=unknown`, and no available-capital result. No scheduler,
+acquisition, API/RPC, database contract or live admission is enabled. This
+engineering increment does not qualify provider completeness or H4 activation.
+
+The DNS correction from `0.1.74` is retained. The web runtime, three external
+market-data producers (LN Markets candles/funding and Coinbase candles), and
+the optional execution-coverage acquirer explicitly use
 `dns: [9.9.9.9, 8.8.8.8]`. These were the two responsive existing host
 upstreams during diagnosis; queries to the preceding first upstream did not
-receive a response. Docker embedded DNS still resolves private service aliases. The
-host DNS configuration, database, migrations and internal-only services are
-unchanged. The exact `0.1.73` image and schema 238 are reused.
+receive a response. Docker embedded DNS still resolves private service aliases.
+The host DNS configuration, database, migrations and internal-only services
+are unchanged. Schema 238 is retained with a new immutable source image.
 
 Resolver and HTTP/connect deadlines remain unchanged. Increasing the libc
 resolver timeout alone failed native BEAM lookup; additionally increasing
@@ -90,7 +100,7 @@ activation wiring. The materializer is expected to retain source hash
 `0608e68275edf2b1faf82641f104a887ef0127b400f9bd15724a7f6434d7995e`.
 
 The preceding 0.1.72 schema-237 package passed its full Linux lifecycle in CI.
-This 0.1.74 image requires a new full Linux restore-224 CI receipt before
+This 0.1.75 image requires a new full Linux restore-224 CI receipt before
 package merge. Earlier local full restore-224 attempts failed under OPS-010;
 that fresh-install blocker remains open. The release SQL exporter remains
 authoritative for source bootstrap and verifier
@@ -205,15 +215,15 @@ application container ports remain private.
 ## Image admission
 
 Every current Compose reference, the Trusted V2 attestor digest, and the
-rollback current image use source merge `9225f96512eabf4719aa95d67428199141c737c4`
+rollback current image use source merge `17df423809b23fd4e88612914d25e54c644d63cc`
 at immutable
-`ghcr.io/whirmill/zapbot:umbrel-funding-store-9225f96512eabf4719aa95d67428199141c737c4@sha256:2a4e45b0674b269af6a209e73bcdc48344715366b3585f48d90675975f2fa49f`.
+`ghcr.io/whirmill/zapbot:umbrel-liability-assessment-17df423809b23fd4e88612914d25e54c644d63cc@sha256:f94ec218803d371d23889111be362c608dec2a55edfbb854e25b0f975cc12deb`.
 The OCI index contains native `linux/amd64` manifest
-`sha256:aa49afc53c60686df15f11d0d75543fc50c150fdf7b860a2a996160a6bffd963`
+`sha256:2c3946f3a20d33a2ec5a2c98cea126ba764da18e6366fc9dbf0ba769bd8dbc65`
 and `linux/arm64` manifest
-`sha256:94f637073771c143d915cb0a7e4522c1b9f8954498ea20f5b830bed16ed44e9b`.
+`sha256:709e04c0fe3cc154cc706e3485200fcd0f54121e271e4712f2710de7dd2c828d`.
 Both platform OCI revision labels match the source merge, and the immutable
-`sha-9225f96512eabf4719aa95d67428199141c737c4` alias resolves to the same
+`sha-17df423809b23fd4e88612914d25e54c644d63cc` alias resolves to the same
 index. Do not substitute `latest`, a mutable tag or an unmatched digest.
 
 ## Qualification scope
@@ -226,7 +236,7 @@ failures; success also requires `exited:0`. Run
 success, fast failure, invalid/ambiguous IDs and a missing-container CLI error.
 
 The preceding 0.1.72 schema-237 package passed its full Linux lifecycle. The
-0.1.74 lifecycle checks fresh and repeat startup, ownerless current-schema
+0.1.75 lifecycle checks fresh and repeat startup, ownerless current-schema
 restore, schema-229-to-238 upgrade, function/ACL/trigger/constraint tampering,
 and the fenced 0.1.46 compatibility overlay. Its exact-image full Linux
 restore-224 CI receipt and final review are required before package merge.
@@ -255,14 +265,14 @@ producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the inline schema/trigger compatibility contract plus the
 checksum-validated, exported current `verify_database_roles.sql` contract before
 accepting the exact old runtime and current release image split. Start the fenced
-0.1.74 package successfully first: its
+0.1.75 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
 The command is resumable. For an existing-data update after the required Linux
-restore-224 CI and final review, it accepts only the pinned 0.1.74 or pinned
+restore-224 CI and final review, it accepts only the pinned 0.1.75 or pinned
 0.1.46 image for each of its five targets, completes a partial split, and
 rejects any other image. A retry after all five are safely fenced is
 verification-only. The rollback overlay runs the web as `tail` and producers as
