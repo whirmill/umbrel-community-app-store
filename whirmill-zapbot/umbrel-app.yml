@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.76"
+version: "0.1.77"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,10 +23,10 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Adds a read-only, requested-command-ID settlement provenance snapshot from one
-  PostgreSQL statement. It reports bounded canonical command, outcome and
-  transition observations with explicit truncation, but does not establish
-  provider settlement, global absence, admission or available capital. No
-  policy, ACL, migration or risk setting changes; schema 238 and the existing
-  five-consumer DNS correction remain. Fresh empty-PGDATA installation remains
-  blocked by OPS-010.
+  Fixes read-only settlement provenance RPC under the restricted runtime
+  database role. The installed 0.1.76 query failed because that role cannot
+  execute public.digest; this image uses PostgreSQL's built-in SHA-256 without
+  widening privileges. Exact-source CI exercises the real restricted role and
+  full snapshot. No ACL, schema, policy, risk, admission or capital-authority
+  change. Schema 238 and the five-consumer DNS correction remain. Fresh
+  empty-PGDATA installation remains blocked by OPS-010.

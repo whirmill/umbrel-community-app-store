@@ -1,12 +1,30 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.76` targets schema 238 through `20260926010000` using the
+Package revision `0.1.77` targets schema 238 through `20260926010000` using the
 immutable source image pinned for this release. Its full Linux package lifecycle
 and final review are required before an existing-data Umbrel update. Fresh empty-PGDATA
 installation remains **BLOCKED** by OPS-010; an image pin or existing-data
 update does not qualify it.
 
-Revision `0.1.76` adds `execution.settlement_provenance.status@v1`, a
+Revision `0.1.77` corrects the restricted-runtime query used by
+`execution.settlement_provenance.status@v1`. The installed 0.1.76 image returned
+`PROVENANCE_DATABASE_UNAVAILABLE` (PostgreSQL SQLSTATE `42501`) because the
+runtime role cannot execute `public.digest`. The source now uses PostgreSQL's
+built-in `pg_catalog.sha256(bytea)` without changing grants or role policy.
+Exact-head source CI passed a regression that runs the full snapshot as the
+restricted `zapbot_runtime` role with `public.digest` denied. The result remains
+a bounded read-only observation, never proof of provider settlement, global
+absence, admission or available capital. There is no ACL, schema, migration,
+policy, risk-setting, scheduler, producer-credential or trading-authority change.
+
+The corrected immutable image is published and verified. Local 0.1.77 package
+lifecycle validation is **NOT RUN** because Docker Desktop's VM route is
+unavailable. Exact-image Linux CI must complete the full restore-224 lifecycle
+before package merge; its result must be recorded separately from this local
+limitation. Fresh empty-PGDATA installation remains blocked by OPS-010 even if
+the Linux lifecycle passes.
+
+The preceding `0.1.76` release added `execution.settlement_provenance.status@v1`, a
 read-only RPC for 1–100 explicitly requested canonical command IDs. One
 PostgreSQL statement observes command, outcome and transition rows under a
 consistent MVCC snapshot; bounded row counts and truncation flags prevent a
@@ -15,15 +33,9 @@ root identify the observed mutable snapshot, not immutable provider settlement.
 Wrong-scope identifiers are suppressed. Missing rows, local statuses and
 correlated outcomes do not prove provider settlement or global absence. Every
 command remains unresolved; liabilities and available capital remain unknown,
-with admission disabled. This release adds no policy, ACL, migration, scheduler,
-acquisition, producer credential, trading authority or risk-setting change.
-
-The new image is published and verified, but local package lifecycle validation
-is **NOT RUN** because Docker Desktop's VM route is unavailable. Exact-image
-Linux CI must complete the full fresh, repeat, ownerless restore-224, upgrade
-and rollback lifecycle before package merge. Its result must be recorded
-separately from this local limitation. Fresh empty-PGDATA installation remains
-blocked by OPS-010 even if the Linux lifecycle passes.
+with admission disabled. That increment added no policy, ACL, migration,
+scheduler, acquisition, producer credential, trading authority or risk-setting
+change.
 
 The preceding `0.1.75` release adds the pure, fixture-only `ActiveLiabilityAssessment`.
 It verifies the signed active-funding artifact before interpreting economic
@@ -118,13 +130,14 @@ admission, execution, scheduling, producer, risk, entry-mode, exposure or
 activation wiring. The materializer is expected to retain source hash
 `0608e68275edf2b1faf82641f104a887ef0127b400f9bd15724a7f6434d7995e`.
 
-The preceding 0.1.75 schema-238 package passed its full Linux restore-224
-lifecycle in CI and separately on a disposable local fixture. This 0.1.76 image
-requires a new exact-image Linux restore-224 CI receipt before package merge;
-its local lifecycle is NOT RUN because Docker Desktop's VM route is unavailable.
-That local tooling failure is separate from the still-open OPS-010 fresh-install
-blocker. The release SQL exporter remains authoritative for source bootstrap
-and verifier SQL; the package does not copy or recreate those contracts.
+The preceding 0.1.76 schema-238 package passed its exact-image Linux
+restore-224 lifecycle, but its installed read-only provenance RPC failed under
+the restricted runtime role. This 0.1.77 image requires a new exact-image Linux
+restore-224 CI receipt before package merge; its local lifecycle is NOT RUN
+because Docker Desktop's VM route is unavailable. That local tooling failure is
+separate from the still-open OPS-010 fresh-install blocker. The release SQL
+exporter remains authoritative for source bootstrap and verifier SQL; the
+package does not copy or recreate those contracts.
 
 Credential initialization completes before the release-SQL exporter runs. The
 exporter then runs before every SQL consumer, exports the reviewed files from
@@ -235,15 +248,15 @@ application container ports remain private.
 ## Image admission
 
 Every current Compose reference, the Trusted V2 attestor digest, and the
-rollback current image use source merge `94b20479c886e36ae4e9383cfb7ebfcdb5dcb251`
+rollback current image use source merge `f5b2bbc2bcf5dbcd71d706e1254df002e2de3a5f`
 at immutable
-`ghcr.io/whirmill/zapbot:umbrel-settlement-provenance-94b20479c886e36ae4e9383cfb7ebfcdb5dcb251@sha256:fd72139dcd08ba5c74247ac9998c37d39f0b1a6382b1904ed6ecb12b006becc9`.
+`ghcr.io/whirmill/zapbot:umbrel-settlement-provenance-runtime-f5b2bbc2bcf5dbcd71d706e1254df002e2de3a5f@sha256:3d1a993dbce1608edb6e17500b5f7974f5c84df6cdc0287f0f1e3c1c84b995b5`.
 The OCI index contains native `linux/amd64` manifest
-`sha256:fee24ed71c725e3841faa848a6fed8ffe15debde86bc0b10f5f15c08624ff7f5`
+`sha256:2d8aa32db16660569e278bf14a0ffc500f28dfc9b5c5727474eba52f4022f84b`
 and `linux/arm64` manifest
-`sha256:3b57a3b806a773bdad344a856412300d095f4dd33bef9cff2de366ae5feb1bc5`.
+`sha256:dbcf63d85a480487538e9da296dea7f8af02199a94cd29631d4e4aa61fed0d51`.
 Both platform OCI revision labels match the source merge, and the immutable
-`sha-94b20479c886e36ae4e9383cfb7ebfcdb5dcb251` alias resolves to the same
+`sha-f5b2bbc2bcf5dbcd71d706e1254df002e2de3a5f` alias resolves to the same
 index. Do not substitute `latest`, a mutable tag or an unmatched digest.
 
 ## Qualification scope
@@ -255,14 +268,15 @@ failures; success also requires `exited:0`. Run
 `sh tests/zapbot-one-shot-wait.sh` for the real-Docker regression covering fast
 success, fast failure, invalid/ambiguous IDs and a missing-container CLI error.
 
-The preceding 0.1.75 schema-238 package passed its full Linux lifecycle. The
-0.1.76 lifecycle must check fresh and repeat startup, ownerless current-schema
-restore, schema-229-to-238 upgrade, function/ACL/trigger/constraint tampering,
-and the fenced 0.1.46 compatibility overlay. Its exact-image full Linux
-restore-224 CI receipt and final review are required before package merge.
-The local 0.1.76 lifecycle is NOT RUN because Docker Desktop's VM route is
-unavailable. An existing-data Umbrel update requires the exact merged manifest
-and image readback.
+The preceding 0.1.76 schema-238 package passed its full Linux lifecycle, but
+the installed read-only RPC failed on restricted-role hashing. The 0.1.77
+lifecycle must check fresh and repeat startup, ownerless current-schema restore,
+schema-229-to-238 upgrade, function/ACL/trigger/constraint tampering, and the
+fenced 0.1.46 compatibility overlay. Its exact-image full Linux restore-224 CI
+receipt and final review are required before package merge. The local 0.1.77
+lifecycle is NOT RUN because Docker Desktop's VM route is unavailable. An
+existing-data Umbrel update requires the exact merged manifest and image
+readback.
 
 Fresh empty-PGDATA installation remains **BLOCKED** by OPS-010. Both local full
 restore-224 observations include an initial temporary `pg_ctl` wrong-ownership
@@ -286,14 +300,14 @@ producer marker are disabled. The rollback script refuses every enabled marker
 and verifies the inline schema/trigger compatibility contract plus the
 checksum-validated, exported current `verify_database_roles.sql` contract before
 accepting the exact old runtime and current release image split. Start the fenced
-0.1.76 package successfully first: its
+0.1.77 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
 The command is resumable. For an existing-data update after the required Linux
-restore-224 CI and final review, it accepts only the pinned 0.1.76 or pinned
+restore-224 CI and final review, it accepts only the pinned 0.1.77 or pinned
 0.1.46 image for each of its five targets, completes a partial split, and
 rejects any other image. A retry after all five are safely fenced is
 verification-only. The rollback overlay runs the web as `tail` and producers as
