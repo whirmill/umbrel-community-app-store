@@ -1,28 +1,52 @@
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.77` targets schema 238 through `20260926010000` using the
-immutable source image pinned for this release. Its full Linux package lifecycle
-and final review are required before an existing-data Umbrel update. Fresh empty-PGDATA
-installation remains **BLOCKED** by OPS-010; an image pin or existing-data
-update does not qualify it.
+Package revision **0.1.78** targets schema 239 through `20261004010000` with
+the verified immutable prepared-intent-store source image. Source review/CI
+and both native image architectures passed. Exact-image Linux package CI and
+final package review remain pending before merge or an existing-data update;
+no package CI, merge or installation receipt is claimed here. Fresh empty-PGDATA
+installation remains **BLOCKED** by OPS-010 even after a successful existing-data
+update or Linux lifecycle.
 
-Revision `0.1.77` corrects the restricted-runtime query used by
-`execution.settlement_provenance.status@v1`. The installed 0.1.76 image returned
-`PROVENANCE_DATABASE_UNAVAILABLE` (PostgreSQL SQLSTATE `42501`) because the
-runtime role cannot execute `public.digest`. The source now uses PostgreSQL's
-built-in `pg_catalog.sha256(bytea)` without changing grants or role policy.
-Exact-head source CI passed a regression that runs the full snapshot as the
-restricted `zapbot_runtime` role with `public.digest` denied. The result remains
-a bounded read-only observation, never proof of provider settlement, global
-absence, admission or available capital. There is no ACL, schema, migration,
-policy, risk-setting, scheduler, producer-credential or trading-authority change.
+The increment adds two owner-only dormant tables,
+`lnm_prepared_intent_contexts` and `lnm_prepared_intent_fixtures`, and six
+SECURITY INVOKER functions. It retains original signed-envelope bytes and
+context/public-key pins with immutable insert validation and four scoped unique
+identity indexes. The application fixture store verifies real Ed25519 signatures
+and exact retries before persistence; direct SQL insertion only checks structural
+and hash contracts. This is fixture-only storage with no new runtime caller,
+role, private signing credential, producer, venue dispatch, activation, risk
+setting or capital/admission authority. A retained signature proves content;
+it does not prove pre-call persistence, venue arrival or settlement, or authorize
+order resends. Authority remains none, admission false, liabilities unknown,
+capital null and generated actions 0.
 
-The corrected immutable image is published and verified. Local 0.1.77 package
-lifecycle validation is **NOT RUN** because Docker Desktop's VM route is
-unavailable. Exact-image Linux CI must complete the full restore-224 lifecycle
-before package merge; its result must be recorded separately from this local
-limitation. Fresh empty-PGDATA installation remains blocked by OPS-010 even if
-the Linux lifecycle passes.
+Source [PR614](https://github.com/whirmill/zapbot-exs/pull/614) merged as
+`cb39214d54290a787aad2f6e8a5681771f852580` after a CLEAN review of the final 18 source
+files. Exact source [CI37183741336](https://github.com/whirmill/zapbot-exs/actions/runs/37183741336)
+passed all jobs: 3172 executed tests, 1 skipped, 97 excluded, with the PostgreSQL 18
+client and schema 239 fresh, 224-upgrade and ownerless-restore qualification.
+The NULL-function-ACL restore regression is fixed by normalizing implicit PUBLIC
+EXECUTE; the catalog verifier also accounts for PostgreSQL 18 NOT NULL constraint
+metadata while requiring validated/enforced constraints and exact column bindings.
+Native [image build37184204490](https://github.com/whirmill/zapbot-exs/actions/runs/37184204490)
+passed both architectures; raw registry index hashing, OCI/build revision labels
+and the SHA alias were verified against the source merge.
+
+Exact-image Linux package CI with `ZAPBOT_PACKAGE_TEST_RESTORE_224=1` and final
+package review remain pending. That gate checks fresh/repeat startup, 229 upgrade,
+224 restore, ownerless schema 239 restore, exact six-function/two-table catalog
+ownership/ACL/body/configuration/column/constraint/index/trigger contracts and
+fenced schema-preserving software rollback. Synthetic SQL-only retention fixtures
+check unchanged stored rows and bytes across restore, repeat bootstrap and
+rollback; their format-only signatures are not cryptographic proof. Real
+signature, retry and collision tests are source qualification evidence. Scoped
+native PostgreSQL 17 checks passed the corrected catalog, bootstrap, retained
+rows and tamper rejection; they do not qualify the full PostgreSQL 18 package
+lifecycle. Local full Docker lifecycle is NOT RUN because the socket is absent.
+
+The preceding 0.1.77 package fixed restricted-runtime settlement provenance
+hashing without widening privileges; this image retains that correction.
 
 The preceding `0.1.76` release added `execution.settlement_provenance.status@v1`, a
 read-only RPC for 1–100 explicitly requested canonical command IDs. One
@@ -132,7 +156,7 @@ activation wiring. The materializer is expected to retain source hash
 
 The preceding 0.1.76 schema-238 package passed its exact-image Linux
 restore-224 lifecycle, but its installed read-only provenance RPC failed under
-the restricted runtime role. This 0.1.77 image requires a new exact-image Linux
+the restricted runtime role. This 0.1.78 candidate requires a new exact-image Linux
 restore-224 CI receipt before package merge; its local lifecycle is NOT RUN
 because Docker Desktop's VM route is unavailable. That local tooling failure is
 separate from the still-open OPS-010 fresh-install blocker. The release SQL
@@ -245,19 +269,48 @@ remain separate persisted, audited operator-controlled settings. The
 only intended Umbrel entry point is the app proxy on port `5237`; database and
 application container ports remain private.
 
+## Prepared fixture restore and rollback
+
+The existing generic restore normalizer reowns all six public nonextension
+SECURITY INVOKER functions and both tables. They require no SECURITY DEFINER
+allowlist extension. The ownerless schema 239 gate rejects a function promoted to an
+unreviewed SECURITY DEFINER before reownership; the exported source verifier
+then rejects altered invoker bodies, grants and other catalog tampering.
+
+Rollback retains schema 239 and every original fixture/context row. The migration
+`down` refuses destructive removal; software rollback uses the qualified current
+SQL/bootstrap/verifier image while fencing the 0.1.46 long-lived services. An old
+package unable to verify schema 239 is not a qualified database downgrade path.
+
+Use the supported authenticated Umbrel updater after qualification. Installed
+Umbrel exposes `umbreld client apps.update.mutate --appId whirmill-zapbot` and
+`apps.state.query --appId whirmill-zapbot`; headless system authentication is
+not established because the root-only CLI requires sudo authentication. Never
+extract or alter the system credential. An available authenticated browser
+updater session can supply the supported update path. Browser login is not
+required for post-update agent CLI diagnostics: use the existing operator-owned
+read-token file with `mix zapbot.cli prod check` and the scoped database-role
+catalog RPC. Check the installed version sentinel, exact merged Compose/image,
+all startup one-shots, schema 239/catalog contract, health, manage-only/entries
+false, complete ledger and clear signals. These checks do not claim browser UAT.
+
 ## Image admission
 
 Every current Compose reference, the Trusted V2 attestor digest, and the
-rollback current image use source merge `f5b2bbc2bcf5dbcd71d706e1254df002e2de3a5f`
+rollback current image use source merge `cb39214d54290a787aad2f6e8a5681771f852580`
 at immutable
-`ghcr.io/whirmill/zapbot:umbrel-settlement-provenance-runtime-f5b2bbc2bcf5dbcd71d706e1254df002e2de3a5f@sha256:3d1a993dbce1608edb6e17500b5f7974f5c84df6cdc0287f0f1e3c1c84b995b5`.
+`ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8`.
 The OCI index contains native `linux/amd64` manifest
-`sha256:2d8aa32db16660569e278bf14a0ffc500f28dfc9b5c5727474eba52f4022f84b`
+`sha256:ab6236bacc44d05cdf78c80f13f0cc3b37eda6830eb211c5d38d435d8b1a72f4`
 and `linux/arm64` manifest
-`sha256:dbcf63d85a480487538e9da296dea7f8af02199a94cd29631d4e4aa61fed0d51`.
-Both platform OCI revision labels match the source merge, and the immutable
-`sha-f5b2bbc2bcf5dbcd71d706e1254df002e2de3a5f` alias resolves to the same
-index. Do not substitute `latest`, a mutable tag or an unmatched digest.
+`sha256:6465af683751cca131be70a2684d670f33a6445fda35b91f4286f4728ce338ea`.
+Both platform OCI revision labels and build SHAs match the source merge, and the
+immutable `sha-cb39214d54290a787aad2f6e8a5681771f852580` alias resolves to the
+same index. All 12 Compose application image pins, the attestor digest and rollback
+`current_image` agree: 13 full image references across Compose and rollback.
+Do not substitute `latest`, a mutable tag or an unmatched digest. These image
+receipts do not substitute for the pending exact-image Linux package lifecycle
+and final review.
 
 ## Qualification scope
 
@@ -269,11 +322,11 @@ failures; success also requires `exited:0`. Run
 success, fast failure, invalid/ambiguous IDs and a missing-container CLI error.
 
 The preceding 0.1.76 schema-238 package passed its full Linux lifecycle, but
-the installed read-only RPC failed on restricted-role hashing. The 0.1.77
+the installed read-only RPC failed on restricted-role hashing. The 0.1.78
 lifecycle must check fresh and repeat startup, ownerless current-schema restore,
-schema-229-to-238 upgrade, function/ACL/trigger/constraint tampering, and the
+schema-229-to-239 upgrade, function/ACL/trigger/constraint tampering, and the
 fenced 0.1.46 compatibility overlay. Its exact-image full Linux restore-224 CI
-receipt and final review are required before package merge. The local 0.1.77
+receipt and final review are required before package merge. The local 0.1.78
 lifecycle is NOT RUN because Docker Desktop's VM route is unavailable. An
 existing-data Umbrel update requires the exact merged manifest and image
 readback.
@@ -289,25 +342,25 @@ Linux CI result as fresh-install qualification.
 ## Compatibility rollback to 0.1.46
 
 The package provides a compatibility overlay for the 0.1.46 long-lived web
-runtime and four continuous producers. With the exact schema-238 release image
+runtime and four continuous producers. With the qualified exact schema-239 release image
 verified, it keeps the current release-SQL export, migration, bootstrap and
-verifier path at schema 238, preserving the immutable account snapshot, raw
-evidence, active-funding observations and global reconciliation receipts. It
+verifier path at schema 239, preserving the immutable account snapshot, raw
+evidence, active-funding observations, global reconciliation receipts and prepared-intent fixtures. It
 never drops data, runs a down migration, or changes a persisted authority setting.
 
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
 producer marker are disabled. The rollback script refuses every enabled marker
-and verifies the inline schema/trigger compatibility contract plus the
+and verifies the inline schema 239/prepared-fixture/trigger compatibility contract plus the
 checksum-validated, exported current `verify_database_roles.sql` contract before
 accepting the exact old runtime and current release image split. Start the fenced
-0.1.77 package successfully first: its
+qualified 0.1.78 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
 The command is resumable. For an existing-data update after the required Linux
-restore-224 CI and final review, it accepts only the pinned 0.1.77 or pinned
+restore-224 CI and final review, it accepts only the qualified pinned 0.1.78 or pinned
 0.1.46 image for each of its five targets, completes a partial split, and
 rejects any other image. A retry after all five are safely fenced is
 verification-only. The rollback overlay runs the web as `tail` and producers as
