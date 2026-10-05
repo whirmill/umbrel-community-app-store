@@ -1,5 +1,52 @@
 # ZapBot on Umbrel — restart-safe package
 
+Package revision **0.1.80** targets schema 241/latest `20261005020000`,
+including eleven exact consumption-contract helpers. Source PR622 merged
+`ca692ab6e81951a1d7875b41220cc4bde3808275` (tree
+`e5e6e8f088b294a123259169b8af5a6dc060cd87`) after corrected CLEAN review.
+[Source CI37273039224](https://github.com/whirmill/zapbot-exs/actions/runs/37273039224)
+passed all three jobs: 3287 backend tests, one skipped and 97 excluded;
+500 frontend unit tests, 32 browser tests and 19 coordination checks. Actual
+PostgreSQL18 fresh schema241, upgrade224 and ownerless restore224 passed.
+
+[Image build37273797921](https://github.com/whirmill/zapbot-exs/actions/runs/37273797921)
+passed all four jobs. All twelve app images, the attestor digest and rollback
+current image now pin `ghcr.io/whirmill/zapbot:umbrel-precall-consumption-ca692ab6e81951a1d7875b41220cc4bde3808275`
+at index `sha256:17ff13fb9ee14eb06f825d98f15d99e3cb3144c1c2f10b8d1a551664addbeed3`.
+The native amd64 manifest is `sha256:aaec85d147ffddd5b1346bac9e4c9ac94c57ebbc9f6fbf17520461734e1de19d`;
+arm64 is `sha256:224294badfb29caf7aaf5f9105286adfec3d3c664127be2fe10631987c329432`.
+Both OCI/build revisions and SLSAv1 provenance match the exact source and
+workflow. The first read-only verifier assumed obsolete SLSAv0.2 (session10328);
+corrected v1 verification passed (session59884), without rebuilding. The legacy
+0.1.46 rollback runtime pin remains unchanged.
+
+This release is uninstalled. Exact-image Linux populated six-table ownerless
+restore/repeat/rollback, historical signature verification, retained single-use
+checks, restore224 and final package review remain required before publication.
+The native PostgreSQL17 six-row cryptographic retention proof is separate from
+those pending Linux gates. Dormant owner-only immutable consumption storage and
+the default-OFF create_order guard confer no producer LOGIN or live authority. Current `.invalid` fixtures do not qualify provider execution.
+Fresh empty-PGDATA remains **BLOCKED** by OPS-010. First source CI37271930151 and
+preceding-package attestor CI37253476560 failures retain their original evidence.
+
+The disposable Linux lifecycle mounts the exact copied SQL/public JSON/Elixir
+checker assets into a fresh exact-image release eval. To honor their explicit
+local-test guards, it temporarily renames only the owned, client-free lifecycle
+database to `zapbot_test_package_consumption`, checks the same database OID and
+restores its name on success or failure. It never terminates other clients.
+The checker starts database/crypto dependencies without API, Hub, producers or
+account credentials. An exclusive whole-row baseline is captured after seeding
+and compared after actual ownerless restore, repeated initialization and software
+rollback. Historical profile/parent/wire signature reverification is separate
+from current expiry rejection; retained consumption is independently read back
+and a second SQL claim must fail uniqueness. No current admission, provider
+transport, live resend or production backup qualification is inferred. These
+exact-image Linux checks are implemented templates and remain **NOT RUN**.
+Verified source/image receipts now exist; Linux qualification and final package
+review remain pending.
+
+The following0.1.79 evidence is retained as preceding-release history:
+
 Package revision **0.1.79** targets schema 240 through `20261005010000`
 with the verified immutable precall-bindings source image. Source review/CI
 and both native image architectures passed. Exact-image Linux package
