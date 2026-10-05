@@ -228,11 +228,162 @@ prepare_scripts() {
   done
 }
 
-cleanup_project() {
-  project=$1
-  data_dir=$2
-  compose "$project" "$data_dir" down --volumes --remove-orphans >/dev/null 2>&1 || true
+# CLEANUP_GATE_START: pure regressions extract these actual helpers.
+cleanup_docker() {
+  cleanup_limit=$1
+  shift
+  python3 - "$cleanup_limit" "$@" <<'CLEANUP_PY'
+import subprocess, sys
+try:
+    result = subprocess.run(["docker", *sys.argv[2:]], timeout=int(sys.argv[1]))
+    sys.exit(result.returncode if result.returncode >= 0 else 128 - result.returncode)
+except subprocess.TimeoutExpired:
+    print("cleanup Docker command timed out", file=sys.stderr)
+    sys.exit(124)
+CLEANUP_PY
 }
+
+project_inventory() (
+  inventory_project=$1
+  inventory_phase=$2
+  inventory_status=0
+  for inventory_kind in container network volume; do
+    inventory_rc=0
+    inventory_all=
+    if [ "$inventory_kind" = container ]; then inventory_all=--all; fi
+    inventory_ids=$(cleanup_docker 10 "$inventory_kind" ls $inventory_all --quiet \
+      --filter "label=com.docker.compose.project=$inventory_project" 2>>"$receipt") || inventory_rc=$?
+    if [ "$inventory_rc" -ne 0 ]; then
+      log "package_resource_inventory project=$inventory_project phase=$inventory_phase kind=$inventory_kind command_exit=$inventory_rc state=UNKNOWN"
+      inventory_status=1
+    elif [ -n "$inventory_ids" ]; then
+      log "package_resource_inventory project=$inventory_project phase=$inventory_phase kind=$inventory_kind command_exit=0 state=PRESENT ids=$inventory_ids"
+      inventory_status=1
+    else
+      log "package_resource_inventory project=$inventory_project phase=$inventory_phase kind=$inventory_kind command_exit=0 state=ABSENT"
+    fi
+  done
+  return "$inventory_status"
+)
+
+guard_project_ownership() {
+  guard_status=0
+  cleaner_guard_rc=0
+  cleaner_guard_ids=$(cleanup_docker 10 container ls --all --quiet --filter "name=^/$project_base-fixture-cleaner$" 2>>"$receipt") || cleaner_guard_rc=$?
+  if [ "$cleaner_guard_rc" -ne 0 ] || [ -n "$cleaner_guard_ids" ]; then
+    log "package_fixture_cleaner_ownership=refused command_exit=$cleaner_guard_rc ids=$cleaner_guard_ids"
+    guard_status=1
+  fi
+  for guard_project in "$fresh_project" "$source224_project" "$restore_project" "$ownerless234_project" "$upgrade229_project" "$upgrade241_project"; do
+    if project_inventory "$guard_project" initial; then :; else guard_status=1; fi
+  done
+  if [ "$guard_status" -ne 0 ]; then
+    log "package_project_ownership=refused reason=preexisting_or_unknown fixture=$fixture_dir"
+    return 1
+  fi
+  for guard_project in "$fresh_project" "$source224_project" "$restore_project" "$ownerless234_project" "$upgrade229_project" "$upgrade241_project"; do
+    printf '%s\n' "$guard_project" > "$fixture_dir/owned-$guard_project"
+  done
+  log 'package_project_ownership=claimed all_six_initially_absent=true'
+}
+
+cleanup_project() (
+  cleanup_project_name=$1
+  cleanup_data_dir=$2
+  cleanup_down_rc=0
+  if [ ! -f "$fixture_dir/owned-$cleanup_project_name" ] || \
+      [ "$(cat "$fixture_dir/owned-$cleanup_project_name")" != "$cleanup_project_name" ]; then
+    log "package_project_cleanup project=$cleanup_project_name down_exit=not_attempted ownership=UNOWNED"
+    project_inventory "$cleanup_project_name" unowned || :
+    return 1
+  fi
+  if [ -f "$fixture_dir/$cleanup_project_name.override.yml" ]; then
+    APP_DATA_DIR="$cleanup_data_dir" APP_VERSION="$package_version" \
+      APP_SEED='zapbot-package-lifecycle-dummy-seed-not-a-secret-0001' \
+      cleanup_docker 30 compose -p "$cleanup_project_name" -f "$package_compose" \
+      -f "$fixture_dir/$cleanup_project_name.override.yml" \
+      down --timeout 10 --volumes --remove-orphans >>"$receipt" 2>&1 || cleanup_down_rc=$?
+  fi
+  cleanup_inventory_rc=0
+  project_inventory "$cleanup_project_name" final || cleanup_inventory_rc=$?
+  log "package_project_cleanup project=$cleanup_project_name down_exit=$cleanup_down_rc inventory_exit=$cleanup_inventory_rc"
+  test "$cleanup_down_rc" -eq 0 && test "$cleanup_inventory_rc" -eq 0
+)
+
+cleanup_projects() {
+  cleanup_all_status=0
+  for cleanup_suffix in fresh source224 restore ownerless234 upgrade229 upgrade241; do
+    cleanup_current_project="$project_base-$cleanup_suffix"
+    case "$cleanup_suffix" in
+      fresh) cleanup_current_data=$fresh_data ;;
+      source224) cleanup_current_data=$source224_data ;;
+      restore) cleanup_current_data=$restore_data ;;
+      ownerless234) cleanup_current_data=$ownerless234_data ;;
+      upgrade229) cleanup_current_data=$upgrade229_data ;;
+      upgrade241) cleanup_current_data=$upgrade241_data ;;
+    esac
+    if cleanup_project "$cleanup_current_project" "$cleanup_current_data"; then :; else cleanup_all_status=1; fi
+  done
+  return "$cleanup_all_status"
+}
+
+remove_fixture() {
+  # Called only after all six projects have terminal absence proof. The helper
+  # is named so a Docker125/timeout cannot lose its cleanup ownership.
+  fixture_cleaner="$project_base-fixture-cleaner"
+  fixture_remove_rc=0
+  cleanup_docker 30 run --name "$fixture_cleaner" --network none \
+    -v "$fixture_dir:/fixture" alpine:3.22 /bin/sh -eu -c \
+    'find /fixture -mindepth 1 -maxdepth 1 -exec rm -rf {} +' >>"$receipt" 2>&1 || fixture_remove_rc=$?
+  fixture_cleaner_rm_rc=0
+  cleanup_docker 10 rm -f "$fixture_cleaner" >>"$receipt" 2>&1 || fixture_cleaner_rm_rc=$?
+  fixture_cleaner_list_rc=0
+  fixture_cleaner_ids=$(cleanup_docker 10 container ls --all --quiet \
+    --filter "name=^/$fixture_cleaner$" 2>>"$receipt") || fixture_cleaner_list_rc=$?
+  fixture_rmdir_rc=not_attempted
+  if [ "$fixture_remove_rc" -eq 0 ] && [ "$fixture_cleaner_rm_rc" -eq 0 ] && \
+      [ "$fixture_cleaner_list_rc" -eq 0 ] && [ -z "$fixture_cleaner_ids" ]; then
+    fixture_rmdir_rc=0
+    rmdir "$fixture_dir" 2>>"$receipt" || fixture_rmdir_rc=$?
+  fi
+  log "package_fixture_cleanup fixture=$fixture_dir helper=$fixture_cleaner body_exit=$fixture_remove_rc rm_exit=$fixture_cleaner_rm_rc list_exit=$fixture_cleaner_list_rc remaining_ids=$fixture_cleaner_ids rmdir_exit=$fixture_rmdir_rc"
+  test "$fixture_remove_rc" -eq 0 && test "$fixture_cleaner_rm_rc" -eq 0 && \
+    test "$fixture_cleaner_list_rc" -eq 0 && test -z "$fixture_cleaner_ids" && \
+    test "$fixture_rmdir_rc" = 0 && test ! -e "$fixture_dir"
+}
+
+on_exit() {
+  exit_status=$?
+  trap - EXIT
+  # A second signal cannot interrupt owned teardown halfway through it.
+  trap '' HUP INT TERM
+  if [ "$assert_selftest" = 1 ] || [ "$assert_schema_verifier_expansion" = 1 ]; then
+    pure_cleanup_status=0
+    rm -rf "$fixture_dir" || pure_cleanup_status=$?
+    log "package_pure_fixture_cleanup exit=$pure_cleanup_status actual_linux_qualification=false"
+    if [ "$exit_status" -eq 0 ] && [ "$pure_cleanup_status" -ne 0 ]; then exit_status=1; fi
+    exit "$exit_status"
+  fi
+  cleanup_status=0
+  if cleanup_projects; then :; else cleanup_status=1; fi
+  fixture_status=not_attempted
+  if [ "$cleanup_status" -eq 0 ]; then
+    if [ "$exit_status" -ne 0 ] && [ "$keep_failure_fixture" = 1 ]; then
+      fixture_status=intentionally_retained_after_resources_absent
+    else
+      fixture_status=0
+      if remove_fixture; then :; else fixture_status=1; fi
+    fi
+  fi
+  if [ "$exit_status" -eq 0 ] && [ "$cleanup_status" -eq 0 ] && [ "$fixture_status" = 0 ]; then
+    log "package_lifecycle=pass image=$image version=$package_version restore_224=$run_restore_224 body_exit=0 cleanup_exit=0 fixture_exit=0 ownership=terminal_proven"
+  else
+    log "package_lifecycle=failed body_exit=$exit_status cleanup_exit=$cleanup_status fixture_exit=$fixture_status fixture=$fixture_dir ownership=terminal_unproven_or_retained"
+    if [ "$exit_status" -eq 0 ]; then exit_status=1; fi
+  fi
+  exit "$exit_status"
+}
+# CLEANUP_GATE_END
 
 capture_project_failure() {
   project=$1
@@ -254,45 +405,10 @@ capture_project_failure() {
   } >>"$receipt" 2>&1
 }
 
-cleanup_projects() {
-  cleanup_project "$fresh_project" "$fresh_data"
-  cleanup_project "$source224_project" "$source224_data"
-  cleanup_project "$restore_project" "$restore_data"
-  cleanup_project "$ownerless234_project" "$ownerless234_data"
-  cleanup_project "$upgrade229_project" "$upgrade229_data"
-  cleanup_project "$upgrade241_project" "$upgrade241_data"
-}
-
-remove_fixture() {
-  # credential-init assigns container UIDs to the generated files. This removes
-  # only the fixture directory created above, including any synthetic dump.
-  docker run --rm --network none -v "$fixture_dir:/fixture" alpine:3.22 \
-    /bin/sh -eu -c 'find /fixture -mindepth 1 -maxdepth 1 -exec rm -rf {} +' \
-    >/dev/null 2>&1 || true
-  rmdir "$fixture_dir" >/dev/null 2>&1 || true
-}
-
-on_exit() {
-  exit_status=$?
-  trap - EXIT HUP INT TERM
-  if [ "$exit_status" -ne 0 ]; then
-    log "package_lifecycle=failed exit_status=$exit_status image=$image"
-    capture_project_failure "$fresh_project" "$fresh_data"
-    capture_project_failure "$source224_project" "$source224_data"
-    capture_project_failure "$restore_project" "$restore_data"
-    capture_project_failure "$ownerless234_project" "$ownerless234_data"
-    capture_project_failure "$upgrade229_project" "$upgrade229_data"
-  fi
-  cleanup_projects
-  if [ "$exit_status" -eq 0 ] || [ "$keep_failure_fixture" = 0 ]; then
-    remove_fixture
-  else
-    log "package_lifecycle_fixture_retained=$fixture_dir"
-  fi
-  exit "$exit_status"
-}
 trap on_exit EXIT
-trap 'exit 130' HUP INT TERM
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 pg_query() {
   project=$1
@@ -2858,6 +2974,8 @@ if [ "$assert_selftest" = 1 ]; then
   exit 0
 fi
 
+guard_project_ownership
+
 for project in "$fresh_project" "$source224_project" "$restore_project" "$ownerless234_project" "$upgrade229_project" "$upgrade241_project"; do
   write_override "$project"
 done
@@ -2976,7 +3094,7 @@ if [ "$run_restore_224" = 1 ]; then
   test "$(pg_query "$restore_project" "$restore_data" "SELECT value FROM public.internal_settings WHERE key = 'package_restore_224_sentinel'")" = 'enabled'
 fi
 
-log "package_lifecycle=pass image=$image version=$package_version restore_224=$run_restore_224"
+log "package_lifecycle_body=pass image=$image version=$package_version restore_224=$run_restore_224"
 # Leave the full receipt available for the caller before trap cleanup removes
 # only generated local containers, temporary data, and synthetic dump.
 cat "$receipt"

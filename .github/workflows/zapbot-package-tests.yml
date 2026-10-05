@@ -68,6 +68,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check script syntax
         run: sh -n whirmill-zapbot/scripts/export-release-sql.sh tests/zapbot-release-sql.sh tests/zapbot-bootstrap-export-order.sh
+      - name: Verify terminal project cleanup without Docker resources
+        run: python3 tests/zapbot-lifecycle-cleanup-mock.py
       - name: Verify isolated runtime cleanup without Docker resources
         run: python3 tests/zapbot-runtime-compatibility-mock.py
       - name: Verify the public runtime posture map shape
