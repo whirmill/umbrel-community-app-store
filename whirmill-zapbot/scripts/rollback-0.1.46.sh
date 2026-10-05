@@ -1,20 +1,21 @@
 #!/bin/sh
-# Run only after reviewing a 0.1.78 rollback. This is a compatibility rollback:
-# it retains schema 239 and protected evidence without downgrading the database
-# or changing persisted authority settings. It requires the fenced 0.1.78 package
-# graph to have completed first; the pinned schema-239 image must match the
+# Run only after reviewing a 0.1.79 rollback. This is a compatibility rollback:
+# it retains schema 240 and protected evidence without downgrading the database
+# or changing persisted authority settings. It requires the fenced 0.1.79 package
+# graph to have completed first; the pinned schema-240 image must match the
 # qualified immutable source revision.
 # it never initializes credentials
 # or starts bootstrap dependencies.
 set -eu
 
-# The source merge and native multiarchitecture image are verified. The package
-# still requires exact-image Linux lifecycle qualification and final review.
-package_version=0.1.78
+# Source merge/CI and native image37252166877/index/platforms are verified.
+# Exact-image Linux restore-224 lifecycle qualification and final package review
+# remain mandatory before publication or running this compatibility rollback.
+package_version=0.1.79
 legacy_image='ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e'
-current_image='ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8'
-# current_image is the verified schema-239 immutable image. Run this script
-# only after full package lifecycle qualification and a reviewed update.
+current_image='ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51'
+# current_image pins source 4d84efb20d9c5f58859456078c288afb89bc353b/schema240.
+# Run only after full package lifecycle qualification and a reviewed update.
 
 : "${APP_DATA_DIR:?APP_DATA_DIR is required}"
 : "${ZAPBOT_PACKAGE_COMPOSE:?ZAPBOT_PACKAGE_COMPOSE must name the installed docker-compose.yml}"
@@ -79,8 +80,8 @@ export PGPASSWORD="$(cat /run/zapbot-secret/password)"
 psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d zapbot <<'SQL'
 BEGIN READ ONLY;
 SELECT CASE WHEN
-  (SELECT count(*) FROM public.schema_migrations) = 239
-  AND (SELECT max(version) FROM public.schema_migrations) = 20261004010000
+  (SELECT count(*) FROM public.schema_migrations) = 240
+  AND (SELECT max(version) FROM public.schema_migrations) = 20261005010000
   AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = $$public.causal_events_trusted_v2_series_latest_idx$$::regclass)
   AND pg_catalog.pg_get_indexdef($$public.causal_events_trusted_v2_series_latest_idx$$::regclass) = $idx$CREATE INDEX causal_events_trusted_v2_series_latest_idx ON public.causal_events USING btree (source, stream_id, account_scope, market_key, split_part((source_event_id)::text, ':revision:'::text, 1), ledger_seq DESC)$idx$
   AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = $$public.causal_events_passive_execution_trade_lookup_idx$$::regclass)
@@ -373,6 +374,58 @@ SELECT coalesce(
  AND (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'not_null',a.attnotnull,'default',pg_get_expr(d.adbin,d.adrelid)) ORDER BY a.attnum)::text,'[]'),'UTF8')),'hex') FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=to_regclass('public.lnm_prepared_intent_fixtures') AND a.attnum>0 AND NOT a.attisdropped)='7ae254308ad85701939bccf98aeb6af6ea7dd05ca7b49b04ea8bdac1376bae8b'
  AND (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('name',conname,'type',contype,'definition',pg_get_constraintdef(oid,true),'validated',convalidated) ORDER BY conname)::text,'[]'),'UTF8')),'hex') FROM pg_constraint WHERE conrelid=to_regclass('public.lnm_prepared_intent_fixtures') AND contype <> 'n')='708f4a54baf9282c575d80bca3b1b6eb9ed20e05d9842164e4398b27d702578e', false)
   )
+  AND (
+-- BEGIN prepared intent precall exact verification
+WITH owner AS (SELECT to_regrole('zapbot_owner') AS oid),
+expected_relations(name,columns_hash,constraints_hash,indexes_hash) AS (VALUES
+('lnm_prepared_intent_producer_pins','e4748d8aed15d6c28b639d15bf6978da2b932799b873a7ead9755273cc7f66fa','35dc19e21a2bf1c46231e823916e870c20d5063ed7bbfd2ced0f6e407901ee4b','3f0749946246b75b36d40d9e78bc4ae2f9e10dc0c4b2430ea963ff851d3de249'),
+('lnm_prepared_intent_governance_profiles','c71747c2bc98e12c8a604c90ce39e31708e00aa7ca01f6c014e4d9d5c50b6338','7a610ceca52a562702229674776f41d7bc14396632151c954676c2ae42048ed5','a4b6e9202bcd1c8910f07eb570d173984cd2a2acf8f299886bf48da90c5b19d7'),
+('lnm_prepared_intent_precall_receipts','1e400563887447045d7678c784d3acdc8b34ab9a904ae3435b3dc20836c04d4b','281ffa6b83659d6d1365e43bd62c961dcb9fe4a33cf3f06c8258fb901f975b66','6eeb9cab6cc08b49bd21ba50ec535e86ed16006f35674ad5035d7da24b81523e')),
+relations AS (SELECT e.*,c.oid,c.relowner,c.relkind,c.relacl FROM expected_relations e LEFT JOIN pg_class c ON c.oid=to_regclass('public.'||e.name)),
+expected_functions(signature,hash,config,language,volatility,strict) AS (VALUES
+('public.lnm_precall_hash(text,text)','097b1901ba9e858431fecaa6ce185162100d64d895478a91b0306187043a2541','search_path=pg_catalog','sql','i',true),
+('public.lnm_precall_validate_pin()','b3e029f678b3c24c65e8924bf18d1faf6ad3d912096664dd361065fbc9014188','search_path=pg_catalog, public','plpgsql','v',false),
+('public.lnm_precall_validate_profile()','f8cadede779b753ad90bf4b82afa7b93feb24eefb62dd13d960990bd80f94be4','search_path=pg_catalog, public','plpgsql','v',false),
+('public.lnm_precall_validate_receipt()','00529ca63b352c292dd8256cf9e752bcdc99c0db324c410f6100dcf4ad012d6b','search_path=pg_catalog, public','plpgsql','v',false)),
+functions AS (SELECT e.*,p.* FROM expected_functions e LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.signature)),
+expected_triggers(table_name,name,function_name,kind) AS (VALUES
+('lnm_prepared_intent_producer_pins','lnm_prepared_intent_producer_pins_validate','public.lnm_precall_validate_pin()',7::smallint),
+('lnm_prepared_intent_producer_pins','lnm_prepared_intent_producer_pins_immutable','public.lnm_prepared_intent_reject_mutation()',27::smallint),
+('lnm_prepared_intent_producer_pins','lnm_prepared_intent_producer_pins_truncate','public.lnm_prepared_intent_reject_mutation()',34::smallint),
+('lnm_prepared_intent_governance_profiles','lnm_prepared_intent_governance_profiles_validate','public.lnm_precall_validate_profile()',7::smallint),
+('lnm_prepared_intent_governance_profiles','lnm_prepared_intent_governance_profiles_immutable','public.lnm_prepared_intent_reject_mutation()',27::smallint),
+('lnm_prepared_intent_governance_profiles','lnm_prepared_intent_governance_profiles_truncate','public.lnm_prepared_intent_reject_mutation()',34::smallint),
+('lnm_prepared_intent_precall_receipts','lnm_prepared_intent_precall_receipts_validate','public.lnm_precall_validate_receipt()',7::smallint),
+('lnm_prepared_intent_precall_receipts','lnm_prepared_intent_precall_receipts_immutable','public.lnm_prepared_intent_reject_mutation()',27::smallint),
+('lnm_prepared_intent_precall_receipts','lnm_prepared_intent_precall_receipts_truncate','public.lnm_prepared_intent_reject_mutation()',34::smallint))
+SELECT coalesce(
+(SELECT count(*)=3 AND bool_and(r.oid IS NOT NULL AND r.relowner=owner.oid AND r.relkind='r') FROM relations r CROSS JOIN owner)
+AND NOT EXISTS (SELECT 1 FROM relations r CROSS JOIN LATERAL aclexplode(coalesce(r.relacl,acldefault('r',r.relowner))) x WHERE x.grantee<>r.relowner)
+AND NOT EXISTS (SELECT 1 FROM relations r JOIN pg_attribute a ON a.attrelid=r.oid CROSS JOIN LATERAL aclexplode(a.attacl) x WHERE x.grantee<>r.relowner)
+AND (SELECT count(*)=4 AND bool_and(p.oid IS NOT NULL AND p.proowner=owner.oid AND NOT p.prosecdef
+  AND p.proconfig=ARRAY[p.config]::text[] AND p.provolatile::text=p.volatility AND p.proisstrict=p.strict
+  AND (SELECT lanname FROM pg_language WHERE oid=p.prolang)=p.language
+  AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')=p.hash) FROM functions p CROSS JOIN owner)
+AND NOT EXISTS (SELECT 1 FROM functions p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE x.grantee<>p.proowner)
+AND NOT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid IN (SELECT oid FROM relations)
+  AND (NOT c.convalidated OR NOT coalesce((to_jsonb(c)->>'conenforced')::boolean,true)))
+AND (current_setting('server_version_num')::integer<180000 OR (
+  NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid IN (SELECT oid FROM relations) AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull
+    AND (SELECT count(*) FROM pg_constraint c WHERE c.conrelid=a.attrelid AND c.contype='n' AND c.conkey=ARRAY[a.attnum]::smallint[] AND c.convalidated
+      AND coalesce((to_jsonb(c)->>'conenforced')::boolean,true) AND NOT c.condeferrable AND NOT c.condeferred)<>1)
+  AND NOT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid IN (SELECT oid FROM relations) AND c.contype='n'
+    AND NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.conrelid AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull AND c.conkey=ARRAY[a.attnum]::smallint[]))))
+AND (SELECT count(*)=9 AND bool_and(t.oid IS NOT NULL AND t.tgenabled='A' AND t.tgtype=e.kind AND t.tgfoid=to_regprocedure(e.function_name)
+  AND t.tgqual IS NULL AND t.tgnargs=0 AND t.tgargs=''::bytea AND t.tgattr=''::int2vector AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred AND NOT t.tgisinternal)
+  FROM expected_triggers e LEFT JOIN pg_trigger t ON t.tgrelid=to_regclass('public.'||e.table_name) AND t.tgname=e.name)
+AND (SELECT count(*)=9 FROM pg_trigger WHERE tgrelid IN (SELECT oid FROM relations) AND NOT tgisinternal)
+AND (SELECT bool_and(
+  (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'not_null',a.attnotnull,'default',pg_get_expr(d.adbin,d.adrelid)) ORDER BY a.attnum)::text,'[]'),'UTF8')),'hex') FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=r.oid AND a.attnum>0 AND NOT a.attisdropped)=r.columns_hash
+  AND (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('name',conname,'type',contype,'definition',pg_get_constraintdef(oid,true),'validated',convalidated,'deferrable',condeferrable,'deferred',condeferred) ORDER BY conname)::text,'[]'),'UTF8')),'hex') FROM pg_constraint WHERE conrelid=r.oid AND contype<>'n')=r.constraints_hash
+  AND (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('definition',pg_get_indexdef(i.indexrelid),'unique',i.indisunique,'valid',i.indisvalid,'ready',i.indisready,'live',i.indislive,'predicate',pg_get_expr(i.indpred,i.indrelid),'expression',pg_get_expr(i.indexprs,i.indrelid)) ORDER BY c.relname)::text,'[]'),'UTF8')),'hex') FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid WHERE i.indrelid=r.oid)=r.indexes_hash
+) FROM relations r),false)
+-- END prepared intent precall exact verification
+  )
 THEN $$rollback_schema_contract=pass$$ ELSE $$rollback_schema_contract=fail$$ END;
 COMMIT;
 SQL
@@ -416,7 +469,7 @@ verify_images() {
 
   for service in release-sql-export migrate; do
     image=$(compose ps -aq "$service" | tail -n 1 | xargs docker inspect -f '{{.Config.Image}}')
-    test "$image" = "$current_image" || { echo "unexpected 0.1.78 release image for $service" >&2; exit 67; }
+    test "$image" = "$current_image" || { echo "unexpected 0.1.79 release image for $service" >&2; exit 67; }
   done
 }
 
@@ -462,9 +515,9 @@ classify_runtime() {
 
   for service in release-sql-export migrate normalize-and-verify; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
-    test -n "$service_id" || { echo "missing completed 0.1.78 bootstrap service: $service" >&2; exit 67; }
+    test -n "$service_id" || { echo "missing completed 0.1.79 bootstrap service: $service" >&2; exit 67; }
     test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$service_id")" = 'exited:0' || {
-      echo "rollback requires completed 0.1.78 bootstrap service: $service" >&2
+      echo "rollback requires completed 0.1.79 bootstrap service: $service" >&2
       exit 67
     }
   done
@@ -472,7 +525,7 @@ classify_runtime() {
   for service in release-sql-export migrate; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
     test "$(docker inspect -f '{{.Config.Image}}' "$service_id")" = "$current_image" || {
-      echo "rollback requires current 0.1.78 release image for $service" >&2
+      echo "rollback requires current 0.1.79 release image for $service" >&2
       exit 67
     }
   done

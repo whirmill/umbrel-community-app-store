@@ -29,8 +29,8 @@ done
 
 package_version=${ZAPBOT_PACKAGE_VERSION:-$(awk -F'"' '/^version: / { print $2; exit }' "$package_root/umbrel-app.yml")}
 test -n "$package_version"
-expected_schema_migrations_count=239
-expected_schema_migrations_latest_version=20261004010000
+expected_schema_migrations_count=240
+expected_schema_migrations_latest_version=20261005010000
 : "${ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT:?set ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT to a new absolute log path outside the disposable fixture}"
 receipt=$ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT
 case "$receipt" in /*) ;; *) echo 'ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT must be an absolute path' >&2; exit 64 ;; esac
@@ -697,13 +697,79 @@ SQL
   assert_final_value schema_239_prepared_intent_contract true "$contract"
 }
 
+assert_schema_240_prepared_intent_precall_contract() {
+  project=$1
+  data_dir=$2
+  sql=$(cat <<'SQL'
+-- BEGIN prepared intent precall exact verification
+WITH owner AS (SELECT to_regrole('zapbot_owner') AS oid),
+expected_relations(name,columns_hash,constraints_hash,indexes_hash) AS (VALUES
+('lnm_prepared_intent_producer_pins','e4748d8aed15d6c28b639d15bf6978da2b932799b873a7ead9755273cc7f66fa','35dc19e21a2bf1c46231e823916e870c20d5063ed7bbfd2ced0f6e407901ee4b','3f0749946246b75b36d40d9e78bc4ae2f9e10dc0c4b2430ea963ff851d3de249'),
+('lnm_prepared_intent_governance_profiles','c71747c2bc98e12c8a604c90ce39e31708e00aa7ca01f6c014e4d9d5c50b6338','7a610ceca52a562702229674776f41d7bc14396632151c954676c2ae42048ed5','a4b6e9202bcd1c8910f07eb570d173984cd2a2acf8f299886bf48da90c5b19d7'),
+('lnm_prepared_intent_precall_receipts','1e400563887447045d7678c784d3acdc8b34ab9a904ae3435b3dc20836c04d4b','281ffa6b83659d6d1365e43bd62c961dcb9fe4a33cf3f06c8258fb901f975b66','6eeb9cab6cc08b49bd21ba50ec535e86ed16006f35674ad5035d7da24b81523e')),
+relations AS (SELECT e.*,c.oid,c.relowner,c.relkind,c.relacl FROM expected_relations e LEFT JOIN pg_class c ON c.oid=to_regclass('public.'||e.name)),
+expected_functions(signature,hash,config,language,volatility,strict) AS (VALUES
+('public.lnm_precall_hash(text,text)','097b1901ba9e858431fecaa6ce185162100d64d895478a91b0306187043a2541','search_path=pg_catalog','sql','i',true),
+('public.lnm_precall_validate_pin()','b3e029f678b3c24c65e8924bf18d1faf6ad3d912096664dd361065fbc9014188','search_path=pg_catalog, public','plpgsql','v',false),
+('public.lnm_precall_validate_profile()','f8cadede779b753ad90bf4b82afa7b93feb24eefb62dd13d960990bd80f94be4','search_path=pg_catalog, public','plpgsql','v',false),
+('public.lnm_precall_validate_receipt()','00529ca63b352c292dd8256cf9e752bcdc99c0db324c410f6100dcf4ad012d6b','search_path=pg_catalog, public','plpgsql','v',false)),
+functions AS (SELECT e.*,p.* FROM expected_functions e LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.signature)),
+expected_triggers(table_name,name,function_name,kind) AS (VALUES
+('lnm_prepared_intent_producer_pins','lnm_prepared_intent_producer_pins_validate','public.lnm_precall_validate_pin()',7::smallint),
+('lnm_prepared_intent_producer_pins','lnm_prepared_intent_producer_pins_immutable','public.lnm_prepared_intent_reject_mutation()',27::smallint),
+('lnm_prepared_intent_producer_pins','lnm_prepared_intent_producer_pins_truncate','public.lnm_prepared_intent_reject_mutation()',34::smallint),
+('lnm_prepared_intent_governance_profiles','lnm_prepared_intent_governance_profiles_validate','public.lnm_precall_validate_profile()',7::smallint),
+('lnm_prepared_intent_governance_profiles','lnm_prepared_intent_governance_profiles_immutable','public.lnm_prepared_intent_reject_mutation()',27::smallint),
+('lnm_prepared_intent_governance_profiles','lnm_prepared_intent_governance_profiles_truncate','public.lnm_prepared_intent_reject_mutation()',34::smallint),
+('lnm_prepared_intent_precall_receipts','lnm_prepared_intent_precall_receipts_validate','public.lnm_precall_validate_receipt()',7::smallint),
+('lnm_prepared_intent_precall_receipts','lnm_prepared_intent_precall_receipts_immutable','public.lnm_prepared_intent_reject_mutation()',27::smallint),
+('lnm_prepared_intent_precall_receipts','lnm_prepared_intent_precall_receipts_truncate','public.lnm_prepared_intent_reject_mutation()',34::smallint))
+SELECT coalesce(
+(SELECT count(*)=3 AND bool_and(r.oid IS NOT NULL AND r.relowner=owner.oid AND r.relkind='r') FROM relations r CROSS JOIN owner)
+AND NOT EXISTS (SELECT 1 FROM relations r CROSS JOIN LATERAL aclexplode(coalesce(r.relacl,acldefault('r',r.relowner))) x WHERE x.grantee<>r.relowner)
+AND NOT EXISTS (SELECT 1 FROM relations r JOIN pg_attribute a ON a.attrelid=r.oid CROSS JOIN LATERAL aclexplode(a.attacl) x WHERE x.grantee<>r.relowner)
+AND (SELECT count(*)=4 AND bool_and(p.oid IS NOT NULL AND p.proowner=owner.oid AND NOT p.prosecdef
+  AND p.proconfig=ARRAY[p.config]::text[] AND p.provolatile::text=p.volatility AND p.proisstrict=p.strict
+  AND (SELECT lanname FROM pg_language WHERE oid=p.prolang)=p.language
+  AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')=p.hash) FROM functions p CROSS JOIN owner)
+AND NOT EXISTS (SELECT 1 FROM functions p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE x.grantee<>p.proowner)
+AND NOT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid IN (SELECT oid FROM relations)
+  AND (NOT c.convalidated OR NOT coalesce((to_jsonb(c)->>'conenforced')::boolean,true)))
+AND (current_setting('server_version_num')::integer<180000 OR (
+  NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid IN (SELECT oid FROM relations) AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull
+    AND (SELECT count(*) FROM pg_constraint c WHERE c.conrelid=a.attrelid AND c.contype='n' AND c.conkey=ARRAY[a.attnum]::smallint[] AND c.convalidated
+      AND coalesce((to_jsonb(c)->>'conenforced')::boolean,true) AND NOT c.condeferrable AND NOT c.condeferred)<>1)
+  AND NOT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid IN (SELECT oid FROM relations) AND c.contype='n'
+    AND NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.conrelid AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull AND c.conkey=ARRAY[a.attnum]::smallint[]))))
+AND (SELECT count(*)=9 AND bool_and(t.oid IS NOT NULL AND t.tgenabled='A' AND t.tgtype=e.kind AND t.tgfoid=to_regprocedure(e.function_name)
+  AND t.tgqual IS NULL AND t.tgnargs=0 AND t.tgargs=''::bytea AND t.tgattr=''::int2vector AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred AND NOT t.tgisinternal)
+  FROM expected_triggers e LEFT JOIN pg_trigger t ON t.tgrelid=to_regclass('public.'||e.table_name) AND t.tgname=e.name)
+AND (SELECT count(*)=9 FROM pg_trigger WHERE tgrelid IN (SELECT oid FROM relations) AND NOT tgisinternal)
+AND (SELECT bool_and(
+  (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'not_null',a.attnotnull,'default',pg_get_expr(d.adbin,d.adrelid)) ORDER BY a.attnum)::text,'[]'),'UTF8')),'hex') FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=r.oid AND a.attnum>0 AND NOT a.attisdropped)=r.columns_hash
+  AND (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('name',conname,'type',contype,'definition',pg_get_constraintdef(oid,true),'validated',convalidated,'deferrable',condeferrable,'deferred',condeferred) ORDER BY conname)::text,'[]'),'UTF8')),'hex') FROM pg_constraint WHERE conrelid=r.oid AND contype<>'n')=r.constraints_hash
+  AND (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('definition',pg_get_indexdef(i.indexrelid),'unique',i.indisunique,'valid',i.indisvalid,'ready',i.indisready,'live',i.indislive,'predicate',pg_get_expr(i.indpred,i.indrelid),'expression',pg_get_expr(i.indexprs,i.indrelid)) ORDER BY c.relname)::text,'[]'),'UTF8')),'hex') FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid WHERE i.indrelid=r.oid)=r.indexes_hash
+) FROM relations r),false)::text;
+-- END prepared intent precall exact verification
+SQL
+)
+  if contract=$(pg_query "$project" "$data_dir" "$sql"); then :; else
+    echo 'assert_final_state failed assertion=schema_240_prepared_intent_precall_contract actual=query_error' >&2
+    return 1
+  fi
+  assert_final_value schema_240_prepared_intent_precall_contract true "$contract"
+}
+
 prepared_intent_row_fingerprint() {
   pg_query "$1" "$2" "$(cat <<'SQL'
     SELECT (SELECT count(*) FROM public.lnm_prepared_intent_contexts)::text || ':' ||
       (SELECT count(*) FROM public.lnm_prepared_intent_fixtures)::text || ':' ||
       encode(sha256(convert_to(jsonb_build_object(
         'contexts', (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id), '[]'::jsonb) FROM public.lnm_prepared_intent_contexts t),
-        'fixtures', (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id), '[]'::jsonb) FROM public.lnm_prepared_intent_fixtures t)
+        'fixtures', (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id), '[]'::jsonb) FROM public.lnm_prepared_intent_fixtures t),
+        'producer_pins', (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id), '[]'::jsonb) FROM public.lnm_prepared_intent_producer_pins t),
+        'governance_profiles', (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id), '[]'::jsonb) FROM public.lnm_prepared_intent_governance_profiles t),
+        'precall_receipts', (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id), '[]'::jsonb) FROM public.lnm_prepared_intent_precall_receipts t)
       )::text, 'UTF8')), 'hex')
 SQL
 )"
@@ -756,6 +822,29 @@ SQL
   case "$(prepared_intent_row_fingerprint "$project" "$data_dir")" in
     1:1:*) ;; *) echo 'prepared intent retention fixture was not persisted' >&2; return 1 ;;
   esac
+  pg_exec "$project" "$data_dir" "$(cat <<'SQL'
+DO $precall_retention$
+DECLARE
+  intent_key bytea := decode(repeat('00',32),'hex');
+  governance_key bytea := decode(repeat('01',32),'hex');
+BEGIN
+  SET LOCAL ROLE zapbot_owner;
+  INSERT INTO public.lnm_prepared_intent_producer_pins
+    (id,context_json,intent_public_key,intent_key_id,intent_key_purpose,
+     governance_public_key,governance_key_id,governance_key_purpose,owner_reference)
+  VALUES ('00000000-0000-4000-8000-000000000241',
+    public.lnm_prepared_intent_canonical(json_build_object(
+      'account_scope','default','account_id','fixture-account','environment_id','disposable-package',
+      'market_key','LNMARKETS:XBTUSD','producer_id','fixture-producer','application_revision',repeat('a',40))),
+    intent_key,encode(sha256(convert_to('zapbot:lnmarkets_prepared_intent@v1:key' || E'\n','UTF8') || intent_key),'hex'),
+    'prepared_intent_signing',governance_key,
+    encode(sha256(convert_to('zapbot:prepared_intent_provenance_readiness@v1:key' || E'\n','UTF8') || governance_key),'hex'),
+    'prepared_intent_provenance_readiness','fixture:package-retention');
+END $precall_retention$;
+SQL
+)"
+  test "$(pg_query "$project" "$data_dir" 'SELECT count(*) FROM public.lnm_prepared_intent_producer_pins')" = 1
+  log 'precall_pin_sql_retention_fixture=pass profile_and_receipt_nonempty_retention=not_claimed signature_verification=not_claimed'
   log 'prepared_intent_sql_retention_fixture=pass signature_verification=not_claimed'
 }
 
@@ -795,6 +884,7 @@ assert_final_state() {
   assert_schema_237_global_reconciliation_contract "$project" "$data_dir" || return 1
   assert_schema_238_active_funding_contract "$project" "$data_dir" || return 1
   assert_schema_239_prepared_intent_contract "$project" "$data_dir" || return 1
+  assert_schema_240_prepared_intent_precall_contract "$project" "$data_dir" || return 1
   assert_account_snapshot_is_unbound "$project" "$data_dir" || return 1
   if causal_attestation=$(pg_query "$project" "$data_dir" "SELECT (to_regprocedure('public.validate_forward_return_label_causal_attestation()') IS NOT NULL)::text || ':' || (EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'learning_forward_return_labels_v2_causal_attestation_guard'))::text"); then :; else
     printf 'assert_final_state failed assertion=causal_attestation_function_and_trigger expected=true:true actual=query_error\n' >&2
@@ -909,7 +999,7 @@ start_compatibility_rollback() {
   project=$1
   data_dir=$2
   before_rollback_prepared_rows=$(prepared_intent_row_fingerprint "$project" "$data_dir")
-  log "starting actual installed schema-239 compatibility rollback script project=$project"
+  log "starting actual installed schema-240 compatibility rollback script project=$project"
   (
     unset APP_SEED
     APP_DATA_DIR="$data_dir" \
@@ -980,6 +1070,7 @@ assert_rollback_final_state() {
   assert_schema_237_global_reconciliation_contract "$project" "$data_dir"
   assert_schema_238_active_funding_contract "$project" "$data_dir"
   assert_schema_239_prepared_intent_contract "$project" "$data_dir"
+  assert_schema_240_prepared_intent_precall_contract "$project" "$data_dir"
   assert_account_snapshot_is_unbound "$project" "$data_dir"
   compose "$project" "$data_dir" logs normalize-and-verify | grep -F 'verification_safe= t' >/dev/null
   assert_export_matches_image "$data_dir"
@@ -1302,12 +1393,12 @@ assert_ownerless_238_normalizer_rejects_tampered_funding_functions() {
   log 'ownerless_schema_238_active_funding_function_tamper_before_reownership=rejected'
 }
 
-prepare_ownerless_239_restore() {
+prepare_ownerless_240_restore() {
   source_project=$1
   source_data=$2
   target_project=$3
   target_data=$4
-  dump_path="$fixture_dir/zapbot-ownerless-239.dump"
+  dump_path="$fixture_dir/zapbot-ownerless-240.dump"
   before_restore_prepared_rows=$(prepared_intent_row_fingerprint "$source_project" "$source_data")
 
   compose "$source_project" "$source_data" exec -T whirmill-zapbot-postgres \
@@ -1318,7 +1409,7 @@ prepare_ownerless_239_restore() {
   prepare_scripts "$target_data"
   mkdir -p "$target_data/data/import"
   cp "$dump_path" "$target_data/data/import/zapbot.dump"
-  log 'starting ownerless current-schema-239 restore through restore service only'
+  log 'starting ownerless current-schema-240 restore through restore service only'
   compose "$target_project" "$target_data" up -d restore >>"$receipt" 2>&1 || return $?
   wait_one_shot "$target_project" "$target_data" restore
   await_healthy_service "$target_project" "$target_data" whirmill-zapbot-postgres 240
@@ -1329,30 +1420,31 @@ prepare_ownerless_239_restore() {
   assert_ownerless_237_normalizer_rejects_tampered_reconciliation_functions "$target_project" "$target_data"
   assert_ownerless_238_normalizer_rejects_tampered_funding_functions "$target_project" "$target_data"
 
-  test "$(pg_query "$target_project" "$target_data" "SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname LIKE 'lnm_prepared_intent_%' AND pg_get_userbyid(proowner)='postgres' AND NOT prosecdef")" = 6
+  test "$(pg_query "$target_project" "$target_data" "SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND (proname LIKE 'lnm_prepared_intent_%' OR proname LIKE 'lnm_precall_%') AND pg_get_userbyid(proowner)='postgres' AND NOT prosecdef")" = 10
   # A promotion to SECURITY DEFINER must fail before generic reownership.
   pg_exec "$target_project" "$target_data" 'ALTER FUNCTION public.lnm_prepared_intent_reject_mutation() SECURITY DEFINER'
   if compose "$target_project" "$target_data" run --rm --no-deps restore-ownership-normalize >>"$receipt" 2>&1; then
-    echo 'ownerless schema-239 normalizer accepted an unreviewed SECURITY DEFINER promotion' >&2
+    echo 'ownerless schema-240 normalizer accepted an unreviewed SECURITY DEFINER promotion' >&2
     exit 1
   fi
   pg_exec "$target_project" "$target_data" 'ALTER FUNCTION public.lnm_prepared_intent_reject_mutation() SECURITY INVOKER'
-  log 'ownerless_schema_239_unreviewed_definer_promotion=rejected'
+  log 'ownerless_schema_240_unreviewed_definer_promotion=rejected'
   run_one_shot "$target_project" "$target_data" restore-ownership-normalize
-  test "$(pg_query "$target_project" "$target_data" "SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname LIKE 'lnm_prepared_intent_%' AND pg_get_userbyid(proowner)='zapbot_owner' AND NOT prosecdef")" = 6
+  test "$(pg_query "$target_project" "$target_data" "SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND (proname LIKE 'lnm_prepared_intent_%' OR proname LIKE 'lnm_precall_%') AND pg_get_userbyid(proowner)='zapbot_owner' AND NOT prosecdef")" = 10
   # --no-privileges restores invoker proacl=NULL, which means implicit PUBLIC
   # EXECUTE. Generic reownership intentionally leaves it for the source owner-
   # only bootstrap to revoke. Assert that exact precondition before bootstrap.
-  test "$(pg_query "$target_project" "$target_data" "SELECT count(*) FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname LIKE 'lnm_prepared_intent_%' AND p.proacl IS NULL AND EXISTS (SELECT 1 FROM aclexplode(acldefault('f',p.proowner)) x WHERE x.grantee=0 AND x.privilege_type='EXECUTE')")" = 6
-  log 'ownerless_schema_239_null_acl_public_execute_before_bootstrap=6'
+  test "$(pg_query "$target_project" "$target_data" "SELECT count(*) FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND (p.proname LIKE 'lnm_prepared_intent_%' OR p.proname LIKE 'lnm_precall_%') AND p.proacl IS NULL AND EXISTS (SELECT 1 FROM aclexplode(acldefault('f',p.proowner)) x WHERE x.grantee=0 AND x.privilege_type='EXECUTE')")" = 10
+  log 'ownerless_schema_240_null_acl_public_execute_before_bootstrap=10'
   test "$(prepared_intent_row_fingerprint "$target_project" "$target_data")" = "$before_restore_prepared_rows"
-  log 'ownerless_schema_239_prepared_intent_owners_and_rows_retained=pass'
+  log 'ownerless_schema_240_prepared_intent_owners_and_rows_retained=pass'
   test "$(pg_query "$target_project" "$target_data" "SELECT string_agg(pg_catalog.pg_get_userbyid(proc.proowner), ':' ORDER BY proc.proname) FROM pg_catalog.pg_proc proc WHERE proc.oid IN ('public.reject_lnm_account_active_snapshot_mutation()'::regprocedure, 'public.validate_lnm_account_active_snapshot_insert()'::regprocedure)")" = zapbot_owner:zapbot_owner
   log 'ownerless_schema_235_snapshot_functions_owner_after_normalize=zapbot_owner:zapbot_owner'
   start_full_package "$target_project" "$target_data"
   test "$(prepared_intent_row_fingerprint "$target_project" "$target_data")" = "$before_restore_prepared_rows"
   assert_rollback_schema_rejects_prepared_intent_tampering "$target_project" "$target_data"
-  log 'ownerless_schema_239_restore_full_graph=pass'
+  assert_rollback_schema_rejects_precall_tampering "$target_project" "$target_data"
+  log 'ownerless_schema_240_restore_full_graph=pass'
 }
 
 assert_rollback_schema_rejects_terminal_economics_tampering() {
@@ -1705,6 +1797,82 @@ assert_prepared_intent_tamper_rejected() {
   fi
 }
 
+assert_precall_tamper_rejected() {
+  project=$1
+  data_dir=$2
+  precall_label=$3
+  if assert_schema_240_prepared_intent_precall_contract "$project" "$data_dir"; then
+    echo "precall catalog guard accepted tampering: $precall_label" >&2
+    return 1
+  fi
+  if rollback_schema_only "$project" "$data_dir"; then
+    echo "rollback verifier accepted precall tampering: $precall_label" >&2
+    return 1
+  fi
+  log "schema_240_precall_tamper=$precall_label result=rejected"
+}
+
+assert_rollback_schema_rejects_precall_tampering() {
+  project=$1
+  data_dir=$2
+  before_tamper_precall_rows=$(prepared_intent_row_fingerprint "$project" "$data_dir")
+  for precall_table in lnm_prepared_intent_producer_pins lnm_prepared_intent_governance_profiles lnm_prepared_intent_precall_receipts; do
+    pg_exec "$project" "$data_dir" "GRANT SELECT ON TABLE public.$precall_table TO zapbot_runtime"
+    assert_precall_tamper_rejected "$project" "$data_dir" "${precall_table}_runtime_select"
+    pg_exec "$project" "$data_dir" "REVOKE SELECT ON TABLE public.$precall_table FROM zapbot_runtime"
+    pg_exec "$project" "$data_dir" "GRANT SELECT (id) ON TABLE public.$precall_table TO zapbot_runtime"
+    assert_precall_tamper_rejected "$project" "$data_dir" "${precall_table}_column_acl"
+    pg_exec "$project" "$data_dir" "REVOKE SELECT (id) ON TABLE public.$precall_table FROM zapbot_runtime"
+    pg_exec "$project" "$data_dir" "ALTER TABLE public.$precall_table OWNER TO postgres"
+    assert_precall_tamper_rejected "$project" "$data_dir" "${precall_table}_owner"
+    pg_exec "$project" "$data_dir" "ALTER TABLE public.$precall_table OWNER TO zapbot_owner"
+    pg_exec "$project" "$data_dir" "ALTER TABLE public.$precall_table DISABLE TRIGGER ${precall_table}_immutable"
+    assert_precall_tamper_rejected "$project" "$data_dir" "${precall_table}_immutable_disabled"
+    pg_exec "$project" "$data_dir" "ALTER TABLE public.$precall_table ENABLE ALWAYS TRIGGER ${precall_table}_immutable"
+    pg_exec "$project" "$data_dir" "ALTER TABLE public.$precall_table ENABLE TRIGGER ${precall_table}_validate"
+    assert_precall_tamper_rejected "$project" "$data_dir" "${precall_table}_validator_not_always"
+    pg_exec "$project" "$data_dir" "ALTER TABLE public.$precall_table ENABLE ALWAYS TRIGGER ${precall_table}_validate"
+    pg_exec "$project" "$data_dir" "ALTER TABLE public.$precall_table ADD COLUMN package_precall_intruder text"
+    assert_precall_tamper_rejected "$project" "$data_dir" "${precall_table}_extra_column"
+    pg_exec "$project" "$data_dir" "ALTER TABLE public.$precall_table DROP COLUMN package_precall_intruder"
+    pg_exec "$project" "$data_dir" "CREATE INDEX package_precall_intruder ON public.$precall_table (id)"
+    assert_precall_tamper_rejected "$project" "$data_dir" "${precall_table}_extra_index"
+    pg_exec "$project" "$data_dir" 'DROP INDEX public.package_precall_intruder'
+    precall_check_name=$(pg_query "$project" "$data_dir" "SELECT conname FROM pg_constraint WHERE conrelid='public.$precall_table'::regclass AND contype='c' ORDER BY conname LIMIT 1")
+    test -n "$precall_check_name"
+    precall_check_definition=$(pg_query "$project" "$data_dir" "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='public.$precall_table'::regclass AND conname='$precall_check_name'")
+    pg_exec "$project" "$data_dir" "ALTER TABLE public.$precall_table DROP CONSTRAINT $precall_check_name"
+    assert_precall_tamper_rejected "$project" "$data_dir" "${precall_table}_missing_constraint"
+    pg_exec "$project" "$data_dir" "ALTER TABLE public.$precall_table ADD CONSTRAINT $precall_check_name $precall_check_definition"
+  done
+  for precall_helper in 'public.lnm_precall_hash(text,text)' 'public.lnm_precall_validate_pin()' 'public.lnm_precall_validate_profile()' 'public.lnm_precall_validate_receipt()'; do
+    pg_exec "$project" "$data_dir" "GRANT EXECUTE ON FUNCTION $precall_helper TO PUBLIC"
+    assert_precall_tamper_rejected "$project" "$data_dir" "${precall_helper}_public_execute"
+    pg_exec "$project" "$data_dir" "REVOKE EXECUTE ON FUNCTION $precall_helper FROM PUBLIC"
+    pg_exec "$project" "$data_dir" "ALTER FUNCTION $precall_helper SECURITY DEFINER"
+    assert_precall_tamper_rejected "$project" "$data_dir" "${precall_helper}_definer_promotion"
+    pg_exec "$project" "$data_dir" "ALTER FUNCTION $precall_helper SECURITY INVOKER"
+    precall_function_definition=$(pg_query "$project" "$data_dir" "SELECT pg_get_functiondef('$precall_helper'::regprocedure)")
+    pg_exec "$project" "$data_dir" "ALTER FUNCTION $precall_helper SET search_path=public"
+    assert_precall_tamper_rejected "$project" "$data_dir" "${precall_helper}_search_path"
+    pg_exec "$project" "$data_dir" "$precall_function_definition"
+  done
+  precall_function_definition=$(pg_query "$project" "$data_dir" "SELECT pg_get_functiondef('public.lnm_precall_hash(text,text)'::regprocedure)")
+  pg_exec "$project" "$data_dir" "CREATE OR REPLACE FUNCTION public.lnm_precall_hash(kind text, bytes text) RETURNS text LANGUAGE sql IMMUTABLE STRICT SECURITY INVOKER SET search_path=pg_catalog AS \$tamper\$ SELECT repeat('0',64) \$tamper\$"
+  assert_precall_tamper_rejected "$project" "$data_dir" precall_hash_body
+  pg_exec "$project" "$data_dir" "$precall_function_definition"
+  pg_exec "$project" "$data_dir" 'DROP INDEX public.lnm_precall_command_id_owner'
+  assert_precall_tamper_rejected "$project" "$data_dir" precall_unique_identity_missing
+  pg_exec "$project" "$data_dir" 'CREATE UNIQUE INDEX lnm_precall_command_id_owner ON public.lnm_prepared_intent_precall_receipts (environment_id, account_id, market_key, command_id)'
+  assert_schema_240_prepared_intent_precall_contract "$project" "$data_dir"
+  rollback_schema_only "$project" "$data_dir" || {
+    echo 'rollback verifier did not recover after precall catalog restoration' >&2
+    return 1
+  }
+  test "$(prepared_intent_row_fingerprint "$project" "$data_dir")" = "$before_tamper_precall_rows"
+  log 'schema_240_precall_acl_owner_function_trigger_column_constraint_index_tamper_rejection=pass'
+}
+
 assert_rollback_schema_rejects_prepared_intent_tampering() {
   project=$1
   data_dir=$2
@@ -1963,6 +2131,9 @@ run_assert_final_state_negative_selftests() {
           *) printf 'true:true:true:true:true:true:false:false\n' ;;
         esac
         ;;
+      *'lnm_prepared_intent_producer_pins'*)
+        case "$selftest_case" in schema_240_prepared_intent_precall) printf 'false\n' ;; *) printf 'true\n' ;; esac
+        ;;
       *'lnm_prepared_intent_contexts'*)
         case "$selftest_case" in schema_239_prepared_intent) printf 'false\n' ;; *) printf 'true\n' ;; esac
         ;;
@@ -2011,7 +2182,7 @@ run_assert_final_state_negative_selftests() {
   assert_fenced_services() { return 0; }
   assert_account_snapshot_is_unbound() { return 0; }
 
-  for selftest_case in migration_count migration_latest schema_233_contract schema_233_wrong_predicate schema_233_legacy_predicate schema_233_insecure_posture schema_233_proconfig schema_233_owner schema_233_public_acl schema_234_terminal_relation schema_234_terminal_triggers schema_234_terminal_materializer_posture schema_234_terminal_materializer_hash schema_234_terminal_named_table_acl schema_234_terminal_named_function_acl schema_234_terminal_runtime_write_acl schema_235_snapshot schema_236_raw_evidence schema_237_global_reconciliation schema_238_active_funding schema_239_prepared_intent causal_attestation postgres_secret; do
+  for selftest_case in migration_count migration_latest schema_233_contract schema_233_wrong_predicate schema_233_legacy_predicate schema_233_insecure_posture schema_233_proconfig schema_233_owner schema_233_public_acl schema_234_terminal_relation schema_234_terminal_triggers schema_234_terminal_materializer_posture schema_234_terminal_materializer_hash schema_234_terminal_named_table_acl schema_234_terminal_named_function_acl schema_234_terminal_runtime_write_acl schema_235_snapshot schema_236_raw_evidence schema_237_global_reconciliation schema_238_active_funding schema_239_prepared_intent schema_240_prepared_intent_precall causal_attestation postgres_secret; do
     if assert_final_state selftest "$fixture_dir/selftest"; then
       printf 'assert_final_state negative selftest unexpectedly passed case=%s\n' "$selftest_case" >&2
       return 1
@@ -2154,7 +2325,7 @@ SH
     ZAPBOT_PACKAGE_COMPOSE="$verifier_package/docker-compose.yml" \
     ZAPBOT_ROLLBACK_VERIFY_SCHEMA_ONLY=1 \
     sh "$package_root/scripts/rollback-0.1.46.sh"; then
-    echo 'installed rollback verifier failed against the owned schema-239 fixture' >&2
+    echo 'installed rollback verifier failed against the owned schema-240 fixture' >&2
     return 1
   fi
 
@@ -2201,7 +2372,8 @@ assert_rollback_schema_rejects_raw_evidence_tampering "$fresh_project" "$fresh_d
 assert_rollback_schema_rejects_global_reconciliation_tampering "$fresh_project" "$fresh_data"
 assert_rollback_schema_rejects_active_funding_tampering "$fresh_project" "$fresh_data"
 assert_rollback_schema_rejects_prepared_intent_tampering "$fresh_project" "$fresh_data"
-prepare_ownerless_239_restore "$fresh_project" "$fresh_data" "$ownerless234_project" "$ownerless234_data"
+assert_rollback_schema_rejects_precall_tampering "$fresh_project" "$fresh_data"
+prepare_ownerless_240_restore "$fresh_project" "$fresh_data" "$ownerless234_project" "$ownerless234_data"
 pg_exec "$fresh_project" "$fresh_data" "INSERT INTO public.internal_settings (key, value, inserted_at, updated_at) VALUES ('package_lifecycle_sentinel', 'enabled', clock_timestamp(), clock_timestamp()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at"
 before_repeat_prepared_rows=$(prepared_intent_row_fingerprint "$fresh_project" "$fresh_data")
 repeat_package "$fresh_project" "$fresh_data"
@@ -2211,15 +2383,15 @@ test "$(pg_query "$fresh_project" "$fresh_data" "SELECT value FROM public.intern
 assert_restore_normalizer_rejects_tampered_freeze "$fresh_project" "$fresh_data"
 
 # This is an upgrade without any restore dump: create schema 229 using the
-# immutable 0.1.46 release, advance it through schema 239, write an identity receipt
+# immutable 0.1.46 release, advance it through schema 240, write an identity receipt
 # through the runtime grant, then run only the old long-lived services.
 prepare_scripts "$upgrade229_data"
-log 'starting current release/bootstrap chain before the 229-to-239 compatibility upgrade'
+log 'starting current release/bootstrap chain before the 229-to-240 compatibility upgrade'
 run_one_shot "$upgrade229_project" "$upgrade229_data" migration-role-provision
 migrate_source_to_229 "$upgrade229_project" "$upgrade229_data"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = '229'
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = '20260909100000'
-log 'advancing the populated 229 schema to 239 with the immutable current migration image'
+log 'advancing the populated 229 schema to 240 with the immutable current migration image'
 compose "$upgrade229_project" "$upgrade229_data" run --rm --no-deps migrate >>"$receipt" 2>&1
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT count(*) FROM public.schema_migrations')" = "$expected_schema_migrations_count"
 test "$(pg_query "$upgrade229_project" "$upgrade229_data" 'SELECT max(version) FROM public.schema_migrations')" = "$expected_schema_migrations_latest_version"
