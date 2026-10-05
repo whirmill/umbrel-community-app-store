@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.79"
+version: "0.1.80"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,16 +23,13 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Adds dormant owner-only producer pins, signed governance profiles and immutable
-  committed parent/profile/wire/attempt bindings at schema 240 through
-  20261005010000. No provisioned production producer LOGIN, runtime receipt
-  consumer, transport ordering, venue dispatch, activation, admission or risk
-  authority is added. Source PR620/4d84efb2 and PostgreSQL 18 fresh/224-upgrade/
-  ownerless-224-restore CI37251509725 passed. Native image37252166877 passed both
-  architectures; registry index, SHA alias and OCI/build revision pins match
-  source. Separate native PostgreSQL 17 synthetic nonempty selected-table restore
-  passed; exact-image Linux nonempty profile/receipt retention remains
-  unqualified. Exact-image Linux restore-224 lifecycle, schema-preserving rollback
-  and final package review remain required before publication, merge or an
-  existing-data update. No installation is claimed. Fresh empty-PGDATA
-  installation remains blocked by OPS-010.
+  Version 0.1.80 adds dormant owner-only immutable prepared-intent consumption
+  storage at schema 241 through 20261005020000 with eleven exact helpers.
+  Corrected source review and source CI 37273039224 passed; native amd64/arm64
+  image build 37273797921 and SLSAv1 provenance verify source ca692ab6e81951a1d7875b41220cc4bde3808275.
+  All app, attestor and current rollback pins share the verified immutable index.
+  Exact signed SQL/JSON/checker assets support disposable historical verification.
+  Exact-image Linux nonempty six-table restore, repeat initialization, retained
+  consumption, compatibility rollback, restore224 and final review remain gates.
+  No installation, live activation, provider execution or admission authority is
+  claimed. Fresh empty-PGDATA remains blocked by OPS-010.
