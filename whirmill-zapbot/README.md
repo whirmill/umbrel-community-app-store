@@ -1,5 +1,62 @@
 # ZapBot on Umbrel — restart-safe package
 
+Package revision **0.1.81** targets schema 242/latest `20261006010000`.
+[Source PR627](https://github.com/whirmill/zapbot-exs/pull/627) merged as
+`257a3783e9741bb68cfe86fbe1b570a988eb5e6d`, tree
+`8e4da45ee72d9330985db54ca7c537f6cd0b084b`, after final independent CLEAN review.
+[Exact source CI37374666540](https://github.com/whirmill/zapbot-exs/actions/runs/37374666540)
+passed all three jobs: 45/16/2885/417 umbrella tests with zero failures,
+one skipped and 97 excluded; 500 frontend unit tests, 32 browser tests and
+19+3+10 routine/harness/wrapper tests. The first dispatched backend and automatic
+PR frontend jobs failed hosted-runner acquisition before any steps; those
+receipts remain retained. One authorized failed-job retry passed on the same
+head. Actual PG18 checks passed fresh/restart schema242, 224-to-241-to-242,
+retained six-row 241 graph, retained three-row VENUE graph, ownerless242 VENUE
+slice and ownerless224 restore. Client18.6 and service-server18.4 are separate.
+
+[Native image build37377964791](https://github.com/whirmill/zapbot-exs/actions/runs/37377964791)
+passed all four jobs. All twelve app images, the attestor digest and current
+rollback image pin
+`ghcr.io/whirmill/zapbot:umbrel-venue-domain-storage-257a3783e9741bb68cfe86fbe1b570a988eb5e6d`
+at index `sha256:4a8806a277dc9481ec7e09be7931f692ccb858bb8dec0ae97e44e1ba7a53a9ed`.
+The SHA alias matches. Native amd64 manifest
+`sha256:70b8b1a159795fe638e0cd11d9ab0f1988bac7176f2033f943809b72a386f53a`
+and arm64 manifest
+`sha256:1fd87da3a1aa2b1e5dc5c971719f92282c9e52f9933b0ca72faeb4c610a013b0`
+were independently verified with config/OCI/build SHA, SLSAv1 source, build
+arguments, builder and subjects, and SPDX subjects. PG18 and legacy0.1.46
+rollback pins are unchanged. The installed0.1.80/ca692ab6 image remains a
+separate actual application-boot compatibility fixture; legacy tail/sleep
+processes do not qualify that boot.
+
+The increment stores separate immutable `lnm_prepared_intent_venue_pins`,
+`lnm_prepared_intent_venue_profiles` and `lnm_prepared_intent_venue_bindings`.
+Its exact predicate covers owner-only table/column/function ACLs (including
+NULL function ACL), helper bodies, columns, constraints, indexes and nine
+ALWAYS trigger bindings. Stored identity includes original canonical/signed
+bytes and physical registration clocks. The package mirror verifies copied
+source fixture hashes and historical profile/parent/wire signatures at the
+original12:00Z clock; current validity and consumption remain false, authority
+none. It never turns historical verification into fresh capability.
+
+This candidate is **uninstalled**. Exact-image Linux qualification and final
+package review remain required before publication or an existing-data update.
+The schema241 route retains all original six consumption rows through the
+additive migration, adds three VENUE rows, then verifies restart retention.
+The schema224 restore route advances to242, seeds nine rows and verifies
+restart. Current ownerless242 restore retains all nine whole rows. It separately boots the installed0.1.80 API/Repo against the upgraded
+nonempty schema with dummy runtime credentials and an internal-only network,
+no internal consumers or background jobs, then proves exact resource cleanup.
+New-image boot must report the nested runtime contract boolean true. These
+Linux templates remain **NOT RUN**; static/mock tests and source CI do not
+qualify application installation. No consumer, callback, HTTP consumption,
+provider action, enrollment, real key, risk-setting change or backup is added.
+Aggregate qualifications remain false. Fresh empty-PGDATA remains **BLOCKED**
+by OPS-010.
+
+The following0.1.80 evidence is retained verbatim as preceding-release history;
+its pending/installed statements describe that earlier record.
+
 Package revision **0.1.80** targets schema 241/latest `20261005020000`,
 including eleven exact consumption-contract helpers. Source PR622 merged
 `ca692ab6e81951a1d7875b41220cc4bde3808275` (tree

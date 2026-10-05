@@ -68,6 +68,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check script syntax
         run: sh -n whirmill-zapbot/scripts/export-release-sql.sh tests/zapbot-release-sql.sh tests/zapbot-bootstrap-export-order.sh
+      - name: Verify isolated runtime cleanup without Docker resources
+        run: python3 tests/zapbot-runtime-compatibility-mock.py
+      - name: Verify the public runtime posture map shape
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 128 --memory 512m \
+            --mount "type=bind,src=$PWD/tests,dst=/package-tests,readonly" \
+            -e ZAPBOT_RUNTIME_MODE=lnmarkets_execution_coverage_acquirer \
+            -e 'ELIXIR_ERL_OPTIONS=+S 2:2 +SDcpu 1:1 +SDio 1' \
+            --entrypoint /bin/sh "$(yq e '.services.migrate.image' whirmill-zapbot/docker-compose.yml)" \
+            -ec 'exec bin/zapbot eval "Code.eval_file(\"/package-tests/zapbot-runtime-posture-shape.exs\")"'
       - name: Verify SQL export and failure handling
         run: sh tests/zapbot-release-sql.sh
       - name: Verify initialization order with absent data directory and repeat
