@@ -974,7 +974,9 @@ Code.eval_file("/package-checker.exs")
 true = Enum.all?(Application.started_applications(), fn {name, _, _} -> name not in blocked end)
 ELIXIR
 )
-  docker run --rm --read-only --user 0:0 --cap-drop ALL \
+  # The disposable checker needs DAC access to its uid-999 read-only secret
+  # and runner-owned writable baseline. All other binds and rootfs stay read-only.
+  docker run --rm --read-only --user 0:0 --cap-drop ALL --cap-add DAC_OVERRIDE \
     --security-opt no-new-privileges --pids-limit 128 --memory 1g \
     --tmpfs /tmp:rw,noexec,nosuid,size=16m \
     --network "container:$fixture_postgres_id" \
