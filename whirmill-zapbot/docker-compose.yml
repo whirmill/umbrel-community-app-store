@@ -1,7 +1,7 @@
 services:
-  # Package 0.1.78 targets schema 239 with the verified immutable source image.
-  # Source CI and both native image architectures passed; exact-image package
-  # Linux lifecycle and final review remain required before merge or update.
+  # Package 0.1.79 targets schema 240 through 20261005010000.
+  # Source CI and verified native image37252166877/index/platforms passed.
+  # Exact-image Linux restore-224 lifecycle and final review precede publication.
   app_proxy:
     environment:
       APP_HOST: whirmill-zapbot-web
@@ -110,7 +110,7 @@ services:
     mem_limit: 4g
 
   release-sql-export:
-    image: ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8
+    image: ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51
     restart: "no"
     user: "1000:1000"
     volumes:
@@ -215,7 +215,7 @@ services:
     mem_limit: 2g
 
   migrate:
-    image: ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8
+    image: ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51
     restart: "no"
     environment:
       ZAPBOT_RUNTIME_MODE: production
@@ -287,7 +287,7 @@ services:
     mem_limit: 2g
 
   whirmill-zapbot-web:
-    image: ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8
+    image: ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51
     # Use the two responsive existing upstreams; keep Docker service-name resolution.
     dns: [9.9.9.9, 8.8.8.8]
     container_name: whirmill-zapbot-web
@@ -333,7 +333,7 @@ services:
     mem_limit: 2g
 
   producer-lnmarkets-candles:
-    image: ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8
+    image: ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51
     # Use the two responsive existing upstreams; keep Docker service-name resolution.
     dns: [9.9.9.9, 8.8.8.8]
     restart: unless-stopped
@@ -347,7 +347,7 @@ services:
     mem_limit: 384m
 
   producer-coinbase-candles:
-    image: ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8
+    image: ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51
     # Use the two responsive existing upstreams; keep Docker service-name resolution.
     dns: [9.9.9.9, 8.8.8.8]
     restart: unless-stopped
@@ -361,7 +361,7 @@ services:
     mem_limit: 384m
 
   producer-lnmarkets-funding:
-    image: ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8
+    image: ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51
     # Use the two responsive existing upstreams; keep Docker service-name resolution.
     dns: [9.9.9.9, 8.8.8.8]
     restart: unless-stopped
@@ -375,7 +375,7 @@ services:
     mem_limit: 384m
 
   producer-risk-authority-snapshot:
-    image: ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8
+    image: ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51
     restart: unless-stopped
     environment: {ZAPBOT_DATABASE_ROLE: producer_risk_authority_snapshot}
     volumes: ["${APP_DATA_DIR}/data/env/producer-risk-authority-snapshot:/service-env:ro", "${APP_DATA_DIR}/data/secrets/producer-risk-authority-snapshot:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/state:/state:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
@@ -388,7 +388,7 @@ services:
 
   trusted-v2-sealer:
     profiles: [trusted-v2-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8
+    image: ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51
     restart: "no"
     user: "1000:1000"
     environment: {ZAPBOT_DATABASE_ROLE: holdout_v2_sealer}
@@ -404,7 +404,7 @@ services:
 
   trusted-v2-attestor:
     profiles: [trusted-v2-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8
+    image: ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51
     restart: "no"
     user: "1000:1000"
     environment: {ZAPBOT_DATABASE_ROLE: evaluator_attestor}
@@ -420,7 +420,7 @@ services:
 
   trusted-v2-report-writer:
     profiles: [trusted-v2-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8
+    image: ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51
     restart: "no"
     user: "1000:1000"
     environment: {ZAPBOT_DATABASE_ROLE: holdout_report_writer}
@@ -514,7 +514,7 @@ services:
 
   execution-coverage-acquirer:
     profiles: [execution-economics-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8
+    image: ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51
     # Use the two responsive existing upstreams; keep Docker service-name resolution.
     dns: [9.9.9.9, 8.8.8.8]
     restart: "no"
@@ -558,7 +558,7 @@ services:
 
   execution-economics-producer:
     profiles: [execution-economics-ops]
-    image: ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8
+    image: ghcr.io/whirmill/zapbot:umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b@sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51
     restart: "no"
     user: "1000:1000"
     environment: {ZAPBOT_DATABASE_ROLE: producer_lnmarkets_execution_economics}
