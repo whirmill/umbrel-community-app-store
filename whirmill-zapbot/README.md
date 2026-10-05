@@ -6,6 +6,12 @@ and both native image architectures passed. Exact-image Linux package
 lifecycle with restore-224 and final package review remain required before
 publication, package merge or an existing-data update. No package lifecycle,
 package merge or installation receipt is claimed here.
+
+First package CI37253476560 rejected the attestor's stale preceding-image
+`ZAPBOT_RELEASE_IMAGE_DIGEST` at the package image-pin guard before image pull
+or any Docker lifecycle. Its job logs and artifact remain preserved. The
+attestor now pins the same verified index as the twelve app images and rollback
+current image. A new exact-image Linux lifecycle and review are still required.
 Fresh empty-PGDATA installation remains **BLOCKED** by OPS-010.
 
 Source [PR620](https://github.com/whirmill/zapbot-exs/pull/620) merged as

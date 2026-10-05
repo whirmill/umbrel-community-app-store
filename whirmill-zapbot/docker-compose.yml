@@ -410,7 +410,7 @@ services:
     environment: {ZAPBOT_DATABASE_ROLE: evaluator_attestor}
     volumes: ["${APP_DATA_DIR}/data/env/trusted-v2-lineage:/service-env:ro", "${APP_DATA_DIR}/data/secrets/evaluator-attestor:/run/zapbot-db-secret:ro", "${APP_DATA_DIR}/data/tls/ca:/run/zapbot-db-tls:ro", "${APP_DATA_DIR}/scripts/runtime-env.sh:/usr/local/bin/runtime-env:ro"]
     depends_on: {trusted-v2-sealer: {condition: service_completed_successfully}}
-    command: [/bin/sh, -ec, '. /usr/local/bin/runtime-env; export POOL_SIZE=1; export ZAPBOT_RUNTIME_MODE=trusted_v2_attestor; export TRUSTED_V2_ATTESTATION_ENABLED=true; export ZAPBOT_RELEASE_IMAGE_DIGEST=sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8; exec bin/zapbot eval "Zapbot.Release.TrustedV2LineageRunner.run_from_env!(confirm: true)"']
+    command: [/bin/sh, -ec, '. /usr/local/bin/runtime-env; export POOL_SIZE=1; export ZAPBOT_RUNTIME_MODE=trusted_v2_attestor; export TRUSTED_V2_ATTESTATION_ENABLED=true; export ZAPBOT_RELEASE_IMAGE_DIGEST=sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51; exec bin/zapbot eval "Zapbot.Release.TrustedV2LineageRunner.run_from_env!(confirm: true)"']
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
     security_opt: [no-new-privileges:true]
