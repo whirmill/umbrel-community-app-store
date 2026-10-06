@@ -1,3 +1,45 @@
+# ZapBot package 0.1.84 — canonical technical H4 policy
+
+This release targets unchanged schema243/latest `20261006020000`.
+[Source PR633](https://github.com/whirmill/zapbot-exs/pull/633) merged
+`745b7c383667caf921ec55f06496aec63136c607`, tree
+`2ca8a4be958c8f63a0cf3176c066a7ea9efb132b`, after independent CLEAN review.
+Typed canonical H4 policy/plan state uses Donchian120/ATR20 and no take-profit.
+DecisionCore integrates the technical state into its reducer and durable causal
+cursor; the Engine rejects executor commands for this policy. DefaultFlat,
+manage_only and H4OFF remain preserved. Positive executable atomic admission,
+reservation and mandatory transport remain future work. No live qualification,
+enrollment, activation or increased authority is added.
+
+Corrected exact source CI37439997555 and automatic37439520028 passed all three
+jobs:45 CLI,16 core,2938 API and420 Hub tests with zero failures; API had13
+skips, including explicitly gated standalone cases. Independent24 pure core/codec tests,64 pure regressions and3 physical
+nativePG17 persistence/concurrency tests remain distinct from full PG18 CI. Both initial735f CI attempts
+failed three plan tests because another test module was unavailable. Their logs
+remain preserved; compiled fixture support fixes that loading dependency.
+Full PG18 schema243 fresh/upgrade/ten-row ownerless/224 restore checks passed.
+
+Native amd64/arm64 image run37441564076 passed all four jobs. Independent
+registry bytes, native indices, configs, OCI/build SHA, SLSAv1 source/builder/
+arguments and SPDX subjects match. All twelve pins, attestor digest and current
+rollback image use:
+
+`ghcr.io/whirmill/zapbot:umbrel-h4-canonical-policy-745b7c383667caf921ec55f06496aec63136c607@sha256:26453c0b96511b26ea5087ccdb97933a7153f2f17f66e2a7722f517b5b8644c6`
+
+Package Linux qualification is **PENDING** on this exact new image. The unchanged
+fixture and harness must prove ten whole rows through243 restart/ownerless
+thirteen-helper NULL-ACL normalization,241→242nine→243ten upgrade and224 restore.
+Keep the existing actual old0.1.81-on243 compatibility probe under its accurate
+name; it does not claim old0.1.83 compatibility. Each of six projects must show
+initial/final container, network and volume absence, successful teardown, absent
+compatibility resources/cleaner and fixture removal before aggregate PASS.
+All migration, export, predicate, posture and fixture inputs are unchanged.
+The PG18 pin and historical0.1.46 tail remain preserved; that tail grants no
+rollback approval. No backup, credential, flag or risk-setting change is included.
+OPS-010 real fresh empty-PGDATA startup remains unqualified.
+
+Previous package notes follow unchanged.
+
 # ZapBot on Umbrel — restart-safe package
 
 Package revision **0.1.83** targets unchanged schema243/latest
