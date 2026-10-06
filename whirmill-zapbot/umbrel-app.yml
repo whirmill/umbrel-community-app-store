@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.84"
+version: "0.1.85"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,19 +23,20 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Version 0.1.84 adds a typed canonical technical H4 policy and plan for
-  Donchian120/ATR20 with no take-profit, integrated into DecisionCore reducer
-  state and a durable causal cursor. The Engine rejects executor commands for
-  this technical policy. Executable atomic admission, reservation and mandatory
-  transport remain future work; no live qualification or activation is added.
-  DefaultFlat, manage_only and H4 default OFF boundaries are preserved.
-  Source PR633 merged 745b7c383667caf921ec55f06496aec63136c607 after corrected
-  independent CLEAN review and exact CI37439997555 plus automatic CI37439520028.
-  Initial test-loading failures remain preserved; normal compiled fixture support
-  fixes the cross-test dependency. Native amd64/arm64 image run37441564076 and
-  independent registry OCI, SLSAv1 and SPDX checks verify the same source.
-  All twelve application pins, attestor digest and current rollback image use
-  the immutable verified index. Schema243 through20261006020000 and fixtures
-  are unchanged. Exact new-image Linux lifecycle and final package review remain
-  required before publication or managed installation. OPS-010 real fresh
-  empty-PGDATA startup remains unqualified. Risk and credential settings are unchanged.
+  Version 0.1.85 corrects Oban queue-drain measurements to use due work.
+  Future scheduled jobs retain their state counts but contribute no negative
+  queue age or due backlog. Unknown timestamp or query evidence remains unknown;
+  an observed due-work breach remains visible. Full state and historical failure
+  counts remain separate from due workload. Generic freshness, cache TTL,
+  deadlines, H4 boundaries and trading authority are unchanged.
+  Source PR635 merged b65c67bb17c57f571687b2ba9650e3659c6db2fb after independent
+  CLEAN review and full exact CI37462848175 plus automatic CI37462827014.
+  Separate disposable PG18 focused tests and a paired 1.2-million-row benchmark
+  support the correction; they do not close live Monitor SLOs or OPS009 timeout.
+  Native amd64/arm64 image run37464508847 and independent registry OCI, SLSAv1
+  and SPDX checks verify the same source. All twelve application pins, attestor
+  digest and current rollback image use the immutable verified index.
+  Schema243 through20261006020000 and fixtures are unchanged. Exact new-image
+  Linux lifecycle and final package review remain required before publication
+  or managed installation. OPS-010 real fresh empty-PGDATA startup remains
+  unqualified. No canary, activation, risk or credential-setting change is included.
