@@ -1,5 +1,38 @@
 # ZapBot on Umbrel — restart-safe package
 
+Package revision **0.1.82** targets schema 243/latest `20261006020000`.
+[Source PR629](https://github.com/whirmill/zapbot-exs/pull/629) merged
+`fc3f22d0acc0e18a0ce2816c51dbc79c0d3ed297`, tree
+`26f66a34419f886adfe41ad150ee32f0b3c441ae`, after independent CLEAN review.
+The additive fourth VENUE table permanently records a single-use consumption;
+physical COMMIT readback, original canonical bytes, identifiers and physical
+clocks bind its receipt. It adds no live consumer, callback, HTTP consumption,
+provider transport or current capability. Aggregate qualifications remain false.
+
+Exact source CI37394735846 and separate automatic PR CI37394726216 passed
+all three jobs. Actual PG18 checks retained nine original schema242 rows through
+243 and ten complete rows across ownerless restore, including thirteen explicitly
+named VENUE helpers and NULL ACL normalization. Native amd64/arm64 image run
+37395651977 passed all four jobs. Registry bytes, OCI revision/build SHA,
+SLSAv1 provenance and SPDX subjects independently match the runtime manifests.
+All twelve application pins, attestor digest and current rollback image use:
+
+`ghcr.io/whirmill/zapbot:umbrel-venue-consumption-fc3f22d0acc0e18a0ce2816c51dbc79c0d3ed297@sha256:fc167509facacd7423ad17c57181873c9b1aa0fd98108e4ace0dcd1ee7dfa4ab`
+
+Package Linux qualification is **PENDING**. The isolated fixture must retain all
+ten original rows through upgrade, restore and restart, boot the previous0.1.81
+API/Repo against upgraded schema243 with dummy credentials/internal networking,
+and report the new nested runtime contract boolean. Every owned project must
+have independently empty container, network and volume inventories, the named
+cleaner must be absent, and fixture removal must finish before final PASS.
+Local pure/mock checks do not qualify installation or OPS-010 real Umbrel
+fresh-PGDATA startup. No backups, destructive downgrade, live binding, key
+provisioning or risk-setting change is part of this release. The legacy0.1.46
+compatibility tail is retained history, not approval to run a rollback.
+
+The following0.1.81 record is preserved verbatim as preceding-release history;
+its pending/installed statements describe that earlier record.
+
 Package revision **0.1.81** targets schema 242/latest `20261006010000`.
 [Source PR627](https://github.com/whirmill/zapbot-exs/pull/627) merged as
 `257a3783e9741bb68cfe86fbe1b570a988eb5e6d`, tree

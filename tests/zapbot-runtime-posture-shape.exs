@@ -1,18 +1,45 @@
-# Pure regression against the actual public-shape access in the boot checker.
+# Evaluate both actual nested public-shape accesses from the application checker.
 source = File.read!(Path.join(__DIR__, "verify-schema-242-runtime-compatibility.exs"))
-[_, access] = Regex.run(~r/do: true = (posture\.[^\n]+)/, source)
+accesses = Regex.scan(~r/true = (posture\.checks\.[^\n]+)/, source) |> Enum.map(&Enum.at(&1, 1))
+true = length(accesses) == 2
+
 for {posture, accepted} <- [
-  {%{safe?: true, reason_codes: [], checks: %{prepared_intent_venue_store_contract_exact?: true}}, true},
-  {%{safe?: true, reason_codes: [], checks: %{prepared_intent_venue_store_contract_exact?: false}}, false},
-  {%{safe?: true, reason_codes: [], checks: %{}}, false},
-  {%{safe?: true, reason_codes: [], prepared_intent_venue_store_contract_exact?: true}, false}
-] do
-  outcome = try do
-    {true, _} = Code.eval_string("true = " <> access, posture: posture)
-    true
-  rescue
-    _ in [KeyError, MatchError] -> false
-  end
+      {%{
+         checks: %{
+           prepared_intent_venue_store_contract_exact?: true,
+           prepared_intent_venue_consumption_store_contract_exact?: true
+         }
+       }, true},
+      {%{
+         checks: %{
+           prepared_intent_venue_store_contract_exact?: false,
+           prepared_intent_venue_consumption_store_contract_exact?: true
+         }
+       }, false},
+      {%{
+         checks: %{
+           prepared_intent_venue_store_contract_exact?: true,
+           prepared_intent_venue_consumption_store_contract_exact?: false
+         }
+       }, false},
+      {%{checks: %{prepared_intent_venue_store_contract_exact?: true}}, false},
+      {%{checks: %{}}, false},
+      {%{
+         prepared_intent_venue_store_contract_exact?: true,
+         prepared_intent_venue_consumption_store_contract_exact?: true
+       }, false}
+    ] do
+  outcome =
+    try do
+      for access <- accesses,
+          do: {true, _} = Code.eval_string("true = " <> access, posture: posture)
+
+      true
+    rescue
+      _ in [KeyError, MatchError] -> false
+    end
+
   true = outcome == accepted
 end
-IO.puts("public_posture_shape_regression=pass cases=4")
+
+IO.puts("public_posture_shape_regression=pass cases=6")
