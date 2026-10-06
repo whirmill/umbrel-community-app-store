@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.81"
+version: "0.1.82"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,16 +23,17 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Version 0.1.81 adds separate owner-only immutable VENUE pins, profiles and
-  bindings at schema 242 through 20261006010000. Original signed bytes and
-  physical registration clocks remain part of retained whole-row identity.
-  Source PR627 merged 257a3783e9741bb68cfe86fbe1b570a988eb5e6d after CLEAN review.
-  Exact source CI37374666540 passed all three jobs after one retained hosted-runner
-  acquisition failure; native amd64/arm64 image build37377964791 and independent
-  registry SLSAv1/SPDX checks verified the same source. All twelve app pins,
-  attestor digest and current rollback image share the verified immutable index.
-  Disposable nonempty nine-row upgrade, ownerless restore and restart checks,
-  plus actual old0.1.80 application boot on schema242, remain Linux gates.
-  No installation, provider execution, enrollment, consumption or live authority
-  is claimed. Existing risk and credential boundaries remain unchanged.
-  Fresh empty-PGDATA remains blocked by OPS-010.
+  Version 0.1.82 adds a separate owner-only immutable VENUE consumption table
+  at schema 243 through 20261006020000. A committed consumption permanently
+  burns its binding once; original signed bytes and physical clocks remain
+  retained evidence. Source PR629 merged fc3f22d0acc0e18a0ce2816c51dbc79c0d3ed297
+  after CLEAN review and exact source CI37394735846 passed all three jobs,
+  including PG18 ten-row ownerless restore and nine-row 242 upgrade retention.
+  Native amd64/arm64 build37395651977 and independent registry SLSAv1/SPDX
+  checks verified that source. All twelve app pins, attestor digest and current
+  rollback image share its immutable index. Actual Linux ten-row lifecycle,
+  old0.1.81 application compatibility and final package review remain gates.
+  No live consumer, callback, HTTP consumption, provider action, enrollment,
+  current capability or increased trading authority is enabled. Existing risk
+  and credential boundaries remain unchanged. Fresh empty-PGDATA remains
+  blocked by OPS-010.

@@ -1,19 +1,19 @@
 #!/bin/sh
-# Run only after reviewing a 0.1.81 rollback. This is a compatibility rollback:
-# it retains schema 242 and protected evidence without downgrading the database
-# or changing persisted authority settings. It requires the fenced 0.1.81 package
+# Run only after reviewing a 0.1.82 rollback. This is a compatibility rollback:
+# it retains schema 243 and protected evidence without downgrading the database
+# or changing persisted authority settings. It requires the fenced 0.1.82 package
 # graph to have completed first; the current image must match the
 # qualified immutable source revision.
 # it never initializes credentials
 # or starts bootstrap dependencies.
 set -eu
 
-# Current image is verified source 257a3783/schema242 on both native platforms.
+# Current image is verified source fc3f22d0/schema243 on both native platforms.
 # Exact-image Linux populated restore/repeat/rollback and restore-224 lifecycle
 # qualification and final package review remain mandatory before publication.
-package_version=0.1.81
+package_version=0.1.82
 legacy_image='ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e'
-current_image='ghcr.io/whirmill/zapbot:umbrel-venue-domain-storage-257a3783e9741bb68cfe86fbe1b570a988eb5e6d@sha256:4a8806a277dc9481ec7e09be7931f692ccb858bb8dec0ae97e44e1ba7a53a9ed'
+current_image='ghcr.io/whirmill/zapbot:umbrel-venue-consumption-fc3f22d0acc0e18a0ce2816c51dbc79c0d3ed297@sha256:fc167509facacd7423ad17c57181873c9b1aa0fd98108e4ace0dcd1ee7dfa4ab'
 # Run only after full package lifecycle qualification and a reviewed update.
 
 : "${APP_DATA_DIR:?APP_DATA_DIR is required}"
@@ -79,8 +79,8 @@ export PGPASSWORD="$(cat /run/zapbot-secret/password)"
 psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d zapbot <<'SQL'
 BEGIN READ ONLY;
 SELECT CASE WHEN
-  (SELECT count(*) FROM public.schema_migrations) = 242
-  AND (SELECT max(version) FROM public.schema_migrations) = 20261006010000
+  (SELECT count(*) FROM public.schema_migrations) = 243
+  AND (SELECT max(version) FROM public.schema_migrations) = 20261006020000
   AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = $$public.causal_events_trusted_v2_series_latest_idx$$::regclass)
   AND pg_catalog.pg_get_indexdef($$public.causal_events_trusted_v2_series_latest_idx$$::regclass) = $idx$CREATE INDEX causal_events_trusted_v2_series_latest_idx ON public.causal_events USING btree (source, stream_id, account_scope, market_key, split_part((source_event_id)::text, ':revision:'::text, 1), ledger_seq DESC)$idx$
   AND (SELECT index_meta.indisvalid FROM pg_catalog.pg_index index_meta WHERE index_meta.indexrelid = $$public.causal_events_passive_execution_trade_lookup_idx$$::regclass)
@@ -524,6 +524,48 @@ AND (SELECT bool_and(
   AND (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('definition',pg_get_indexdef(i.indexrelid),'unique',i.indisunique,'valid',i.indisvalid,'ready',i.indisready,'live',i.indislive,'predicate',pg_get_expr(i.indpred,i.indrelid),'expression',pg_get_expr(i.indexprs,i.indrelid)) ORDER BY c.relname)::text,'[]'),'UTF8')),'hex') FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid WHERE i.indrelid=r.oid)=r.indexes_hash
 ) FROM relations r),false)
 )
+AND (
+-- BEGIN prepared intent VENUE consumption exact verification
+WITH owner AS (SELECT to_regrole('zapbot_owner') AS oid),
+expected_relations(name,columns_hash,constraints_hash,indexes_hash) AS (VALUES
+('lnm_prepared_intent_venue_consumptions','abe65eb9e9e0066b12402b3562d4872a5e8de3e9caaf5fab782cdc272221285d','5d895b5856023685890c8ec5ca9b7be6afc32130e3941436739798bf92cbd432','1a324c5ce94c949e9e749f659f36fe031c22c2b3ae33ef3eb36514e47603bcff')),
+relations AS (SELECT e.*,c.oid,c.relowner,c.relkind,c.relacl FROM expected_relations e LEFT JOIN pg_class c ON c.oid=to_regclass('public.'||e.name)),
+expected_functions(signature,hash,config,language,volatility,strict) AS (VALUES
+('public.lnm_consumption_venue_validate()','3853d88493907e701f33e719aecee1995cb00c2fd02bc84c6963d2fccb5a721a','search_path=pg_catalog, public','plpgsql','v',false),
+('public.lnm_venue_reject_mutation()','436a4fdca41ebb03df762cceede8c6c67c13a1926a0fb2de6baa78c4506aa8f2','search_path=pg_catalog','plpgsql','v',false)),
+functions AS (SELECT e.*,p.* FROM expected_functions e LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.signature)),
+expected_triggers(table_name,name,function_name,kind) AS (VALUES
+('lnm_prepared_intent_venue_consumptions','lnm_venue_consumption_validate','public.lnm_consumption_venue_validate()',7::smallint),
+('lnm_prepared_intent_venue_consumptions','lnm_venue_consumption_immutable','public.lnm_venue_reject_mutation()',27::smallint),
+('lnm_prepared_intent_venue_consumptions','lnm_venue_consumption_truncate','public.lnm_venue_reject_mutation()',34::smallint))
+SELECT coalesce(
+(SELECT count(*)=1 AND bool_and(r.oid IS NOT NULL AND r.relowner=owner.oid AND r.relkind='r') FROM relations r CROSS JOIN owner)
+AND NOT EXISTS (SELECT 1 FROM relations r CROSS JOIN LATERAL aclexplode(coalesce(r.relacl,acldefault('r',r.relowner))) x WHERE x.grantee<>r.relowner)
+AND NOT EXISTS (SELECT 1 FROM relations r JOIN pg_attribute a ON a.attrelid=r.oid CROSS JOIN LATERAL aclexplode(a.attacl) x WHERE x.grantee<>r.relowner)
+AND (SELECT count(*)=2 AND bool_and(p.oid IS NOT NULL AND p.proowner=owner.oid AND NOT p.prosecdef
+  AND p.proconfig=ARRAY[p.config]::text[] AND p.provolatile::text=p.volatility AND p.proisstrict=p.strict
+  AND (SELECT lanname FROM pg_language WHERE oid=p.prolang)=p.language
+  AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')=p.hash) FROM functions p CROSS JOIN owner)
+AND NOT EXISTS (SELECT 1 FROM functions p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE x.grantee<>p.proowner)
+AND NOT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid IN (SELECT oid FROM relations)
+  AND (NOT c.convalidated OR NOT coalesce((to_jsonb(c)->>'conenforced')::boolean,true)))
+AND (current_setting('server_version_num')::integer<180000 OR (
+  NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid IN (SELECT oid FROM relations) AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull
+    AND (SELECT count(*) FROM pg_constraint c WHERE c.conrelid=a.attrelid AND c.contype='n' AND c.conkey=ARRAY[a.attnum]::smallint[] AND c.convalidated
+      AND coalesce((to_jsonb(c)->>'conenforced')::boolean,true) AND NOT c.condeferrable AND NOT c.condeferred)<>1)
+  AND NOT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid IN (SELECT oid FROM relations) AND c.contype='n'
+    AND NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.conrelid AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull AND c.conkey=ARRAY[a.attnum]::smallint[]))))
+AND (SELECT count(*)=3 AND bool_and(t.oid IS NOT NULL AND t.tgenabled='A' AND t.tgtype=e.kind AND t.tgfoid=to_regprocedure(e.function_name)
+  AND t.tgqual IS NULL AND t.tgnargs=0 AND t.tgargs=''::bytea AND t.tgattr=''::int2vector AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred AND NOT t.tgisinternal)
+  FROM expected_triggers e LEFT JOIN pg_trigger t ON t.tgrelid=to_regclass('public.'||e.table_name) AND t.tgname=e.name)
+AND (SELECT count(*)=3 FROM pg_trigger WHERE tgrelid IN (SELECT oid FROM relations) AND NOT tgisinternal)
+AND (SELECT bool_and(
+  (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'collation',a.attcollation::regcollation::text,'not_null',a.attnotnull,'default',pg_get_expr(d.adbin,d.adrelid)) ORDER BY a.attnum)::text,'[]'),'UTF8')),'hex') FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=r.oid AND a.attnum>0 AND NOT a.attisdropped)=r.columns_hash
+  AND (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('name',conname,'type',contype,'definition',pg_get_constraintdef(oid,true),'validated',convalidated,'deferrable',condeferrable,'deferred',condeferred) ORDER BY conname)::text,'[]'),'UTF8')),'hex') FROM pg_constraint WHERE conrelid=r.oid AND contype<>'n')=r.constraints_hash
+  AND (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('definition',pg_get_indexdef(i.indexrelid),'unique',i.indisunique,'valid',i.indisvalid,'ready',i.indisready,'live',i.indislive,'predicate',pg_get_expr(i.indpred,i.indrelid),'expression',pg_get_expr(i.indexprs,i.indrelid)) ORDER BY c.relname)::text,'[]'),'UTF8')),'hex') FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid WHERE i.indrelid=r.oid)=r.indexes_hash
+) FROM relations r),false)
+-- END prepared intent VENUE consumption exact verification
+)
 THEN $$rollback_schema_contract=pass$$ ELSE $$rollback_schema_contract=fail$$ END;
 COMMIT;
 SQL
@@ -567,7 +609,7 @@ verify_images() {
 
   for service in release-sql-export migrate; do
     image=$(compose ps -aq "$service" | tail -n 1 | xargs docker inspect -f '{{.Config.Image}}')
-    test "$image" = "$current_image" || { echo "unexpected 0.1.81 release image for $service" >&2; exit 67; }
+    test "$image" = "$current_image" || { echo "unexpected 0.1.82 release image for $service" >&2; exit 67; }
   done
 }
 
@@ -613,9 +655,9 @@ classify_runtime() {
 
   for service in release-sql-export migrate normalize-and-verify; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
-    test -n "$service_id" || { echo "missing completed 0.1.81 bootstrap service: $service" >&2; exit 67; }
+    test -n "$service_id" || { echo "missing completed 0.1.82 bootstrap service: $service" >&2; exit 67; }
     test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$service_id")" = 'exited:0' || {
-      echo "rollback requires completed 0.1.81 bootstrap service: $service" >&2
+      echo "rollback requires completed 0.1.82 bootstrap service: $service" >&2
       exit 67
     }
   done
@@ -623,7 +665,7 @@ classify_runtime() {
   for service in release-sql-export migrate; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
     test "$(docker inspect -f '{{.Config.Image}}' "$service_id")" = "$current_image" || {
-      echo "rollback requires current 0.1.81 release image for $service" >&2
+      echo "rollback requires current 0.1.82 release image for $service" >&2
       exit 67
     }
   done
