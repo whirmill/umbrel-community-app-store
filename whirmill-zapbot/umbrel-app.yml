@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.82"
+version: "0.1.83"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,17 +23,17 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Version 0.1.82 adds a separate owner-only immutable VENUE consumption table
-  at schema 243 through 20261006020000. A committed consumption permanently
-  burns its binding once; original signed bytes and physical clocks remain
-  retained evidence. Source PR629 merged fc3f22d0acc0e18a0ce2816c51dbc79c0d3ed297
-  after CLEAN review and exact source CI37394735846 passed all three jobs,
-  including PG18 ten-row ownerless restore and nine-row 242 upgrade retention.
-  Native amd64/arm64 build37395651977 and independent registry SLSAv1/SPDX
-  checks verified that source. All twelve app pins, attestor digest and current
-  rollback image share its immutable index. Actual Linux ten-row lifecycle,
-  old0.1.81 application compatibility and final package review remain gates.
-  No live consumer, callback, HTTP consumption, provider action, enrollment,
-  current capability or increased trading authority is enabled. Existing risk
-  and credential boundaries remain unchanged. Fresh empty-PGDATA remains
-  blocked by OPS-010.
+  Version 0.1.83 closes generic H4 authority bypasses before command or
+  reservation effects, including conflicting declarations and mirror replay.
+  H4 remains default OFF. Dedicated positive atomic policy admission,
+  reservation, VENUE consumption and mandatory transport remain unavailable;
+  no live enrollment, activation, provider action or increased authority is added.
+  Source PR631 merged fe21e691c91c72db5d1d87ee097ab3fbdae9277b after corrected
+  CLEAN review and full exact source CI37414479128 plus separate automatic CI.
+  Native amd64/arm64 image run37415478242 and independent registry OCI,
+  SLSAv1 and SPDX checks verified the same source. All twelve application pins,
+  attestor digest and current rollback image use the immutable verified index.
+  Schema 243 through 20261006020000, migration and fixture contracts are unchanged.
+  Exact package Linux lifecycle and final package review remain required before
+  publication or managed installation. Risk, credential and default-OFF boundaries
+  are unchanged. OPS-010 real fresh empty-PGDATA startup remains unqualified.
