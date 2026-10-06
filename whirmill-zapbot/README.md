@@ -1,5 +1,46 @@
 # ZapBot on Umbrel — restart-safe package
 
+Package revision **0.1.83** targets unchanged schema243/latest
+`20261006020000`. [Source PR631](https://github.com/whirmill/zapbot-exs/pull/631)
+merged `fe21e691c91c72db5d1d87ee097ab3fbdae9277b`, tree
+`f375aa5307e1688fdc3197fa5bf0e5e1984419e4`, after corrected independent CLEAN review.
+Dormant H4 guards reject generic positive command/reservation paths and
+conflicting declarations before effects, including canonical claim/mirror replay
+and Hub dispatch. H4 remains default OFF. Dedicated positive atomic policy
+admission/reservation/VENUE consumption and mandatory transport are still future
+work; no live authority, enrollment, provider transport or activation is granted.
+Protective non-H4 behavior and historical evidence remain preserved.
+
+Exact source CI37414479128 and automatic37414471629 passed all three jobs,
+including PG18 schema243 fresh/upgrade/ten-row ownerless restore. Actual backend
+results:45 CLI,16 core,2922 API and420 Hub tests with zero failures. API had10
+skips, including nine explicitly gated standalone native cases; their corrected
+nativePG17 nine-case proof is separate. Source also passed64 pure regressions
+and three original-map ingress/guard audit cases. Original P2 findings and
+reproduction receipts remain retained after correction.
+
+Native amd64/arm64 image run37415478242 passed all four jobs; registry byte
+hashes, native platform indices, runtime configs, OCI/build SHA, SLSAv1 source/
+builder/arguments and SPDX subjects independently match. All twelve application
+pins, attestor digest and current rollback image use:
+
+`ghcr.io/whirmill/zapbot:umbrel-h4-policy-boundary-fe21e691c91c72db5d1d87ee097ab3fbdae9277b@sha256:34efaeb2e0c8c0151805d54650e5a6cb37ab0777249ad3a1aeab3b6878dd45ff`
+
+Package Linux qualification is **PENDING** on this new exact image. Reuse the
+unchanged ten-row fixture, thirteen-helper/four-contract ownerless checks,
+241→242nine→243ten upgrades,224 restore, restart and runtime posture assertions;
+retain the actual old0.1.81-on243 compatibility probe under its accurate name.
+The previous0.1.82 package proof does not qualify this new image. Every six-project
+container/network/volume inventory and named cleaner must be absent, with
+fixture removal complete before final PASS. Existing migration, SQL predicates,
+normalizer and fixtures are unchanged. The PG18 pin and legacy0.1.46 tail are
+preserved; that historical tail is not approval to run a rollback. No backup,
+production credential, flag or risk-setting change is included. OPS-010 real
+fresh empty-PGDATA startup remains unqualified.
+
+The following0.1.82 record is preserved verbatim as preceding-release history;
+its pending/installed statements describe that earlier record.
+
 Package revision **0.1.82** targets schema 243/latest `20261006020000`.
 [Source PR629](https://github.com/whirmill/zapbot-exs/pull/629) merged
 `fc3f22d0acc0e18a0ce2816c51dbc79c0d3ed297`, tree

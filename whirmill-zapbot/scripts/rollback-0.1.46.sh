@@ -1,19 +1,19 @@
 #!/bin/sh
-# Run only after reviewing a 0.1.82 rollback. This is a compatibility rollback:
+# Run only after reviewing a 0.1.83 rollback. This is a compatibility rollback:
 # it retains schema 243 and protected evidence without downgrading the database
-# or changing persisted authority settings. It requires the fenced 0.1.82 package
+# or changing persisted authority settings. It requires the fenced 0.1.83 package
 # graph to have completed first; the current image must match the
 # qualified immutable source revision.
 # it never initializes credentials
 # or starts bootstrap dependencies.
 set -eu
 
-# Current image is verified source fc3f22d0/schema243 on both native platforms.
+# Current image is verified source fe21e691/schema243 on both native platforms.
 # Exact-image Linux populated restore/repeat/rollback and restore-224 lifecycle
 # qualification and final package review remain mandatory before publication.
-package_version=0.1.82
+package_version=0.1.83
 legacy_image='ghcr.io/whirmill/zapbot:umbrel-h4-policy-admission-m1c-b78caf4f292b1de6e7bccf0582616e37a5b928e1@sha256:35afe57a35f8ded8e8618ff6e6b7cabc7e17ca6c1867efd5125fdf78a222a68e'
-current_image='ghcr.io/whirmill/zapbot:umbrel-venue-consumption-fc3f22d0acc0e18a0ce2816c51dbc79c0d3ed297@sha256:fc167509facacd7423ad17c57181873c9b1aa0fd98108e4ace0dcd1ee7dfa4ab'
+current_image='ghcr.io/whirmill/zapbot:umbrel-h4-policy-boundary-fe21e691c91c72db5d1d87ee097ab3fbdae9277b@sha256:34efaeb2e0c8c0151805d54650e5a6cb37ab0777249ad3a1aeab3b6878dd45ff'
 # Run only after full package lifecycle qualification and a reviewed update.
 
 : "${APP_DATA_DIR:?APP_DATA_DIR is required}"
@@ -609,7 +609,7 @@ verify_images() {
 
   for service in release-sql-export migrate; do
     image=$(compose ps -aq "$service" | tail -n 1 | xargs docker inspect -f '{{.Config.Image}}')
-    test "$image" = "$current_image" || { echo "unexpected 0.1.82 release image for $service" >&2; exit 67; }
+    test "$image" = "$current_image" || { echo "unexpected 0.1.83 release image for $service" >&2; exit 67; }
   done
 }
 
@@ -655,9 +655,9 @@ classify_runtime() {
 
   for service in release-sql-export migrate normalize-and-verify; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
-    test -n "$service_id" || { echo "missing completed 0.1.82 bootstrap service: $service" >&2; exit 67; }
+    test -n "$service_id" || { echo "missing completed 0.1.83 bootstrap service: $service" >&2; exit 67; }
     test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$service_id")" = 'exited:0' || {
-      echo "rollback requires completed 0.1.82 bootstrap service: $service" >&2
+      echo "rollback requires completed 0.1.83 bootstrap service: $service" >&2
       exit 67
     }
   done
@@ -665,7 +665,7 @@ classify_runtime() {
   for service in release-sql-export migrate; do
     service_id=$(compose ps -aq "$service" | tail -n 1)
     test "$(docker inspect -f '{{.Config.Image}}' "$service_id")" = "$current_image" || {
-      echo "rollback requires current 0.1.82 release image for $service" >&2
+      echo "rollback requires current 0.1.83 release image for $service" >&2
       exit 67
     }
   done
