@@ -1,3 +1,48 @@
+# ZapBot package 0.1.85 — due-work queue drain
+
+This release targets unchanged schema243/latest `20261006020000`.
+[Source PR635](https://github.com/whirmill/zapbot-exs/pull/635) merged
+`b65c67bb17c57f571687b2ba9650e3659c6db2fb`, tree
+`454ad3f268ae07ed05e471c4684982b46e74a90f`, after independent CLEAN review.
+Oban queue-drain age and backlog now measure due work. Future scheduled jobs
+retain their full state counts but add no negative age or due backlog; timestamps
+or query results with insufficient evidence remain unknown. Observed due-work
+breaches stay visible even when another required projection is unknown. Full state
+and historical failure counts remain separate from due workload. Generic freshness,
+cache TTL, deadlines, DefaultFlat, manage_only and H4OFF boundaries are unchanged.
+No executable admission, transport, canary, activation or trading authority is added.
+
+Exact source CI37462848175 and automatic37462827014 passed all three jobs:
+45 CLI,16 core,2945 API and420 Hub tests with zero failures; API had13 skips
+and90 excluded cases, Hub had7 excluded cases. Frontend checks passed500 Vitest
+and32 browser tests. Full PG18 schema243 fresh/upgrade/ten-row ownerless/224
+restore checks passed. Separate36 focused tests on disposable PG18 and a paired
+1.2-million-row synthetic benchmark support the regression:54 old queries versus
+2 batched queries. These are isolated measurements, not current production SLO
+proof. OPS021 addresses the negative due-age regression; OPS009 timeout and
+M1c/OPS020 remain open. Monitor SLO closure and canary authority are not claimed.
+
+Native amd64/arm64 image run37464508847 passed all four jobs. Independent
+registry bytes, native indices, configs, OCI/build SHA, SLSAv1 source/builder/
+arguments and SPDX subjects match. All twelve pins, attestor digest and current
+rollback image use:
+
+`ghcr.io/whirmill/zapbot:umbrel-queue-drain-due-b65c67bb17c57f571687b2ba9650e3659c6db2fb@sha256:12d9501edd2189943a724986de85c8f0c5ed1f679b6a22024d930d2dde9022ba`
+
+Package Linux qualification is **PENDING** on this exact new image. The unchanged
+fixture and harness must prove ten whole rows through243 restart/ownerless
+thirteen-helper NULL-ACL normalization,241→242nine→243ten upgrade and224 restore.
+Keep the existing actual old0.1.81-on243 compatibility probe under its accurate
+name; it does not claim old0.1.84 compatibility. Each of six projects must show
+initial/final container, network and volume absence, successful teardown, absent
+compatibility resources/cleaner and fixture removal before aggregate PASS.
+All migration, export, predicate, posture and fixture inputs are unchanged.
+The PG18 pin and historical0.1.46 tail remain preserved; that tail grants no
+rollback approval. No backup, credential, flag or risk-setting change is included.
+OPS-010 real fresh empty-PGDATA startup remains unqualified.
+
+Previous package notes follow unchanged.
+
 # ZapBot package 0.1.84 — canonical technical H4 policy
 
 This release targets unchanged schema243/latest `20261006020000`.
