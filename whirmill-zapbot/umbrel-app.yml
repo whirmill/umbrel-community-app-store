@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.83"
+version: "0.1.84"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,17 +23,19 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Version 0.1.83 closes generic H4 authority bypasses before command or
-  reservation effects, including conflicting declarations and mirror replay.
-  H4 remains default OFF. Dedicated positive atomic policy admission,
-  reservation, VENUE consumption and mandatory transport remain unavailable;
-  no live enrollment, activation, provider action or increased authority is added.
-  Source PR631 merged fe21e691c91c72db5d1d87ee097ab3fbdae9277b after corrected
-  CLEAN review and full exact source CI37414479128 plus separate automatic CI.
-  Native amd64/arm64 image run37415478242 and independent registry OCI,
-  SLSAv1 and SPDX checks verified the same source. All twelve application pins,
-  attestor digest and current rollback image use the immutable verified index.
-  Schema 243 through 20261006020000, migration and fixture contracts are unchanged.
-  Exact package Linux lifecycle and final package review remain required before
-  publication or managed installation. Risk, credential and default-OFF boundaries
-  are unchanged. OPS-010 real fresh empty-PGDATA startup remains unqualified.
+  Version 0.1.84 adds a typed canonical technical H4 policy and plan for
+  Donchian120/ATR20 with no take-profit, integrated into DecisionCore reducer
+  state and a durable causal cursor. The Engine rejects executor commands for
+  this technical policy. Executable atomic admission, reservation and mandatory
+  transport remain future work; no live qualification or activation is added.
+  DefaultFlat, manage_only and H4 default OFF boundaries are preserved.
+  Source PR633 merged 745b7c383667caf921ec55f06496aec63136c607 after corrected
+  independent CLEAN review and exact CI37439997555 plus automatic CI37439520028.
+  Initial test-loading failures remain preserved; normal compiled fixture support
+  fixes the cross-test dependency. Native amd64/arm64 image run37441564076 and
+  independent registry OCI, SLSAv1 and SPDX checks verify the same source.
+  All twelve application pins, attestor digest and current rollback image use
+  the immutable verified index. Schema243 through20261006020000 and fixtures
+  are unchanged. Exact new-image Linux lifecycle and final package review remain
+  required before publication or managed installation. OPS-010 real fresh
+  empty-PGDATA startup remains unqualified. Risk and credential settings are unchanged.
