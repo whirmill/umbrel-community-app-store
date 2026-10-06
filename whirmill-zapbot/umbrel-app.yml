@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.85"
+version: "0.1.86"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,20 +23,23 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Version 0.1.85 corrects Oban queue-drain measurements to use due work.
-  Future scheduled jobs retain their state counts but contribute no negative
-  queue age or due backlog. Unknown timestamp or query evidence remains unknown;
-  an observed due-work breach remains visible. Full state and historical failure
-  counts remain separate from due workload. Generic freshness, cache TTL,
-  deadlines, H4 boundaries and trading authority are unchanged.
-  Source PR635 merged b65c67bb17c57f571687b2ba9650e3659c6db2fb after independent
-  CLEAN review and full exact CI37462848175 plus automatic CI37462827014.
-  Separate disposable PG18 focused tests and a paired 1.2-million-row benchmark
-  support the correction; they do not close live Monitor SLOs or OPS009 timeout.
-  Native amd64/arm64 image run37464508847 and independent registry OCI, SLSAv1
+  Version 0.1.86 adds bounded retained Trusted V2 statement timing diagnostics.
+  The four allowlisted statements retain start and terminal state with scoped
+  Repo queue, query and decode timing through existing read-only Monitor RPC/CLI.
+  Canceled, unknown and partial observations remain explicit. No extra SQL,
+  query text, parameters or credentials are exposed. Deadlines, pool sizing,
+  cache, authority gates, H4 OFF and manage_only remain unchanged.
+  Source PR637 merged 3681b1bd867c9dcd92f658a81131f5eb57987e01 after corrected
+  independent CLEAN review and exact CI37498361055 plus automatic CI37498344206.
+  Initial review findings and fixture failures remain preserved. Separate
+  disposable PG18 targeted85 and cold16/16 tests, physical pool timing and
+  cancellation proof support diagnostics; full normal CI also passed.
+  Native amd64/arm64 image run37500187377 and independent registry OCI, SLSAv1
   and SPDX checks verify the same source. All twelve application pins, attestor
   digest and current rollback image use the immutable verified index.
   Schema243 through20261006020000 and fixtures are unchanged. Exact new-image
   Linux lifecycle and final package review remain required before publication
-  or managed installation. OPS-010 real fresh empty-PGDATA startup remains
-  unqualified. No canary, activation, risk or credential-setting change is included.
+  or managed installation. OPS009 cause, prepared skew and live p95 remain open;
+  no optimization causality, live SLO qualification or H4 activation is claimed.
+  OPS-010 real fresh empty-PGDATA startup remains unqualified. Risk and credential
+  settings are unchanged.

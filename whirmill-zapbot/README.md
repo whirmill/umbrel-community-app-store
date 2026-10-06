@@ -1,3 +1,48 @@
+# ZapBot package 0.1.86 — bounded Trusted V2 timing attribution
+
+This release targets unchanged schema243/latest `20261006020000`.
+[Source PR637](https://github.com/whirmill/zapbot-exs/pull/637) merged
+`3681b1bd867c9dcd92f658a81131f5eb57987e01`, tree
+`087c3cd34a81f6f78d446a91570a0608da148c3f`, after corrected independent CLEAN review.
+The four allowlisted Trusted V2 statements retain start/terminal observations and
+scoped Repo queue/query/decode timing. Existing read-only Monitor RPC/CLI exposes
+these bounded diagnostics with canceled, unknown and partial states explicit.
+No extra SQL, query text, parameters, credentials or provider calls are added.
+Deadlines, pool sizing, cache and authority gates remain unchanged; H4 OFF,
+DefaultFlat and manage_only stay preserved. OPS009 cause, prepared skew and live
+p95 remain open. No optimization causality, live SLO qualification, canary,
+H4 activation or increased trading authority is claimed.
+
+Exact source CI37498361055 and automatic37498344206 passed all three jobs:
+45 CLI,16 core,2961 API and420 Hub tests with zero failures; API had13 skips
+and90 excluded cases, Hub had7 excluded cases. Frontend checks passed500 Vitest
+and32 browser tests. Full PG18 schema243 fresh/upgrade/ten-row ownerless/224
+restore checks passed. Separate85 targeted tests on disposable PG18, cold16/16
+cases, physical Repo pool timing and cancellation tests support diagnostic
+behavior; those isolated observations do not establish production p95 or causality.
+Original review P2 findings and fixture failures remain retained after correction.
+
+Native amd64/arm64 image run37500187377 passed all four jobs. Independent
+registry bytes, native indices, configs, OCI/build SHA, SLSAv1 source/builder/
+arguments and SPDX subjects match. All twelve pins, attestor digest and current
+rollback image use:
+
+`ghcr.io/whirmill/zapbot:umbrel-trusted-v2-attribution-3681b1bd867c9dcd92f658a81131f5eb57987e01@sha256:3872bffef700869fb4b9e69813547cae76c56c73b1732a23c69b961cad1ae534`
+
+Package Linux qualification is **PENDING** on this exact new image. The unchanged
+fixture and harness must prove ten whole rows through243 restart/ownerless
+thirteen-helper NULL-ACL normalization,241→242nine→243ten upgrade and224 restore.
+Keep the existing actual old0.1.81-on243 compatibility probe under its accurate
+name; it does not claim old0.1.85 compatibility. Each of six projects must show
+initial/final container, network and volume absence, successful teardown, absent
+compatibility resources/cleaner and fixture removal before aggregate PASS.
+All migration, export, predicate, posture and fixture inputs are unchanged.
+The PG18 pin and historical0.1.46 tail remain preserved; that tail grants no
+rollback approval. No backup, credential, flag or risk-setting change is included.
+OPS-010 real fresh empty-PGDATA startup remains unqualified.
+
+Previous package notes follow unchanged.
+
 # ZapBot package 0.1.85 — due-work queue drain
 
 This release targets unchanged schema243/latest `20261006020000`.
