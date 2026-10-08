@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.1.2"
+version: "0.1.3"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -25,6 +25,8 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Initial M1 POC. Fee and rebalance executor only; no automatic channel,
-  swap or marketplace operations. Explicit partial accounting and historical
-  import, durable recovery without uncertain payment replay.
+  Version 0.1.3 explicitly applies high reasoning effort to every GPT-6.1 Sol
+  agent run and displays the reasoning level in the model section.
+  Fee and rebalance executor only; no automatic channel, swap or marketplace
+  operations. Retains partial accounting, historical import and durable
+  recovery without uncertain payment replay.

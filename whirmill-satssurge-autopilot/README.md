@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-M1 mainnet POC using Pi Durable 1.1.0 and subscription-only ChatGPT OAuth. No regtest, paid API fallback, shell tool, unrestricted RPC, channel opening, close, swap or Magma transaction is exposed to the agent.
+M1 mainnet POC using Pi Durable 1.1.0 and subscription-only ChatGPT OAuth. Reasoning effort is explicitly `high`, visible in the model section and applied to every agent run. No regtest, paid API fallback, shell tool, unrestricted RPC, channel opening, close, swap or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
