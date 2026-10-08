@@ -20,4 +20,6 @@ ChatGPT OAuth completed through manual callback, never persisted as evidence. Se
 
 Patch0.1.2 adds a public answer projection: only final assistant text crosses chat API/UI, excluding internal thinking/provider metadata for both new and legacy messages; original durable evidence remains private. Regression test added. Do not claim realnode financial execution/economics tested before it is. Fee experiment evaluation is noncausal M1 contribution; richer comparable price evaluation belongs M2. Credentials/private history must never enter Git/tool outputs.
 
-Remaining: publish/deploy final patch, verify linger/no-login freshness and OAuth/model/durable restart, then record final receipts.
+Final patch published: satssurge-autopilot-v0.1.2 at11601ee472f97af9065ca3ea33318c8dad30d9a2; CI https://github.com/whirmill/umbrel-community-app-store/actions/runs/37836258031 passed15tests, amd64/arm64. OCI index ghcr.io/whirmill/umbrel-satssurge-autopilot:0.1.2@sha256:b5c697d15e42f7e7c8c58fed9dd8442789f3613cbcda5f7d398fbaf6c1bb9bee verified anonymous, exact revision. Compose pinned. Linger=yes verified; gate remains fresh after logout, collector returns bootstrapReady true/no blockers. Pending open/closing/forceclose/waitingclose all0. No financial app operations recorded.
+
+Remaining: deploy final patch, verify OAuth/model/durable restart, then record final receipts.
