@@ -37,14 +37,14 @@ export class Lnd implements NodeClient {
     });
   }
   async snapshot():Promise<Snapshot> {
-    const [info,wallet,list]=await Promise.all([this.call('/v1/getinfo'),this.call('/v1/balance/blockchain'),this.call('/v1/channels')]);
+    const [info,wallet,list]=await Promise.all([this.call('/v1/getinfo'),this.call('/v1/balance/blockchain'),this.call('/v1/channels?peer_alias_lookup=true')]);
     if(!Array.isArray(list.channels) || typeof info.identity_pubkey!=='string' || wallet.confirmed_balance===undefined)throw new Error('Incompatible LND snapshot schema');
     const channels:Channel[]=[];
     for(const c of list.channels??[]) {
       const edge=await this.call('/v1/graph/edge/'+c.chan_id);
       const p=edge.node1_pub===info.identity_pubkey?edge.node1_policy:edge.node2_policy;
       if(!p)throw new Error('Missing local graph policy');
-      channels.push({id:String(c.chan_id),point:c.channel_point,peer:c.remote_pubkey,alias:c.peer_alias??c.remote_pubkey.slice(0,12),active:c.active===true,capacitySat:String(c.capacity),localSat:String(c.local_balance),remoteSat:String(c.remote_balance),reserveSat:String(c.local_constraints?.chan_reserve_sat??0),pendingSat:(c.pending_htlcs??[]).reduce((n:bigint,h:any)=>n+integer(h.amount),0n).toString(),baseMsat:String(p.fee_base_msat),ppm:Number(p.fee_rate_milli_msat),cltv:Number(p.time_lock_delta),minMsat:String(p.min_htlc),maxMsat:String(p.max_htlc_msat)});
+      channels.push({id:String(c.chan_id),point:c.channel_point,peer:c.remote_pubkey,alias:c.peer_alias||c.remote_pubkey.slice(0,12),active:c.active===true,capacitySat:String(c.capacity),localSat:String(c.local_balance),remoteSat:String(c.remote_balance),reserveSat:String(c.local_constraints?.chan_reserve_sat??0),pendingSat:(c.pending_htlcs??[]).reduce((n:bigint,h:any)=>n+integer(h.amount),0n).toString(),baseMsat:String(p.fee_base_msat),ppm:Number(p.fee_rate_milli_msat),cltv:Number(p.time_lock_delta),minMsat:String(p.min_htlc),maxMsat:String(p.max_htlc_msat)});
     }
     return {at:now(),identity:info.identity_pubkey,synced:info.synced_to_chain===true&&info.synced_to_graph===true,confirmedSat:String(wallet.confirmed_balance),channels};
   }
