@@ -1,19 +1,511 @@
+# ZapBot package 0.1.86 — bounded Trusted V2 timing attribution
+
+This release targets unchanged schema243/latest `20261006020000`.
+[Source PR637](https://github.com/whirmill/zapbot-exs/pull/637) merged
+`3681b1bd867c9dcd92f658a81131f5eb57987e01`, tree
+`087c3cd34a81f6f78d446a91570a0608da148c3f`, after corrected independent CLEAN review.
+The four allowlisted Trusted V2 statements retain start/terminal observations and
+scoped Repo queue/query/decode timing. Existing read-only Monitor RPC/CLI exposes
+these bounded diagnostics with canceled, unknown and partial states explicit.
+No extra SQL, query text, parameters, credentials or provider calls are added.
+Deadlines, pool sizing, cache and authority gates remain unchanged; H4 OFF,
+DefaultFlat and manage_only stay preserved. OPS009 cause, prepared skew and live
+p95 remain open. No optimization causality, live SLO qualification, canary,
+H4 activation or increased trading authority is claimed.
+
+Exact source CI37498361055 and automatic37498344206 passed all three jobs:
+45 CLI,16 core,2961 API and420 Hub tests with zero failures; API had13 skips
+and90 excluded cases, Hub had7 excluded cases. Frontend checks passed500 Vitest
+and32 browser tests. Full PG18 schema243 fresh/upgrade/ten-row ownerless/224
+restore checks passed. Separate85 targeted tests on disposable PG18, cold16/16
+cases, physical Repo pool timing and cancellation tests support diagnostic
+behavior; those isolated observations do not establish production p95 or causality.
+Original review P2 findings and fixture failures remain retained after correction.
+
+Native amd64/arm64 image run37500187377 passed all four jobs. Independent
+registry bytes, native indices, configs, OCI/build SHA, SLSAv1 source/builder/
+arguments and SPDX subjects match. All twelve pins, attestor digest and current
+rollback image use:
+
+`ghcr.io/whirmill/zapbot:umbrel-trusted-v2-attribution-3681b1bd867c9dcd92f658a81131f5eb57987e01@sha256:3872bffef700869fb4b9e69813547cae76c56c73b1732a23c69b961cad1ae534`
+
+Package Linux qualification is **PENDING** on this exact new image. The unchanged
+fixture and harness must prove ten whole rows through243 restart/ownerless
+thirteen-helper NULL-ACL normalization,241→242nine→243ten upgrade and224 restore.
+Keep the existing actual old0.1.81-on243 compatibility probe under its accurate
+name; it does not claim old0.1.85 compatibility. Each of six projects must show
+initial/final container, network and volume absence, successful teardown, absent
+compatibility resources/cleaner and fixture removal before aggregate PASS.
+All migration, export, predicate, posture and fixture inputs are unchanged.
+The PG18 pin and historical0.1.46 tail remain preserved; that tail grants no
+rollback approval. No backup, credential, flag or risk-setting change is included.
+OPS-010 real fresh empty-PGDATA startup remains unqualified.
+
+Previous package notes follow unchanged.
+
+# ZapBot package 0.1.85 — due-work queue drain
+
+This release targets unchanged schema243/latest `20261006020000`.
+[Source PR635](https://github.com/whirmill/zapbot-exs/pull/635) merged
+`b65c67bb17c57f571687b2ba9650e3659c6db2fb`, tree
+`454ad3f268ae07ed05e471c4684982b46e74a90f`, after independent CLEAN review.
+Oban queue-drain age and backlog now measure due work. Future scheduled jobs
+retain their full state counts but add no negative age or due backlog; timestamps
+or query results with insufficient evidence remain unknown. Observed due-work
+breaches stay visible even when another required projection is unknown. Full state
+and historical failure counts remain separate from due workload. Generic freshness,
+cache TTL, deadlines, DefaultFlat, manage_only and H4OFF boundaries are unchanged.
+No executable admission, transport, canary, activation or trading authority is added.
+
+Exact source CI37462848175 and automatic37462827014 passed all three jobs:
+45 CLI,16 core,2945 API and420 Hub tests with zero failures; API had13 skips
+and90 excluded cases, Hub had7 excluded cases. Frontend checks passed500 Vitest
+and32 browser tests. Full PG18 schema243 fresh/upgrade/ten-row ownerless/224
+restore checks passed. Separate36 focused tests on disposable PG18 and a paired
+1.2-million-row synthetic benchmark support the regression:54 old queries versus
+2 batched queries. These are isolated measurements, not current production SLO
+proof. OPS021 addresses the negative due-age regression; OPS009 timeout and
+M1c/OPS020 remain open. Monitor SLO closure and canary authority are not claimed.
+
+Native amd64/arm64 image run37464508847 passed all four jobs. Independent
+registry bytes, native indices, configs, OCI/build SHA, SLSAv1 source/builder/
+arguments and SPDX subjects match. All twelve pins, attestor digest and current
+rollback image use:
+
+`ghcr.io/whirmill/zapbot:umbrel-queue-drain-due-b65c67bb17c57f571687b2ba9650e3659c6db2fb@sha256:12d9501edd2189943a724986de85c8f0c5ed1f679b6a22024d930d2dde9022ba`
+
+Package Linux qualification is **PENDING** on this exact new image. The unchanged
+fixture and harness must prove ten whole rows through243 restart/ownerless
+thirteen-helper NULL-ACL normalization,241→242nine→243ten upgrade and224 restore.
+Keep the existing actual old0.1.81-on243 compatibility probe under its accurate
+name; it does not claim old0.1.84 compatibility. Each of six projects must show
+initial/final container, network and volume absence, successful teardown, absent
+compatibility resources/cleaner and fixture removal before aggregate PASS.
+All migration, export, predicate, posture and fixture inputs are unchanged.
+The PG18 pin and historical0.1.46 tail remain preserved; that tail grants no
+rollback approval. No backup, credential, flag or risk-setting change is included.
+OPS-010 real fresh empty-PGDATA startup remains unqualified.
+
+Previous package notes follow unchanged.
+
+# ZapBot package 0.1.84 — canonical technical H4 policy
+
+This release targets unchanged schema243/latest `20261006020000`.
+[Source PR633](https://github.com/whirmill/zapbot-exs/pull/633) merged
+`745b7c383667caf921ec55f06496aec63136c607`, tree
+`2ca8a4be958c8f63a0cf3176c066a7ea9efb132b`, after independent CLEAN review.
+Typed canonical H4 policy/plan state uses Donchian120/ATR20 and no take-profit.
+DecisionCore integrates the technical state into its reducer and durable causal
+cursor; the Engine rejects executor commands for this policy. DefaultFlat,
+manage_only and H4OFF remain preserved. Positive executable atomic admission,
+reservation and mandatory transport remain future work. No live qualification,
+enrollment, activation or increased authority is added.
+
+Corrected exact source CI37439997555 and automatic37439520028 passed all three
+jobs:45 CLI,16 core,2938 API and420 Hub tests with zero failures; API had13
+skips, including explicitly gated standalone cases. Independent24 pure core/codec tests,64 pure regressions and3 physical
+nativePG17 persistence/concurrency tests remain distinct from full PG18 CI. Both initial735f CI attempts
+failed three plan tests because another test module was unavailable. Their logs
+remain preserved; compiled fixture support fixes that loading dependency.
+Full PG18 schema243 fresh/upgrade/ten-row ownerless/224 restore checks passed.
+
+Native amd64/arm64 image run37441564076 passed all four jobs. Independent
+registry bytes, native indices, configs, OCI/build SHA, SLSAv1 source/builder/
+arguments and SPDX subjects match. All twelve pins, attestor digest and current
+rollback image use:
+
+`ghcr.io/whirmill/zapbot:umbrel-h4-canonical-policy-745b7c383667caf921ec55f06496aec63136c607@sha256:26453c0b96511b26ea5087ccdb97933a7153f2f17f66e2a7722f517b5b8644c6`
+
+Package Linux qualification is **PENDING** on this exact new image. The unchanged
+fixture and harness must prove ten whole rows through243 restart/ownerless
+thirteen-helper NULL-ACL normalization,241→242nine→243ten upgrade and224 restore.
+Keep the existing actual old0.1.81-on243 compatibility probe under its accurate
+name; it does not claim old0.1.83 compatibility. Each of six projects must show
+initial/final container, network and volume absence, successful teardown, absent
+compatibility resources/cleaner and fixture removal before aggregate PASS.
+All migration, export, predicate, posture and fixture inputs are unchanged.
+The PG18 pin and historical0.1.46 tail remain preserved; that tail grants no
+rollback approval. No backup, credential, flag or risk-setting change is included.
+OPS-010 real fresh empty-PGDATA startup remains unqualified.
+
+Previous package notes follow unchanged.
+
 # ZapBot on Umbrel — restart-safe package
 
-Package revision `0.1.57` pins ZapBot source revision
-`2ad9fa0fa6ae2efd3492668637df1f2a49e92af1`. Its released schema ledger remains at 230 migrations through
-`20260910100000_create_lnm_account_identity_bindings`. The lightweight Operator
-Posture health path omits unused learning computation. Command-failure enrichment
-skips JSON extraction when the typed column takes precedence. SQL NULL and
-preflight JSON null retain the existing fallback and classification. It changes no
-global deadline, cache TTL, pool, schema, risk, or authority setting and does not
-activate trading. These changes do not resolve OPS002 transport, and OPS009
-performance remains pending normal-browser qualification. OPS010 fresh-bootstrap
-follow-up also remains open. Lightweight health has a distinct cache key; full
-health keeps its existing key and TTL. H4 economics acquisition
-remains bounded to 20 seconds and the H4 CLI keeps a 30-second HTTP receive
-timeout as headroom; neither bound guarantees completion. H4 admission remains
-default-disabled and `manage_only`.
+Package revision **0.1.83** targets unchanged schema243/latest
+`20261006020000`. [Source PR631](https://github.com/whirmill/zapbot-exs/pull/631)
+merged `fe21e691c91c72db5d1d87ee097ab3fbdae9277b`, tree
+`f375aa5307e1688fdc3197fa5bf0e5e1984419e4`, after corrected independent CLEAN review.
+Dormant H4 guards reject generic positive command/reservation paths and
+conflicting declarations before effects, including canonical claim/mirror replay
+and Hub dispatch. H4 remains default OFF. Dedicated positive atomic policy
+admission/reservation/VENUE consumption and mandatory transport are still future
+work; no live authority, enrollment, provider transport or activation is granted.
+Protective non-H4 behavior and historical evidence remain preserved.
+
+Exact source CI37414479128 and automatic37414471629 passed all three jobs,
+including PG18 schema243 fresh/upgrade/ten-row ownerless restore. Actual backend
+results:45 CLI,16 core,2922 API and420 Hub tests with zero failures. API had10
+skips, including nine explicitly gated standalone native cases; their corrected
+nativePG17 nine-case proof is separate. Source also passed64 pure regressions
+and three original-map ingress/guard audit cases. Original P2 findings and
+reproduction receipts remain retained after correction.
+
+Native amd64/arm64 image run37415478242 passed all four jobs; registry byte
+hashes, native platform indices, runtime configs, OCI/build SHA, SLSAv1 source/
+builder/arguments and SPDX subjects independently match. All twelve application
+pins, attestor digest and current rollback image use:
+
+`ghcr.io/whirmill/zapbot:umbrel-h4-policy-boundary-fe21e691c91c72db5d1d87ee097ab3fbdae9277b@sha256:34efaeb2e0c8c0151805d54650e5a6cb37ab0777249ad3a1aeab3b6878dd45ff`
+
+Package Linux qualification is **PENDING** on this new exact image. Reuse the
+unchanged ten-row fixture, thirteen-helper/four-contract ownerless checks,
+241→242nine→243ten upgrades,224 restore, restart and runtime posture assertions;
+retain the actual old0.1.81-on243 compatibility probe under its accurate name.
+The previous0.1.82 package proof does not qualify this new image. Every six-project
+container/network/volume inventory and named cleaner must be absent, with
+fixture removal complete before final PASS. Existing migration, SQL predicates,
+normalizer and fixtures are unchanged. The PG18 pin and legacy0.1.46 tail are
+preserved; that historical tail is not approval to run a rollback. No backup,
+production credential, flag or risk-setting change is included. OPS-010 real
+fresh empty-PGDATA startup remains unqualified.
+
+The following0.1.82 record is preserved verbatim as preceding-release history;
+its pending/installed statements describe that earlier record.
+
+Package revision **0.1.82** targets schema 243/latest `20261006020000`.
+[Source PR629](https://github.com/whirmill/zapbot-exs/pull/629) merged
+`fc3f22d0acc0e18a0ce2816c51dbc79c0d3ed297`, tree
+`26f66a34419f886adfe41ad150ee32f0b3c441ae`, after independent CLEAN review.
+The additive fourth VENUE table permanently records a single-use consumption;
+physical COMMIT readback, original canonical bytes, identifiers and physical
+clocks bind its receipt. It adds no live consumer, callback, HTTP consumption,
+provider transport or current capability. Aggregate qualifications remain false.
+
+Exact source CI37394735846 and separate automatic PR CI37394726216 passed
+all three jobs. Actual PG18 checks retained nine original schema242 rows through
+243 and ten complete rows across ownerless restore, including thirteen explicitly
+named VENUE helpers and NULL ACL normalization. Native amd64/arm64 image run
+37395651977 passed all four jobs. Registry bytes, OCI revision/build SHA,
+SLSAv1 provenance and SPDX subjects independently match the runtime manifests.
+All twelve application pins, attestor digest and current rollback image use:
+
+`ghcr.io/whirmill/zapbot:umbrel-venue-consumption-fc3f22d0acc0e18a0ce2816c51dbc79c0d3ed297@sha256:fc167509facacd7423ad17c57181873c9b1aa0fd98108e4ace0dcd1ee7dfa4ab`
+
+Package Linux qualification is **PENDING**. The isolated fixture must retain all
+ten original rows through upgrade, restore and restart, boot the previous0.1.81
+API/Repo against upgraded schema243 with dummy credentials/internal networking,
+and report the new nested runtime contract boolean. Every owned project must
+have independently empty container, network and volume inventories, the named
+cleaner must be absent, and fixture removal must finish before final PASS.
+Local pure/mock checks do not qualify installation or OPS-010 real Umbrel
+fresh-PGDATA startup. No backups, destructive downgrade, live binding, key
+provisioning or risk-setting change is part of this release. The legacy0.1.46
+compatibility tail is retained history, not approval to run a rollback.
+
+The following0.1.81 record is preserved verbatim as preceding-release history;
+its pending/installed statements describe that earlier record.
+
+Package revision **0.1.81** targets schema 242/latest `20261006010000`.
+[Source PR627](https://github.com/whirmill/zapbot-exs/pull/627) merged as
+`257a3783e9741bb68cfe86fbe1b570a988eb5e6d`, tree
+`8e4da45ee72d9330985db54ca7c537f6cd0b084b`, after final independent CLEAN review.
+[Exact source CI37374666540](https://github.com/whirmill/zapbot-exs/actions/runs/37374666540)
+passed all three jobs: 45/16/2885/417 umbrella tests with zero failures,
+one skipped and 97 excluded; 500 frontend unit tests, 32 browser tests and
+19+3+10 routine/harness/wrapper tests. The first dispatched backend and automatic
+PR frontend jobs failed hosted-runner acquisition before any steps; those
+receipts remain retained. One authorized failed-job retry passed on the same
+head. Actual PG18 checks passed fresh/restart schema242, 224-to-241-to-242,
+retained six-row 241 graph, retained three-row VENUE graph, ownerless242 VENUE
+slice and ownerless224 restore. Client18.6 and service-server18.4 are separate.
+
+[Native image build37377964791](https://github.com/whirmill/zapbot-exs/actions/runs/37377964791)
+passed all four jobs. All twelve app images, the attestor digest and current
+rollback image pin
+`ghcr.io/whirmill/zapbot:umbrel-venue-domain-storage-257a3783e9741bb68cfe86fbe1b570a988eb5e6d`
+at index `sha256:4a8806a277dc9481ec7e09be7931f692ccb858bb8dec0ae97e44e1ba7a53a9ed`.
+The SHA alias matches. Native amd64 manifest
+`sha256:70b8b1a159795fe638e0cd11d9ab0f1988bac7176f2033f943809b72a386f53a`
+and arm64 manifest
+`sha256:1fd87da3a1aa2b1e5dc5c971719f92282c9e52f9933b0ca72faeb4c610a013b0`
+were independently verified with config/OCI/build SHA, SLSAv1 source, build
+arguments, builder and subjects, and SPDX subjects. PG18 and legacy0.1.46
+rollback pins are unchanged. The installed0.1.80/ca692ab6 image remains a
+separate actual application-boot compatibility fixture; legacy tail/sleep
+processes do not qualify that boot.
+
+The increment stores separate immutable `lnm_prepared_intent_venue_pins`,
+`lnm_prepared_intent_venue_profiles` and `lnm_prepared_intent_venue_bindings`.
+Its exact predicate covers owner-only table/column/function ACLs (including
+NULL function ACL), helper bodies, columns, constraints, indexes and nine
+ALWAYS trigger bindings. Stored identity includes original canonical/signed
+bytes and physical registration clocks. The package mirror verifies copied
+source fixture hashes and historical profile/parent/wire signatures at the
+original12:00Z clock; current validity and consumption remain false, authority
+none. It never turns historical verification into fresh capability.
+
+This candidate is **uninstalled**. Exact-image Linux qualification and final
+package review remain required before publication or an existing-data update.
+The schema241 route retains all original six consumption rows through the
+additive migration, adds three VENUE rows, then verifies restart retention.
+The schema224 restore route advances to242, seeds nine rows and verifies
+restart. Current ownerless242 restore retains all nine whole rows. It separately boots the installed0.1.80 API/Repo against the upgraded
+nonempty schema with dummy runtime credentials and an internal-only network,
+no internal consumers or background jobs, then proves exact resource cleanup.
+New-image boot must report the nested runtime contract boolean true. These
+Linux templates remain **NOT RUN**; static/mock tests and source CI do not
+qualify application installation. No consumer, callback, HTTP consumption,
+provider action, enrollment, real key, risk-setting change or backup is added.
+Aggregate qualifications remain false. Fresh empty-PGDATA remains **BLOCKED**
+by OPS-010.
+
+The following0.1.80 evidence is retained verbatim as preceding-release history;
+its pending/installed statements describe that earlier record.
+
+Package revision **0.1.80** targets schema 241/latest `20261005020000`,
+including eleven exact consumption-contract helpers. Source PR622 merged
+`ca692ab6e81951a1d7875b41220cc4bde3808275` (tree
+`e5e6e8f088b294a123259169b8af5a6dc060cd87`) after corrected CLEAN review.
+[Source CI37273039224](https://github.com/whirmill/zapbot-exs/actions/runs/37273039224)
+passed all three jobs: 3287 backend tests, one skipped and 97 excluded;
+500 frontend unit tests, 32 browser tests and 19 coordination checks. Actual
+PostgreSQL18 fresh schema241, upgrade224 and ownerless restore224 passed.
+
+[Image build37273797921](https://github.com/whirmill/zapbot-exs/actions/runs/37273797921)
+passed all four jobs. All twelve app images, the attestor digest and rollback
+current image now pin `ghcr.io/whirmill/zapbot:umbrel-precall-consumption-ca692ab6e81951a1d7875b41220cc4bde3808275`
+at index `sha256:17ff13fb9ee14eb06f825d98f15d99e3cb3144c1c2f10b8d1a551664addbeed3`.
+The native amd64 manifest is `sha256:aaec85d147ffddd5b1346bac9e4c9ac94c57ebbc9f6fbf17520461734e1de19d`;
+arm64 is `sha256:224294badfb29caf7aaf5f9105286adfec3d3c664127be2fe10631987c329432`.
+Both OCI/build revisions and SLSAv1 provenance match the exact source and
+workflow. The first read-only verifier assumed obsolete SLSAv0.2 (session10328);
+corrected v1 verification passed (session59884), without rebuilding. The legacy
+0.1.46 rollback runtime pin remains unchanged.
+
+This release is uninstalled. Exact-image Linux populated six-table ownerless
+restore/repeat/rollback, historical signature verification, retained single-use
+checks, restore224 and final package review remain required before publication.
+The native PostgreSQL17 six-row cryptographic retention proof is separate from
+those pending Linux gates. Dormant owner-only immutable consumption storage and
+the default-OFF create_order guard confer no producer LOGIN or live authority. Current `.invalid` fixtures do not qualify provider execution.
+Fresh empty-PGDATA remains **BLOCKED** by OPS-010. First source CI37271930151 and
+preceding-package attestor CI37253476560 failures retain their original evidence.
+
+The disposable Linux lifecycle mounts the exact copied SQL/public JSON/Elixir
+checker assets into a fresh exact-image release eval. To honor their explicit
+local-test guards, it temporarily renames only the owned, client-free lifecycle
+database to `zapbot_test_package_consumption`, checks the same database OID and
+restores its name on success or failure. It never terminates other clients.
+The checker starts database/crypto dependencies without API, Hub, producers or
+account credentials. An exclusive whole-row baseline is captured after seeding
+and compared after actual ownerless restore, repeated initialization and software
+rollback. Historical profile/parent/wire signature reverification is separate
+from current expiry rejection; retained consumption is independently read back
+and a second SQL claim must fail uniqueness. No current admission, provider
+transport, live resend or production backup qualification is inferred. These
+exact-image Linux checks are implemented templates and remain **NOT RUN**.
+Verified source/image receipts now exist; Linux qualification and final package
+review remain pending.
+
+The following0.1.79 evidence is retained as preceding-release history:
+
+Package revision **0.1.79** targets schema 240 through `20261005010000`
+with the verified immutable precall-bindings source image. Source review/CI
+and both native image architectures passed. Exact-image Linux package
+lifecycle with restore-224 and final package review remain required before
+publication, package merge or an existing-data update. No package lifecycle,
+package merge or installation receipt is claimed here.
+
+First package CI37253476560 rejected the attestor's stale preceding-image
+`ZAPBOT_RELEASE_IMAGE_DIGEST` at the package image-pin guard before image pull
+or any Docker lifecycle. Its job logs and artifact remain preserved. The
+attestor now pins the same verified index as the twelve app images and rollback
+current image. A new exact-image Linux lifecycle and review are still required.
+Fresh empty-PGDATA installation remains **BLOCKED** by OPS-010.
+
+Source [PR620](https://github.com/whirmill/zapbot-exs/pull/620) merged as
+`4d84efb20d9c5f58859456078c288afb89bc353b`, tree
+`9397249242bd7f98a1fe35a924beea9abdbb1e1f`, after CLEAN review of the final
+19 source files. Exact source [CI37251509725](https://github.com/whirmill/zapbot-exs/actions/runs/37251509725)
+passed all three jobs: 3261 backend tests passed, 1 skipped and 97 excluded;
+500 frontend unit tests, 32 browser tests and 19 coordination checks passed.
+PostgreSQL 18 fresh migration, schema-224 upgrade and ownerless schema-224
+restore passed at schema 240/latest `20261005010000`. The earlier failed
+CI37249667827 remains preserved as diagnostic evidence.
+
+Native [image build37252166877](https://github.com/whirmill/zapbot-exs/actions/runs/37252166877)
+passed all four jobs, including both native architectures and registry index
+verification. The immutable tag
+`umbrel-precall-bindings-4d84efb20d9c5f58859456078c288afb89bc353b`
+and `sha-4d84efb20d9c5f58859456078c288afb89bc353b` alias resolve to index
+`sha256:f3747d99ef5876e3470e2538b11ccb26114e174dc76683a9dc0d9e32b64f4c51`.
+The linux/amd64 manifest is
+`sha256:d41e50f0fd48f54cfcdd35f8e6ffa1ff1635a885c39780c8f282e03274178f67`;
+the linux/arm64 manifest is
+`sha256:95bda5dfe0794ef244b9c82aaa040422d9ed926c6cd0d25a6037b4d3f0e8858e`.
+Raw index hashing, both platform OCI revision/version labels and
+`ZAPBOT_BUILD_GIT_COMMIT_SHA` match the merged source. All twelve app image
+pins and the rollback current-image pin use this same immutable index.
+
+Separate native PostgreSQL 17.11 qualification restored one synthetic row in
+each of all five prepared-intent tables through a selected-table ownerless,
+privilege-free dump. Every column, original signed parent/profile bytes,
+signatures, strict wire/entity bytes and binding remained identical; restored
+cryptographic reverification and exact retry passed. It rejected 30 immutable
+mutations under origin/replica modes and six runtime table/helper accesses.
+The exact catalog was false before normalization and true after scoped
+bootstrap/verifiers. This qualifies native synthetic nonempty retention only;
+it does not qualify a production full-database backup or exact-image Linux
+nonempty profile/receipt retention. No credentials, producer LOGIN, runtime
+consumer, transport ordering or authority changed.
+
+The increment adds dormant owner-only `lnm_prepared_intent_producer_pins`,
+`lnm_prepared_intent_governance_profiles` and
+`lnm_prepared_intent_precall_receipts`, with four SECURITY INVOKER helpers and
+nine ALWAYS trigger bindings. The source store authenticates separate intent
+and governance pins, verifies the original signed parent and strict wire bytes,
+and acknowledges immutable profile/parent/wire/attempt bindings only after a
+top-level database COMMIT. Exact identity retries retain the original binding.
+This qualifies committed binding storage only. It provisions no production
+producer LOGIN, private credential, runtime receipt consumer or mandatory
+transport ordering; it proves no venue arrival, settlement or resend permission.
+Authority remains none, admission false, liabilities unknown, capital null and
+generated live actions 0. OPS020/M1c remains open.
+
+The package lifecycle and rollback scripts embed the exact catalog predicate
+from source `apps/api/priv/sql/lnm_prepared_intent_precall_contract.sql`, also
+consumed by RuntimeDatabaseRole and the standalone verifier. It pins all three
+tables' ownership, table/column ACLs, columns/defaults, validated/enforced
+constraints, indexes, four function bodies/configurations/ACLs, and nine trigger
+bindings, including PostgreSQL 18 NOT NULL constraint metadata. Existing schema
+contracts remain required. Linux qualification must reject tampered contracts,
+retain stored rows across repeat startup/ownerless restore/rollback, and verify
+fresh startup, 229-to-240 upgrade and restore-224. Package SQL fixtures do not
+prove Ed25519 verification or independent backend COMMIT; those are separate
+source test evidence. The package fixture seeds one synthetic producer pin;
+governance-profile and precall-receipt collections remain empty in this
+package fixture, so exact-image Linux nonempty retention of those two stores
+remains unqualified despite the separate native synthetic proof. Full
+exact-image lifecycle remains pending.
+
+The preceding 0.1.77 package fixed restricted-runtime settlement provenance
+hashing without widening privileges; this image retains that correction.
+
+The preceding `0.1.76` release added `execution.settlement_provenance.status@v1`, a
+read-only RPC for 1–100 explicitly requested canonical command IDs. One
+PostgreSQL statement observes command, outcome and transition rows under a
+consistent MVCC snapshot; bounded row counts and truncation flags prevent a
+partial history from masquerading as a complete one. Row hashes and the content
+root identify the observed mutable snapshot, not immutable provider settlement.
+Wrong-scope identifiers are suppressed. Missing rows, local statuses and
+correlated outcomes do not prove provider settlement or global absence. Every
+command remains unresolved; liabilities and available capital remain unknown,
+with admission disabled. That increment added no policy, ACL, migration,
+scheduler, acquisition, producer credential, trading authority or risk-setting
+change.
+
+The preceding `0.1.75` release adds the pure, fixture-only `ActiveLiabilityAssessment`.
+It verifies the signed active-funding artifact before interpreting economic
+components, reports exact per-trade and separate open/running subtotals, and
+compares fixture commands with explicit trade/client identity and scope. Unknown
+or conflicting evidence never releases a reservation. It retains
+`authority=none`, `admission_eligible=false`, `funding_complete=false`,
+`liabilities_status=unknown`, and no available-capital result. No scheduler,
+acquisition, API/RPC, database contract or live admission is enabled. This
+engineering increment does not qualify provider completeness or H4 activation.
+
+The DNS correction from `0.1.74` is retained. The web runtime, three external
+market-data producers (LN Markets candles/funding and Coinbase candles), and
+the optional execution-coverage acquirer explicitly use
+`dns: [9.9.9.9, 8.8.8.8]`. These were the two responsive existing host
+upstreams during diagnosis; queries to the preceding first upstream did not
+receive a response. Docker embedded DNS still resolves private service aliases.
+The host DNS configuration, database, migrations and internal-only services
+are unchanged. Schema 238 is retained with a new immutable source image.
+
+Resolver and HTTP/connect deadlines remain unchanged. Increasing the libc
+resolver timeout alone failed native BEAM lookup; additionally increasing
+BEAM's startup resolver timeout allowed lookup but still exceeded the existing
+Req connect deadline. This package instead avoids the observed unresponsive
+upstream within the five external-consumer containers. If either selected
+upstream later becomes unresponsive, failover may again exceed the original
+request deadline; a total DNS outage still fails closed. This is not a general
+DNS-outage or slow-failover guarantee. Sites requiring private/split-horizon
+public-name resolution must review these explicit public resolvers before use.
+
+After update, verify the five containers' effective DNS list, native public-name
+resolution, private PostgreSQL resolution and application health. Configuration
+changes require container recreation. To reverse this correction, restore the
+reviewed `0.1.73` package through the normal package update path and recreate its
+services; no image rollback or down migration is needed, but the original
+inherited-upstream failure can return. Recheck health and persisted safety posture.
+
+`python3 tests/zapbot-dns-selection.py` runs the deterministic local Docker
+regression with the pinned image and disposable DNS/HTTP fixtures. It asserts
+the five-service scope, reproduces the old silent-first-upstream failure,
+checks native BEAM and Req against responsive selected upstreams, verifies
+private aliases, and checks bounded outage failure and subsequent recovery.
+Fixture DNS answers only `.invalid` names and never forwards. The test needs
+Docker and Python 3, uses no production credentials or public DNS, and removes
+its own containers and network on success, failure or interruption.
+
+Schema 238 stores a signed, parent-bound active-funding acquisition in an
+immutable table. Its validator binds the parent acquisition and canonical raw
+evidence, verifies the database attestation, and keeps the producer's database
+role narrow and NOLOGIN. The portable acquisition still requires an explicit,
+unscheduled read with a dedicated credential. Venue pagination and integral-
+satoshi fee behavior remain unqualified. The stored artifact has
+`authority=none`, `admission_eligible=false`, `funding_complete=false`, and
+`liabilities_status=unknown`; it provides no capital or H4 admission.
+
+Schema 237 adds immutable `lnmarkets_global_current_reconciliation_receipts`.
+For the flat default account, a receipt binds the signed account acquisition,
+canonical raw evidence, identity observation, outstanding command and
+reservation roots, and terminal execution-economics coverage. Missing or
+conflicting evidence produces a blocked receipt. Every receipt has
+`authority=none` and `admission_eligible=false`; no H4 admission, live trading
+authority, scheduler, producer credential, or new exposure is enabled. The
+source verifier pins the table shape, constraints, function bodies, ACLs, and
+immutable triggers. The package normalizer checks the two SECURITY DEFINER
+bodies before re-owning an ownerless restore.
+
+The package retains the source-owned
+`lnmarkets_account_active_snapshot_raw_evidence@v1` companion for the existing
+signed account-snapshot parent. Canonical text and its roots are replayable;
+JSONB values are non-authoritative projections. The companion is immutable and
+parent-bound with `authority=none`, `admission_eligible=false`, and
+`reconciliation_complete=false`. It adds no scheduler, RPC, live binding,
+current-producer activation, or secret-key access. The existing account
+reconciliation producer remains NOLOGIN, has no generated credential or runtime
+grant, and receives only the source-verified narrow relation ACL.
+
+Before an ownerless current-schema restore is re-owned, the package pins the
+exact helper and trigger-function bodies:
+`lnm_account_snapshot_raw_rows_valid(jsonb,text)`
+(`9deb39db22dbab0b42fac685cbde0cd9a0c156cfaeebcdf4069310997e78dcf9`),
+`reject_lnm_account_snapshot_raw_evidence_mutation()`
+(`aa21e2fdce4fe3725b0b8b25ad88db2a647887d5e3f6904ec8d2ae4778a02a53`), and
+`validate_lnm_account_snapshot_raw_evidence_insert()`
+(`3a09d84b1625edd066c3b7fcb14ff9290bb9a2c3d6aecb88c9800b0dab812192`).
+
+The existing migration added `h4_canary_economics_evidence_receipts` and
+`materialize_h4_canary_economics_evidence(uuid)`. It can derive an internal,
+append-only receipt from canonical execution-economics heartbeat, artifact and
+producer-receipt lineage. Each row is constrained to `authority=none`,
+`admission_eligible=false`, and `TERMINAL_REALIZED_ONLY`; it has no live
+admission, execution, scheduling, producer, risk, entry-mode, exposure or
+activation wiring. The materializer is expected to retain source hash
+`0608e68275edf2b1faf82641f104a887ef0127b400f9bd15724a7f6434d7995e`.
+
+The preceding 0.1.76 schema-238 package passed its exact-image Linux
+restore-224 lifecycle, but its installed read-only provenance RPC failed under
+the restricted runtime role. This 0.1.79 candidate requires a new exact-image Linux
+restore-224 CI receipt before package merge; its local lifecycle is NOT RUN
+because Docker Desktop's VM route is unavailable. That local tooling failure is
+separate from the still-open OPS-010 fresh-install blocker. The release SQL
+exporter remains authoritative for source bootstrap and verifier SQL; the
+package does not copy or recreate those contracts.
 
 Credential initialization completes before the release-SQL exporter runs. The
 exporter then runs before every SQL consumer, exports the reviewed files from
@@ -121,38 +613,104 @@ remain separate persisted, audited operator-controlled settings. The
 only intended Umbrel entry point is the app proxy on port `5237`; database and
 application container ports remain private.
 
+## Prepared fixture restore and rollback
+
+The existing generic restore normalizer reowns all six public nonextension
+SECURITY INVOKER functions and both tables. They require no SECURITY DEFINER
+allowlist extension. The ownerless schema 240 gate rejects a function promoted to an
+unreviewed SECURITY DEFINER before reownership; the exported source verifier
+then rejects altered invoker bodies, grants and other catalog tampering.
+
+Rollback retains schema 240 and every original fixture/context row. The migration
+`down` refuses destructive removal; software rollback uses the qualified current
+SQL/bootstrap/verifier image while fencing the 0.1.46 long-lived services. An old
+package unable to verify schema 240 is not a qualified database downgrade path.
+
+Use the supported authenticated Umbrel updater after qualification. Installed
+Umbrel exposes `umbreld client apps.update.mutate --appId whirmill-zapbot` and
+`apps.state.query --appId whirmill-zapbot`; headless system authentication is
+not established because the root-only CLI requires sudo authentication. Never
+extract or alter the system credential. An available authenticated browser
+updater session can supply the supported update path. Browser login is not
+required for post-update agent CLI diagnostics: use the existing operator-owned
+read-token file with `mix zapbot.cli prod check` and the scoped database-role
+catalog RPC. Check the installed version sentinel, exact merged Compose/image,
+all startup one-shots, schema 240/catalog contract, health, manage-only/entries
+false, complete ledger and clear signals. These checks do not claim browser UAT.
+
 ## Image admission
 
-Every ZapBot service uses the public multi-architecture image built from the
-reviewed source revision `2ad9fa0fa6ae2efd3492668637df1f2a49e92af1` on native
-amd64 and arm64 runners, and pinned to the immutable digest
-`sha256:bf566b618b4aa6dc9d4e6d06ed30e4bde9cc77edb47d408c2923b12230544d5a`.
-Do not substitute `latest` or an unreviewed tag.
+Every current Compose reference, the Trusted V2 attestor digest, and the
+rollback current image use source merge `cb39214d54290a787aad2f6e8a5681771f852580`
+at immutable
+`ghcr.io/whirmill/zapbot:umbrel-prepared-intent-store-cb39214d54290a787aad2f6e8a5681771f852580@sha256:cae6e3972976e75ea6083f2b57addd12eb1195392a4bbebe4e4ddadf151c58d8`.
+The OCI index contains native `linux/amd64` manifest
+`sha256:ab6236bacc44d05cdf78c80f13f0cc3b37eda6830eb211c5d38d435d8b1a72f4`
+and `linux/arm64` manifest
+`sha256:6465af683751cca131be70a2684d670f33a6445fda35b91f4286f4728ce338ea`.
+Both platform OCI revision labels and build SHAs match the source merge, and the
+immutable `sha-cb39214d54290a787aad2f6e8a5681771f852580` alias resolves to the
+same index. All 12 Compose application image pins, the attestor digest and rollback
+`current_image` agree: 13 full image references across Compose and rollback.
+Do not substitute `latest`, a mutable tag or an unmatched digest. These image
+receipts do not substitute for the pending exact-image Linux package lifecycle
+and final review.
+
+## Qualification scope
+
+The lifecycle waits on exactly one container ID selected across all states.
+This avoids Compose versions that omit already-exited one-shot services from
+`compose wait`. Both Docker CLI failure and a nonzero container exit remain
+failures; success also requires `exited:0`. Run
+`sh tests/zapbot-one-shot-wait.sh` for the real-Docker regression covering fast
+success, fast failure, invalid/ambiguous IDs and a missing-container CLI error.
+
+The preceding 0.1.76 schema-238 package passed its full Linux lifecycle, but
+the installed read-only RPC failed on restricted-role hashing. The 0.1.79
+lifecycle must check fresh and repeat startup, ownerless current-schema restore,
+schema-229-to-240 upgrade, function/ACL/trigger/constraint tampering, and the
+fenced 0.1.46 compatibility overlay. Its exact-image full Linux restore-224 CI
+receipt and final review are required before package merge. The local 0.1.79
+lifecycle is NOT RUN because Docker Desktop's VM route is unavailable. An
+existing-data Umbrel update requires the exact merged manifest and image
+readback.
+
+Fresh empty-PGDATA installation remains **BLOCKED** by OPS-010. Both local full
+restore-224 observations include an initial temporary `pg_ctl` wrong-ownership
+failure during PostgreSQL initialization before a later normal server start; they
+do not prove the root cause or the safety of the UID 0/999 transition. The
+PostgreSQL image and service configuration are unchanged in this package. Do not
+treat a later healthy process, an existing-data update result, or the required
+Linux CI result as fresh-install qualification.
 
 ## Compatibility rollback to 0.1.46
 
-The package provides a compatibility rollback for the 0.1.46 long-lived web
-runtime and four continuous producers. It keeps the 0.1.57 release-SQL export,
-migration, bootstrap and verifier path, so the database remains at schema 230
-and preserves both account-identity tables, observations, functions and
-immutable triggers. It never drops data, runs a down migration, or changes a
-persisted authority setting.
+The package provides a compatibility overlay for the 0.1.46 long-lived web
+runtime and four continuous producers. Once the new exact schema-240 release image is qualified and
+verified, it keeps the current release-SQL export, migration, bootstrap and
+verifier path at schema 240, preserving the immutable account snapshot, raw
+evidence, active-funding observations, global reconciliation receipts, prepared-intent fixtures, producer pins, governance profiles and precall receipts. It
+never drops data, runs a down migration, or changes a persisted authority setting.
 
 Use it only after confirming `manage_only`, entry mode, H4 admission and every
 producer marker are disabled. The rollback script refuses every enabled marker
-and verifies the schema/trigger contract plus the exact old runtime and current
-release image split. Start the fenced 0.1.57 package successfully first: its
+and verifies the inline schema 240/prepared-fixture/trigger compatibility contract plus the
+checksum-validated, exported current `verify_database_roles.sql` contract before
+accepting the exact old runtime and current release image split. Start the fenced
+qualified 0.1.79 package successfully first: its
 release export, migration and normalizer/verifier one-shots must already have
 completed. The script recreates only web and the four producers with
 `--no-deps`; it never invokes `credential-init`, requires no `APP_SEED`, and
 does not create a backup.
 
-The command is resumable. It accepts only the pinned 0.1.57 or pinned 0.1.46
-image for each of its five targets, completes a partial split, and rejects any
-other image. A retry after all five are safely fenced is verification-only. The
-rollback overlay runs the web as `tail` and producers as `sleep`, with explicit
-health checks; these commands never read enable markers, so a marker created
-after preflight cannot start application or producer execution.
+The command is resumable. For an existing-data update after the required Linux
+restore-224 CI and final review, it accepts only the qualified pinned 0.1.79 or pinned
+0.1.46 image for each of its five targets, completes a partial split, and
+rejects any other image. A retry after all five are safely fenced is
+verification-only. The rollback overlay runs the web as `tail` and producers as
+`sleep`, with explicit health checks; these commands never read enable markers,
+so a marker created after preflight cannot start application or producer
+execution.
 
 ```sh
 APP_DATA_DIR=/absolute/umbrel/app-data/whirmill-zapbot \
@@ -250,9 +808,13 @@ are safe to repeat:
    service-scoped `0600` files.
    The administrator creates `vector`, `pgcrypto` and `pg_stat_statements`,
    then runs the migration-only provisioner. It creates or hardens only the
-   `NOLOGIN` owner and non-superuser migrator. Runtime, evaluator and producer
-   roles are created by the full bootstrap after migrations; a partially
-   populated existing role inventory is rejected before provisioning.
+   `NOLOGIN` owner and non-superuser migrator. It also pre-provisions the
+   account-reconciliation role as `NOLOGIN` before owner migrations remove
+   `CREATEROLE`; the full bootstrap later grants its narrow table ACL. Runtime,
+   evaluator and other producer roles are created by the full bootstrap after
+   migrations; a partially populated existing role inventory is rejected before
+   provisioning. The account-reconciliation role receives no generated service
+   secret or private signing-key mount.
 4. Migrations use only `zapbot_migrator` plus `SET ROLE zapbot_owner`; the web
    runtime never receives a migration URL. Their connection uses
    `search_path=public,pg_temp` so historical unqualified DDL creates application
@@ -371,7 +933,9 @@ event-driven deliberation and normal Oban operational queues:
 - `ZAPBOT_OBSERVATION_ONLY=false` (normal Oban operational queues enabled);
 - `ZAPBOT_START_DELIBERATION_RUNTIME=true`;
 - `ZAPBOT_START_INTERNAL_CONSUMERS=true`; and
-- `ZAPBOT_START_MARKET_STREAM=true`.
+- `ZAPBOT_START_MARKET_STREAM=true`; and
+- `LNM_STARTUP_RECONCILE_ENABLED=true` only after `runtime-env` in this web
+  command.
 
 The admitted ZapBot release must map these values into both the API and Hub
 runtime configuration. Its release SQL must also include

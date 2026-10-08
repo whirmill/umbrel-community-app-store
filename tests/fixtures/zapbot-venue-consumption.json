@@ -1,0 +1,28 @@
+{
+  "authority": "none",
+  "claim": {
+    "account_id": "offline-account",
+    "application_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "attempt_id": "offline-attempt",
+    "binding_hash": "9cd8bfaff76ca5e899ab629b80c4b8d33f30f118d8ea8fd764073ceb55e45e47",
+    "binding_id": "61000000-0000-4000-a000-000000000003",
+    "client_id": "offline:venue",
+    "command_id": "offline-command",
+    "environment_id": "offline-environment",
+    "expected_profile_hash": "117dd056c0d5a8d35380409e6c7a4f6772af4c945fdb0bd23800347710ac7abb",
+    "market_key": "LNMARKETS:XBTUSD",
+    "parent_envelope_hash": "104bde838febe96c34d2728b74784d883de52d3af6d6a3655c744d66fab0091e",
+    "pin_id": "61000000-0000-4000-a000-000000000001",
+    "policy_version": "venue_consumption@v1",
+    "preparation_id": "offline-preparation",
+    "profile_row_id": "61000000-0000-4000-a000-000000000002",
+    "wire_hash": "271ac1352ee5a2d852ae763a5ce3746b053289dd5b8e72b8e48200b9f45cebe7"
+  },
+  "claim_hash": "d67d23e7f9e7ee206a7fb8d50d5b0a85db12f2fcd1b23e1736be930548d7c995",
+  "consumption_id": "61000000-0000-4000-a000-000000000004",
+  "consumption_qualified": false,
+  "current_validity_qualified": false,
+  "fixture_contract": "lnmarkets_prepared_intent_venue_consumption_fixture@v1",
+  "historical_as_of": "2026-10-05T12:00:00Z",
+  "venue_manifest_sha256": "59cef0547fa097eda8912175328dfe43efc4909a0530f854f4526f4cd8fb2161"
+}

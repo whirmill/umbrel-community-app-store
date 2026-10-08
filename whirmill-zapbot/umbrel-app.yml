@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-zapbot
 category: developer
 name: ZapBot
-version: "0.1.57"
+version: "0.1.86"
 tagline: Restart-safe live trading profile
 description: >-
   A restart-safe ZapBot package. It restores and migrates a local PostgreSQL
@@ -23,12 +23,23 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Lightweight Operator Posture health omits unused learning computation.
-  Command-failure enrichment skips JSON extraction when the typed column takes precedence.
-  SQL NULL and preflight JSON null retain the existing fallback and classification.
-  Lightweight health uses a separate cache key; full health keeps its key and TTL.
-  No global deadline, cache TTL, pool, schema, risk, or authority setting changes;
-  no live activation. H4 economics stays bounded to 20 seconds and H4 CLI keeps
-  a 30-second receive timeout without guaranteeing completion. OPS002 remains
-  open, OPS010 fresh-bootstrap follow-up remains open, and OPS009 performance
-  awaits normal-browser qualification.
+  Version 0.1.86 adds bounded retained Trusted V2 statement timing diagnostics.
+  The four allowlisted statements retain start and terminal state with scoped
+  Repo queue, query and decode timing through existing read-only Monitor RPC/CLI.
+  Canceled, unknown and partial observations remain explicit. No extra SQL,
+  query text, parameters or credentials are exposed. Deadlines, pool sizing,
+  cache, authority gates, H4 OFF and manage_only remain unchanged.
+  Source PR637 merged 3681b1bd867c9dcd92f658a81131f5eb57987e01 after corrected
+  independent CLEAN review and exact CI37498361055 plus automatic CI37498344206.
+  Initial review findings and fixture failures remain preserved. Separate
+  disposable PG18 targeted85 and cold16/16 tests, physical pool timing and
+  cancellation proof support diagnostics; full normal CI also passed.
+  Native amd64/arm64 image run37500187377 and independent registry OCI, SLSAv1
+  and SPDX checks verify the same source. All twelve application pins, attestor
+  digest and current rollback image use the immutable verified index.
+  Schema243 through20261006020000 and fixtures are unchanged. Exact new-image
+  Linux lifecycle and final package review remain required before publication
+  or managed installation. OPS009 cause, prepared skew and live p95 remain open;
+  no optimization causality, live SLO qualification or H4 activation is claimed.
+  OPS-010 real fresh empty-PGDATA startup remains unqualified. Risk and credential
+  settings are unchanged.

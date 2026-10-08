@@ -4,7 +4,8 @@ on:
   pull_request:
     paths:
       - 'whirmill-zapbot/**'
-      - 'tests/zapbot-*.sh'
+      - 'tests/zapbot-*'
+      - 'tests/test_zapbot_postgres_startup_assess.py'
       - '.github/workflows/zapbot-package-tests.yml'
   workflow_dispatch:
 
@@ -12,6 +13,54 @@ permissions:
   contents: read
 
 jobs:
+  dns-selection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull the immutable package image
+        run: docker pull "$(yq e '.services.migrate.image' whirmill-zapbot/docker-compose.yml)"
+      - name: Verify already-completed one-shot success and failure handling
+        shell: bash
+        run: sh tests/zapbot-one-shot-wait.sh 2>&1 | tee "$RUNNER_TEMP/zapbot-one-shot-wait.log"
+      - name: Verify native and Req resolution with isolated local upstreams
+        shell: bash
+        run: python3 tests/zapbot-dns-selection.py 2>&1 | tee "$RUNNER_TEMP/zapbot-dns-selection.log"
+      - name: Preserve DNS regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zapbot-dns-selection
+          path: |
+            ${{ runner.temp }}/zapbot-dns-selection.log
+            ${{ runner.temp }}/zapbot-one-shot-wait.log
+          if-no-files-found: ignore
+
+  postgres-startup-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check diagnostic and assessment logic
+        run: |
+          sh -n tests/zapbot-postgres-startup-diagnostic.sh
+          python3 -m unittest discover -s tests -p 'test_zapbot_postgres_startup_assess.py'
+      - name: Probe empty PostgreSQL data on a bind mount
+        id: bind
+        run: sh tests/zapbot-postgres-startup-diagnostic.sh "$RUNNER_TEMP/zapbot-pg-bind" bind
+      - name: Probe empty PostgreSQL data on a named volume
+        if: ${{ !cancelled() && steps.bind.outcome != 'skipped' }}
+        run: sh tests/zapbot-postgres-startup-diagnostic.sh "$RUNNER_TEMP/zapbot-pg-named" named
+      - name: Preserve startup diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zapbot-postgres-startup-diagnostic
+          path: |
+            ${{ runner.temp }}/zapbot-pg-bind/
+            ${{ runner.temp }}/zapbot-pg-named/
+          if-no-files-found: ignore
+
   export-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -19,11 +68,26 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check script syntax
         run: sh -n whirmill-zapbot/scripts/export-release-sql.sh tests/zapbot-release-sql.sh tests/zapbot-bootstrap-export-order.sh
+      - name: Verify terminal project cleanup without Docker resources
+        run: python3 tests/zapbot-lifecycle-cleanup-mock.py
+      - name: Verify isolated runtime cleanup without Docker resources
+        run: python3 tests/zapbot-runtime-compatibility-mock.py
+      - name: Verify the public runtime posture map shape
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 128 --memory 512m \
+            --mount "type=bind,src=$PWD/tests,dst=/package-tests,readonly" \
+            -e ZAPBOT_RUNTIME_MODE=lnmarkets_execution_coverage_acquirer \
+            -e 'ELIXIR_ERL_OPTIONS=+S 2:2 +SDcpu 1:1 +SDio 1' \
+            --entrypoint /bin/sh "$(yq e '.services.migrate.image' whirmill-zapbot/docker-compose.yml)" \
+            -ec 'exec bin/zapbot eval "Code.eval_file(\"/package-tests/zapbot-runtime-posture-shape.exs\")"'
       - name: Verify SQL export and failure handling
         run: sh tests/zapbot-release-sql.sh
       - name: Verify initialization order with absent data directory and repeat
         run: sh tests/zapbot-bootstrap-export-order.sh
       - name: Verify immutable image through fresh, restore and restart package lifecycles
+        env:
+          ZAPBOT_PACKAGE_TEST_RESTORE_224: "1"
         run: |
           ZAPBOT_PACKAGE_IMAGE="$(yq e '.services.migrate.image' whirmill-zapbot/docker-compose.yml)" \
           ZAPBOT_PACKAGE_LIFECYCLE_RECEIPT="$RUNNER_TEMP/zapbot-package-lifecycle.log" \
