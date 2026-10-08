@@ -8,7 +8,7 @@ import { Credentials } from './credentials.js';
 import { Store } from './store.js';
 import { Executor } from './executor.js';
 import { forecast } from './economics.js';
-import { MANDATE,json,now,id,scrub,type Proposal,type Snapshot } from './domain.js';
+import { MANDATE,json,now,id,scrub,publicAnswer,type Proposal,type Snapshot } from './domain.js';
 const result=(x:unknown)=>({content:[{type:'text' as const,text:json(scrub(x))}]});
 const ProposalSchema=Type.Object({kind:Type.Union([Type.Literal('rebalance'),Type.Literal('fee_change')]),category:Type.Union([Type.Literal('ordinary'),Type.Literal('exploratory')]),strategy:Type.String(),source:Type.String(),target:Type.String(),amountSat:Type.String(),maxFeeMsat:Type.String(),decisionCapMsat:Type.String(),newPpm:Type.Optional(Type.Integer()),demandKey:Type.String(),evidenceIds:Type.Array(Type.String()),problem:Type.String(),evidence:Type.String(),whyAct:Type.String(),alternatives:Type.String(),verify:Type.String(),hypothesis:Type.String()});
 export class Agent {
@@ -54,7 +54,7 @@ export class Agent {
       let settled;try{settled=await submission.wait(context);}finally{clearTimeout(timer);}
       if(settled.status!=='done')throw new Error('No final model response');
       const entry=await this.harness!.commit(tx=>tx.entry(settled.answer!),context);
-      const answer=json(scrub(entry?.model??entry??{status:settled.status}));
+      const answer=publicAnswer(entry?.model??entry);
       const chats=this.store.get<any[]>('chat')??[];chats.push({at:now(),user:message,answer});this.store.set('chat',chats.slice(-100));
       this.store.set('agent',{at:now(),status:'idle'});return {answer};
     }catch{this.cooldown=Date.now()+30*60_000;this.store.set('agent',{at:now(),status:'unavailable',note:'Model/auth/quota failure; no API fallback. Deterministic reconciliation continues.'});throw new Error('Agent unavailable; collection and reconciliation remain active');}

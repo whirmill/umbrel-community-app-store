@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.1.1"
+version: "0.1.2"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular

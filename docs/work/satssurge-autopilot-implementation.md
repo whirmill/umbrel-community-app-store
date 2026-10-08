@@ -16,4 +16,8 @@ Installed on Umbrel after owner clicked Install. Running image matches the immut
 
 Patch0.1.1: live LND requires peer_alias_lookup=true to return names; query verified readonly against all10 channels. UI coverage now summarizes provenance counts rather than dumping the full checksum manifest. Tests14 passed after adapter patch; frontend syntax checked.
 
-Remaining: publish/deploy patch0.1.1, finish user OAuth and verify actual model/durable restart. Do not claim realnode autonomy/economics tested before it is. Fee experiment evaluation is noncausal M1 contribution; richer comparable price evaluation belongs M2. Credentials/private history must never enter Git/tool outputs.
+ChatGPT OAuth completed through manual callback, never persisted as evidence. Selected subscription model gpt-6.1-sol; real Pi Durable run read state, searched historical receipts and completed an Italian explanation, recommending no financial action. No financial operation was needed or performed. Host user manager linger initially disabled caused stale gates after SSH logout; owner enabled linger explicitly, verification pending.
+
+Patch0.1.2 adds a public answer projection: only final assistant text crosses chat API/UI, excluding internal thinking/provider metadata for both new and legacy messages; original durable evidence remains private. Regression test added. Do not claim realnode financial execution/economics tested before it is. Fee experiment evaluation is noncausal M1 contribution; richer comparable price evaluation belongs M2. Credentials/private history must never enter Git/tool outputs.
+
+Remaining: publish/deploy final patch, verify linger/no-login freshness and OAuth/model/durable restart, then record final receipts.

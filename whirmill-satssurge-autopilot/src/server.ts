@@ -8,7 +8,7 @@ import { Executor } from './executor.js';
 import { Collector } from './collector.js';
 import { Agent } from './agent.js';
 import { importHistory } from './importer.js';
-import { now,json } from './domain.js';
+import { now,json,publicAnswer } from './domain.js';
 const directory=resolve(process.env.DATA_DIR??'/data');mkdirSync(directory,{recursive:true,mode:0o700});
 const store=new Store(join(directory,'operational.sqlite'));if(!store.get('installedAt'))store.set('installedAt',now());
 const importDir=process.env.HISTORY_DIR??'/history';if(existsSync(importDir))importHistory(store,importDir);
@@ -43,7 +43,7 @@ const server=createServer(async(req,res)=>{
       const session=randomBytes(32).toString('hex');sessions.add(session);res.setHeader('Set-Cookie','satssurge='+session+'; HttpOnly; SameSite=Strict; Path=/'+(req.headers['x-forwarded-proto']==='https'?'; Secure':''));send({connected:true});return;
     }
     if(!sessions.has(cookieSession(req.headers.cookie)??'')){send({error:'Owner authentication required'},401);return;}
-    if(req.method==='GET'&&url.pathname==='/api/status'){send({...store.stats(),csrf,chat:store.get('chat')??[],collector:store.get('collector')??{}});return;}
+    if(req.method==='GET'&&url.pathname==='/api/status'){send({...store.stats(),csrf,chat:(store.get<any[]>('chat')??[]).map(c=>({...c,answer:publicAnswer(c.answer)})),collector:store.get('collector')??{}});return;}
     if(req.method==='GET'&&url.pathname==='/api/auth'){send(agent?await agent.authStatus():{connected:false,events:[]});return;}
     if(req.method!=='POST'){send({error:'Not found'},404);return;}
     // Umbrel app proxy supplies authentication. Every write also requires same-origin + anti-CSRF.

@@ -41,6 +41,14 @@ export interface Forecast {
 }
 export interface PaymentOutcome { status: 'SUCCEEDED' | 'FAILED' | 'IN_FLIGHT'; feeMsat: string; amountSat: string; source?: string; target?: string; index?: string; }
 export const terminal = (s: string) => s === 'SUCCEEDED' || s === 'FAILED';
+/** Public conversation projection excludes internal thinking and provider metadata. */
+export function publicAnswer(value:unknown):string {
+  if(typeof value==='string') { try{return publicAnswer(JSON.parse(value));}catch{return value;} }
+  const messages=Array.isArray(value)?value:[value];
+  const assistant=messages.filter(m=>m && typeof m==='object' && m.role==='assistant').at(-1);
+  if(!assistant || !Array.isArray(assistant.content))return 'Risposta completata senza testo pubblico.';
+  return assistant.content.filter((c:any)=>c.type==='text' && typeof c.text==='string').map((c:any)=>c.text).join('\n').trim() || 'Risposta completata senza testo pubblico.';
+}
 export function scrub(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(scrub);
   if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).filter(([k]) => !/(preimage|payment_request|seed|mnemonic|macaroon|password|secret|credential|^auth$|oauth|authentication|token|destination_address|payment_addr)/i.test(k)).map(([k,x]) => [k,scrub(x)]));

@@ -2,13 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Store } from '../store.js';
 import { Executor } from '../executor.js';
-import { now,MANDATE,hash,json,type Snapshot,type Proposal,type Forecast } from '../domain.js';
+import { now,MANDATE,hash,json,publicAnswer,type Snapshot,type Proposal,type Forecast } from '../domain.js';
 import { importHistory } from '../importer.js';
 import { mkdtempSync,writeFileSync,rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 const snapshot=():Snapshot=>({at:now(),identity:'self',synced:true,confirmedSat:'500001',channels:['a','b'].map(id=>({id,point:id+':0',peer:id,alias:id,active:true,capacitySat:'500000',localSat:'250000',remoteSat:'250000',reserveSat:'5000',pendingSat:'0',baseMsat:'0',ppm:300,cltv:80,minMsat:'1',maxMsat:'500000000'}))});
 const f:Forecast={eligible:true,samples:10,observedHours:48,observedDays:2,benefitMsat:'200000',requestedMsat:'100000000',explanation:'test'};
+test('public answers exclude thinking and provider metadata, including legacy history',()=>{
+  const entry=[{role:'assistant',content:[{type:'thinking',thinking:'private'},{type:'text',text:'Esito pubblico'}],usage:{cost:99}}];
+  assert.equal(publicAnswer(entry),'Esito pubblico');assert.equal(publicAnswer(JSON.stringify(entry)),'Esito pubblico');assert.equal(publicAnswer('Testo precedente'),'Testo precedente');assert.equal(publicAnswer([{role:'tool',content:[{type:'text',text:'not public'}]}]),'Risposta completata senza testo pubblico.');
+});
 function ready(){const s=new Store(':memory:');s.set('bootstrapReady',true);s.set('automationProof',{ok:true,at:now()});const e=s.evidence('fixture','observed demand');return {s,p:{kind:'rebalance',category:'exploratory',strategy:'trial',source:'a',target:'b',amountSat:'100000',maxFeeMsat:'100000',decisionCapMsat:'200000',demandKey:'a->b',evidenceIds:[e],problem:'depleted',evidence:'observed',whyAct:'test',alternatives:'wait / lower price / smaller',verify:'48h',hypothesis:'demand returns'} as Proposal};}
 test('atomic contention and pending survive midnight',()=>{const {s,p}=ready();s.reserve(p,f,snapshot());assert.throws(()=>s.reserve({...p,strategy:'other'},f,snapshot()),/occupied/);assert.equal(s.budget('2026-10-20T00:01:00Z').dailyMsat,'100000');s.close();});
 test('ordinary trusted forecast and protected reserve',()=>{const {s,p}=ready();assert.throws(()=>s.reserve({...p,category:'ordinary'}, {...f,benefitMsat:'199999'},snapshot()),/benefit/);assert.throws(()=>s.reserve(p,f,{...snapshot(),confirmedSat:'499999'}),/reserve/);s.close();});
