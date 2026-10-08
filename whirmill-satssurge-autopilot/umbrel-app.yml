@@ -1,0 +1,30 @@
+manifestVersion: 1
+id: whirmill-satssurge-autopilot
+category: finance
+name: SatsSurge Autopilot
+version: "0.1.0"
+tagline: An evidence-driven Lightning routing agent
+description: >-
+  Pi Durable agent for autonomous Lightning fee experiments and circular
+  rebalances, using a ChatGPT/Codex subscription. Private SQLite accounting,
+  historical evidence, durable intent tracking and deterministic budget controls.
+  Protects 500,000 on-chain sats. Mainnet POC: maximum 30,000 sats cumulative
+  including history, 1,500 sats daily rebalance costs and 100 sats per attempt.
+  Requires initial restricted LND credential provisioning and live automation
+  interlock. The agent starts after OAuth login and successful reconciliation.
+  Channels, Magma and Telegram are future milestones, not enabled capabilities.
+developer: whirmill
+website: https://github.com/whirmill/umbrel-community-app-store
+repo: https://github.com/whirmill/umbrel-community-app-store
+support: https://github.com/whirmill/umbrel-community-app-store/issues
+port: 5238
+path: ""
+icon: https://raw.githubusercontent.com/whirmill/umbrel-community-app-store/main/whirmill-satssurge-autopilot/icon.svg
+gallery: []
+defaultUsername: ""
+defaultPassword: ""
+dependencies: [lightning]
+releaseNotes: >-
+  Initial M1 POC. Fee and rebalance executor only; no automatic channel,
+  swap or marketplace operations. Explicit partial accounting and historical
+  import, durable recovery without uncertain payment replay.

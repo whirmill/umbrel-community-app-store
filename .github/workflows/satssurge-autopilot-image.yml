@@ -1,0 +1,48 @@
+name: Build SatsSurge Autopilot
+on:
+  push:
+    tags: ["satssurge-autopilot-v*"]
+  pull_request:
+    paths: ["whirmill-satssurge-autopilot/**", ".github/workflows/satssurge-autopilot-image.yml"]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Verify POC without regtest
+        working-directory: whirmill-satssurge-autopilot
+        run: npm ci --ignore-scripts && npm test
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: version
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#satssurge-autopilot-v}"
+          if [[ "$GITHUB_REF" == refs/tags/* && ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then exit 1; fi
+          if [[ "$GITHUB_REF" != refs/tags/* ]]; then version="pr-${GITHUB_RUN_ID}"; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        id: image
+        with:
+          context: ./whirmill-satssurge-autopilot
+          platforms: linux/amd64,linux/arm64
+          push: ${{ startsWith(github.ref, 'refs/tags/') }}
+          tags: ghcr.io/whirmill/umbrel-satssurge-autopilot:${{ steps.version.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Immutable release receipt
+        if: startsWith(github.ref, 'refs/tags/')
+        run: echo 'ghcr.io/whirmill/umbrel-satssurge-autopilot:${{ steps.version.outputs.version }}@${{ steps.image.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"

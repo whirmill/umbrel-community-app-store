@@ -1,0 +1,35 @@
+services:
+  app_proxy:
+    environment:
+      APP_HOST: whirmill-satssurge-autopilot_server_1
+      APP_PORT: 8080
+  server:
+    image: ghcr.io/whirmill/umbrel-satssurge-autopilot:0.1.0
+    container_name: whirmill-satssurge-autopilot_server_1
+    restart: on-failure
+    init: true
+    user: "1000:1000"
+    environment:
+      DATA_DIR: /data
+      HISTORY_DIR: /history
+      INTERLOCK_FILE: /interlock/status.json
+      LND_URL: https://${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_REST_PORT}
+      PORT: "8080"
+    volumes:
+      - ${APP_DATA_DIR}/data:/data
+      - ${APP_DATA_DIR}/credentials:/credentials:ro
+      - ${APP_DATA_DIR}/history:/history:ro
+      - ${APP_DATA_DIR}/interlock:/interlock:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 768m
+    stop_grace_period: 60s
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

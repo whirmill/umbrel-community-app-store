@@ -1,0 +1,20 @@
+{
+  "name": "@whirmill/satssurge-autopilot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.0.0" },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "import": "node dist/import-cli.js"
+  },
+  "dependencies": {
+    "@earendil-works/pi-durable": "1.1.0",
+    "@earendil-works/pi-ai": "1.1.0",
+    "@earendil-works/chord": "1.1.0",
+    "typebox": "1.3.27"
+  },
+  "devDependencies": { "@types/node": "^24.0.0", "typescript": "~5.9.3" }
+}

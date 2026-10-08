@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/
+*.sqlite*
+auth.json
+.env*
+__pycache__/
+*.pyc
