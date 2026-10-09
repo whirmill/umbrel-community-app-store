@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current accepted version `0.3.3` includes M2.1. M1.1/M1.2/M2 were introduced in version `0.2.3` on the M1 mainnet POC using Pi Durable 1.1.0 and subscription-only ChatGPT OAuth. Reasoning effort is explicitly `high`, visible in the model section and applied to every agent run. No regtest, paid API fallback, shell tool, unrestricted RPC, channel opening, close, swap or Magma transaction is exposed to the agent.
+Published release `0.3.9` is awaiting installed acceptance; `0.3.8` is currently installed under the owned qualification pause. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -459,3 +459,21 @@ Manifest and compose are prepared together for this verified release; immutable
 Pi/natural economic closure, checkpoint/reconciliation and original autonomy/
 timer restoration remain primary-owned and pending. Current owned pause/fence
 is preserved until acceptance; financial receipts must never be replayed.
+
+### 0.3.9 immutable publication verified — installed acceptance pending
+
+Source `ceabd7d9b1ddc4394e53b61a98daa2d3f08ce6a3`, tag
+`satssurge-autopilot-v0.3.9`, [CI 37947859261](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37947859261)
+passed 146 Node24 and16Python tests. Verified image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.3.9@sha256:4a1d676d2c2b82db3a9e9a13fcdd6e82f2d79096ce0d79732b96d689e18d53dc`.
+Anonymous index, both configs and all22layers passed SHA-256/size checks
+(218127800 compressed bytes). Configs match source and use `flock --no-fork`;
+extracted image package version is0.3.9. Private receipt:
+`/Users/whirmill/.local/share/satssurge/image-039-receipt.json`.
+Manifest and compose are prepared together for verified0.3.9. Final candidate
+24/24 responsive checks/build/typecheck passed after the44px specificity fix;
+actual installed0.3.9 Pi/natural economic completion/browser/reconciliation and
+original autonomy/timer restoration remain pending. DefaultSol/high remains,
+with supported user-selectable effort/model pinned per new admission and original
+submitted recovery preserved. The existing owned pause/fence is not released
+by publication; financial receipts must never be replayed.
