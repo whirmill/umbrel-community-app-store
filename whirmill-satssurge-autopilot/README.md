@@ -408,3 +408,38 @@ Actual installed 0.3.6 Pi/browser qualification and final operational
 reconciliation remain pending; the earlier installed 0.3.5 presentation defect
 is corrected in source but is not yet claimed qualified on the installed patch.
 Preserve original financial receipts and pending operations without replay.
+
+### 0.3.7 lazy disclosure patch — source ready, installed acceptance pending
+
+Immutable 0.3.6 is installed but not accepted as the final delivery: closed
+Activity details still mounted 85 Markdown descendants (10028 DOM nodes).
+0.3.7 supersedes that delivery target. Its shared lazy disclosure boundary mounts
+Activity payload/Markdown/tools only while open and unmounts them when closed.
+Indexed answer text avoids repeated whole-projection scans. Node “Fonte e
+acquisizione” likewise gates its body, including previously opened nested JSON;
+outer provider expansion persists across navigation and nested JSON remounts
+closed. Original receipts, schema 4, mandate and financial executor are unchanged.
+
+Review approved; local Node24 tests/build/typechecks passed 114/114. Python is
+unchanged (preceding16/16 checkpoint). Visible 3006-job fixture: 50 closed
+Activity rows had zero Markdown/payload/pre descendants and 635 DOM nodes;
+opening rendered one Markdown body and Enter closing removed it. Node outer/
+nested JSON with 80773 characters unmounted all hidden pre/nested JSON on Enter
+closing. Console capture was empty; tab18 closed and fixture80755 exited130.
+These are local mounting/DOM proofs, not comparative heap or latency savings.
+
+Earlier actual 0.3.6 qualification completed three read-only Pi requests once
+with two read tools each (29.815/32.577/30.094s), observed coordinator1/analysts2,
+and public summary90/87 events on the first two (none on the third). Six natural
+autonomy jobs completed in117–146s; zero financial operations. Baseline107ledger,
+116 original terminal jobs,85history and mandate/owner were preserved. Actual
+24 responsive cases at320/390/768/1440,16px fields,44px buttons, no overflow,
+System/light/dark and empty console passed. This evidence does not qualify the
+new installed0.3.7 lazy boundary. Native iOS,VoiceOver and heap remain unproven.
+Original autonomy=true remains paused with ownedplan035claim and backfill stopped
+until primary's final acceptance; no permission to release that fence is inferred.
+
+Package/root lock versions are0.3.7; catalog manifest/compose remain0.3.6 until
+new anonymous amd64/arm64 image verification, then publish metadata together.
+Primary owns checkpoint, installed0.3.7 lazy/Pi/browser acceptance and final
+original autonomy/timer restoration. No financial test/regtest/M3/M4 expansion.

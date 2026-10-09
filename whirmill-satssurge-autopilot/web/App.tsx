@@ -1,3 +1,4 @@
+import { LazyDisclosure } from "../src/ui-disclosure";
 import { repositoryFor } from "./components/repository";
 import { useExpansion, pruneExpansions } from "./components/expansions";
 import { FixtureMetrics, fixtureCounters } from "./components/FixtureMetrics";
@@ -293,6 +294,69 @@ function ChatMessage() {
         </>
       )}
     </MessagePrimitive.Root>
+  );
+}
+// The two diagnostic providers keep expansion across navigation independently of job pruning.
+const sourceExpansions = new Map<string, boolean>();
+function SourceDetail({ provider, data }: { provider: string; data: any }) {
+  const [open, setOpen] = useState(
+    () => sourceExpansions.get(provider) ?? false,
+  );
+  return (
+    <LazyDisclosure
+      open={open}
+      onToggle={(value) => {
+        sourceExpansions.set(provider, value);
+        setOpen(value);
+      }}
+      summary="Fonte e acquisizione"
+      render={() => (
+        <>
+          <p>
+            Versione · {data.version ?? "sconosciuta"} ·{" "}
+            {data.capturedAt ?? "data non disponibile"}
+          </p>
+          <p>{data.coverage?.note}</p>
+          <Json value={data} label="Evidenze della fonte" />
+        </>
+      )}
+    />
+  );
+}
+function ActivityDetail({ jobId }: { jobId: string }) {
+  const [open, setOpen] = useExpansion(jobId + "|activity");
+  return (
+    <LazyDisclosure
+      open={open}
+      onToggle={setOpen}
+      summary="Messaggio e attività"
+      render={() => <ActivityDetailBody jobId={jobId} />}
+    />
+  );
+}
+function ActivityDetailBody({ jobId }: { jobId: string }) {
+  const view = useJob(jobId),
+    job = view?.job;
+  if (!job) return <p>Dettaglio non disponibile.</p>;
+  const result = parseJson(job.result);
+  return (
+    <>
+      <p>{parseJson(job.payload)?.message}</p>
+      <small className="muted">
+        {job.id} · {job.lane ?? "corsia non specificata"}
+      </small>
+      {!messagePresentation(job, view.text).terminal && job.wait_reason && (
+        <p className="muted">{job.wait_reason}</p>
+      )}
+      <ToolCards id={job.id} />
+      {view.text && <Mark>{view.text}</Mark>}
+      {(result?.answerDetailAvailable ||
+        view.events.some(
+          (e) => e.type === "text" && e.data.bodyDetailAvailable,
+        )) && (
+        <AnswerPages jobId={job.id} detailKey={result?.answerDetailKey} />
+      )}
+    </>
   );
 }
 function ErrorDetail({ jobId, error }: { jobId: string; error: string }) {
@@ -1232,20 +1296,7 @@ export function App() {
                             {j.error && (
                               <ErrorDetail jobId={j.id} error={j.error} />
                             )}
-                            <details className="compact-details">
-                              <summary>Messaggio e attività</summary>
-                              <p>{parseJson(j.payload)?.message}</p>
-                              <small className="muted">
-                                {j.id} · {j.lane ?? "corsia non specificata"}
-                              </small>
-                              {j.wait_reason && (
-                                <p className="muted">{j.wait_reason}</p>
-                              )}
-                              <ToolCards id={j.id} />
-                              {answerFor(projection, j.id) && (
-                                <Mark>{answerFor(projection, j.id)}</Mark>
-                              )}
-                            </details>
+                            <ActivityDetail jobId={j.id} />
                           </article>
                         ))}
                       </jobContext.Provider>
@@ -1360,18 +1411,7 @@ export function App() {
                                     ? "completa"
                                     : "parziale"}
                                 </p>
-                                <details className="compact-details">
-                                  <summary>Fonte e acquisizione</summary>
-                                  <p>
-                                    Versione · {d.version ?? "sconosciuta"} ·{" "}
-                                    {d.capturedAt ?? "data non disponibile"}
-                                  </p>
-                                  <p>{d.coverage?.note}</p>
-                                  <Json
-                                    value={d}
-                                    label="Evidenze della fonte"
-                                  />
-                                </details>
+                                <SourceDetail provider={name} data={d} />
                               </>
                             ) : (
                               <p>
