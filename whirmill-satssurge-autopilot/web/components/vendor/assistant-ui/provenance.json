@@ -1,0 +1,57 @@
+{
+  "repository": "https://github.com/assistant-ui/assistant-ui",
+  "commit": "4ec2945e53f67f01b35dc0395df1f91c0b9f5cf4",
+  "registry": "https://r.assistant-ui.com/styles/new-york/model-selector.json",
+  "license": "MIT",
+  "adaptations": [
+    "Relative import aliases",
+    "Popover portal wrapper scopes utility CSS; original Radix positioning/focus behavior retained"
+  ],
+  "files": [
+    {
+      "file": "elements/model-selector.tsx",
+      "source": "packages/ui/src/components/react/assistant-ui/elements/model-selector.tsx",
+      "sha256": "fac25f56bc0920d28c8d4143e9106abb91700f2a48e0b83a426b5d8404e30c82"
+    },
+    {
+      "file": "elements/model-selector.aui.tsx",
+      "source": "packages/ui/src/components/react/assistant-ui/elements/model-selector.aui.tsx",
+      "sha256": "fa58d6cb2392e7d57d58d7d560008953f95025b1bd0a58b7539a61f7283557c1"
+    },
+    {
+      "file": "utils/model-selection.ts",
+      "source": "packages/ui/src/components/react/assistant-ui/utils/model-selection.ts",
+      "sha256": "f3d5e2fa7c08a7a463b01415563ce2ca13559a7b6d017a093ddc132766582f0b"
+    },
+    {
+      "file": "ui/popover.tsx",
+      "source": "packages/ui/src/components/react/ui/radix/popover.tsx",
+      "sha256": "117b45e854a001369dcc68a5ee7316aebfd4dde1d4d1b580b7068fd50eb5c664"
+    },
+    {
+      "file": "ui/command.tsx",
+      "source": "packages/ui/src/components/react/ui/radix/command.tsx",
+      "sha256": "0e942608ed36be1d3f840540f65113c6692a230be5b7f57962298bca2ba098a9"
+    },
+    {
+      "file": "ui/dialog.tsx",
+      "source": "packages/ui/src/components/react/ui/radix/dialog.tsx",
+      "sha256": "9671dceb976d67f79f959d582d0510fd943470b4697deb34d8507de7f9594f42"
+    },
+    {
+      "file": "ui/button.tsx",
+      "source": "packages/ui/src/components/react/ui/radix/button.tsx",
+      "sha256": "d94dd0f32b4287bcb2ebe8e35a7be35aaaad1e71c7bd391a267936f2a66a3393"
+    },
+    {
+      "file": "LICENSE",
+      "source": "LICENSE",
+      "sha256": "eafb05991a572efa34097474b31fef45b14a8879ed1d1a8fd77de62e6fa7d275"
+    },
+    {
+      "file": "../../../assets/openai.svg",
+      "source": "apps/docs/public/icons/openai.svg",
+      "sha256": "387b48a5ef5845884a522419d9b91eb215068d3c2adcf88bc5993f88a5e7eea1"
+    }
+  ]
+}

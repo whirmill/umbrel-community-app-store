@@ -1,7 +1,8 @@
 import { ComposerPrimitive, useAui } from "@assistant-ui/react";
 import { useLayoutEffect } from "react";
 import { ArrowUp, FlaskConical } from "lucide-react";
-import { ModelPicker, type ModelCatalog } from "../../src/ui-model-picker";
+import { type ModelCatalog } from "../../src/ui-model-picker";
+import { ModelPicker } from "./ModelPicker";
 import { Button } from "./ui/button";
 
 /** Official homepage primitives/geometry, with durable admission owning submission and acknowledgement. */

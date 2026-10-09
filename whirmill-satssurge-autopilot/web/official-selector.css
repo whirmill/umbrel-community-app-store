@@ -1,0 +1,42 @@
+/* Utilities only: no Tailwind preflight. Official source scanning is isolated. */
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css" important source(none);
+@source "./components/vendor/assistant-ui";
+@theme inline {
+  --color-background: var(--surface);
+  --color-foreground: var(--ink);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--ink);
+  --color-muted: var(--surface-muted);
+  --color-muted-foreground: var(--tone-29);
+  --color-accent: var(--surface-muted);
+  --color-accent-foreground: var(--ink);
+  --color-border: var(--border);
+  --color-ring: var(--ink);
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+/* Product constraints on the authentic components, including portalled content. */
+.aui-vendor .official-model-trigger { min-height:44px; min-width:0; max-width:100%; padding-inline:8px; border:0; background:transparent; color:var(--ink); }
+.aui-vendor .official-model-content { width:288px!important; max-width:calc(100vw - 24px)!important; max-height:min(440px,70dvh); }
+.aui-vendor [data-slot="model-selector-list"],
+.aui-vendor [data-slot="command-list"] { max-height:min(280px,45dvh)!important; }
+.aui-vendor [data-slot="model-selector-search"],
+.aui-vendor [data-slot="command-input"] { font-size:16px!important; border:0!important; background:transparent!important; min-height:44px; }
+.aui-vendor [data-slot="command-input-wrapper"] { min-height:44px; }
+.aui-vendor [data-slot="model-selector-item"] { min-height:44px; }
+.aui-vendor [data-slot="model-selector-effort"] { overflow-x:auto; }
+.aui-vendor [role="radio"] { min-height:44px; min-width:44px; }
+.aui-vendor img { object-fit:contain; filter:brightness(0); }
+[data-theme="dark"] .aui-vendor img { filter:brightness(0) invert(1); }
+
+.aui-vendor [data-slot="model-selector-value"] { min-width:0; }
+.aui-vendor .official-model-trigger { flex:1 1 auto; }
+@media(max-width:480px) { .aui-vendor .official-model-trigger { padding-inline:2px!important; gap:3px!important; } }
+
+.aui-vendor [role="radiogroup"] { flex-shrink:0; }
+.aui-vendor [role="radio"] { background:transparent; border:0; }
+/* Narrow composer reserves space for the genuine model/logo/effort trigger. */
+@media(max-width:480px) {
+  .composer-model.aui-vendor > .model-capacity { display:none; }
+}

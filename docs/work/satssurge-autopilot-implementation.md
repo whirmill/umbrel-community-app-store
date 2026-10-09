@@ -1350,3 +1350,110 @@ only; current context usage is unavailable. Upstream coverage/accounting gaps
 remain explicit, with no profitability claim. Massive exports/additional iterable
 adapters remain future candidates. Recovery must preserve current financial
 receipts and never replay uncertain sends or restore older accounting over them.
+
+### 041 official ModelSelector source candidate — writer checkpoint
+
+The custom composer menu and diamond symbol were removed. The composer now uses
+actual `ModelSelector.Root/Trigger/Content/Search/List/Group/Item/Effort` from the
+official assistant-ui registry sources, pinned to upstream commit
+`4ec2945e53f67f01b35dc0395df1f91c0b9f5cf4`. Source, MIT license, original hashes,
+URLs and the only vendor adaptations (relative imports and a portal CSS-scoping
+wrapper) are in `web/components/vendor/assistant-ui/provenance.json`. The SVG is
+the original `apps/docs/public/icons/openai.svg`, used only for authenticated
+OpenAI options. Node regression reverses the documented source adaptations and
+checks every original SHA256, including the logo. No sample model catalog or
+fabricated providers were added.
+
+The controlled web adapter maps only authenticated models and their advertised
+reasoning levels, keeps the backend model/effort setting authoritative, and
+closes the popup when admission/settings disable controls. Existing Settings
+controls and all backend admission/model pins/receipts remain unchanged. Official
+Radix popup positioning/focus, cmdk search/list and Base UI reasoning radios are
+retained. Runtime was patched to exact `@assistant-ui/react@0.15.26`, as required
+by the current registry. Added exact dependencies: Base UI, radix-ui, cmdk and
+Tailwind/PostCSS tooling. Package version remains0.4.0.
+
+Official utility CSS is generated only from vendored components, without
+preflight, scoped to `.aui-vendor` (including its portal), with existing neutral
+light/dark semantic tokens. Mobile input16px/44px targets, bounded menu/list,
+viewport-safe widths and horizontal effort scrolling are product constraints.
+Vite emits the original logo as a local hashed SVG (`assetsInlineLimit:0`), rather
+than a CSP-blocked data URL; existing production/fixture static routes already
+serve SVG with the correct MIME. All build inputs live beneath web or in the
+already-copied vite.config.ts, preserving Docker build input coverage.
+
+ContextDisplay was investigated but is not rendered: its official component
+requires usage and otherwise returns nothing; passing empty usage fabricates
+zero. The existing compact capacity-only label remains explicitly identified as
+provider capacity with current context usage unavailable. No AI SDK or invented
+usage ratio was introduced. Native official ComposerPrimitive.Root/Input/Send
+and durable acknowledgement/draft/recovery adapters from040 are unchanged.
+
+Verification: Node24.21 full build/test149PASS, typecheckPASS, Python16PASS,
+fixture syntaxPASS. Logs `/tmp/satssurge-041-node.log`,
+`/tmp/satssurge-041-typecheck.log`, `/tmp/satssurge-041-python.log`.
+Initial build found Vite SVG types and Portal.asChild incompatibility, both fixed;
+first full test found an overly broad selector-word provenance assertion, fixed
+with full original-source hash verification. Final checks run after the CSP asset
+and list grouping corrections. Browser keyboard/mobile/theme/portal/submit and
+installed acceptance remain primary-owned and pending for this candidate.
+Writer owns no running server/browser/provider/DB resources. Repository writes
+stop at this checkpoint; no Git/release/runtime operation was performed.
+
+041 primary browser feedback correction: official CommandInput overrides its slot
+with `model-selector-search`, so the original command-input-only mobile rule did
+not apply. Scoped CSS now targets the actual search plus fallback input slots,
+sets16px font/44px minimum input and wrapper height, and removes the inherited
+input border/background inside the official search wrapper. Both actual/fallback
+list slots are height-bounded. The unchanged OpenAI SVG is normalized with
+brightness(0) in light mode and brightness(0) invert(1) in dark mode, avoiding
+currentColor/color-scheme-dependent inversion. CSS-only follow-up build and
+typecheck logs: `/tmp/satssurge-041-css-build.log` and
+`/tmp/satssurge-041-css-typecheck.log`; installed/browser verification remains
+primary-owned. No backend or vendor source change.
+
+041 focus correction after primary keyboard verification: a popup selection can
+close while its trigger is disabled for the authoritative settings save, leaving
+focus on BODY. The web adapter now records restoration intent only when the
+selection originated with focus inside its own popup, observes that save's
+actual disabled→enabled transition, and restores the trigger with preventScroll
+only if focus is still BODY/the trigger. Focus moving to another control revokes
+the intent; background updates never establish it. Radix Escape/outside-close
+behavior remains native. The temporary close autofocus is prevented only while
+that selection's trigger is disabled. Focus listener has unmount cleanup.
+Adapter-only build/typecheck logs: `/tmp/satssurge-041-focus-build.log` and
+`/tmp/satssurge-041-focus-typecheck.log`; primary owns concrete browser keyboard
+readback. Vendor source/backend remain unchanged.
+
+041 narrow-mobile follow-up: at<=480px only the composer's visual capacity span
+is hidden, reserving footer width for the authentic provider logo/model/effort
+trigger and44px actions. Model catalog/Settings capacity remains available;
+no provider icon or reasoning level is hidden and official menu is unchanged.
+CSS-only build/typecheck logs: `/tmp/satssurge-041-mobile-build.log` and
+`/tmp/satssurge-041-mobile-typecheck.log`. Primary owns320px screenshot readback.
+
+### 0.4.1 source version preparation — candidate qualified, installed pending
+
+Package and both root lockfile version fields are0.4.1; target tag is
+`satssurge-autopilot-v0.4.1`. Manifest/compose remain verified0.4.0 until new
+immutable image verification. Currently installed0.4.0 remains accepted,
+enabled=true with no maintenance claim, zero pending financial operations and
+all four timers active; this does not qualify installed0.4.1.
+
+Source writer stopped and stable reviewer approved. Local149Node/16Python,
+build/typecheck passed; final CSS/focus/mobile build/typecheck passed. Primary
+candidate browser qualified24/24 responsive cases across320/390/768/1440 and
+six sections with no overflow and mobile16px inputs. Original logo was viewed
+in both themes; model search/Escape/radio/Settings sync and focus return after
+save passed. Exactly three unique fixture jobs completed (native Enter with
+one dropped-ACK recovery, Send click, analysis); refresh recovery passed,
+untrusted script/unsafe link nodes were zero, console warnings/errors zero.
+These are candidate proofs, not installed acceptance. Native iOS/VoiceOver and
+comparative heap/latency savings remain unproven.
+
+Next: tested-source Git/tag handoff, CI149/16 and anonymous multiarchitecture
+index/config/source/version/Cmd/all-layer proof; only then publish catalog
+metadata together. Primary owns checkpoint/update, actual installed browser/Pi
+acceptance and operational reconciliation. Preserve previous immutable tags,
+original financial receipts, OAuth and mandate; no financial tests/regtest or
+M3/M4 expansion is introduced by release preparation.
