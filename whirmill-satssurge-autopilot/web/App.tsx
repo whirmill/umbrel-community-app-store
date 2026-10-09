@@ -1,3 +1,4 @@
+import { OwnerAccess } from "./components/OwnerAccess";
 import { AgentComposer } from "./components/AgentComposer";
 import { virtualMemory } from "../src/ui-virtual-window";
 import { LazyDisclosure } from "../src/ui-disclosure";
@@ -504,16 +505,17 @@ export function App() {
     ),
     [notice, setNotice] = useState(""),
     [unread, setUnread] = useState(false);
+  const ready = !!session && !!status;
   const heading = useRef<HTMLHeadingElement>(null),
-    previousPage = useRef(tab + session);
+    previousPage = useRef(tab + session + ready);
   useEffect(() => {
-    const page = tab + session;
+    const page = tab + session + ready;
     if (previousPage.current !== page) {
       previousPage.current = page;
-      if (session) heading.current?.focus();
-      else document.getElementById("password")?.focus();
+      if (ready) heading.current?.focus();
+      else if (!session) document.getElementById("password")?.focus();
     }
-  }, [tab, session]);
+  }, [tab, session, ready]);
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
   const virtualState = useRef(virtualMemory()).current;
   const adoptViewport = useCallback((node: HTMLDivElement | null) => {
@@ -539,6 +541,22 @@ export function App() {
         if (fixtureCounters.chunks.length > 512) fixtureCounters.chunks.shift();
       });
   }, []);
+  const closeSession = useCallback((token: string) => {
+    if (currentSession.current !== token) return;
+    expireSession(sessionStorage, token);
+    currentSession.current = "";
+    csrf.current = "";
+    setSession("");
+    setStatus(null);
+    setAuth(null);
+    update(() => empty);
+    setNextBefore(null);
+    setNextLegacyBefore(null);
+    setOlder(false);
+    setBusy(false);
+    setConnection("Accesso richiesto");
+    setNotice("");
+  }, [update]);
   const api = useCallback(
     async (path: string, body?: unknown, signal?: AbortSignal) => {
       const token = currentSession.current;
@@ -554,10 +572,7 @@ export function App() {
       });
       const data = await r.json();
       if (r.status === 401 && currentSession.current === token) {
-        expireSession(sessionStorage, token);
-        setSession("");
-        setStatus(null);
-        setConnection("Accesso richiesto");
+        closeSession(token);
       }
       if (!r.ok)
         throw Object.assign(new Error(data.error ?? `Errore ${r.status}`), {
@@ -566,7 +581,7 @@ export function App() {
         });
       return data;
     },
-    [],
+    [closeSession],
   );
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
@@ -590,7 +605,7 @@ export function App() {
     let polling: ReturnType<typeof setInterval>;
     const history = async (reset = false) => {
       const h = await api("history", undefined, controller.signal);
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || currentSession.current !== session) return;
       update((p) => mergeHistory(p, h, reset));
       setNextBefore(h.nextBefore);
       setNextLegacyBefore(h.nextLegacyBefore ?? null);
@@ -598,6 +613,7 @@ export function App() {
     void (async () => {
       try {
         await Promise.all([refresh(controller.signal), history(true)]);
+        if (controller.signal.aborted || currentSession.current !== session) return;
         polling = setInterval(
           () =>
             void refresh(controller.signal).catch((e) => {
@@ -610,11 +626,10 @@ export function App() {
           signal: controller.signal,
           cursor: () => canonical.current.cursor,
         })) {
-          if (controller.signal.aborted) break;
+          if (controller.signal.aborted || currentSession.current !== session) break;
           if (change.type === "resync") await history(true);
           else if (change.type === "expired") {
-            expireSession(sessionStorage, session);
-            setSession("");
+            closeSession(session);
             break;
           } else if (change.type === "connection") {
             setConnection(
@@ -646,7 +661,7 @@ export function App() {
       clearTimeout(timer);
       clearInterval(polling);
     };
-  }, [session, refresh, api, update, retry]);
+  }, [session, refresh, api, update, retry, closeSession]);
   const jobs = useMemo(
     () =>
       Object.values(projection.jobs).sort(
@@ -801,6 +816,7 @@ export function App() {
   };
   const loadOlder = async () => {
     if (!nextBefore && !nextLegacyBefore) return;
+    const token = currentSession.current;
     setOlder(true);
     const el = scroll.current,
       oldHeight = el?.scrollHeight ?? 0;
@@ -812,53 +828,95 @@ export function App() {
           "&legacyBefore=" +
           (nextLegacyBefore ?? 0),
       );
+      if (currentSession.current !== token) return;
       restoreScroll.current = { height: oldHeight, top: el?.scrollTop ?? 0 };
       update((p) => mergeHistory(p, h));
       setNextBefore(h.nextBefore);
       setNextLegacyBefore(h.nextLegacyBefore ?? null);
     } catch (e: any) {
+      if (currentSession.current !== token) return;
       setError(e.message);
     } finally {
-      setOlder(false);
+      if (currentSession.current === token) setOlder(false);
     }
   };
   const recentHistory = async () => {
+    const token = currentSession.current;
     setOlder(true);
     try {
       const h = await api("history");
+      if (currentSession.current !== token) return;
       update((p) => mergeHistory(p, h, true));
       setNextBefore(h.nextBefore);
       setNextLegacyBefore(h.nextLegacyBefore ?? null);
       follow.current = true;
       setNotice("Cronologia recente caricata.");
     } catch (e: any) {
+      if (currentSession.current !== token) return;
       setError(e.message);
     } finally {
-      setOlder(false);
+      if (currentSession.current === token) setOlder(false);
     }
   };
   const recover = async () => {
     if (!pending) return;
+    const token = currentSession.current;
     setBusy(true);
     try {
       const r = await api(
         "jobs/receipt?requestId=" + encodeURIComponent(pending.requestId),
       );
+      if (currentSession.current !== token) return;
       update((p) => mergeJobs(p, [r.job]));
       sessionStorage.removeItem(pendingKey);
       setPending(null);
       setDraft("");
       setNotice("Richiesta recuperata");
     } catch (e: any) {
+      if (currentSession.current !== token) return;
       setError(
         e.status === 404
           ? "Nessuna ricevuta: puoi reinviare la richiesta salvata."
           : e.message,
       );
     } finally {
+      if (currentSession.current === token) setBusy(false);
+    }
+  };
+  const logout = async () => {
+    const token = currentSession.current;
+    setBusy(true);
+    try {
+      await api("owner/logout", {});
+      closeSession(token);
+      setError("");
+    } catch (e: any) {
+      if (e.status !== 401) setError(e.message);
+    } finally {
       setBusy(false);
     }
   };
+  if (!session || !status) return <OwnerAccess
+    checking={!!session} password={password} busy={busy} error={error}
+    onPassword={setPassword}
+    onRetry={() => void refresh().catch(e => setError(e.message))}
+    onSubmit={async event => {
+      event.preventDefault();
+      setBusy(true);
+      try {
+        const result = await api("owner/login", { password });
+        sessionStorage.setItem("satssurge.ownerSession", result.session);
+        currentSession.current = result.session;
+        setPassword("");
+        setError("");
+        setSession(result.session);
+      } catch (e: any) {
+        setError(e.message);
+      } finally {
+        setBusy(false);
+      }
+    }}
+  />;
   return (
     <div className="shell">
       <a className="skip" href="#main">
@@ -924,6 +982,9 @@ export function App() {
               {status.enabled ? "Pausa" : "Riprendi"}
             </Button>
           )}
+          <Button variant="ghost" size="sm" className="owner-logout" disabled={busy} onClick={() => void logout()} title="Esci dalla sessione del proprietario">
+            <LogOut size={16} aria-hidden="true" /> Esci
+          </Button>
         </header>
         <main id="main" tabIndex={-1}>
           <div className="page-heading">
@@ -951,54 +1012,6 @@ export function App() {
               </Button>
             </div>
           )}
-          {!session ? (
-            <Panel
-              title="Accedi al tuo workspace"
-              sub="La password privata dell’installazione si trova in data/owner.secret sul tuo Umbrel."
-            >
-              <form
-                className="login-form"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  setBusy(true);
-                  try {
-                    const r = await api("owner/login", { password });
-                    sessionStorage.setItem("satssurge.ownerSession", r.session);
-                    setPassword("");
-                    setError("");
-                    setSession(r.session);
-                  } catch (e: any) {
-                    setError(e.message);
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                <label htmlFor="password">Password del proprietario</label>
-                <input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <Button type="submit" disabled={busy}>
-                  {busy ? "Accesso…" : "Accedi"}
-                </Button>
-              </form>
-            </Panel>
-          ) : !status ? (
-            <Panel title="Caricamento workspace">
-              <p role="status">Recupero stato, autenticazione e cronologia…</p>
-              <Button
-                variant="outline"
-                onClick={() => void refresh().catch((e) => setError(e.message))}
-              >
-                Riprova
-              </Button>
-            </Panel>
-          ) : (
             <>
               {(status.blockers ?? []).map((b: string, i: number) => (
                 <div className="notice" key={i}>
@@ -1719,19 +1732,8 @@ export function App() {
                     <p>La sessione resta nel browser corrente.</p>
                     <Button
                       variant="outline"
-                      onClick={async () => {
-                        try {
-                          await api("owner/logout", {});
-                        } catch (e: any) {
-                          setError(e.message);
-                          return;
-                        }
-                        sessionStorage.removeItem("satssurge.ownerSession");
-                        setSession("");
-                        setStatus(null);
-                        setProjection(empty);
-                        canonical.current = empty;
-                      }}
+                      disabled={busy}
+                      onClick={() => void logout()}
                     >
                       <LogOut size={16} /> Esci dal workspace
                     </Button>
@@ -1756,7 +1758,6 @@ export function App() {
                 </>
               )}
             </>
-          )}
         </main>
         <footer>
           SatsSurge Autopilot <span>·</span> Evidenze prima delle decisioni{" "}

@@ -1507,3 +1507,27 @@ catalog metadata together. Primary owns checkpoint/update and final installed
 browser/Pi/reconciliation. Preserve all immutable tags, original financial
 receipts/OAuth/mandate and existing operational state. No financial tests against
 live systems, regtest, M3/M4 expansion or release by version preparation.
+
+### 0.4.3 owner access surface — source qualified, installed pending
+
+User requested a dedicated unauthenticated page and a visible logout. OwnerAccess now renders before the protected shell, including during initial token verification; navigation/header/node contents are absent until the session is verified. Header Esci and Settings logout share the authenticated CSRF-protected owner revocation endpoint; OAuth, autonomous jobs, saved request nonce and draft remain intact. Session closure clears UI projection; obsolete history/receipt/bootstrap callbacks cannot repopulate it or allocate polling/SSE after teardown. Focus follows verified heading and returns to password on logout; expired receipt recovery releases busy state.
+
+Independent frozen-source review approved with extracted actual callback regressions for deferred bootstrap cleanup, stale tokens, heading readiness, late pagination/receipt and recovery401. Local149Node/16Python PASS and build PASS. Visible fixture login/rejection/logout/relogin and heading/password focus verified. Unauthenticated light/dark at320/390/768/1440 have no shell/overflow and16px password; all24 authenticated section/viewport combinations have no overflow and44px header logout. Production remains accepted0.4.0, enabled, no owned fence; no financial/UI test actions yet. Immutable0.4.2 CI37961989170 passed149/16 and published its image, but anonymous OCI verification/GitHub release/store metadata/install were not performed; preserve041/042 tags and proceed with043 rather than installing042. Primary owns fresh checkpoint, immutable043 verification, installed acceptance and restoration of initial autonomy/timers.
+
+### 0.4.3 source version preparation — owner access extension, acceptance pending
+
+Package and both root lockfile version fields are0.4.3; target tag is
+`satssurge-autopilot-v0.4.3`. Source/UI writer stopped; reviewer approved App,
+OwnerAccess and styles. Local149Node/16Python/build passed. New owner-access
+login layout/logout extension is part of the next delivery; no installed0.4.3
+acceptance is claimed by version preparation.
+
+Previous tags remain immutable. 0.4.1 failed its mock timing test before image
+publication; 0.4.2 CI passed149/16 and published an image but full anonymous
+verification, GitHub release, catalog metadata and installation were not
+performed. Actual accepted installed release remains0.4.0 unchanged. Manifest/
+compose remain0.4.0 until new0.4.3 image verification and combined metadata
+publication. Primary owns Git/tag, checkpoint/update and actual browser/Pi/
+owner-security/reconciliation. Preserve owner/OAuth/mandate/accounting and
+original financial receipts. No Git/CI/GH/store/live operation is performed
+by this preparation; no financial tests/regtest/M3/M4 expansion.
