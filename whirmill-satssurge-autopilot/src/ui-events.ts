@@ -1,3 +1,5 @@
+import type { ServerResponse } from "node:http";
+import { EventEmitter } from "node:events";
 import type { AgentEvent } from "@earendil-works/pi-durable";
 import { Store } from "./store.js";
 import { hash, json, now, scrub } from "./domain.js";
@@ -26,11 +28,33 @@ export function bounded(value: unknown): unknown {
     ? { truncated: true, text: encoded.slice(0, 24000) }
     : clean;
 }
+// Instances used by Queue and Pi share one notification source per database owner.
+const notifications = new WeakMap<
+  Store,
+  { emitter: EventEmitter; version: number; notify: () => void }
+>();
+function source(store: Store) {
+  let state = notifications.get(store);
+  if (!state) {
+    const emitter = new EventEmitter();
+    emitter.setMaxListeners(0);
+    state = {
+      emitter,
+      version: 0,
+      notify: () => {
+        state!.version++;
+        emitter.emit("persisted");
+      },
+    };
+    notifications.set(store, state);
+  }
+  return state;
+}
 /** Public allowlist: no thinking, provider metadata or raw errors. */
 export class UiEvents {
   constructor(readonly store: Store) {}
   append(jobId: string, type: string, data: unknown, key?: string) {
-    this.store.run(
+    const inserted = this.store.run(
       "INSERT OR IGNORE INTO ui_events(job_id,at,type,data,event_key) VALUES(?,?,?,?,?)",
       jobId,
       now(),
@@ -38,6 +62,50 @@ export class UiEvents {
       json(scrub(data)),
       key ?? null,
     );
+    if (Number(inserted.changes))
+      this.store.afterCommit(source(this.store).notify);
+  }
+  /** Notifications carry no payload; SQLite and the cursor remain authoritative. */
+  async *stream(
+    cursor: number,
+    signal: AbortSignal,
+    options: { batchSize?: number; heartbeatMs?: number } = {},
+  ) {
+    const state = source(this.store),
+      batchSize = Math.max(1, Math.min(256, options.batchSize ?? 64));
+    let wake: (() => void) | undefined;
+    const notify = () => wake?.();
+    state.emitter.on("persisted", notify); // Subscribe before the initial journal read.
+    signal.addEventListener("abort", notify);
+    try {
+      while (!signal.aborted) {
+        const observed = state.version,
+          batch = this.after(cursor, batchSize);
+        if (batch.length) {
+          cursor = batch.at(-1)!.id;
+          yield batch;
+          continue;
+        }
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(done, options.heartbeatMs ?? 15000);
+          function done() {
+            clearTimeout(timer);
+            wake = undefined;
+            resolve();
+          }
+          wake = done;
+          if (signal.aborted || state.version !== observed) done();
+        });
+        if (!signal.aborted) yield []; // Heartbeat also recovers writes from another connection.
+      }
+    } finally {
+      wake?.();
+      state.emitter.off("persisted", notify);
+      signal.removeEventListener("abort", notify);
+    }
+  }
+  subscriberCount() {
+    return source(this.store).emitter.listenerCount("persisted");
   }
   cursor() {
     return this.store.one("SELECT coalesce(max(id),0) id FROM ui_events")
@@ -229,5 +297,74 @@ export class ConversationProjection {
     if (text === this.last) return;
     this.last = text;
     this.events.append(this.jobId, "text", { text });
+  }
+}
+
+/** At most one journal batch plus Node's writable buffer per connection. */
+export async function serveUiEvents(
+  events: UiEvents,
+  response: ServerResponse,
+  cursor: number,
+  signal: AbortSignal,
+  authorized: () => boolean,
+  options: {
+    heartbeatMs?: number;
+    drainTimeoutMs?: number;
+    batchSize?: number;
+  } = {},
+) {
+  const controller = new AbortController();
+  const stop = () => controller.abort();
+  signal.addEventListener("abort", stop);
+  response.on("close", stop);
+  if (signal.aborted || response.destroyed) stop();
+  async function write(frame: string) {
+    if (controller.signal.aborted || !authorized()) {
+      stop();
+      return;
+    }
+    if (response.write(frame)) return;
+    await new Promise<void>((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        response.off("drain", done);
+        controller.signal.removeEventListener("abort", done);
+        resolve();
+      };
+      const timer = setTimeout(() => {
+        response.destroy();
+        stop();
+      }, options.drainTimeoutMs ?? 15000);
+      response.once("drain", done);
+      controller.signal.addEventListener("abort", done);
+      if (controller.signal.aborted) done();
+    });
+  }
+  try {
+    for await (const batch of events.stream(
+      cursor,
+      controller.signal,
+      options,
+    )) {
+      if (!batch.length) await write(": heartbeat\n\n");
+      else
+        for (const event of batch) {
+          await write(
+            "id: " +
+              event.id +
+              "\nevent: update\ndata: " +
+              json(event) +
+              "\n\n",
+          );
+          if (controller.signal.aborted) break;
+        }
+    }
+  } catch {
+    response.destroy();
+  } finally {
+    stop();
+    signal.removeEventListener("abort", stop);
+    response.off("close", stop);
+    response.end();
   }
 }

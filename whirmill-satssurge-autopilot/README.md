@@ -220,3 +220,5 @@ summary was available in this Pi event projection; hidden thinking is excluded.
 Accounting remains partial and M3/M4 remain outside this release.
 
 La UI0.3.2 aggiunge colori semantici, distribuzione locale/remota della liquidità e barre per canale con filtro e ordinamento, ricavi/costi, budget, confronto delle commissioni e stati della coda. Dettagli tecnici e risultati dei tool restano apribili. I grafici usano dati osservati e importi esatti; copertura parziale e valori non disponibili sono espliciti.
+
+La0.3.3 sostituisce il polling del journal SSE a500ms con un EventEmitter condiviso per Store, notifiche post-COMMIT e generatori asincroni con cursore SQLite autorevole. Il frontend consuma lo stream fuori da React con decodifica incrementale, replay e cleanup. Heartbeat15s, scadenza owner, backpressure limitata e refresh dello stato5s restano separati. Test Node24:84PASS; Python15PASS; qualifica installata in corso.

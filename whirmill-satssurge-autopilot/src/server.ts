@@ -9,7 +9,7 @@ import { Collector } from './collector.js';
 import { Queue } from './queue.js';
 import { Scheduler } from './scheduler.js';
 import { Agent } from './agent.js';
-import {UiEvents} from './ui-events.js';
+import {UiEvents,serveUiEvents} from './ui-events.js';
 import { OwnerSessions } from './owner-auth.js';
 import { importHistory } from './importer.js';
 import { now,json,publicAnswer,scrub } from './domain.js';
@@ -62,15 +62,7 @@ const server=createServer(async(req,res)=>{
       if(!/^\d{1,15}$/.test(supplied)){send({error:'Invalid event cursor'},400);return;}
       let cursor=Number(supplied);if(cursor>uiEvents.cursor()){send({error:'Cursor ahead of store; resynchronize history'},409);return;}
       res.setHeader('Content-Type','text/event-stream');res.setHeader('X-Accel-Buffering','no');res.setHeader('Connection','keep-alive');res.flushHeaders();
-      let blocked=false;res.on('drain',()=>{blocked=false;});
-      const tick=()=>{
-        if(closing||!sessions.accepts(req.headers.authorization)){res.end();return;}
-        if(blocked)return;
-        const batch=uiEvents.after(cursor);
-        if(!batch.length){blocked=!res.write(': heartbeat\n\n');return;}
-        for(const event of batch){cursor=event.id;blocked=!res.write('id: '+event.id+'\nevent: update\ndata: '+json(event)+'\n\n');if(blocked)break;}
-      };
-      tick();const timer=setInterval(tick,500);res.on('close',()=>clearInterval(timer));return;
+      await serveUiEvents(uiEvents,res,cursor,streamAbort.signal,()=>!closing&&sessions.accepts(req.headers.authorization));return;
     }
     if(req.method==='GET'&&url.pathname==='/api/history'){
       const before=Number(url.searchParams.get('before')??Number.MAX_SAFE_INTEGER);

@@ -1,3 +1,4 @@
+import { ownerEventStream } from "../src/ui-stream.js";
 import {
   useCallback,
   useEffect,
@@ -60,7 +61,6 @@ import {
   expireSession,
   safeUrl,
   sats,
-  sseFrames,
   type Projection,
   type Job,
   type Pending,
@@ -334,18 +334,6 @@ export function App() {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     let polling: ReturnType<typeof setInterval>;
-    const wait = () =>
-      new Promise<void>((resolve) => {
-        timer = setTimeout(resolve, 1800);
-        controller.signal.addEventListener(
-          "abort",
-          () => {
-            clearTimeout(timer);
-            resolve();
-          },
-          { once: true },
-        );
-      });
     const history = async (reset = false) => {
       const h = await api("history", undefined, controller.signal);
       if (controller.signal.aborted) return;
@@ -362,57 +350,33 @@ export function App() {
             }),
           5000,
         );
-        while (!controller.signal.aborted) {
-          try {
-            setConnection("Riconnessione…");
-            const r = await fetch(
-              "/api/events?after=" + canonical.current.cursor,
-              {
-                credentials: "same-origin",
-                headers: requestHeaders(session),
-                signal: controller.signal,
-              },
+        for await (const change of ownerEventStream({
+          session,
+          signal: controller.signal,
+          cursor: () => canonical.current.cursor,
+        })) {
+          if (controller.signal.aborted) break;
+          if (change.type === "resync") await history(true);
+          else if (change.type === "expired") {
+            expireSession(sessionStorage, session);
+            setSession("");
+            break;
+          } else if (change.type === "connection") {
+            setConnection(
+              change.state === "online"
+                ? "In tempo reale"
+                : change.state === "connecting"
+                  ? "Riconnessione…"
+                  : "Offline · riconnessione",
             );
-            if (r.status === 409) {
-              await history(true);
-              continue;
-            }
-            if (r.status === 401) {
-              expireSession(sessionStorage, session);
-              setSession("");
-              break;
-            }
-            if (!r.ok || !r.body) throw Error("Stream non disponibile");
-            setConnection("In tempo reale");
-            setError("");
-            const reader = r.body.getReader(),
-              decoder = new TextDecoder();
-            let buffer = "";
-            try {
-              while (!controller.signal.aborted) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                const parsed = sseFrames(buffer);
-                buffer = parsed.rest;
-                if (parsed.frames.length) {
-                  const unknown = parsed.frames.some(
-                    (e) => !canonical.current.jobs[e.job_id],
-                  );
-                  update((p) => mergeEvents(p, parsed.frames));
-                  if (unknown) void refresh(controller.signal).catch(() => {});
-                }
-              }
-            } finally {
-              await reader.cancel().catch(() => {});
-            }
-            if (!controller.signal.aborted)
-              setConnection("Offline · riconnessione");
-          } catch (e) {
-            if (!controller.signal.aborted)
-              setConnection("Offline · riconnessione");
+            if (change.state === "online") setError("");
+          } else {
+            const unknown = change.events.some(
+              (e) => !canonical.current.jobs[e.job_id],
+            );
+            update((p) => mergeEvents(p, change.events));
+            if (unknown) void refresh(controller.signal).catch(() => {});
           }
-          await wait();
         }
       } catch (e: any) {
         if (!controller.signal.aborted) {

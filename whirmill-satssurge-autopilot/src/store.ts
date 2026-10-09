@@ -69,9 +69,20 @@ export class Store {
   run(sql: string, ...args: any[]) { return this.db.prepare(sql).run(...args); }
   get<T = any>(key: string): T | undefined { const row=this.one('SELECT value FROM meta WHERE key=?',key); return row ? JSON.parse(row.value) as T : undefined; }
   set(key: string, value: unknown) { this.run('INSERT INTO meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,json(value)); }
+  private commitCallbacks: Set<() => void> | undefined;
+  afterCommit(callback: () => void) {
+    if (this.commitCallbacks) this.commitCallbacks.add(callback);
+    else { try { callback(); } catch {} }
+  }
   tx<T>(fn: () => T): T {
     this.db.exec('BEGIN IMMEDIATE');
-    try { const result=fn(); this.db.exec('COMMIT'); return result; } catch(e) { this.db.exec('ROLLBACK'); throw e; }
+    this.commitCallbacks = new Set();
+    let result: T;
+    try { result=fn(); this.db.exec('COMMIT'); } catch(e) { this.commitCallbacks=undefined; this.db.exec('ROLLBACK'); throw e; }
+    const callbacks=this.commitCallbacks; this.commitCallbacks=undefined;
+    // A notification failure cannot turn a committed action into a retry.
+    for(const callback of callbacks) { try { callback(); } catch {} }
+    return result;
   }
   ledger(entry: {id:string; at:string; classification:string; amountMsat:string; category?:string; operationId?:string; evidenceId?:string; details?:unknown}) {
     integer(entry.amountMsat);

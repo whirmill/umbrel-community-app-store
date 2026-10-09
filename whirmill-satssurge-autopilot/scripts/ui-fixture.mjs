@@ -4,7 +4,7 @@ import { readFileSync, mkdirSync } from "node:fs";
 import { resolve, extname } from "node:path";
 import { Store } from "../dist/store.js";
 import { Queue } from "../dist/queue.js";
-import { UiEvents } from "../dist/ui-events.js";
+import { UiEvents, serveUiEvents } from "../dist/ui-events.js";
 const dir = process.env.UI_FIXTURE_DIR;
 if (!dir) throw Error("UI_FIXTURE_DIR required");
 mkdirSync(dir, { recursive: true });
@@ -175,25 +175,9 @@ const server = createServer(async (req, res) => {
       res.setHeader("Content-Type", "text/event-stream");
       res.flushHeaders();
       clients.add(res);
-      const emit = () => {
-        for (const e of events.after(cursor)) {
-          cursor = e.id;
-          res.write(
-            "id: " +
-              e.id +
-              "\nevent: update\ndata: " +
-              JSON.stringify(e) +
-              "\n\n",
-          );
-        }
-        res.write(": heartbeat\n\n");
-      };
-      emit();
-      const t = setInterval(emit, 200);
-      res.on("close", () => {
-        clearInterval(t);
-        clients.delete(res);
-      });
+      const controller = new AbortController();
+      res.on("close", () => { controller.abort(); clients.delete(res); });
+      await serveUiEvents(events, res, cursor, controller.signal, () => req.headers.authorization === "Bearer " + session);
       return;
     }
     if (url.pathname === "/api/chat" || url.pathname === "/api/analyze") {
