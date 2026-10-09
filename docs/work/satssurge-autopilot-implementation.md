@@ -1549,3 +1549,60 @@ Current accepted installation remains0.4.0. Final frozen candidate149/16,
 leak/overflow, password16px/logout44px and console0. Fixture35061 exited130,
 its tab closed and viewport reset. Previous041/042 immutable artifacts remain
 unchanged;042 skips installation. Native iOS/VoiceOver/heap savings unproven.
+
+### Installed 0.4.3 acceptance complete — 2026-10-09
+
+Actual Umbrel0.4.3 is healthy and accepted: source
+`4c40a17f688315977fcb192a5b979831231aae55`, store4785a17, immutable index
+`sha256:ba5d02de82e9d0e2568466ef47a0c1ac7a775d72e51843ff8119af4e36fbe1fb`,
+amd64 config `sha256:de47ed99e63439c3a5adc22e1aba52b057d2b0f05e6568e619a81d7a6f6a3dd9`,
+package0.4.3 and `flock --no-fork`. CI37964740620 passed149Node24/16Python;
+anonymous both-platform configs/all22layers were verified. Earlier pending
+publication checkpoints are historical; prior040 backend proofs are retained,
+not claimed rerun in full for this UI acceptance.
+
+Fresh pre-043-20261009T172011Z checkpoint passed host/Mac/isolated restore,
+quick_check=ok/schema4/111ledger/85history/153original jobs. All original jobs,
+operations/ledger/history/owner/mandate remained exact after installation.
+Actual in-app browser standalone login, header/Settings logout, password/heading
+focus, Origin/CSRF rejection, revoked copied bearer and idle SSE closure passed.
+Initial/checking/expired-after-restart screens had no protected header/navigation.
+All24 section/viewport cases at320/390/768/1440 had no overflow and44px logout.
+At320px model popup was within17..305px, search16px,44models/5Sol efforts and
+original logo viewed in light/dark.
+
+One native medium-effort request completed once, truthfully reporting the
+unavailable system_status tool requested by the operator; no tool execution is
+claimed for it. Corrected native high request completed once with node_state,
+progress/text and original tool call/result. Concurrent qualification chat and
+analysis started together and completed once with one read tool each, real public
+reasoning111/86events and progress/text. Refresh/logout/login recovered identical
+jobs/states; section switches retained chat. Tool details mounted two JSON pre
+bodies only on expansion, zero when closed. Five/six virtual messages were mounted
+with long history and older history remained accessible. Scroll-anchor benchmark
+is inconclusive because click-induced auto-scroll affected measurement.
+
+Operational exception during final controlled restart: the primary's zero-active
+assertion failed at one active background autonomy job, but a subsequent newline
+shell command still restarted the app. The owned maintenance claim kept financial
+execution blocked. Reconciliation retained original Pi conversation10821 and
+submission10828; attempt2 recovered to completed with no error, new submission,
+manual cancellation or financial effect. This was an operator sequencing exception,
+not requested application behavior; preserve its original receipt.
+
+Final all158jobs are terminal (cancelled6/completed91/failed61); all153original
+jobs remain exact. Ledger/operations/85history/owner/mandate unchanged. Only the
+owned plan-043-selector claim was cleared after reconciliation; initial enabled=true,
+Sol/high and all four backfill/diagnostics/interlock/competition timers were
+restored. Zero active jobs/pending financial operations and console warnings/errors.
+No financial acceptance effects/tests, regtest or M3/M4 expansion.
+
+Private viewed screenshots:043-installed-login-desktop.jpg,
+043-installed-login-mobile.jpg,
+043-installed-model-menu.jpg and043-installed-chat-desktop.jpg; chat screenshot
+was captured during the paused qualification. Receipts/screenshots remain under
+`/Users/whirmill/.local/share/satssurge`. Candidate server/tab/processes closed,
+viewport reset. Catalog272K is capacity only, not actual context usage; native
+iOS Safari/VoiceOver and comparative heap savings remain unverified. Upstream
+coverage/accounting gaps and profitability limits remain explicit. Recovery must
+preserve current financial receipts and never replay uncertain effects.
