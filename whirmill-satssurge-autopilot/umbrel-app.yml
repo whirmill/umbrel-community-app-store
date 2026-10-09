@@ -38,6 +38,8 @@ releaseNotes: >-
   Mate backfill avoids unnecessary restart when its retained log is unchanged.
   Preserves schema 4, private data, subscription OAuth, mandate and pending
   operation receipts. Final local suites passed 95 Node 24 and 16 Python tests.
-  Immutable image publication and installed qualification of 0.3.4 are pending;
-  0.3.3 installed qualification is complete. No financial acceptance test,
+  Immutable amd64/arm64 image publication is verified against source
+  a3fad86bad3ae86ebc3798ea34d17fb609012770. CI 37912510129 passed 95 Node
+  and 16 Python tests; all 22 layers passed anonymous SHA-256 and size checks.
+  Installed qualification of 0.3.4 remains pending; 0.3.3 qualification is complete. No financial acceptance test,
   regtest, M3/M4 capability or profitability qualification is introduced.
