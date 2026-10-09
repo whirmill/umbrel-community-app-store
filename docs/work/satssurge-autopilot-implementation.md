@@ -1,5 +1,13 @@
 # SatsSurge Autopilot — implementation checkpoint
 
+## Current continuation checkpoint — 2026-10-09 AI data access
+
+Owner login is now verified in the installed external browser: login heading absent; status `In pausa`, coordinator available, analysts0/2, one financial executor. No further owner-login blocker for0.2.2.
+
+Actual completed AI receipts exposed a remaining M2 gap: `node_state` returned the entire stats projection and Pi's50KB output window clipped later diagnostic/competition/accounting content. New `agent-state.ts` provides a compact summary and typed `state_page` for each coordinator/analyst, with<=12000byte/20row pages, section content versions, explicit acquisition-change restart, unavailable counts null and coverage retained. Competition summaries keep all10 peers/quotes; alternatives are a separate page with upstream truncation explicit. Diagnostic attempts and buckets remain distinct from payment counts. No new financial capability.
+
+Live readonly verification of new local projection against installed owner API recovered all201LNDg failure rows, all10 channels and all10 competitive price rows. Summary3080bytes; full API response463203bytes (includes chat/jobs and is NOT the exact old node_state byte count). No financial pending, bootstrapReadytrue, enabledfalse. Local suite58Node/14Python passes, including actualPi analyst registry retrieval of the last peer. Bounded review/release pending. New code not installed yet; preserve owned runtime-qualification fence and pause until final acceptance. Next: review, immutable0.2.3 publish/install, actualAI state_page retrieval, audit and safely release only owned qualification claim/resume within original mandate. Do not claim M2 complete or economic profit yet.
+
 User authority: implement consolidated plan, M1 real-node POC fee/rebalance autonomy using Pi Durable/Codex subscription, no regtest. M3 channel/Magma and M4 Telegram remain deferred. Mandate 30k cumulative incl history,1500 daily,750 exploration subset,100 attempt,500k onchain protected.
 
 App: `whirmill-satssurge-autopilot/`. Root owns implementation. Never stage unrelated untracked docs/scripts. No mainnet financial RPC has been performed by this implementation turn.

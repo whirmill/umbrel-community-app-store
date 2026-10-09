@@ -8,6 +8,18 @@ import {once} from 'node:events';
 import {fixture} from './pi-fixture.js';
 import {BACKGROUND_CONTEXT as context} from '@earendil-works/chord/context';
 
+test('actual analyst registry returns current competition tail without the large alternative arrays',{timeout:10000},async()=>{
+  const directory=mkdtempSync(join(tmpdir(),'surge-pi-pages-'));const f=fixture(directory,'state');
+  try{
+    f.store.set('competition',{status:'qualified',coverage:'Public graph only',channels:Array.from({length:10},(_,i)=>({id:String(i),alias:'peer'+i,quotes:[{ourFeeMsat:'40000'}],alternatives:Array.from({length:100},(_,j)=>({id:String(j)})),alternativesTruncated:true}))});
+    await f.agent.open();f.queue.enqueue({requestId:'current-price-pages',kind:'analysis',payload:{message:'read current prices'}});
+    const result=await f.agent.runJob(f.queue.claim('analyst','owner')!,0);
+    assert.match(result.answer,/peer9/);assert.match(result.answer,/40000/);assert.match(result.answer,/availableAlternativeRows/);
+    assert.doesNotMatch(result.answer,/Unknown tool|truncated by/);
+    assert.equal(existsSync(join(directory,'effects.jsonl')),false);
+  }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
+});
+
 test('real Pi Durable recovers a killed unsafe tool without a second effect or submission',{timeout:15000},async()=>{
   const directory=mkdtempSync(join(tmpdir(),'surge-pi-crash-'));
   const child=fork(new URL('./pi-fixture.js',import.meta.url),['crash-fixture',directory],{stdio:['ignore','ignore','pipe','ipc']});
