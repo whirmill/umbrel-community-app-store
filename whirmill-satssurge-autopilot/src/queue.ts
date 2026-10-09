@@ -25,7 +25,7 @@ export class Queue {
     return this.store.tx(()=>{
       const old=this.store.one('SELECT rowid history_id,* FROM jobs WHERE request_id=?',input.requestId);
       if(old){if(old.payload_digest!==digest)throw new Error('Request ID conflicts with original payload');return old;}
-      if(input.coalesceKey){const existing=this.store.one(`SELECT * FROM jobs WHERE coalesce_key=? AND state IN ${pending}`,input.coalesceKey);if(existing)return existing;}
+      if(input.coalesceKey){const existing=this.store.one(`SELECT * FROM jobs WHERE coalesce_key=? AND (state='queued' OR (state='waiting' AND submitted=0))`,input.coalesceKey);if(existing)return existing;}
       if(this.store.one(`SELECT count(*) n FROM jobs WHERE state IN ${pending}`).n>=this.maxPending)throw new Error('Queue full; try later with the same request ID');
       const key=id(),lane=input.kind==='analysis'?'analyst':'coordinator';
       const priority=input.kind==='chat'?30:input.kind==='analysis'?20:input.kind==='events'?10:0;
@@ -65,7 +65,7 @@ export class Queue {
   wait(key:string,token:string,reason:string,at=now()) {
     return this.store.tx(()=>{
       const row=this.get(key);if(!row||row.run_token!==token||row.state!=='running')return false;
-      this.store.run("UPDATE jobs SET state='waiting',wait_reason=?,updated_at=?,lease_owner=NULL,lease_until=NULL,run_token=NULL WHERE id=?",reason,at,key);this.event(key,'waiting',{reason},at);return true;
+      this.store.run("UPDATE jobs SET state='waiting',coalesce_key=NULL,wait_reason=?,updated_at=?,lease_owner=NULL,lease_until=NULL,run_token=NULL WHERE id=?",reason,at,key);this.event(key,'waiting',{reason},at);return true;
     });
   }
   cancel(key:string,at=now()) {
@@ -81,7 +81,7 @@ export class Queue {
   recoverAfterRestart(at=now()) {
     return this.store.tx(()=>{
       for(const row of this.store.all("SELECT * FROM jobs WHERE state='running'")) {
-        this.store.run("UPDATE jobs SET state='waiting',wait_reason='restart_recovery',updated_at=?,lease_owner=NULL,lease_until=NULL,run_token=NULL WHERE id=?",at,row.id);
+        this.store.run("UPDATE jobs SET state='waiting',coalesce_key=NULL,wait_reason='restart_recovery',updated_at=?,lease_owner=NULL,lease_until=NULL,run_token=NULL WHERE id=?",at,row.id);
         this.event(row.id,'restart_recovery',{submitted:!!row.submitted},at);
       }
     });

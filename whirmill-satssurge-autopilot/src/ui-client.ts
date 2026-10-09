@@ -23,6 +23,9 @@ export type Projection = {
   jobs: Record<string, Job>;
   events: UiEvent[];
   cursor: number;
+  truncatedEvents?: boolean;
+  truncatedHistory?: boolean;
+  historyWindowIds?: string[];
 };
 export function mergeEvents(
   state: Projection,
@@ -31,7 +34,17 @@ export function mergeEvents(
 ): Projection {
   const merged = new Map(state.events.map((e) => [e.id, e]));
   for (const e of events) merged.set(e.id, e);
-  const ordered = [...merged.values()].sort((a, b) => a.id - b.id),
+  // Text/progress are cumulative snapshots, not deltas to concatenate.
+  const snapshots = new Map<string, number>();
+  for(const e of merged.values())if(['text','progress','job'].includes(e.type)){
+    const key=e.job_id+':'+e.type;snapshots.set(key,Math.max(snapshots.get(key)??0,e.id));
+  }
+  const compact=[...merged.values()].filter(e=>!['text','progress','job'].includes(e.type)||snapshots.get(e.job_id+':'+e.type)===e.id);
+  const byId=compact.sort((a,b)=>a.id-b.id);
+  // Retain current snapshots preferentially, even when an old job emits many tools.
+  const current=byId.filter(e=>['text','progress','job'].includes(e.type)).slice(-10000);
+  const details=byId.filter(e=>!['text','progress','job'].includes(e.type));
+  const ordered=[...current,...(current.length===10000?[]:details.slice(-(10000-current.length)))].sort((a,b)=>a.id-b.id),
     jobs = { ...state.jobs };
   for (const e of ordered) {
     const j = jobs[e.job_id];
@@ -39,10 +52,12 @@ export function mergeEvents(
       jobs[e.job_id] = { ...j, ...e.data, updated_at: e.at };
   }
   return {
+    ...state,
     jobs,
     events: ordered,
+    truncatedEvents: state.truncatedEvents || compact.length>10000,
     cursor: advance
-      ? Math.max(state.cursor, ...events.map((e) => e.id))
+      ? events.reduce((cursor,e)=>Math.max(cursor,e.id),state.cursor)
       : state.cursor,
   };
 }
@@ -60,7 +75,11 @@ export function mergeJobs(state: Projection, incoming: Job[]): Projection {
       )
         delete jobs[existing.id];
   }
-  return { ...state, jobs };
+  const pinned=new Set([...(state.historyWindowIds??[]),...incoming.map(j=>j.id)]);
+  const terminal=Object.values(jobs).filter(j=>['completed','failed','cancelled'].includes(j.state));
+  terminal.sort((a,b)=>Number(pinned.has(b.id))-Number(pinned.has(a.id)) || (b.created_at??'').localeCompare(a.created_at??'') || (b.history_id??0)-(a.history_id??0));
+  for(const j of terminal.slice(250))delete jobs[j.id];
+  return { ...state, jobs,events:state.events.filter(e=>!!jobs[e.job_id]),truncatedHistory:state.truncatedHistory||terminal.length>250 };
 }
 export function canCancel(job: Job) {
   return job.state === "queued" || (job.state === "waiting" && !job.submitted);
@@ -121,6 +140,9 @@ export interface StorageLike {
   removeItem(k: string): void;
 }
 export const pendingKey = "satssurge.pendingSubmission";
+export function validChatPayload(message:string) {
+  return new TextEncoder().encode(JSON.stringify({message})).byteLength<=16384;
+}
 export function pendingSubmission(
   storage: StorageLike,
   message: string,
@@ -133,6 +155,7 @@ export function pendingSubmission(
       throw Error("Recupera prima la ricevuta della richiesta precedente.");
     return old;
   }
+  if(!validChatPayload(message))throw Error("Il messaggio supera il limite di 16 KiB. Riducilo prima di inviare.");
   const pending = { requestId: createId(), message, kind };
   storage.setItem(pendingKey, JSON.stringify(pending));
   return pending;
@@ -176,8 +199,12 @@ export function mergeHistory(
   },
   reset = false,
 ): Projection {
+  const retainedActive=Object.fromEntries(Object.entries(state.jobs).filter(([,j])=>!['completed','failed','cancelled'].includes(j.state)));
+  // A preserved active receipt may have finished outside the newest history page.
+  // Replay from its old cursor so its terminal event cannot be skipped by reset.
+  const resetCursor=Object.keys(retainedActive).length?Math.min(state.cursor,history.cursor):history.cursor;
   let p = mergeJobs(
-    reset ? { jobs: {}, events: [], cursor: history.cursor } : state,
+    {...(reset ? { jobs: retainedActive, events: [], cursor: resetCursor } : state),historyWindowIds:history.jobs.map(j=>j.id)},
     history.jobs,
   );
   const requests = new Set(
@@ -203,7 +230,8 @@ export function mergeHistory(
         legacy: true,
       };
     }
-  return mergeEvents(p, history.events, false);
+  p=mergeJobs(p,[]);
+  return mergeEvents(p, history.events.filter(e=>!!p.jobs[e.job_id]), false);
 }
 export function messageStatus(
   job: Job,

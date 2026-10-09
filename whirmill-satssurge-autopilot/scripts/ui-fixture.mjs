@@ -31,7 +31,8 @@ store.set("snapshot", {
   ],
 });
 if (!store.get("seeded")) {
-  for (let n = 0; n < 125; n++) {
+  const historyCount=Math.max(125,Math.min(1000,Number(process.env.FIXTURE_HISTORY_COUNT)||125));
+  for (let n = 0; n < historyCount; n++) {
     const j = queue.enqueue({
       requestId: "fixture:" + n,
       kind: "chat",
@@ -40,7 +41,7 @@ if (!store.get("seeded")) {
     const claimed = queue.claim("coordinator", "fixture");
     queue.finish(j.id, claimed.run_token, "completed", {
       answer:
-        n === 124
+        n === historyCount-1
           ? '## Contenuti non attendibili\n\n<script>untrusted</script> [link](javascript:alert(1))\n\n```js\nconsole.log("Test locale");\n```\n\n' +
             "Cronologia lunga. ".repeat(1800)
           : "Risposta storica " + n,
@@ -135,11 +136,12 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/api/owner/login") {
       if (body.password !== "fixture-only")
         return send({ error: "Password rifiutata" }, 403);
-      session = "fixture-session";
+      session = "fixture-session-"+crypto.randomUUID();
       return send({ session });
     }
     if (req.headers.authorization !== "Bearer " + session)
       return send({ error: "Sessione scaduta" }, 401);
+    if (url.pathname === "/api/owner/logout") {session="revoked-"+Date.now();return send({disconnected:true});}
     if (url.pathname === "/api/status")
       return send({
         ...store.stats(),

@@ -25,6 +25,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS evaluations(id TEXT PRIMARY KEY, decision_id TEXT NOT NULL UNIQUE REFERENCES decisions(id), at TEXT NOT NULL, status TEXT NOT NULL, result TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS strategies(key TEXT PRIMARY KEY, status TEXT NOT NULL, fingerprint TEXT NOT NULL, reason TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS channel_holds(channel_id TEXT PRIMARY KEY, at TEXT NOT NULL, reason TEXT NOT NULL, snapshot_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS expired_events(id TEXT PRIMARY KEY);
       CREATE TABLE IF NOT EXISTS aggregates(day TEXT PRIMARY KEY, content TEXT NOT NULL, version INTEGER NOT NULL);
       CREATE VIRTUAL TABLE IF NOT EXISTS evidence_search USING fts5(evidence_id UNINDEXED, content);
 
@@ -40,7 +41,8 @@ export class Store {
         submitted INTEGER NOT NULL DEFAULT 0, submission_id TEXT
       );
       CREATE INDEX IF NOT EXISTS jobs_dispatch ON jobs(lane,state,priority,created_at);
-      CREATE UNIQUE INDEX IF NOT EXISTS jobs_coalesce ON jobs(coalesce_key) WHERE coalesce_key IS NOT NULL AND state IN ('queued','running','waiting');
+      DROP INDEX IF EXISTS jobs_coalesce;
+      CREATE UNIQUE INDEX jobs_coalesce ON jobs(coalesce_key) WHERE coalesce_key IS NOT NULL AND (state='queued' OR (state='waiting' AND submitted=0));
       CREATE TABLE IF NOT EXISTS job_events(id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES jobs(id), at TEXT NOT NULL, type TEXT NOT NULL, details TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS evaluation_windows(
         id TEXT PRIMARY KEY, decision_id TEXT NOT NULL REFERENCES decisions(id), horizon_days INTEGER NOT NULL,
@@ -100,6 +102,7 @@ export class Store {
   }
   event(row:{id:string;at:string;type:string;source:string;target:string;amountMsat:string;feeMsat:string;details?:unknown;pinned?:boolean}) {
     integer(row.amountMsat);integer(row.feeMsat);
+    if(this.one('SELECT id FROM expired_events WHERE id=?',row.id))return;
     this.run('INSERT OR IGNORE INTO events VALUES(?,?,?,?,?,?,?,?,?,?)',row.id,row.at,now(),row.type,row.source,row.target,row.amountMsat,row.feeMsat,json(row.details??{}),row.pinned?1:0);
   }
   saveSnapshot(s:Snapshot) { this.run('INSERT INTO snapshots VALUES(?,?,?)',id(),s.at,json(s)); this.set('snapshot',s); }
@@ -119,6 +122,16 @@ export class Store {
     if(this.get('enabled')!==true)throw new Error('Autonomy paused');
     const proof=this.get('automationProof'),time=Date.parse(proof?.at??''),current=Date.parse(at);
     if(this.get('bootstrapReady')!==true || proof?.ok!==true || !Number.isFinite(time) || time>current || current-time>90000)throw new Error('Bootstrap/interlock not ready');
+  }
+  assertReservedDispatch(operation:string,s:Snapshot,at=now()) {
+    this.assertDispatchReady(at);
+    if(!this.one('SELECT operation_id FROM reservations WHERE operation_id=? AND active=1',operation))throw new Error('Reservation unavailable');
+    if(!s.synced || !Number.isFinite(Date.parse(s.at)) || Date.parse(s.at)>Date.parse(at) || Date.parse(at)-Date.parse(s.at)>60000)throw new Error('Stale/unsynchronized state');
+    if(integer(s.confirmedSat)<integer(MANDATE.reserveSat)+integer(this.get('pendingOnchainObligationsSat')??'0'))throw new Error('Protected on-chain reserve');
+    // budget includes this active reservation exactly once, including across midnight.
+    const b=this.budget(at);
+    if(integer(b.cumulativeMsat)>integer(MANDATE.totalMsat)||integer(b.dailyMsat)>integer(MANDATE.dailyMsat))throw new Error('Expense budget exhausted');
+    if(integer(b.exploratoryMsat)>integer(MANDATE.exploratoryDailyMsat))throw new Error('Exploration budget exhausted');
   }
   reserve(p:Proposal, f:Forecast, s:Snapshot, at=now()) {
     return this.tx(()=>{
@@ -216,6 +229,7 @@ export class Store {
       for(const d of days){ const events=rows.filter(r=>r.occurred_at.startsWith(d)); const old=this.one('SELECT content FROM aggregates WHERE day=?',d); const agg=old?JSON.parse(old.content):{events:0,amountMsat:'0',feeMsat:'0',detailExpired:true};
         agg.events+=events.length; agg.amountMsat=(integer(agg.amountMsat)+events.reduce((s,r)=>s+integer(r.amount_msat),0n)).toString();agg.feeMsat=(integer(agg.feeMsat)+events.reduce((s,r)=>s+integer(r.fee_msat),0n)).toString();
         this.run('INSERT INTO aggregates VALUES(?,?,1) ON CONFLICT(day) DO UPDATE SET content=excluded.content',d,json(agg)); }
+      this.run('INSERT OR IGNORE INTO expired_events SELECT id FROM events WHERE occurred_at<? AND pinned=0',cutoff);
       this.run('DELETE FROM events WHERE occurred_at<? AND pinned=0',cutoff);
       this.run('DELETE FROM snapshots WHERE at<? AND id NOT IN (SELECT json_extract(details,\'$.snapshotId\') FROM operations WHERE json_extract(details,\'$.snapshotId\') IS NOT NULL)',cutoff);
     });

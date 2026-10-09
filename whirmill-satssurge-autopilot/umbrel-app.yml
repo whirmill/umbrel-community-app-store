@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.3.3"
+version: "0.3.4"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -25,14 +25,19 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.3.3 refines the responsive interface with semantic colors,
-  interactive charts, compact details, filtering and sorting. Reactive event
-  subscriptions and async generator streams deliver durable UI updates after
-  database commits, with replay, deduplication and reconnect handling.
-  Retains the Umbrel HTTP request-ID fix, Pi Durable, subscription OAuth,
-  the guarded executor and existing financial limits. CI passed 84 Node and
-  15 Python tests. Immutable amd64/arm64 images identify source
-  1a0481580cfa9cc702558d982cabe7476ba1c4fa; both platforms and all image layers
-  passed anonymous registry download and digest verification.
-  Installation and live acceptance of this release remain pending.
-  No channel lifecycle, Magma, Telegram or profitability qualification.
+  Version 0.3.4 rechecks budgets, the active reservation, interlocks and
+  protected on-chain obligations immediately before financial dispatch.
+  Durable queue successors preserve original requests through recovery;
+  retained event identities prevent duplicate historical aggregation.
+  Oversized chat drafts can be corrected before admission, while ambiguous
+  requests, including legacy oversized drafts, retain their original retry
+  identity. Recovery preserves original and successor receipts. History keeps
+  250 completed jobs plus active receipts, with older-page navigation and return
+  to recent history. Bounded UI projections keep current progress visible. Owner logout revokes the server
+  session, the container forwards shutdown signals to Node, and Lightning
+  Mate backfill avoids unnecessary restart when its retained log is unchanged.
+  Preserves schema 4, private data, subscription OAuth, mandate and pending
+  operation receipts. Final local suites passed 95 Node 24 and 16 Python tests.
+  Immutable image publication and installed qualification of 0.3.4 are pending;
+  0.3.3 installed qualification is complete. No financial acceptance test,
+  regtest, M3/M4 capability or profitability qualification is introduced.

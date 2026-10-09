@@ -6,8 +6,8 @@ import type { NodeClient } from './lnd.js';
 export class Executor {
   constructor(private store:Store,private node:NodeClient){}
   private executing=false;
-  private dispatchGuard(operation:string) {
-    try{this.store.assertDispatchReady();}catch(error){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});throw error;}
+  private dispatchGuard(operation:string,snapshot?:Snapshot) {
+    try{if(snapshot)this.store.assertReservedDispatch(operation,snapshot);else this.store.assertDispatchReady();}catch(error){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});throw error;}
   }
   async execute(p:Proposal) {
     if(this.executing)throw new Error('Executor busy');this.executing=true;
@@ -34,7 +34,7 @@ export class Executor {
       if(p.kind==='fee_change') {
         const c=s.channels.find(c=>c.id===p.target)!;
         this.store.run("UPDATE operations SET state='sending' WHERE id=?",operation);
-        this.dispatchGuard(operation);
+        this.dispatchGuard(operation,s);
         await this.node.updateFee(c,p.newPpm!);
         const verified=await this.node.snapshot(),after=verified.channels.find(x=>x.id===c.id);
         if(!after || after.ppm!==p.newPpm || after.baseMsat!==c.baseMsat) throw new Error('Policy not yet verified; reconcile');
@@ -49,7 +49,7 @@ export class Executor {
         const fresh=await this.node.snapshot();
         const changed=[p.source,p.target].some(key=>{const before=s.channels.find(c=>c.id===key)!,after=fresh.channels.find(c=>c.id===key);const drift=(a:string,b:string)=>{const d=integer(a)-integer(b);return (d<0n?-d:d)*100n>integer(before.capacitySat);};return !after||!after.active||after.ppm!==before.ppm||after.baseMsat!==before.baseMsat||after.pendingSat!=='0'||drift(after.localSat,before.localSat)||drift(after.remoteSat,before.remoteSat);});
         if(changed || fresh.identity!==s.identity || !fresh.synced || integer(fresh.confirmedSat)<500000n || Date.now()-Date.parse(this.store.get('automationProof')?.at??'1970-01-01')>90000){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});this.store.saveSnapshot(fresh);throw new Error('Material state change before send; replan');}
-        this.dispatchGuard(operation);
+        this.dispatchGuard(operation,fresh);
         const result=await this.node.send(invoice.request,p.source,s.channels.find(c=>c.id===p.target)!.peer,p.maxFeeMsat);
         this.finish(operation,result);
       }

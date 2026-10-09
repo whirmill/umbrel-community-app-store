@@ -75,7 +75,7 @@ test("stream replay deduplicates ids, uses cumulative snapshots and retains term
     data: { text: "One" },
   };
   p = mergeEvents(p, [e, e, { ...e, id: 2, data: { text: "One two" } }]);
-  assert.equal(p.events.length, 2);
+  assert.equal(p.events.length, 1);
   assert.equal(p.cursor, 2);
   assert.equal(answerFor(p, "a"), "One two");
   p = mergeJobs(p, [

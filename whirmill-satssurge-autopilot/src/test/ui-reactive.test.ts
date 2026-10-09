@@ -4,6 +4,7 @@ import { EventEmitter } from "node:events";
 import { Store } from "../store.js";
 import { Queue } from "../queue.js";
 import { UiEvents, serveUiEvents } from "../ui-events.js";
+import { OwnerSessions } from '../owner-auth.js';
 import { ownerEventStream } from "../ui-stream.js";
 import { mergeEvents } from "../ui-client.js";
 function fixture() {
@@ -341,4 +342,10 @@ test("transaction callback set coalesces repeated notifications and rollback dis
   );
   assert.equal(count, 1);
   store.close();
+});
+
+test("logout revocation closes an existing idle SSE session and releases every listener",async()=>{
+ const {store,events}=fixture(),sessions=new OwnerSessions(),header='Bearer '+sessions.issue(),controller=new AbortController(),response=new Response();
+ const stream=serveUiEvents(events,response as any,events.cursor(),controller.signal,()=>sessions.accepts(header),{heartbeatMs:10});
+ sessions.revoke(header);await stream;assert.equal(response.ended,true);assert.equal(events.subscriberCount(),0);assert.equal(response.listenerCount('close'),0);store.close();
 });

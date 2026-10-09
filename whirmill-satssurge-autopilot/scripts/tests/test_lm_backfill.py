@@ -26,6 +26,34 @@ def payment():
 
 
 class BackfillTests(unittest.TestCase):
+    def test_repeated_201_proofs_do_not_change_stock_or_trigger_restart(self):
+        proof = b.self_payment(payment(), OWN, SINCE)
+        proofs = [{**proof, 'paymentHash': str(n).zfill(64),
+                   'at': (SINCE + dt.timedelta(seconds=n)).isoformat().replace('+00:00', 'Z')} for n in range(201)]
+        records, first = b.merge([], proofs)
+        repeated, second = b.merge(records, proofs)
+        self.assertEqual(len(records), 200)
+        self.assertEqual(first['added'], 200)
+        self.assertEqual(repeated, records)
+        self.assertEqual(second['added'], 0)
+        self.assertFalse(second['changed'])
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            app = root / 'app'
+            (app / 'credentials').mkdir(parents=True)
+            (app / 'credentials/node-pubkey').write_text(OWN)
+            stock = root / 'lightningmate/data'
+            stock.mkdir(parents=True)
+            (stock / 'rebalances.json').write_text(json.dumps(records))
+            reader = Mock()
+            reader.proofs.return_value = proofs
+            reader.pending = False
+            with patch.object(b, 'Reader', return_value=reader), patch.object(b, 'running_version'), patch.object(b, 'verify_live_log'), patch.object(b, 'maintenance') as maintenance, patch.object(b.subprocess, 'run') as run:
+                result = b.execute(app, root, 'https://node:8080', SINCE, True)
+                self.assertEqual(result['mode'], 'unchanged')
+                maintenance.assert_not_called()
+                run.assert_not_called()
+
     def test_schema4_maintenance_preserves_guard(self):
         import tempfile
         import pathlib

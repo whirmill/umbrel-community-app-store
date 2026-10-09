@@ -309,6 +309,7 @@ export function App() {
       if (!r.ok)
         throw Object.assign(new Error(data.error ?? `Errore ${r.status}`), {
           status: r.status,
+          admissionRejected: data.admissionRejected === true,
         });
       return data;
     },
@@ -463,9 +464,9 @@ export function App() {
         await refresh().catch(() => {});
       } catch (e: any) {
         setError(e.message);
-        setNotice(
-          "La richiesta resta salvata: riprova con lo stesso identificatore.",
-        );
+        if(e.admissionRejected){sessionStorage.removeItem(pendingKey);setPending(null);}
+        setNotice(e.admissionRejected ? "Richiesta rifiutata prima dell’ammissione: puoi correggere il messaggio." :
+          "Se la richiesta è salvata, riprova con lo stesso identificatore.");
       } finally {
         setBusy(false);
       }
@@ -489,7 +490,7 @@ export function App() {
       messages
         .slice(-2)
         .map((m) => m.id + JSON.stringify(m.content) + JSON.stringify(m.status))
-        .join("|") + Math.max(0, ...projection.events.map((e) => e.id)),
+        .join("|") + projection.events.reduce((id,e)=>Math.max(id,e.id),0),
     [messages, projection.events],
   );
   useEffect(() => {
@@ -562,6 +563,11 @@ export function App() {
     } finally {
       setOlder(false);
     }
+  };
+  const recentHistory = async () => {
+    setOlder(true);
+    try {const h=await api("history");update(p=>mergeHistory(p,h,true));setNextBefore(h.nextBefore);follow.current=true;setNotice("Cronologia recente caricata.");}
+    catch(e:any){setError(e.message);}finally{setOlder(false);}
   };
   const recover = async () => {
     if (!pending) return;
@@ -759,6 +765,7 @@ export function App() {
                               if (follow.current) setUnread(false);
                             }}
                           >
+                            {projection.truncatedHistory && <div role="status">Sono visibili al massimo 250 richieste concluse e quelle attive. Puoi continuare a leggere le pagine precedenti. <Button variant="ghost" disabled={older} onClick={()=>void recentHistory()}>Torna ai recenti</Button></div>}
                             {nextBefore && (
                               <Button
                                 variant="ghost"
@@ -882,8 +889,8 @@ export function App() {
                               </div>
                             )}
                             <p className="composer-status" role="status">
-                              {notice ||
-                                "La chat può proporre interventi entro il mandato. Le analisi restano in sola lettura."}
+                              {notice || (projection.truncatedEvents ? "Dettagli più vecchi limitati in memoria; ricevute e cronologia restano persistite." :
+                                "La chat può proporre interventi entro il mandato. Le analisi restano in sola lettura.")}
                             </p>
                           </form>
                         </ThreadPrimitive.Root>
@@ -1466,7 +1473,8 @@ export function App() {
                     <p>La sessione resta nel browser corrente.</p>
                     <Button
                       variant="outline"
-                      onClick={() => {
+                      onClick={async () => {
+                        try {await api("owner/logout", {});} catch(e:any){setError(e.message);return;}
                         sessionStorage.removeItem("satssurge.ownerSession");
                         setSession("");
                         setStatus(null);

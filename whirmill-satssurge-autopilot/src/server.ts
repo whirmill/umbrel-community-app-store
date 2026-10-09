@@ -83,6 +83,15 @@ const server=createServer(async(req,res)=>{
     const token=String(req.headers['x-csrf-token']??'');if(token.length!==csrf.length||!timingSafeEqual(Buffer.from(token),Buffer.from(csrf))){send({error:'CSRF rejected'},403);return;}
     let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>32768){send({error:'Request too large'},413);return;}}
     const body=JSON.parse(raw||'{}');
+    if((url.pathname==='/api/chat'||url.pathname==='/api/analyze') && typeof body.message==='string' && Buffer.byteLength(JSON.stringify({message:body.message}))>16384){
+      // Legacy admission measured scrubbed bytes. Recover an original receipt first;
+      // queue validates the original digest before any definitive rejection.
+      if(typeof body.requestId==='string' && store.one('SELECT id FROM jobs WHERE request_id=?',body.requestId)){
+        const job=queue.enqueue({requestId:body.requestId,kind:url.pathname==='/api/analyze'?'analysis':'chat',payload:{message:body.message},scope:typeof body.scope==='string'?body.scope.slice(0,200):''});send({accepted:true,job},202);return;
+      }
+      send({error:'Job payload too large',admissionRejected:true},413);return;
+    }
+    if(url.pathname==='/api/owner/logout'){sessions.revoke(req.headers.authorization);send({disconnected:true});return;}
     if(url.pathname==='/api/pause'){store.set('enabled',false);send({paused:true,note:'Pending operations will still be reconciled'});return;}
     if(url.pathname==='/api/resume'){if(!store.get('bootstrapReady'))throw new Error('Resolve initialization blockers first');store.set('enabled',true);send({enabled:true});scheduler?.tick();return;}
     if(!agent)throw new Error('Agent unavailable until LND provisioning');

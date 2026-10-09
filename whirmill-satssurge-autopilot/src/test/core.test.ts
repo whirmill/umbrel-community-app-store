@@ -78,3 +78,25 @@ test('forwards before verified settlement cannot consume future demand claims',(
   s.event({id:'too-early',at:'2026-10-02T00:00:00.000Z',type:'external_forward',source:'a',target:'b',amountMsat:'1000000',feeMsat:'100'});
   assert.equal(s.uncommittedDemand('c','b','2000000','2026-10-04T00:00:00.000Z'),'1000000');s.close();
 });
+
+test('pre-RPC budgets and obligations are revalidated after invoice await without double counting own cap',async()=>{
+  for(const change of ['daily','exploratory','cumulative','reserve','unchanged']){
+    const {s,p}=ready();let sends=0;
+    if(change==='daily')s.ledger({id:'before',at:now(),classification:'expense',amountMsat:'1390000',category:'manual_rebalance'});
+    if(change==='exploratory')s.ledger({id:'before',at:now(),classification:'expense',amountMsat:'640000',category:'exploratory'});
+    if(change==='cumulative')s.ledger({id:'before',at:'2020-01-01T00:00:00Z',classification:'expense',amountMsat:'29890000'});
+    const node:any={snapshot:async()=>snapshot(),invoice:async()=>{
+      if(change==='reserve')s.set('pendingOnchainObligationsSat','2');
+      else if(change!=='unchanged')s.ledger({id:'during',at:now(),classification:'expense',amountMsat:'20000',category:change==='exploratory'?'exploratory':'manual_rebalance'});
+      return {hash:'unused-'+change,request:'unused'};
+    },send:async()=>{sends++;return {status:'SUCCEEDED',feeMsat:'1',amountSat:p.amountSat,source:p.source,target:p.target};}};
+    if(change==='unchanged')await new Executor(s,node).execute(p);else await assert.rejects(new Executor(s,node).execute(p),/budget|reserve/i);
+    assert.equal(sends,change==='unchanged'?1:0);assert.equal(s.one('SELECT state FROM operations').state,change==='unchanged'?'SUCCEEDED':'FAILED');s.close();
+  }
+});
+test('expired event identities prevent repeated aggregation after collection and reopen',()=>{
+  const dir=mkdtempSync(join(tmpdir(),'surge-retain-')),path=join(dir,'state.sqlite');let s=new Store(path);
+  const row={id:'old-forward',at:'2020-01-01T00:00:00Z',type:'external_forward',source:'a',target:'b',amountMsat:'1000',feeMsat:'2'};
+  s.event(row);s.retain();s.close();s=new Store(path);s.event(row);s.retain();
+  assert.equal(s.all('SELECT * FROM events').length,0);assert.equal(JSON.parse(s.one('SELECT content FROM aggregates').content).events,1);assert.equal(JSON.parse(s.one('SELECT content FROM aggregates').content).amountMsat,'1000');s.close();rmSync(dir,{recursive:true});
+});

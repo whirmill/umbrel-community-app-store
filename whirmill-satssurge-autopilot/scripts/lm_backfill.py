@@ -123,7 +123,9 @@ def merge(existing, proofs):
             continue
         additions.append(proof)
     records = sorted(existing + additions, key=lambda r: utc(r['at']), reverse=True)
-    return records[:200], {'verifiedProofs': len(proofs), 'added': len(additions),
+    retained = records[:200]
+    retained_additions = sum(1 for record in additions if record in retained)
+    return retained, {'verifiedProofs': len(proofs), 'added': retained_additions, 'changed': retained != existing,
                            'unattributedNativeMatches': native_matches, 'evictedByStockCap': max(0, len(records) - 200)}
 
 
@@ -261,7 +263,7 @@ def execute(app, base, lnd, since, apply):
         proofs = reader.proofs(identity, since)
         path = base / 'lightningmate/data/rebalances.json'
         records, summary = merge(json.loads(path.read_text()), proofs)
-        if not apply or not summary['added']:
+        if not apply or not summary['changed']:
             if apply:
                 verify_live_log()
             return {'mode': 'preview' if not apply else 'unchanged', **summary, 'inMemoryApiVerified': apply}

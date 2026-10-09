@@ -174,3 +174,55 @@ Additional future candidate: massive journal/accounting exports can use bounded 
 - Browser history reached 180 messages with 180 unique IDs. Tool-group Enter expansion, scroll to latest, 390/768/1440 reflow, 9-of-10 active filtering and local-percentage sorting passed. Console errors/warnings: zero. Backend MaxListenersExceeded/unhandled/uncaught logs: zero. Simulated tests prove listener/reader cleanup, slow-client bounds and timed expiry; production per-write authorization was independently reviewed. Natural eight-hour expiry and deliberately slow clients were not tested by waiting in the installed browser.
 - Final reconciliation: zero owned active jobs and financial pending operations. Only the owned m21-reactive-qualification-033 fence was cleared. Backfill service/timer and all four user timers were restored; initial autonomy enabled=true was restored. Original 96 ledger rows and 51 terminal job rows remain exact, as do mandate/model/installedAt, 85 history files and owner secret. No financial UI test, regtest or M3/M4 expansion occurred.
 - Private acceptance/image/preservation receipts and screenshots are under `/Users/whirmill/.local/share/satssurge/`; the pre033 three-database checkpoint was verified on host and Mac. Fixture process 86249 ended with native exit130; port19538 has no listener. Fixture/store/reference tabs were closed, viewport reset, actual app retained. Future HTLC/page/Pi/export generators and separate 5s status polling remain documented. Vite's approximately 203.55KB gzip bundle advisory remains; no runtime blocker was found.
+
+### 2026-10-09 Astra review remediation — source checkpoint before 0.3.4 publication
+
+Implementation lane completed P1 + seven P2 + stale acceptance P3 without live application/financial operations or Git mutations. Immediately before the writable RPC, synchronous `assertReservedDispatch` checks current cumulative/daily/exploratory budget with the existing active reservation counted exactly once, current interlocks and snapshot freshness, and 500000 sat plus declared pending on-chain obligations. Mock invoice-await mutations prove all three budget overruns and increased obligations block send; unchanged admitted reservations still dispatch once.
+
+Queue coalescence and its partial unique index now apply only to queued or unsubmitted waiting jobs. A running/original-submitted job can have one durable queued successor, further bursts coalesce into that successor, and the original conversation/submission receipt is untouched. `expired_events` stores only durable event identities: retention atomically tombstones before deleting raw detail; repeated imports and database reopen cannot aggregate the same identity again. This is additive within schema 4, preserves originals/pinned evidence, and does not reconstruct or silently amend historical aggregates whose raw detail has already expired.
+
+Client validates UTF-8 JSON payload bytes before persisting a nonce; server independently reports explicit pre-admission oversized rejection. A rejected oversized message becomes editable; existing invalid oversized drafts retain their nonce until retry/recovery returns an authoritative receipt or explicit pre-admission rejection. Ambiguous admitted requests keep their original nonce/payload. UI projection retains latest cumulative text/progress/job snapshots, prioritizes current snapshots, limits detailed events to 10000 with a visible detail-limit annotation, uses reductions rather than argument spread, and keeps persistent history/final receipts authoritative. Owner logout requires existing bearer/Origin/CSRF protection and revokes that bearer; idle SSE stops at its next authorization/heartbeat check and releases listeners.
+
+Docker entrypoint uses `flock --no-fork` so the lock holder execs Node and Tini forwards SIGTERM to its direct child. Synthetic subprocess SIGTERM with an active mocked Scheduler job proved completed receipt and drained shutdown. Local Docker daemon is unavailable; primary owns the isolated network-disabled Linux new-image init/flock signal proof before deployment. Lightning Mate merge counts only retained additions, reports actual final-content change, and takes maintenance/restart only for a changed final projection. Regression with 201 proofs repeated proves unchanged mode, no maintenance and no Docker calls. README/store no longer label accepted 0.3.3 pending.
+
+Stable source verification: Node 24.21.0 `npm test` PASS 93/93 (backend/frontend TypeScript + Vite build); Python `python3 -B -m unittest discover -s scripts/tests -v` PASS 16/16; `npm run typecheck` PASS; `git diff --check` PASS. Existing HTTP fixture checks wrong Origin/CSRF cannot revoke, valid logout invalidates subsequent history/SSE access; SSE mock verifies already-open stream cleanup after revocation. Vite bundle-size advisory remains. Test-owned stores/temp directories/HTTP child/SIGTERM child/timers are closed. Release version bump, immutable multiarch image verification, host-script update, consistent checkpoint, installed-app/browser acceptance, and final operational reconciliation remain primary-owned; no publication/deploy is implied by this checkpoint.
+
+Independent review caught and implementation fixed a new coalescence-index recovery collision before publication: `wait` and `recoverAfterRestart` clear the original coalesce key while preserving request/job/conversation/submission receipt identities. This lets an unsubmitted recovering original coexist with its already-persisted successor through `releaseWaiting`. Separate crash-before-submission and model-unavailable tests prove both jobs survive and become queued; final full Node24 suite is 93/93 PASS.
+
+### 0.3.4 release preparation — source ready
+
+Package, both root lockfile version fields and Umbrel manifest are now 0.3.4.
+Target tag is `satssurge-autopilot-v0.3.4`; build destination is
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.3.4`. No tag/source SHA, Actions
+run or new digest is claimed before the Git/publication handoff. Existing
+workflow is unchanged and runs Node 24/Python tests before publishing both
+linux/amd64 and linux/arm64 on matching tag push. Compose still pins verified
+0.3.3, whose installed acceptance is complete.
+
+Primary schedules narrow git-operator commit/push/tag of the tested source,
+then release-engineer verifies Actions and anonymous index/config/layer
+receipts before pinning the new compose digest and publishing release notes.
+Fresh stopped/flock-protected three-database checkpoint, pending-receipt/data/
+OAuth/mandate preservation, new-image shutdown proof, installed 0.3.4 browser
+acceptance and final operational reconciliation remain required. Do not restore
+an older financial checkpoint over current receipts or replay uncertain sends.
+
+
+2026-10-09 final remediation compatibility checkpoint (0.3.4 source, publication still primary-owned): legacy 0.3.3 admission used scrubbed payload bytes, so raw oversized credential-like drafts may already have a valid original receipt. Removed the local size-only discard action. The server checks an existing request through Queue’s original scrubbed payload digest and returns its identical receipt before considering a raw-size rejection; uncertain nonce/payload remain immutable until explicit nonadmission. Actual HTTP regression recovers the same legacy job from 17000 raw characters reduced by redaction; a new 17000 ASCII payload receives definitive 413/admissionRejected without creating a job.
+
+Frontend history cache now caps 250 terminal jobs plus active receipts, pins the current older history page across status refresh, bounds event details separately to 10000, and explicitly explains the window with “Torna ai recenti”. Arbitrarily older pages remain reachable by server row cursor; returning recent preserves active receipts. Resets preserving a stale active job retain the lower replay cursor (clamped to current server high-water), preventing completion outside the newest 50 history/40 status rows from remaining “running”. Regression traverses 600 jobs/12 pages, checks status refresh preserves selected older page, active submission identity, bounded cache, recent reset, and missed terminal-event replay. The local-only UI fixture accepts FIXTURE_HISTORY_COUNT=350 on a fresh private directory and implements session logout for primary’s visible browser acceptance.
+
+Final stable checks after these compatibility/history corrections: Node24.21 npm test 95/95 PASS; Python16/16 PASS; backend/frontend typecheck PASS; fixture node --check PASS; git diff --check PASS. No child runtime/SSH/deploy/Git/financial writes. All implementation writes and test processes stopped at handoff. New-image isolated Linux SIGTERM/flock and actual installed/browser verification remain primary-owned.
+
+Final 0.3.4 release-note readiness: independent review and final full suites
+passed 95 Node24/16 Python; typecheck and diff whitespace checks passed. Visible
+local 350-job fixture acceptance verified 17000-character pre-admission
+validation leaves editable input, corrected valid admission, seven older pages
+reaching oldest entry, a maximum 250-job/500-message retained history window,
+and “Torna ai recenti” restoring 100 recent messages/latest visibility and
+releasing the limit notice; console errors zero. Legacy oversized existing
+nonces remain preserved until authoritative recovery or explicit nonadmission;
+recovery coalescence-index collisions preserve both original and successor
+receipts. This does not qualify the installed new version. Immutable 0.3.4
+publication and actual installed acceptance remain pending; 0.3.3 acceptance
+is complete. Release documentation writer stopped after scoped checks.

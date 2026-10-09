@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Version `0.2.3` implements M1.1/M1.2/M2 on the M1 mainnet POC using Pi Durable 1.1.0 and subscription-only ChatGPT OAuth. Reasoning effort is explicitly `high`, visible in the model section and applied to every agent run. No regtest, paid API fallback, shell tool, unrestricted RPC, channel opening, close, swap or Magma transaction is exposed to the agent.
+Current accepted version `0.3.3` includes M2.1. M1.1/M1.2/M2 were introduced in version `0.2.3` on the M1 mainnet POC using Pi Durable 1.1.0 and subscription-only ChatGPT OAuth. Reasoning effort is explicitly `high`, visible in the model section and applied to every agent run. No regtest, paid API fallback, shell tool, unrestricted RPC, channel opening, close, swap or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -50,7 +50,7 @@ Use `scripts/checkpoint.py` with the application proven stopped. Capture acquire
 
 This order is user-approved. The roadmap does not broaden financial authority or mutate the mandate. Dates below are observation windows, not promised delivery dates.
 
-**M1 — Foundation: deployed, qualified and autonomous; economic validation ongoing.** Version 0.2.3 is installed; Pi Durable uses GPT-6.1 Sol/high with subscription OAuth. Private historical import/accounting, LND collector, guarded fee/rebalance executor, web chat, pause/resume, restricted credentials, persistent host interlock and immutable multiarchitecture images are in place. Current CI passed 58 Node / 14 Python tests, including simulated financial crash/recovery and real Pi Durable registry/storage behavior. Real authenticated AI runs succeeded; the first high run completed without a financial operation. This proves AI/read execution, not real-node financial recovery or profitability. Accounting coverage remains partial.
+**M1 — Foundation: deployed, qualified and autonomous; economic validation ongoing.** The M1 acceptance baseline was version 0.2.3; Pi Durable uses GPT-6.1 Sol/high with subscription OAuth. Private historical import/accounting, LND collector, guarded fee/rebalance executor, web chat, pause/resume, restricted credentials, persistent host interlock and immutable multiarchitecture images are in place. Current CI passed 58 Node / 14 Python tests, including simulated financial crash/recovery and real Pi Durable registry/storage behavior. Real authenticated AI runs succeeded; the first high run completed without a financial operation. This proves AI/read execution, not real-node financial recovery or profitability. Accounting coverage remains partial.
 
 **M1.1 — Persistent request queue: installed; authenticated concurrent execution and browser acceptance qualified.** A SQLite queue now accepts chat, scheduled analysis and aggregated Lightning events instead of rejecting busy requests. Jobs retain request IDs, type, priority, channel/corridor scope, snapshot version, state, result, attempts and timestamps. Claim work atomically before any asynchronous boundary; recover leases after crashes without replaying uncertain financial sends. Show accepted/queued/running/waiting/completed/failed/cancelled states in the UI. Bound backlog and rate; coalesce duplicate event bursts and stale periodic analyses. Pause and deterministic reconciliation bypass AI backlog. Prefer owner requests while preventing maintenance starvation. Existing financial intents/reservations remain the authoritative execution record, not a fresh send on job retry.
 
@@ -64,7 +64,7 @@ Acceptance: chat stays responsive during corridor analysis; worker crashes canno
 
 Acceptance: attributable operations/costs reconcile to LND and receipts, adapters fail visibly on incompatible schemas, forecast errors are measurable, and profitability claims identify coverage and causal limits. Technical success, predictive quality and economic result remain separate.
 
-**M2.1 — Responsive web UI/UX: NEXT milestone, prioritized 2026-10-09.** Migrate the vanilla frontend to React + TypeScript + Vite + shadcn/ui. Retain Pi Durable, subscription OAuth, the durable queue and single guarded financial executor. Design mobile/tablet/desktop chat, activity, node state, budgets, accounting, decisions, experiments and pause/resume, with accessible navigation/focus, Italian monetary formatting, Markdown/code rendering and explicit loading/empty/error/offline states. This milestone does not change financial authority or the mandate.
+**M2.1 — Responsive web UI/UX: installed and accepted in 0.3.3 on 2026-10-09.** Migrate the vanilla frontend to React + TypeScript + Vite + shadcn/ui. Retain Pi Durable, subscription OAuth, the durable queue and single guarded financial executor. Design mobile/tablet/desktop chat, activity, node state, budgets, accounting, decisions, experiments and pause/resume, with accessible navigation/focus, Italian monetary formatting, Markdown/code rendering and explicit loading/empty/error/offline states. This milestone does not change financial authority or the mandate.
 
 Preferred chat candidate: **assistant-ui**, to qualify with an integration spike against actual Pi Durable events. Its custom runtimes accept an existing backend: assess ExternalStoreRuntime/AssistantTransport for durable jobs and structured agent state, or a custom adapter/data stream for message deltas. **Vercel AI Elements** is the alternative shadcn-based component set, including Conversation, Reasoning and Tool. Keep Pi as the agent backend; a UI library does not require adopting a second agent framework. Official sources checked 2026-10-09: [custom runtimes](https://www.assistant-ui.com/docs/runtimes/custom/overview), [stream protocol](https://www.assistant-ui.com/docs/runtimes/custom/data-stream), [Assistant Transport](https://www.assistant-ui.com/docs/runtimes/custom/assistant-transport), [tool rendering](https://www.assistant-ui.com/docs/tools/tool-ui), [AI Elements Reasoning](https://elements.ai-sdk.dev/components/reasoning), [AI Elements Tool](https://elements.ai-sdk.dev/components/tool). Pin compatible versions and verify licenses during the spike; documented support is not installed integration proof.
 
@@ -125,7 +125,7 @@ receive the comparison; it never bypasses forecasts, budgets or observation gate
 
 Install the host watcher with `sh scripts/install-diagnostics.sh /home/umbrel/umbrel/app-data/whirmill-satssurge-autopilot`. It refreshes an atomic mode-0600 `diagnostics/status.json` every 30 seconds using the existing user manager. Qualified source image digests are explicit in the adapter. A future source update must be qualified before changing these gates. App Compose mounts only the projection directory read-only; it does not mount the Docker socket or the source databases. Installed0.2.3 consumes fresh qualified projections; the temporary qualification fence was released after acceptance and autonomy resumed. Schema 3 migration and historical ledger preservation were verified.
 
-Host tests: `python3 -m unittest discover -s scripts/tests -v`. They cover selected-row readonly capture, source-format rejection, exact sat precision, atomic private replacement and exclusion of payment identities. Node tests independently qualify the projection, keep source semantics separate, and reject freshness/identity/version mismatches. The current 0.2.3 CI suite passes 58 Node tests on Node24 and14Python tests. The delayed-completion overlap regression now clones a valid original proposal for its historical evaluation fixture. This corrects the Node 24 SQLite binding failure from the immutable `satssurge-autopilot-v0.2.0` CI run; that release failed before publication and produced no image. Version 0.2.3 has passed CI and is published/installed for amd64/arm64; installed acceptance is recorded below. These cover persistent queue/analyst coordination, schema migration and checkpoint capture, maintenance fencing, version-aware diagnostics and immutable evaluation windows. Live exporter proof remains separate from installed-app acceptance, historical completeness and profitability. M3/M4 are not implemented or enabled.
+Host tests: `python3 -m unittest discover -s scripts/tests -v`. They cover selected-row readonly capture, source-format rejection, exact sat precision, atomic private replacement and exclusion of payment identities. Node tests independently qualify the projection, keep source semantics separate, and reject freshness/identity/version mismatches. The historical 0.2.3 CI suite passes 58 Node tests on Node24 and14Python tests. The delayed-completion overlap regression now clones a valid original proposal for its historical evaluation fixture. This corrects the Node 24 SQLite binding failure from the immutable `satssurge-autopilot-v0.2.0` CI run; that release failed before publication and produced no image. Version 0.2.3 has passed CI and is published/installed for amd64/arm64; installed acceptance is recorded below. These cover persistent queue/analyst coordination, schema migration and checkpoint capture, maintenance fencing, version-aware diagnostics and immutable evaluation windows. Live exporter proof remains separate from installed-app acceptance, historical completeness and profitability. M3/M4 are not implemented or enabled.
 
 
 ### Installed qualification — 2026-10-09
@@ -221,7 +221,7 @@ Accounting remains partial and M3/M4 remain outside this release.
 
 La UI0.3.2 aggiunge colori semantici, distribuzione locale/remota della liquidità e barre per canale con filtro e ordinamento, ricavi/costi, budget, confronto delle commissioni e stati della coda. Dettagli tecnici e risultati dei tool restano apribili. I grafici usano dati osservati e importi esatti; copertura parziale e valori non disponibili sono espliciti.
 
-La0.3.3 sostituisce il polling del journal SSE a500ms con un EventEmitter condiviso per Store, notifiche post-COMMIT e generatori asincroni con cursore SQLite autorevole. Il frontend consuma lo stream fuori da React con decodifica incrementale, replay e cleanup. Heartbeat15s, scadenza owner, backpressure limitata e refresh dello stato5s restano separati. Test Node24:84PASS; Python15PASS; qualifica installata in corso.
+La0.3.3 sostituisce il polling del journal SSE a500ms con un EventEmitter condiviso per Store, notifiche post-COMMIT e generatori asincroni con cursore SQLite autorevole. Il frontend consuma lo stream fuori da React con decodifica incrementale, replay e cleanup. Heartbeat15s, scadenza owner, backpressure limitata e refresh dello stato5s restano separati. Test Node24:84PASS; Python15PASS; qualifica installata completata per 0.3.3.
 
 ### Installed visual and reactive qualification — 0.3.3
 
@@ -230,3 +230,35 @@ Installed on Umbrel with immutable index `sha256:dea14693bda4ec9337216636c250ab8
 The visible in-app browser qualified concurrent read-only Pi requests, incremental text and tools, refresh, restart and session invalidation, original receipt preservation, queued cancellation, long-history deduplication and responsive charts. No financial operation or regtest was used. A consistent three-database checkpoint was verified before the update. Original ledger rows, history, mandate, OAuth and owner credentials were preserved; initial autonomy and timers were restored.
 
 Slow-client timeout and timed session expiration have simulated test coverage plus production source review; natural eight-hour expiration was not observed by waiting. Optional HTLC, page and Pi adapters, and massive exports, remain future candidates. Five-second status polling remains separate. Private screenshots and acceptance receipts are retained outside Git.
+
+### 0.3.4 review remediation — source ready, publication pending
+
+Version 0.3.4 addresses the dispatch budget/reserve race and seven recovery,
+retention, admission, presentation, authentication, shutdown and backfill
+findings. Dispatch rechecks the active reservation exactly once, fresh
+interlocks and protected on-chain obligations immediately before RPC. Queue
+successors and recovering originals retain their request/conversation/submission
+identities; expired event tombstones prevent duplicate aggregation. Oversized
+drafts are editable before admission; uncertain admitted requests retain their
+nonce, including legacy oversized drafts that may already have been admitted.
+Recovery clears original coalescence keys without changing receipt identities.
+The history cache retains at most 250 completed jobs plus all active receipts,
+preserves the selected older page, and supports returning to recent history;
+older server pages remain reachable. Bounded UI details preserve current
+snapshots and authoritative receipts.
+Logout revokes the server bearer, `flock --no-fork` forwards shutdown to Node,
+and unchanged retained Lightning Mate projections avoid maintenance/restart.
+
+Schema remains 4 and persistent data mounts are unchanged. Node 24 regression
+suite passed 95 tests and Python passed 16 tests on the final 0.3.4 source.
+A visible local 350-job fixture verified editable oversized input followed by
+valid admission, seven older pages reaching the oldest entry, the bounded
+250-job/500-message history window, and return to recent history with 100
+messages, latest content visible and the limit notice released. Console errors
+were absent. This is fixture proof; installed 0.3.4 qualification is pending.
+Publication of immutable amd64/arm64 images, image signal verification, a fresh
+stopped three-database checkpoint, installed 0.3.4 acceptance and operational
+reconciliation remain pending. The accepted 0.3.3 installation is the current
+qualified release; the compose image remains its verified digest until 0.3.4
+publication is verified. Recovery must preserve current financial receipts;
+a checkpoint is never permission to replay or discard pending operations.

@@ -16,4 +16,4 @@ COPY package.json ./
 COPY --from=build /app/public ./public
 USER 1000:1000
 EXPOSE 8080
-CMD ["flock","-n","/data/executor.lock","node","dist/server.js"]
+CMD ["flock","--no-fork","-n","/data/executor.lock","node","dist/server.js"]
