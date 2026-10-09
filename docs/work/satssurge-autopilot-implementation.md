@@ -1531,3 +1531,21 @@ publication. Primary owns Git/tag, checkpoint/update and actual browser/Pi/
 owner-security/reconciliation. Preserve owner/OAuth/mandate/accounting and
 original financial receipts. No Git/CI/GH/store/live operation is performed
 by this preparation; no financial tests/regtest/M3/M4 expansion.
+
+### 0.4.3 immutable publication verified — installed acceptance pending
+
+Source `4c40a17f688315977fcb192a5b979831231aae55`, tag
+`satssurge-autopilot-v0.4.3`, [CI 37964740620](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37964740620)
+passed149Node24 and16Python tests. Verified image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.4.3@sha256:ba5d02de82e9d0e2568466ef47a0c1ac7a775d72e51843ff8119af4e36fbe1fb`.
+Anonymous index, both configs and all22layers passed SHA-256/size checks
+(222058018 compressed bytes). Configs match source and use `flock --no-fork`;
+extracted package version is0.4.3. Platform manifest/config digests are retained
+in private `/Users/whirmill/.local/share/satssurge/image-043-receipt.json`.
+Manifest/compose are prepared together; actual installed owner-login/logout,
+OAuth-preservation/browser/Pi and operational reconciliation remain pending.
+Current accepted installation remains0.4.0. Final frozen candidate149/16,
+24authenticated+8unauthenticated light/dark responsive cases passed, no shell
+leak/overflow, password16px/logout44px and console0. Fixture35061 exited130,
+its tab closed and viewport reset. Previous041/042 immutable artifacts remain
+unchanged;042 skips installation. Native iOS/VoiceOver/heap savings unproven.

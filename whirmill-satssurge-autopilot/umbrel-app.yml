@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.4.0"
+version: "0.4.3"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -25,18 +25,17 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.4.0 replaces the custom input with official assistant-ui
-  Composer.Root/Input/Send through one durable submission callback. Native
-  Enter, Send and analysis each preserve a distinct request; dropped post-COMMIT
-  acknowledgments recover the original nonce through the journal. Native input
-  autosizes from one line and draft persists on tab return. Backend 0.3.9,
-  model/effort selection, default Sol/high, original recovery, financial mandate,
-  OAuth and schema 4 remain unchanged. CI 37952913853 passed 148 Node 24 and
-  16 Python tests. Anonymous amd64/arm64 configs and all 22 layers passed
-  SHA-256/size checks against source 50beed67ecfc9a3259173ff622bacea10ba0abfc;
-  extracted package is 0.4.0 and both commands use flock --no-fork.
-  Actual installed acceptance remains pending. Local native admission/ACK recovery,
-  autosize 44/68/192px and 24 responsive cases passed with no overflow and empty
-  console. Native iOS/VoiceOver and comparative heap savings are unverified.
-  No financial acceptance test, regtest, M3/M4 capability or profitability
-  qualification is introduced.
+  Version 0.4.3 adds dedicated owner login before the protected shell, including
+  initial token verification. Header Esci and Settings logout revoke the owner
+  session through the authenticated CSRF-protected endpoint, preserving OAuth,
+  autonomous jobs, saved nonce and draft. Teardown prevents stale callbacks from
+  repopulating history or reopening polling/SSE; focus returns to password.
+  Includes official searchable model menu/provider logo, keyboard/focus support
+  and causal test-only mock timing correction. CI 37964740620 passed 149 Node 24
+  and 16 Python tests. Anonymous amd64/arm64 configs and all 22 layers passed
+  SHA-256/size checks against source 4c40a17f688315977fcb192a5b979831231aae55;
+  extracted package is 0.4.3 and both commands use flock --no-fork. Actual
+  installed acceptance remains pending. Local 24 authenticated and 8 light/dark
+  login responsive cases passed with no shell leaks/overflow and empty console.
+  Preserves schema 4, financial mandate and original receipts; no financial
+  acceptance test, regtest, M3/M4 capability or profitability qualification.

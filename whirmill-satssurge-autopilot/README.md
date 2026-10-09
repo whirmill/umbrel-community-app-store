@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current installed and accepted release is `0.4.0`, using the official assistant-ui composer. Original autonomy and all four watcher timers are restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Published release `0.4.3` awaits installed acceptance. Current installed and accepted release remains `0.4.0`, with original autonomy and all four watcher timers restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -566,3 +566,21 @@ only; current context usage is unavailable. Upstream coverage/accounting gaps
 remain explicit, with no profitability claim. Massive exports/additional iterable
 adapters remain future candidates. Recovery must preserve current financial
 receipts and never replay uncertain sends or restore older accounting over them.
+
+### 0.4.3 immutable publication verified — installed acceptance pending
+
+Source `4c40a17f688315977fcb192a5b979831231aae55`, tag
+`satssurge-autopilot-v0.4.3`, [CI 37964740620](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37964740620)
+passed149Node24 and16Python tests. Verified image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.4.3@sha256:ba5d02de82e9d0e2568466ef47a0c1ac7a775d72e51843ff8119af4e36fbe1fb`.
+Anonymous index, both configs and all22layers passed SHA-256/size checks
+(222058018 compressed bytes). Configs match source and use `flock --no-fork`;
+extracted package version is0.4.3. Platform manifest/config digests are retained
+in private `/Users/whirmill/.local/share/satssurge/image-043-receipt.json`.
+Manifest/compose are prepared together; actual installed owner-login/logout,
+OAuth-preservation/browser/Pi and operational reconciliation remain pending.
+Current accepted installation remains0.4.0. Final frozen candidate149/16,
+24authenticated+8unauthenticated light/dark responsive cases passed, no shell
+leak/overflow, password16px/logout44px and console0. Fixture35061 exited130,
+its tab closed and viewport reset. Previous041/042 immutable artifacts remain
+unchanged;042 skips installation. Native iOS/VoiceOver/heap savings unproven.
