@@ -73,7 +73,8 @@ test('post-intervention windows begin at reconciled settlement, not decision cre
 
 test('preceding intervention overlap follows delayed completion rather than old creation date',()=>{
   const {s}=fixture();complete(s);s.run("UPDATE decisions SET at='2026-10-02T00:00:00.000Z' WHERE id='d'");s.run("UPDATE ledger SET at='2026-10-02T00:00:00.000Z' WHERE id='expense'");s.run("UPDATE events SET source='a'");
-  s.run('INSERT INTO decisions VALUES(?,?,?,?,?,?)','delayed','2026-09-01T00:00:00.000Z',json({source:'a',target:'b'}),'{}','{}','evaluated');
+  const historicalProposal=JSON.parse(s.one("SELECT proposal FROM decisions WHERE id='d'").proposal);
+  s.run('INSERT INTO decisions VALUES(?,?,?,?,?,?)','delayed','2026-09-01T00:00:00.000Z',json({...historicalProposal,source:'a',target:'b'}),'{}','{}','evaluated');
   s.run('INSERT INTO operations VALUES(?,?,?,?,?,?,?)','old-op','delayed','2026-09-01T00:00:00.000Z','SUCCEEDED',null,null,json({completedAt:'2026-09-03T00:00:00.000Z'}));
   evaluateWindows(s,'2026-10-09T00:00:00.000Z');const report=JSON.parse(s.one('SELECT result FROM evaluation_windows').result);assert.equal(report.status,'confounded');assert.deepEqual(report.overlappingDecisionIds,['delayed']);s.close();
 });
