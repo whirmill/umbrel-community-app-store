@@ -310,6 +310,35 @@ export function mergeHistory(
     false,
   );
 }
+/** Public terminal presentation uses recorded state and actual public text only. */
+export function messagePresentation(job: Job, text: string) {
+  const hasText = text.trim().length > 0;
+  const terminal = ["completed", "failed", "cancelled"].includes(job.state);
+  const caption =
+    job.state === "failed"
+      ? hasText
+        ? "Risposta parziale · non completata"
+        : "Non completata · nessun testo disponibile"
+      : job.state === "cancelled"
+        ? hasText
+          ? "Annullata · testo parziale"
+          : "Annullata · nessun testo disponibile"
+        : job.state === "completed"
+          ? hasText
+            ? "Risposta finale"
+            : "Completata · nessun testo disponibile"
+          : job.state === "queued"
+            ? "In coda"
+            : job.state === "waiting"
+              ? "In attesa"
+              : "Risposta in corso";
+  return {
+    terminal,
+    caption,
+    body: hasText ? text : terminal ? "" : "In attesa di aggiornamenti…",
+  };
+}
+
 export function messageStatus(
   job: Job,
 ):

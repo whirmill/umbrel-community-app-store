@@ -813,3 +813,68 @@ Current accepted installed release remains 0.3.4: fresh checkpoint, installed
 0.3.5 read-only Pi/browser qualification and operational reconciliation are
 pending. Previous immutable releases remain intact; original receipts must be
 preserved without financial replay.
+
+### Terminal conversation correction for next patch — 2026-10-09
+
+Installed0.3.5 qualification found terminal failed jobs described as partial even
+when no public text existed, with the technical error always visible. A shared
+state/text presentation helper now distinguishes failed-with-text (partial) from
+`Non completata · nessun testo disponibile`; cancelled runs retain their recorded
+state and explicitly identify any partial text. Empty terminal message bodies do
+not mount an active-wait placeholder. Stale progress/wait notes are suppressed on
+terminal conversation rows. No cause is inferred from `aborted` or other error
+strings; public cause is never invented.
+
+Conversation and Activity both expose original sanitized technical errors behind
+lazy collapsed `Dettaglio errore`, rendered as plain escaped text. Receipt and error
+storage remain unchanged; qualified public summaries remain independent. The
+state regression covers failed/cancelled/completed with/without actual text and
+active queued/waiting/running placeholders. Node24.21 `npm test` **113/113 PASS**,
+including frontend/backend typechecks and build. Log:
+`/tmp/satssurge-resolution-terminal-node-20261009.log`. Existing Python16/16 checkpoint
+still applies (no Python changes). Writer stopped with no owned resources.
+
+Installed0.3.5 is immutable; this source fix belongs to a new0.3.6 patch release
+owned by primary/release lane. No retag, deployment or version mutation was
+performed by source owner. Browser terminal fixtures and installed0.3.6 acceptance
+remain primary-owned.
+
+### 0.3.6 terminal presentation patch — source ready, installed acceptance pending
+
+Immutable 0.3.5 was published and installed. Actual browser qualification found
+terminal failed jobs with no text still displaying active-wait/partial wording
+and an expanded raw error. Its earlier publication checkpoints are historical;
+0.3.5 is superseded as the delivery target by this 0.3.6 correction, whose
+publication and installed acceptance are pending.
+
+0.3.6 derives terminal wording from recorded job state and actual public text:
+failed without text is “Non completata · nessun testo disponibile”; failed with
+text is partial, and cancelled/completed empty responses retain their true
+states. Terminal rows suppress stale progress/wait placeholders. Conversation
+and Activity expose original sanitized errors only through collapsed lazy
+“Dettaglio errore”, escaped as text. No cause is inferred from an error string;
+private receipts and qualified public summaries remain unchanged.
+
+Review approved the patch; Node24 tests/build/typecheck passed 113/113. Existing
+Python16 checkpoint applies because Python is unchanged. Visible 320px terminal
+fixture passed. Existing 0.3.5 improvements remain: scoped evidence, persisted
+run budgets, virtual history, GFM, public summaries and themes, 16px mobile
+focus controls, 320px overflow correction, safe areas and manual zoom permitted.
+Desktop reduced-height focus checks do not prove native iOS keyboard/pinch
+behavior, VoiceOver or heap savings. No financial tests/regtest/M3/M4 expansion.
+
+Package/root lock versions are 0.3.6. Manifest/compose remain on immutable
+0.3.5 until the new amd64/arm64 image is fully verified, then publish both
+metadata files together. Primary owns verified checkpoint, installed read-only
+Pi/browser acceptance and original autonomy/timer restoration. Preserve original
+financial pending/completed receipts; do not replay effects or restore old
+accounting over current state.
+
+Final primary terminal-fixture browser proof: the 3006-job fixture rendered failed
+no-text captions without waiting, retained partial text, and mounted no error body
+while collapsed. Opening Chat/Activity detail showed escaped original technical
+text without script nodes and shared stable expansion; reclosing removed all
+error bodies. At 320x640 focused input remained 16px, composer visible and
+document width 305<=320; viewport permits zoom. Console warn/error were empty.
+Native fixture session 40887 exited 130; tab17 closed and viewport reset. This
+qualifies the local patch presentation, not installed 0.3.6 or native iOS.

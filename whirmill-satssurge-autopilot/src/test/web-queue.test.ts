@@ -8,6 +8,7 @@ import {
   mergeJobs,
   mergeHistory,
   messageStatus,
+  messagePresentation,
   pendingSubmission,
   ownerRequestId,
   pendingKey,
@@ -260,12 +261,65 @@ test("slow status polling cannot overwrite a more recent terminal receipt", () =
 
 test("HTTP-origin request IDs use secure randomness without randomUUID", () => {
   let calls = 0;
-  const httpCrypto = { getRandomValues(bytes: Uint8Array) { calls++; bytes.fill(calls); return bytes; } };
-  const first = ownerRequestId(httpCrypto), second = ownerRequestId(httpCrypto);
+  const httpCrypto = {
+    getRandomValues(bytes: Uint8Array) {
+      calls++;
+      bytes.fill(calls);
+      return bytes;
+    },
+  };
+  const first = ownerRequestId(httpCrypto),
+    second = ownerRequestId(httpCrypto);
   assert.match(first, /^owner:[a-f0-9]{32}$/);
   assert.notEqual(first, second);
   assert.equal(calls, 2);
   const s = storage();
-  const pending = pendingSubmission(s, "HTTP Umbrel request", "chat", () => ownerRequestId(httpCrypto));
-  assert.equal(pendingSubmission(s, pending.message, "chat", () => { throw Error("must reuse receipt"); }).requestId, pending.requestId);
+  const pending = pendingSubmission(s, "HTTP Umbrel request", "chat", () =>
+    ownerRequestId(httpCrypto),
+  );
+  assert.equal(
+    pendingSubmission(s, pending.message, "chat", () => {
+      throw Error("must reuse receipt");
+    }).requestId,
+    pending.requestId,
+  );
+});
+
+test("terminal conversation presentation never promises updates or invents public text/cause", () => {
+  const job = {
+    id: "terminal",
+    kind: "chat",
+    state: "failed",
+    error: "aborted: technical original",
+  };
+  assert.deepEqual(messagePresentation(job, ""), {
+    terminal: true,
+    caption: "Non completata · nessun testo disponibile",
+    body: "",
+  });
+  assert.deepEqual(messagePresentation(job, "Public partial"), {
+    terminal: true,
+    caption: "Risposta parziale · non completata",
+    body: "Public partial",
+  });
+  for (const state of ["failed", "cancelled", "completed"]) {
+    const view = messagePresentation({ ...job, state }, "  ");
+    assert.equal(view.terminal, true);
+    assert.equal(view.body, "");
+    assert.doesNotMatch(view.caption, /attesa|aggiornamenti|timeout|aborted/i);
+  }
+  assert.equal(
+    messagePresentation({ ...job, state: "cancelled" }, "Public partial")
+      .caption,
+    "Annullata · testo parziale",
+  );
+  assert.equal(
+    messagePresentation({ ...job, state: "completed" }, "Final").caption,
+    "Risposta finale",
+  );
+  for (const state of ["queued", "waiting", "running"])
+    assert.equal(
+      messagePresentation({ ...job, state }, "").body,
+      "In attesa di aggiornamenti…",
+    );
 });

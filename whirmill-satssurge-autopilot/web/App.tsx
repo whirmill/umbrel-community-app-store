@@ -61,6 +61,7 @@ import {
   mergeJobs,
   mergeHistory,
   messageStatus,
+  messagePresentation,
   parseJson,
   pendingSubmission,
   ownerRequestId,
@@ -245,6 +246,7 @@ function ChatMessage() {
   const role = useAuiState((s) => s.message.role);
   const view = useJob(id.replace(/:(user|assistant)$/, "")),
     job = view?.job;
+  const presentation = job ? messagePresentation(job, view?.text ?? "") : null;
   return (
     <MessagePrimitive.Root className={"message " + role}>
       <div className="message-meta">
@@ -271,19 +273,10 @@ function ChatMessage() {
               summaries={[...view.reasoning.values()]}
             />
           )}
-          {view?.progress && <p className="progress-note">{view.progress}</p>}
-          <p className="muted">
-            {job.state === "completed"
-              ? "Risposta finale"
-              : job.state === "failed"
-                ? "Risposta parziale · interrotta"
-                : job.state === "cancelled"
-                  ? "Annullata"
-                  : "Risposta in corso"}
-            {job.state === "failed" && job.error?.includes("aborted")
-              ? " · causa storica non registrata"
-              : ""}
-          </p>
+          {!presentation?.terminal && view?.progress && (
+            <p className="progress-note">{view.progress}</p>
+          )}
+          <p className="muted">{presentation?.caption}</p>
           {(parseJson(job.result)?.answerDetailAvailable ||
             view?.events.some(
               (e) => e.type === "text" && e.data.bodyDetailAvailable,
@@ -293,11 +286,26 @@ function ChatMessage() {
               detailKey={parseJson(job.result)?.answerDetailKey}
             />
           )}
-          {job.error && <p className="error">{job.error}</p>}
-          {job.wait_reason && <p className="muted">{job.wait_reason}</p>}
+          {job.error && <ErrorDetail jobId={job.id} error={job.error} />}
+          {!presentation?.terminal && job.wait_reason && (
+            <p className="muted">{job.wait_reason}</p>
+          )}
         </>
       )}
     </MessagePrimitive.Root>
+  );
+}
+function ErrorDetail({ jobId, error }: { jobId: string; error: string }) {
+  const [open, setOpen] = useExpansion(jobId + "|error");
+  return (
+    <details
+      className="compact-details"
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
+      <summary>Dettaglio errore</summary>
+      {open && <p className="error">{error}</p>}
+    </details>
   );
 }
 function Reasoning({
@@ -601,15 +609,7 @@ export function App() {
               content: [
                 {
                   type: "text",
-                  text:
-                    text ||
-                    (j.state === "completed"
-                      ? "Attività completata senza testo restituito."
-                      : j.state === "failed"
-                        ? "Attività non completata."
-                        : j.state === "cancelled"
-                          ? "Richiesta annullata."
-                          : "In attesa di aggiornamenti…"),
+                  text: messagePresentation(j, text).body,
                 },
               ],
             },
@@ -1229,7 +1229,9 @@ export function App() {
                                   )
                                 : "Data non disponibile"}
                             </span>
-                            {j.error && <p className="error">{j.error}</p>}
+                            {j.error && (
+                              <ErrorDetail jobId={j.id} error={j.error} />
+                            )}
                             <details className="compact-details">
                               <summary>Messaggio e attività</summary>
                               <p>{parseJson(j.payload)?.message}</p>
