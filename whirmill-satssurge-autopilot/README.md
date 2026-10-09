@@ -769,3 +769,33 @@ After schema-5 migration, returning to 0.4.3 requires schema-compatible recovery
 that preserves every new or uncertain financial receipt; restoring a pre-upgrade
 database over newer receipts is not a valid rollback. Publication alone does not
 authorize installation, restoration or real financial effects.
+
+### 0.4.4 immutable publication verified — installed acceptance separate
+
+Source commit `77a48c25d7891aa595293319c36ae2444091cdd6`, immutable source tag
+`satssurge-autopilot-v0.4.4`, [CI 37978839715](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37978839715)
+passed 172 Node 24 and 16 Python tests; build and publish jobs completed successfully.
+Verified OCI index:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.4.4@sha256:9bcd5e19bb1ee10e39cd5cb7399208b73bea09812cdb3e1c73270bdfdc7f305e`.
+
+Anonymous linux/amd64 and linux/arm64 manifest/config downloads match SHA-256 and
+sizes. Both configs identify the exact source, packaged version is 0.4.4, and
+both commands retain `flock --no-fork`. All 22 unique layers (222,102,617 compressed
+bytes) were downloaded anonymously and verified. Platform manifests are
+amd64 `sha256:a9896cfb8e4fddfda5b11d618fcedd07a00ae23c199fe3b36fb868db5b8dbc6f`
+and arm64 `sha256:ac970e180dd5c4ff46ff487d20f66f9a54d9416cb73325b4c8a98427065f201f`.
+Detailed receipt is retained outside Git at
+`/Users/whirmill/.local/share/satssurge/image-044-receipt.json`.
+
+Compose now pins that immutable index and the manifest advertises 0.4.4; final
+store metadata awaits its separate Git publication handoff. The source tag is
+unchanged. The financial mandate, original receipts and partial-accounting limits
+are preserved. Installed 0.4.3 remains the accepted running baseline; publication
+includes no installed update, live migration, credential read or financial effect.
+Schema-5 recovery requires the checkpoint/credential preservation and receipt
+reconciliation boundary documented above; a direct 0.4.3 binary rollback fails
+schema compatibility. Local fixture and image proof do not establish installed
+provider acceptance, live migration acceptance or profitability.
+
+[GitHub release 0.4.4](https://github.com/whirmill/umbrel-community-app-store/releases/tag/satssurge-autopilot-v0.4.4) was published and read back as a final,
+non-prerelease release with the verified source, CI and immutable image receipt.

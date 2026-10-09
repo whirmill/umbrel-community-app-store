@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.4.3"
+version: "0.4.4"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -25,17 +25,17 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.4.3 adds dedicated owner login before the protected shell, including
-  initial token verification. Header Esci and Settings logout revoke the owner
-  session through the authenticated CSRF-protected endpoint, preserving OAuth,
-  autonomous jobs, saved nonce and draft. Teardown prevents stale callbacks from
-  repopulating history or reopening polling/SSE; focus returns to password.
-  Includes official searchable model menu/provider logo, keyboard/focus support
-  and causal test-only mock timing correction. CI 37964740620 passed 149 Node 24
-  and 16 Python tests. Anonymous amd64/arm64 configs and all 22 layers passed
-  SHA-256/size checks against source 4c40a17f688315977fcb192a5b979831231aae55;
-  extracted package is 0.4.3 and both commands use flock --no-fork. Actual
-  installed acceptance remains pending. Local 24 authenticated and 8 light/dark
-  login responsive cases passed with no shell leaks/overflow and empty console.
-  Preserves schema 4, financial mandate and original receipts; no financial
-  acceptance test, regtest, M3/M4 capability or profitability qualification.
+  Version 0.4.4 repairs bounded research continuity, automatic scope admission,
+  economic qualification and exact sector/attribution accounting. Chat and
+  Activity retain measured progress, coverage gaps, blockers and next triggers
+  through refresh and SSE replay. CI 37978839715 passed 172 Node 24 and 16 Python
+  tests. Both amd64/arm64 images and all 22 layers passed anonymous SHA-256/size
+  verification against source 77a48c25d7891aa595293319c36ae2444091cdd6.
+  Additive schema 5 preserves original ledger, reservations, financial receipts,
+  conversations and submissions. Before installation, stop the executor and
+  checkpoint all three databases; preserve owner secret and mounted credentials
+  separately with original permissions. Schema-4 software refuses schema 5;
+  never restore older receipts over newer or uncertain effects or replay payments.
+  Installed acceptance remains separate. Shared/unassigned costs retain partial
+  accounting and unknown routing contribution; no profitability qualification
+  or expansion of the financial mandate.
