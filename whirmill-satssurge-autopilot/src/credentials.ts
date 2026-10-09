@@ -11,4 +11,5 @@ export class Credentials implements CredentialStore {
     let result:Credential|undefined;const run=this.line.then(async()=>{const current=await this.read(provider),next=await fn(current);if(next){if(next.type!=='oauth'||provider!=='openai')throw new Error('Subscription OAuth only');this.db.prepare('INSERT OR REPLACE INTO credentials VALUES(?,?)').run(provider,JSON.stringify(next));}result=next??current;});this.line=run.catch(()=>{});await run;return result;
   }
   async delete(provider:string){const run=this.line.then(()=>{this.db.prepare('DELETE FROM credentials WHERE provider=?').run(provider);});this.line=run.catch(()=>{});await run;}
+  async close(){await this.line;this.db.close();}
 }

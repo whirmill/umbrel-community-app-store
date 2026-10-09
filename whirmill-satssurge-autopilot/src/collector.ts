@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { Store } from './store.js';
 import { now,hash,json,integer,type Snapshot } from './domain.js';
+import { readDiagnostics } from './diagnostics.js';
+import { readCompetition } from './competition.js';
 import { evaluate } from './economics.js';
 import { Executor } from './executor.js';
 import type { NodeClient } from './lnd.js';
@@ -32,6 +34,8 @@ export class Collector {
         } else if(old && this.store.one('SELECT channel_id FROM channel_holds WHERE channel_id=?',c.id) && old.ppm===c.ppm && old.baseMsat===c.baseMsat && c.pendingSat==='0') this.store.run('DELETE FROM channel_holds WHERE channel_id=?',c.id);
       }
       this.store.saveSnapshot(s);
+      this.store.set('diagnostics',readDiagnostics(process.env.DIAGNOSTICS_FILE,s.identity));
+      this.store.set('competition',readCompetition(process.env.COMPETITION_FILE,s));
       const start=this.store.get('historyStart')??'2026-09-25T00:36:45Z',end=now();
       const payments=await this.node.payments();
       // Project only circular settled payments: no personal invoices, destinations or preimages.
@@ -64,7 +68,7 @@ export class Collector {
         }
         this.store.run('INSERT OR REPLACE INTO coverage VALUES(?,?,?,?,?,?)','forwards',start,end,'LND forwards',1,json({pagesComplete:true,events:forwards.length}));
       });
-      evaluate(this.store);this.store.retain();
+      evaluate(this.store,end);this.store.retain();
       const blockers:string[]=[];if(this.store.get('integrityBlocker'))blockers.push(this.store.get<string>('integrityBlocker')!);
       if(this.store.get('importReport')?.problems?.length)blockers.push('Historical import discrepancies unresolved');
       if(!s.synced)blockers.push('LND not synchronized');

@@ -1,14 +1,14 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { id, now, json, hash, integer, day, MANDATE, type Snapshot, type Proposal, type Forecast } from './domain.js';
+import { id, now, json, hash, integer, day, MANDATE, SCHEMA_VERSION, type Snapshot, type Proposal, type Forecast } from './domain.js';
 
 export class Store {
   readonly db: DatabaseSync;
   constructor(path: string) {
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(path);
-    if(Number(this.db.prepare('PRAGMA user_version').get()?.user_version)>1)throw new Error('Database is newer than this software; rollback refused');
+    if(Number(this.db.prepare('PRAGMA user_version').get()?.user_version)>SCHEMA_VERSION)throw new Error('Database is newer than this software; rollback refused');
     this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -27,8 +27,37 @@ export class Store {
       CREATE TABLE IF NOT EXISTS channel_holds(channel_id TEXT PRIMARY KEY, at TEXT NOT NULL, reason TEXT NOT NULL, snapshot_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS aggregates(day TEXT PRIMARY KEY, content TEXT NOT NULL, version INTEGER NOT NULL);
       CREATE VIRTUAL TABLE IF NOT EXISTS evidence_search USING fts5(evidence_id UNINDEXED, content);
-      PRAGMA user_version=1;
+
     `);
+    this.db.exec(`BEGIN IMMEDIATE;
+      CREATE TABLE IF NOT EXISTS jobs(
+        id TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE, kind TEXT NOT NULL, lane TEXT NOT NULL,
+        priority INTEGER NOT NULL, payload TEXT NOT NULL, payload_digest TEXT NOT NULL,
+        scope TEXT NOT NULL, snapshot_at TEXT, state TEXT NOT NULL, created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL, started_at TEXT, finished_at TEXT, lease_owner TEXT,
+        lease_until TEXT, run_token TEXT, attempts INTEGER NOT NULL DEFAULT 0,
+        result TEXT, error TEXT, wait_reason TEXT, coalesce_key TEXT, conversation_id TEXT,
+        submitted INTEGER NOT NULL DEFAULT 0, submission_id TEXT
+      );
+      CREATE INDEX IF NOT EXISTS jobs_dispatch ON jobs(lane,state,priority,created_at);
+      CREATE UNIQUE INDEX IF NOT EXISTS jobs_coalesce ON jobs(coalesce_key) WHERE coalesce_key IS NOT NULL AND state IN ('queued','running','waiting');
+      CREATE TABLE IF NOT EXISTS job_events(id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES jobs(id), at TEXT NOT NULL, type TEXT NOT NULL, details TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS evaluation_windows(
+        id TEXT PRIMARY KEY, decision_id TEXT NOT NULL REFERENCES decisions(id), horizon_days INTEGER NOT NULL,
+        revision INTEGER NOT NULL, at TEXT NOT NULL, status TEXT NOT NULL, result TEXT NOT NULL,
+        UNIQUE(decision_id,horizon_days,revision)
+      );
+      CREATE TABLE IF NOT EXISTS benefit_claims(
+        operation_id TEXT PRIMARY KEY REFERENCES operations(id),source TEXT NOT NULL,target TEXT NOT NULL,
+        at TEXT NOT NULL,until_at TEXT NOT NULL,volume_msat TEXT NOT NULL,benefit_msat TEXT NOT NULL
+      );
+      PRAGMA user_version=3;
+      COMMIT;`);
+    this.tx(()=>{
+      for(const row of this.all("SELECT r.*,d.forecast FROM reservations r JOIN operations o ON o.id=r.operation_id JOIN decisions d ON d.id=o.decision_id WHERE r.category='ordinary' AND o.state<>'FAILED' AND NOT EXISTS (SELECT 1 FROM benefit_claims b WHERE b.operation_id=r.operation_id)")){
+        this.run('INSERT INTO benefit_claims VALUES(?,?,?,?,?,?,?)',row.operation_id,row.source,row.target,row.at,new Date(Date.parse(row.at)+30*86400000).toISOString(),(integer(row.amount_sat)*1000n).toString(),integer(JSON.parse(row.forecast).benefitMsat).toString());
+      }
+    });
     if (path !== ':memory:') chmodSync(path, 0o600);
     if (!this.get('mandate')) this.set('mandate', MANDATE);
     if (this.get('enabled')===undefined) this.set('enabled', true);
@@ -71,12 +100,17 @@ export class Store {
     const exploratory=sum(costs.filter(r=>day(r.at)===day(at) && r.category==='exploratory'),'amount_msat')+sum(reservations.filter(r=>r.category==='exploratory'),'fee_msat');
     return { cumulativeMsat:cumulative.toString(), dailyMsat:daily.toString(), exploratoryMsat:exploratory.toString(), remainingMsat:(integer(MANDATE.totalMsat)-cumulative).toString(), coverageComplete:this.get('historicalCoverageComplete')===true };
   }
+  assertDispatchReady(at=now()) {
+    if(this.get('maintenanceClaim'))throw new Error('Financial execution suspended for maintenance');
+    if(this.get('integrityBlocker'))throw new Error('Financial integrity review required');
+    if(this.get('enabled')!==true)throw new Error('Autonomy paused');
+    const proof=this.get('automationProof'),time=Date.parse(proof?.at??''),current=Date.parse(at);
+    if(this.get('bootstrapReady')!==true || proof?.ok!==true || !Number.isFinite(time) || time>current || current-time>90000)throw new Error('Bootstrap/interlock not ready');
+  }
   reserve(p:Proposal, f:Forecast, s:Snapshot, at=now()) {
     return this.tx(()=>{
       if(this.get('expectedIdentity') && s.identity!==this.get('expectedIdentity'))throw new Error('Node identity mismatch');
-      if(this.get('integrityBlocker'))throw new Error('Financial integrity review required');
-      if(this.get('enabled')!==true) throw new Error('Autonomy paused');
-      if(!this.get('bootstrapReady') || this.get('automationProof')?.ok!==true || Date.parse(at)-Date.parse(this.get('automationProof')?.at??'1970-01-01')>90000) throw new Error('Bootstrap/interlock not ready');
+      this.assertDispatchReady(at);
       if(!Number.isFinite(Date.parse(s.at)) || Date.parse(at)-Date.parse(s.at)>60_000 || Date.parse(s.at)>Date.parse(at) || !s.synced) throw new Error('Stale/unsynchronized state');
       if(this.one("SELECT id FROM operations WHERE state IN ('reserved','preparing','sending','uncertain','in_flight')")) throw new Error('Executor occupied or uncertain outcome');
       if(integer(s.confirmedSat)<integer(MANDATE.reserveSat)+integer(this.get('pendingOnchainObligationsSat')??'0')) throw new Error('Protected on-chain reserve');
@@ -99,6 +133,10 @@ export class Store {
       const b=this.budget(at);
       if(integer(b.cumulativeMsat)+cap>integer(MANDATE.totalMsat) || integer(b.dailyMsat)+cap>integer(MANDATE.dailyMsat)) throw new Error('Expense budget exhausted');
       if(p.category==='exploratory' && integer(b.exploratoryMsat)+cap>integer(MANDATE.exploratoryDailyMsat)) throw new Error('Exploration budget exhausted');
+      if(p.category==='ordinary'){
+        const uncommitted=this.uncommittedDemand(p.source,p.target,f.rawRequestedMsat??f.requestedMsat,at);
+        if(uncommitted!==f.requestedMsat)throw new Error('Forecast stale: future demand already allocated; recompute');
+      }
       if(p.category==='ordinary' && (!f.eligible || integer(f.benefitMsat)<2n*cap)) throw new Error('Insufficient independently computed benefit');
       const target=s.channels.find(c=>c.id===p.target);
       if(!target?.active) throw new Error('Target channel unavailable');
@@ -122,8 +160,25 @@ export class Store {
       this.run('INSERT INTO decisions VALUES(?,?,?,?,?,?)',decision,at,json(p),json(f),json(MANDATE),'planned');
       this.run('INSERT INTO operations VALUES(?,?,?,?,?,?,?)',operation,decision,at,'reserved',null,null,json({snapshot:s}));
       this.run('INSERT INTO reservations VALUES(?,?,?,?,?,?,?,?,?)',operation,at,cap.toString(),p.amountSat,p.category,p.source,p.target,p.demandKey,1);
+      if(p.category==='ordinary')this.run('INSERT INTO benefit_claims VALUES(?,?,?,?,?,?,?)',operation,p.source,p.target,at,new Date(Date.parse(at)+30*86400000).toISOString(),(integer(p.amountSat)*1000n).toString(),f.benefitMsat);
       return {decision,operation};
     });
+  }
+  uncommittedDemand(source:string,target:string,rawDemand:string,at=now(),excludeOperation?:string) {
+    let claimed=0n;
+    const claims=this.all("SELECT b.*,o.state,COALESCE(json_extract(o.details,'$.completedAt'),(SELECT max(l.at) FROM ledger l WHERE l.operation_id=o.id AND l.classification='expense'),b.at) effective_at FROM benefit_claims b JOIN operations o ON o.id=b.operation_id WHERE b.at<=? AND o.state<>'FAILED'",at).map(r=>({...r,at:r.effective_at,until_at:new Date(Date.parse(r.effective_at)+30*86400000).toISOString()})).sort((a,b)=>a.at.localeCompare(b.at)||a.operation_id.localeCompare(b.operation_id));
+    const remaining=new Map<string,bigint>(claims.map(r=>[r.operation_id,integer(r.volume_msat)]));
+    const earliest=claims[0]?.at;
+    if(earliest)for(const event of this.all("SELECT source,target,occurred_at,amount_msat FROM events WHERE type='external_forward' AND occurred_at>=? AND occurred_at<? ORDER BY occurred_at,id",earliest,at)){
+      let amount=integer(event.amount_msat);
+      // Allocate each observed msat once, FIFO. Two forecasts may not both consume the same return.
+      for(const row of claims){
+        if(row.state!=='SUCCEEDED'||row.source!==event.source||row.target!==event.target||row.at>event.occurred_at||row.until_at<=event.occurred_at)continue;
+        const left=remaining.get(row.operation_id)!,used=left<amount?left:amount;remaining.set(row.operation_id,left-used);amount-=used;if(amount===0n)break;
+      }
+    }
+    for(const row of claims)if(row.operation_id!==excludeOperation&&row.until_at>at&&(row.target===target||row.source===source))claimed+=remaining.get(row.operation_id)!;
+    const demand=integer(rawDemand);return (demand>claimed?demand-claimed:0n).toString();
   }
   stats() {
     const ledger=this.all('SELECT * FROM ledger ORDER BY at');
@@ -133,10 +188,10 @@ export class Store {
       return {revenueMsat:revenue.toString(),costMsat:cost.toString(),netMsat:(revenue-cost).toString()};
     };
     return {enabled:this.get('enabled'),bootstrapReady:this.get('bootstrapReady')??false,blockers:this.get('blockers')??[],mandate:MANDATE,budget:this.budget(),snapshot:this.get('snapshot')??null,
-      pnl30:sums(ledger.filter(r=>r.at>=since)),cumulative:sums(ledger),partial:this.get('historicalCoverageComplete')!==true || this.get('subscriptionCostMsat')===undefined,
+      diagnostics:this.get('diagnostics')??null,competition:this.get('competition')??null,pnl30:sums(ledger.filter(r=>r.at>=since)),cumulative:sums(ledger),partial:this.get('historicalCoverageComplete')!==true || this.get('subscriptionCostMsat')===undefined,
       operations:this.all('SELECT id,decision_id,at,state,payment_hash,details FROM operations ORDER BY at DESC LIMIT 50'),
       decisions:this.all('SELECT * FROM decisions ORDER BY at DESC LIMIT 50').map(r=>({...r,proposal:JSON.parse(r.proposal),forecast:JSON.parse(r.forecast)})),
-      evaluations:this.all('SELECT * FROM evaluations ORDER BY at DESC LIMIT 30'),coverage:this.all('SELECT * FROM coverage ORDER BY end DESC LIMIT 20'),
+      evaluations:this.all('SELECT * FROM evaluations ORDER BY at DESC LIMIT 30'),evaluationWindows:this.all('SELECT * FROM evaluation_windows ORDER BY at DESC LIMIT 60').map(r=>({...r,result:JSON.parse(r.result)})),coverage:this.all('SELECT * FROM coverage ORDER BY end DESC LIMIT 20'),
       claims:this.all('SELECT * FROM claims ORDER BY at DESC LIMIT 25'), holds:this.all('SELECT * FROM channel_holds'),
       agent:this.get('agent')??{},importReport:this.get('importReport')??{}, roadmap:['M1 · fee/rebalance POC','M2 · validation / LNDg / Lightning Mate','M3 · channels / Magma (disabled)','M4 · Telegram (not implemented)']};
   }

@@ -6,6 +6,9 @@ import type { NodeClient } from './lnd.js';
 export class Executor {
   constructor(private store:Store,private node:NodeClient){}
   private executing=false;
+  private dispatchGuard(operation:string) {
+    try{this.store.assertDispatchReady();}catch(error){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});throw error;}
+  }
   async execute(p:Proposal) {
     if(this.executing)throw new Error('Executor busy');this.executing=true;
     try{return await this.dispatch(p);}finally{this.executing=false;}
@@ -27,10 +30,11 @@ export class Executor {
     this.store.run('UPDATE events SET pinned=1 WHERE id IN ('+p.evidenceIds.map(()=>'?').join(',')+')',...p.evidenceIds);
     try {
       // Recheck pause immediately before any writable RPC. No await between check and dispatch.
-      if(this.store.get('enabled')!==true) {this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});throw new Error('Paused before dispatch');}
+      this.dispatchGuard(operation);
       if(p.kind==='fee_change') {
         const c=s.channels.find(c=>c.id===p.target)!;
         this.store.run("UPDATE operations SET state='sending' WHERE id=?",operation);
+        this.dispatchGuard(operation);
         await this.node.updateFee(c,p.newPpm!);
         const verified=await this.node.snapshot(),after=verified.channels.find(x=>x.id===c.id);
         if(!after || after.ppm!==p.newPpm || after.baseMsat!==c.baseMsat) throw new Error('Policy not yet verified; reconcile');
@@ -38,13 +42,14 @@ export class Executor {
         this.finish(operation,{status:'SUCCEEDED',feeMsat:'0',amountSat:'0'});
       } else {
         this.store.run("UPDATE operations SET state='preparing' WHERE id=?",operation);
+        this.dispatchGuard(operation);
         const invoice=await this.node.invoice(p.amountSat,`SatsSurge:${operation}`);
         // A crash here may leave an unused invoice, but never permits a duplicate send.
         this.store.run("UPDATE operations SET payment_hash=?,invoice=?,state='sending' WHERE id=?",invoice.hash,invoice.request,operation);
         const fresh=await this.node.snapshot();
         const changed=[p.source,p.target].some(key=>{const before=s.channels.find(c=>c.id===key)!,after=fresh.channels.find(c=>c.id===key);const drift=(a:string,b:string)=>{const d=integer(a)-integer(b);return (d<0n?-d:d)*100n>integer(before.capacitySat);};return !after||!after.active||after.ppm!==before.ppm||after.baseMsat!==before.baseMsat||after.pendingSat!=='0'||drift(after.localSat,before.localSat)||drift(after.remoteSat,before.remoteSat);});
         if(changed || fresh.identity!==s.identity || !fresh.synced || integer(fresh.confirmedSat)<500000n || Date.now()-Date.parse(this.store.get('automationProof')?.at??'1970-01-01')>90000){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});this.store.saveSnapshot(fresh);throw new Error('Material state change before send; replan');}
-        if(this.store.get('enabled')!==true){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});throw new Error('Paused before payment');}
+        this.dispatchGuard(operation);
         const result=await this.node.send(invoice.request,p.source,s.channels.find(c=>c.id===p.target)!.peer,p.maxFeeMsat);
         this.finish(operation,result);
       }
@@ -64,9 +69,10 @@ export class Executor {
       this.store.set('enabled',false);this.store.set('integrityBlocker','Payment endpoint/amount/cost invariant violated; audited operator review required');this.store.set('blockers',[this.store.get('integrityBlocker')]);
       // Still account actual settled fee. Never hide a cost just because an invariant failed.
     }
+    const completedAt=now();
     this.store.tx(()=>{
-      this.store.ledger({id:'op:'+operation,at:now(),classification:'expense',amountMsat:result.status==='SUCCEEDED'?result.feeMsat:'0',category:p.category,operationId:operation,details:{paymentHash:op.payment_hash,status:result.status}});
-      this.store.run('UPDATE operations SET state=?,invoice=NULL,details=? WHERE id=?',result.status,json(result),operation);
+      this.store.ledger({id:'op:'+operation,at:completedAt,classification:'expense',amountMsat:result.status==='SUCCEEDED'?result.feeMsat:'0',category:p.category,operationId:operation,details:{paymentHash:op.payment_hash,status:result.status}});
+      this.store.run('UPDATE operations SET state=?,invoice=NULL,details=? WHERE id=?',result.status,json({...result,completedAt}),operation);
       this.store.run('UPDATE reservations SET active=0 WHERE operation_id=?',operation);
       this.store.run('UPDATE decisions SET status=? WHERE id=?',result.status==='SUCCEEDED'?'observing':'failed',d.id);
     });

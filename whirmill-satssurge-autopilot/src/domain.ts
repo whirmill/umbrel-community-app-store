@@ -12,7 +12,7 @@ export function integer(v: unknown): bigint {
   return n;
 }
 export const day = (at: string) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(at));
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 3;
 export const MANDATE = Object.freeze({
   version: 1, totalMsat: '30000000', dailyMsat: '1500000', exploratoryDailyMsat: '750000',
   attemptMsat: '100000', reserveSat: '500000', feeWindowHours: 48,
@@ -38,6 +38,7 @@ export interface Proposal {
 export interface Forecast {
   eligible: boolean; samples: number; observedHours: number; observedDays: number;
   benefitMsat: string; requestedMsat: string; explanation: string;
+  rawRequestedMsat?:string; version?:number; baseline?:{at:string;sourceInboundMsat:string;targetOutboundMsat:string;targetPpm:number;targetBaseMsat:string;rate7MsatPerHour:string;rate30MsatPerHour:string;conservativeDemand30Msat:string;opportunityCostMsat:string};
 }
 export interface PaymentOutcome { status: 'SUCCEEDED' | 'FAILED' | 'IN_FLIGHT'; feeMsat: string; amountSat: string; source?: string; target?: string; index?: string; }
 export const terminal = (s: string) => s === 'SUCCEEDED' || s === 'FAILED';
