@@ -1,3 +1,5 @@
+import { PUBLIC_BODY_BYTES } from "./public-job.js";
+import { responseSummaries } from "./public-reasoning.js";
 import type { ServerResponse } from "node:http";
 import { EventEmitter } from "node:events";
 import type { AgentEvent } from "@earendil-works/pi-durable";
@@ -125,9 +127,13 @@ export class ConversationProjection {
   private completed = new Map<number, string>();
   private blocks = new Map<number, string>();
   private last = "";
+  private pendingText: string | undefined;
+  private publishTimer: ReturnType<typeof setTimeout> | undefined;
+  private lastPublishedAt = 0;
   constructor(
     private events: UiEvents,
     private jobId: string,
+    private publicationMs = 0,
   ) {
     this.last =
       JSON.parse(
@@ -156,7 +162,15 @@ export class ConversationProjection {
           Number(e.id),
           text,
         );
-        for (const b of m.content)
+        for (const b of m.content) {
+          if (b.type === "thinking" && m.api === "openai-responses")
+            for (const summary of responseSummaries(b.thinkingSignature))
+              this.events.append(
+                this.jobId,
+                "reasoning_summary",
+                { ...summary, provenance: "responses.summary_text" },
+                "summary:" + summary.itemId + ":" + summary.index + ":final",
+              );
           if (b.type === "toolCall")
             this.events.append(
               this.jobId,
@@ -168,6 +182,7 @@ export class ConversationProjection {
               },
               "call:" + b.id,
             );
+        }
       } else if (m.role === "toolResult")
         this.events.append(
           this.jobId,
@@ -296,7 +311,42 @@ export class ConversationProjection {
       .join("\n\n");
     if (text === this.last) return;
     this.last = text;
-    this.events.append(this.jobId, "text", { text });
+    if (
+      this.publicationMs &&
+      Date.now() - this.lastPublishedAt < this.publicationMs
+    ) {
+      this.pendingText = text;
+      if (!this.publishTimer)
+        this.publishTimer = setTimeout(() => this.flush(), this.publicationMs);
+      return;
+    }
+    this.writeText(text);
+  }
+  flush() {
+    if (this.publishTimer) clearTimeout(this.publishTimer);
+    this.publishTimer = undefined;
+    if (this.pendingText !== undefined) {
+      const text = this.pendingText;
+      this.pendingText = undefined;
+      this.writeText(text);
+    }
+  }
+  private writeText(text: string) {
+    if (this.publishTimer) clearTimeout(this.publishTimer);
+    this.publishTimer = undefined;
+    this.pendingText = undefined;
+    this.lastPublishedAt = Date.now();
+    this.events.append(
+      this.jobId,
+      "text",
+      Buffer.byteLength(text) > PUBLIC_BODY_BYTES
+        ? {
+            text: "Risposta estesa · consulta il testo paginato nei dettagli.",
+            bodyDetailAvailable: true,
+            bodyBytes: Buffer.byteLength(text),
+          }
+        : { text },
+    );
   }
 }
 

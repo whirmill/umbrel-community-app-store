@@ -1,3 +1,5 @@
+import { historyEvents } from "../dist/ui-history.js";
+import { publicJob } from "../dist/public-job.js";
 // Explicit local-only simulation; never imported by production or copied into image.
 import { createServer } from "node:http";
 import { readFileSync, mkdirSync } from "node:fs";
@@ -31,21 +33,50 @@ store.set("snapshot", {
   ],
 });
 if (!store.get("seeded")) {
-  const historyCount=Math.max(125,Math.min(1000,Number(process.env.FIXTURE_HISTORY_COUNT)||125));
+  const historyCount = Math.max(
+    125,
+    Math.min(5000, Number(process.env.FIXTURE_HISTORY_COUNT) || 125),
+  );
   for (let n = 0; n < historyCount; n++) {
     const j = queue.enqueue({
       requestId: "fixture:" + n,
       kind: "chat",
+      origin: "owner",
+      purpose: "general",
       payload: { message: "Cronologia simulata " + n },
     });
     const claimed = queue.claim("coordinator", "fixture");
     queue.finish(j.id, claimed.run_token, "completed", {
       answer:
-        n === historyCount-1
+        n === historyCount - 1
           ? '## Contenuti non attendibili\n\n<script>untrusted</script> [link](javascript:alert(1))\n\n```js\nconsole.log("Test locale");\n```\n\n' +
             "Cronologia lunga. ".repeat(1800)
-          : "Risposta storica " + n,
+          : process.env.FIXTURE_HEAVY
+            ? "## Sintesi simulata\n\n| Misura | Valore | Copertura |\n|---|---:|---|\n" +
+              "| Corridoio | 1000 | parziale |\n".repeat(15) +
+              "\n" +
+              "Osservazione simulata. ".repeat(100)
+            : "Risposta storica " + n,
     });
+    if (process.env.FIXTURE_HEAVY)
+      for (let i = 0; i < 18; i++) {
+        events.append(j.id, "tool_call", {
+          toolCallId: "heavy:" + n + ":" + i,
+          toolName: "state_page",
+          args: { section: "diagnostics", offset: i * 20 },
+        });
+        events.append(j.id, "tool_result", {
+          toolCallId: "heavy:" + n + ":" + i,
+          toolName: "state_page",
+          result: {
+            rows: Array.from({ length: 20 }, (_, r) => ({
+              id: r,
+              note: "Fixture ".repeat(100),
+            })),
+            coverage: "partial",
+          },
+        });
+      }
   }
   store.set("seeded", true);
 }
@@ -118,7 +149,8 @@ const server = createServer(async (req, res) => {
     }
     if (!url.pathname.startsWith("/api/")) {
       const path = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
-      if (!/^(index.html|assets\/[\w.-]+)$/.test(path)) return send({}, 404);
+      if (!/^(index.html|theme.js|assets\/[\w.-]+)$/.test(path))
+        return send({}, 404);
       res.setHeader(
         "Content-Type",
         { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" }[
@@ -136,17 +168,21 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/api/owner/login") {
       if (body.password !== "fixture-only")
         return send({ error: "Password rifiutata" }, 403);
-      session = "fixture-session-"+crypto.randomUUID();
+      session = "fixture-session-" + crypto.randomUUID();
       return send({ session });
     }
     if (req.headers.authorization !== "Bearer " + session)
       return send({ error: "Sessione scaduta" }, 401);
-    if (url.pathname === "/api/owner/logout") {session="revoked-"+Date.now();return send({disconnected:true});}
+    if (url.pathname === "/api/owner/logout") {
+      session = "revoked-" + Date.now();
+      return send({ disconnected: true });
+    }
     if (url.pathname === "/api/status")
       return send({
         ...store.stats(),
+        uiFixture: true,
         csrf: "fixture-csrf",
-        jobs: queue.list(),
+        jobs: queue.list().map((j) => publicJob(store, j)),
         queue: queue.metrics(),
         pool: { analystRunning: 0, maxAnalysts: 2 },
       });
@@ -165,12 +201,30 @@ const server = createServer(async (req, res) => {
         Number(url.searchParams.get("before") ?? Number.MAX_SAFE_INTEGER),
       );
       return send({
-        jobs,
-        events: events.after(0, 20000),
+        jobs: jobs.map((j) => publicJob(store, j)),
+        ...historyEvents(
+          store,
+          jobs.map((j) => j.id),
+        ),
         cursor: events.cursor(),
         nextBefore: jobs.length === 50 ? jobs.at(-1).history_id : null,
         legacyChat: [],
       });
+    }
+    if (url.pathname === "/api/jobs/events") {
+      const jobId = url.searchParams.get("jobId") ?? "",
+        after = Number(url.searchParams.get("after") ?? 0);
+      const tool = url.searchParams.get("toolCallId");
+      const rows = store
+        .all(
+          "SELECT * FROM ui_events WHERE job_id=? AND id>? AND (? IS NULL OR json_extract(data,'$.toolCallId')=?) ORDER BY id LIMIT 32",
+          jobId,
+          tool ? 0 : after,
+          tool,
+          tool,
+        )
+        .map((e) => ({ ...e, data: JSON.parse(e.data) }));
+      return send({ events: rows });
     }
     if (url.pathname === "/api/events") {
       let cursor = Number(url.searchParams.get("after") ?? 0);
@@ -178,8 +232,17 @@ const server = createServer(async (req, res) => {
       res.flushHeaders();
       clients.add(res);
       const controller = new AbortController();
-      res.on("close", () => { controller.abort(); clients.delete(res); });
-      await serveUiEvents(events, res, cursor, controller.signal, () => req.headers.authorization === "Bearer " + session);
+      res.on("close", () => {
+        controller.abort();
+        clients.delete(res);
+      });
+      await serveUiEvents(
+        events,
+        res,
+        cursor,
+        controller.signal,
+        () => req.headers.authorization === "Bearer " + session,
+      );
       return;
     }
     if (url.pathname === "/api/chat" || url.pathname === "/api/analyze") {
@@ -215,13 +278,17 @@ const server = createServer(async (req, res) => {
         run(j);
       return send({ enabled: true });
     }
-    if (url.pathname === "/api/auth/start") { authPrompt = true; return send({ started: true }); }
-    if (url.pathname === "/api/auth/respond") {
-      if (body.value !== "fixture-code") return send({ error: "Codice simulato rifiutato" }, 400);
-      authPrompt = false; return send({ connected: true });
+    if (url.pathname === "/api/auth/start") {
+      authPrompt = true;
+      return send({ started: true });
     }
-    if (url.pathname === "/api/model")
-      return send({ saved: true });
+    if (url.pathname === "/api/auth/respond") {
+      if (body.value !== "fixture-code")
+        return send({ error: "Codice simulato rifiutato" }, 400);
+      authPrompt = false;
+      return send({ connected: true });
+    }
+    if (url.pathname === "/api/model") return send({ saved: true });
     send({ error: "Not found" }, 404);
   } catch (e) {
     send({ error: e.message }, 400);

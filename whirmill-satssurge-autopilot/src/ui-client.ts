@@ -33,19 +33,49 @@ export function mergeEvents(
   advance = true,
 ): Projection {
   const merged = new Map(state.events.map((e) => [e.id, e]));
-  for (const e of events) merged.set(e.id, e);
+  for (const e of events) if (!merged.has(e.id)) merged.set(e.id, e);
   // Text/progress are cumulative snapshots, not deltas to concatenate.
   const snapshots = new Map<string, number>();
-  for(const e of merged.values())if(['text','progress','job'].includes(e.type)){
-    const key=e.job_id+':'+e.type;snapshots.set(key,Math.max(snapshots.get(key)??0,e.id));
-  }
-  const compact=[...merged.values()].filter(e=>!['text','progress','job'].includes(e.type)||snapshots.get(e.job_id+':'+e.type)===e.id);
-  const byId=compact.sort((a,b)=>a.id-b.id);
+  const snapshotKey = (e: UiEvent) =>
+    e.type === "reasoning_summary"
+      ? e.job_id + ":" + e.type + ":" + e.data.itemId + ":" + e.data.index
+      : ["text", "progress", "job"].includes(e.type)
+        ? e.job_id + ":" + e.type
+        : null;
+  for (const e of merged.values())
+    if (snapshotKey(e)) {
+      const key = snapshotKey(e)!;
+      snapshots.set(key, Math.max(snapshots.get(key) ?? 0, e.id));
+    }
+  const compact = [...merged.values()].filter(
+    (e) => !snapshotKey(e) || snapshots.get(snapshotKey(e)!) === e.id,
+  );
+  const byId = compact.sort((a, b) => a.id - b.id);
   // Retain current snapshots preferentially, even when an old job emits many tools.
-  const current=byId.filter(e=>['text','progress','job'].includes(e.type)).slice(-10000);
-  const details=byId.filter(e=>!['text','progress','job'].includes(e.type));
-  const ordered=[...current,...(current.length===10000?[]:details.slice(-(10000-current.length)))].sort((a,b)=>a.id-b.id),
+  const current = byId
+    .filter((e) => ["text", "progress", "job"].includes(e.type))
+    .slice(-10000);
+  const details = byId.filter(
+    (e) => !["text", "progress", "job"].includes(e.type),
+  );
+  let ordered = [
+      ...current,
+      ...(current.length === 10000
+        ? []
+        : details.slice(-(10000 - current.length))),
+    ].sort((a, b) => a.id - b.id),
     jobs = { ...state.jobs };
+  let windowBytes = 0;
+  ordered = ordered
+    .slice()
+    .reverse()
+    .filter((e) => {
+      const bytes = new TextEncoder().encode(JSON.stringify(e)).byteLength;
+      if (windowBytes + bytes > 8 * 1024 * 1024) return false;
+      windowBytes += bytes;
+      return true;
+    })
+    .reverse();
   for (const e of ordered) {
     const j = jobs[e.job_id];
     if (e.type === "job" && j && (!j.updated_at || e.at >= j.updated_at))
@@ -55,9 +85,12 @@ export function mergeEvents(
     ...state,
     jobs,
     events: ordered,
-    truncatedEvents: state.truncatedEvents || compact.length>10000,
+    truncatedEvents:
+      state.truncatedEvents ||
+      compact.length > 10000 ||
+      ordered.length < compact.length,
     cursor: advance
-      ? events.reduce((cursor,e)=>Math.max(cursor,e.id),state.cursor)
+      ? events.reduce((cursor, e) => Math.max(cursor, e.id), state.cursor)
       : state.cursor,
   };
 }
@@ -66,7 +99,10 @@ export function mergeJobs(state: Projection, incoming: Job[]): Projection {
   for (const j of incoming) {
     const old = jobs[j.id];
     if (!old?.updated_at || !j.updated_at || j.updated_at >= old.updated_at)
-      jobs[j.id] = { ...old, ...j };
+      jobs[j.id] =
+        old && Object.keys(j).every((k) => old[k] === j[k])
+          ? old
+          : { ...old, ...j };
     for (const existing of Object.values(jobs))
       if (
         existing.id.startsWith("legacy:") &&
@@ -75,11 +111,26 @@ export function mergeJobs(state: Projection, incoming: Job[]): Projection {
       )
         delete jobs[existing.id];
   }
-  const pinned=new Set([...(state.historyWindowIds??[]),...incoming.map(j=>j.id)]);
-  const terminal=Object.values(jobs).filter(j=>['completed','failed','cancelled'].includes(j.state));
-  terminal.sort((a,b)=>Number(pinned.has(b.id))-Number(pinned.has(a.id)) || (b.created_at??'').localeCompare(a.created_at??'') || (b.history_id??0)-(a.history_id??0));
-  for(const j of terminal.slice(250))delete jobs[j.id];
-  return { ...state, jobs,events:state.events.filter(e=>!!jobs[e.job_id]),truncatedHistory:state.truncatedHistory||terminal.length>250 };
+  const pinned = new Set([
+    ...(state.historyWindowIds ?? []),
+    ...incoming.map((j) => j.id),
+  ]);
+  const terminal = Object.values(jobs).filter((j) =>
+    ["completed", "failed", "cancelled"].includes(j.state),
+  );
+  terminal.sort(
+    (a, b) =>
+      Number(pinned.has(b.id)) - Number(pinned.has(a.id)) ||
+      (b.created_at ?? "").localeCompare(a.created_at ?? "") ||
+      (b.history_id ?? 0) - (a.history_id ?? 0),
+  );
+  for (const j of terminal.slice(250)) delete jobs[j.id];
+  return {
+    ...state,
+    jobs,
+    events: state.events.filter((e) => !!jobs[e.job_id]),
+    truncatedHistory: state.truncatedHistory || terminal.length > 250,
+  };
 }
 export function canCancel(job: Job) {
   return job.state === "queued" || (job.state === "waiting" && !job.submitted);
@@ -140,8 +191,10 @@ export interface StorageLike {
   removeItem(k: string): void;
 }
 export const pendingKey = "satssurge.pendingSubmission";
-export function validChatPayload(message:string) {
-  return new TextEncoder().encode(JSON.stringify({message})).byteLength<=16384;
+export function validChatPayload(message: string) {
+  return (
+    new TextEncoder().encode(JSON.stringify({ message })).byteLength <= 16384
+  );
 }
 export function pendingSubmission(
   storage: StorageLike,
@@ -155,7 +208,10 @@ export function pendingSubmission(
       throw Error("Recupera prima la ricevuta della richiesta precedente.");
     return old;
   }
-  if(!validChatPayload(message))throw Error("Il messaggio supera il limite di 16 KiB. Riducilo prima di inviare.");
+  if (!validChatPayload(message))
+    throw Error(
+      "Il messaggio supera il limite di 16 KiB. Riducilo prima di inviare.",
+    );
   const pending = { requestId: createId(), message, kind };
   storage.setItem(pendingKey, JSON.stringify(pending));
   return pending;
@@ -196,15 +252,27 @@ export function mergeHistory(
     events: UiEvent[];
     legacyChat?: any[];
     cursor: number;
+    eventsPartial?: boolean;
   },
   reset = false,
 ): Projection {
-  const retainedActive=Object.fromEntries(Object.entries(state.jobs).filter(([,j])=>!['completed','failed','cancelled'].includes(j.state)));
+  const retainedActive = Object.fromEntries(
+    Object.entries(state.jobs).filter(
+      ([, j]) => !["completed", "failed", "cancelled"].includes(j.state),
+    ),
+  );
   // A preserved active receipt may have finished outside the newest history page.
   // Replay from its old cursor so its terminal event cannot be skipped by reset.
-  const resetCursor=Object.keys(retainedActive).length?Math.min(state.cursor,history.cursor):history.cursor;
+  const resetCursor = Object.keys(retainedActive).length
+    ? Math.min(state.cursor, history.cursor)
+    : history.cursor;
   let p = mergeJobs(
-    {...(reset ? { jobs: retainedActive, events: [], cursor: resetCursor } : state),historyWindowIds:history.jobs.map(j=>j.id)},
+    {
+      ...(reset
+        ? { jobs: retainedActive, events: [], cursor: resetCursor }
+        : state),
+      historyWindowIds: history.jobs.map((j) => j.id),
+    },
     history.jobs,
   );
   const requests = new Set(
@@ -226,12 +294,21 @@ export function mergeHistory(
         state: "completed",
         created_at: c.at,
         payload: JSON.stringify({ message: c.user }),
-        result: JSON.stringify({ answer: c.answer }),
+        result: JSON.stringify({
+          answer: c.answer,
+          answerDetailAvailable: c.answerDetailAvailable === true,
+          answerDetailKey: c.answerDetailKey,
+        }),
         legacy: true,
       };
     }
-  p=mergeJobs(p,[]);
-  return mergeEvents(p, history.events.filter(e=>!!p.jobs[e.job_id]), false);
+  p = mergeJobs(p, []);
+  p.truncatedEvents = p.truncatedEvents || history.eventsPartial === true;
+  return mergeEvents(
+    p,
+    history.events.filter((e) => !!p.jobs[e.job_id]),
+    false,
+  );
 }
 export function messageStatus(
   job: Job,
@@ -249,7 +326,14 @@ export function messageStatus(
 }
 
 /** getRandomValues is available on Umbrel HTTP origins where randomUUID is not. */
-export function ownerRequestId(source: { getRandomValues(bytes: Uint8Array): Uint8Array } = globalThis.crypto): string {
+export function ownerRequestId(
+  source: {
+    getRandomValues(bytes: Uint8Array): Uint8Array;
+  } = globalThis.crypto,
+): string {
   const bytes = source.getRandomValues(new Uint8Array(16));
-  return "owner:" + Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+  return (
+    "owner:" +
+    Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")
+  );
 }

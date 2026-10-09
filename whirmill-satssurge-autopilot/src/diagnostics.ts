@@ -21,7 +21,7 @@ function rows(value:unknown):any[]{if(!Array.isArray(value)||value.length>100000
 function stamp(value:unknown):string {
   if(typeof value!=='string'||!/^\d{4}-\d\d-\d\dT.*Z$/.test(value)||!Number.isFinite(Date.parse(value)))throw new Error('Timestamp must be UTC');return value;
 }
-export interface DiagnosticProvider {status:'qualified'|'unavailable'|'incompatible';version?:string;reason?:string;capturedAt?:string;coverage?:unknown;forwards?:unknown[];failures?:unknown[];failureRollups?:unknown[];rebalances?:unknown[];}
+export interface DiagnosticProvider {status:'qualified'|'unavailable'|'incompatible';version?:string;reason?:string;capturedAt?:string;coverage?:unknown;forwards?:unknown[];failures?:unknown[];failureRollups?:unknown[];rebalances?:unknown[];captureCounts?:unknown;captureComplete?:boolean|null;}
 function provider(raw:any,name:'lndg'|'lightningMate',capturedAt:string):DiagnosticProvider {
   if(raw?.status==='incompatible')return {status:'incompatible',version:typeof raw.version==='string'?raw.version:undefined,reason:'Source version or schema is not supported'};
   if(!raw||raw.status!=='ok')return {status:'unavailable',reason:'Capture unavailable; unknown is not zero'};
@@ -30,15 +30,18 @@ function provider(raw:any,name:'lndg'|'lightningMate',capturedAt:string):Diagnos
     const c=raw.coverage;if(!c||typeof c.complete!=='boolean'||typeof c.source!=='string')throw new Error('Missing explicit coverage');
     const start=stamp(c.start),end=stamp(c.end);if(start>end)throw new Error('Inverted coverage');
     const coverage={start,end,complete:c.complete,source:c.source,note:typeof c.note==='string'?c.note:''};
+    let captureComplete:boolean|null=null;let captureCounts:any=null;
+    if(raw.captureCounts){captureCounts={};for(const key of ['forwards','failures','failureRollups','rebalances']){const value=raw.captureCounts[key];if(value===undefined)continue;if(name==='lndg'){if(!value||!Number.isSafeInteger(value.selected)||value.selected<0||!Number.isSafeInteger(value.returned)||value.returned<0||value.returned!==rows(raw[key]).length||value.returned>value.selected||typeof value.pagesComplete!=='boolean'||value.pagesComplete&&value.selected!==value.returned)throw Error('Invalid captureCounts');captureCounts[key]={selected:value.selected,returned:value.returned,pagesComplete:value.pagesComplete};}else{if(!Number.isSafeInteger(value)||value<0||value!==rows(raw[key]).length)throw Error('Invalid captureCounts');captureCounts[key]={returned:value,selected:null,pagesComplete:null};}}
+      if(name==='lndg')captureComplete=['forwards','failures','failureRollups','rebalances'].every(k=>captureCounts[k]?.pagesComplete===true);}
     if(name==='lndg'){
       if(raw.schemaFingerprint!==SHAPE)throw new Error('Selected-table schema mismatch');
-      return {status:'qualified',version:raw.version,capturedAt,coverage,
+      return {status:'qualified',version:raw.version,capturedAt,coverage,captureCounts,captureComplete,
         forwards:rows(raw.forwards).map(r=>({id:'lndg:'+integer(r.id),at:stamp(r.at),source:integer(r.chan_id_in),target:integer(r.chan_id_out),amountMsat:integer(r.amt_out_msat),feeMsat:satDecimalToMsat(r.fee),authority:'diagnostic; LND is authoritative'})),
         failures:rows(raw.failures).map(r=>({id:'lndg-failure:'+integer(r.id),at:stamp(r.at),source:integer(r.chan_id_in),target:integer(r.chan_id_out),amountMsat:(BigInt(integer(r.amount))*1000n).toString(),missedFeeMsat:satDecimalToMsat(r.missed_fee),failure:integer(r.failure_detail),wireFailure:integer(r.wire_failure),distinctPaymentsUnknown:true})),
         failureRollups:rows(raw.failureRollups).map(r=>({day:stamp(r.at).slice(0,10),source:integer(r.chan_id_in),target:integer(r.chan_id_out),count:integer(r.htlc_count),amountMsat:(BigInt(integer(r.amount_sum))*1000n).toString(),missedFeeMsat:satDecimalToMsat(r.fee_sum),granularity:'daily bucket; not event identities'})),
         rebalances:rows(raw.rebalances).map(r=>({id:'lndg-rebalance:'+integer(r.id),status:integer(r.status),succeeded:String(r.status)==='2',amountMsat:(BigInt(integer(r.value))*1000n).toString(),feeMsat:r.fees==null?null:satDecimalToMsat(r.fees),actualCorridorUnknown:true}))};
     }
-    return {status:'qualified',version:raw.version,capturedAt,coverage,
+    return {status:'qualified',version:raw.version,capturedAt,coverage,captureCounts,captureComplete,
       failures:rows(raw.failures).map(r=>({day:stamp(r.at).slice(0,10),target:channelScid(r.target),count:integer(r.liquidityCount),amountMsat:(BigInt(integer(r.liquiditySats))*1000n).toString(),otherCount:integer(r.otherCount),granularity:'daily outgoing-channel bucket',distinctPaymentsUnknown:true})),
       rebalances:rows(raw.rebalances).map(r=>{
         const fee=satDecimalToMsat(r.feeSats);if(r.feeMsatExact!=null&&integer(r.feeMsatExact)!==fee)throw new Error('Rebalance fee precision conflict');

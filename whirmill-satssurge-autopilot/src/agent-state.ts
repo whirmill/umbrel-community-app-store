@@ -2,7 +2,7 @@ import {hash,json,scrub} from './domain.js';
 
 // Smaller than the harness output window. Pagination never silently omits rows.
 export const STATE_PAGE_BYTES=12000;
-export const STATE_SECTIONS=['channels','competition','competition_alternatives','diagnostics','decisions','operations','evaluations','evaluationWindows','coverage','claims','holds'] as const;
+export const STATE_SECTIONS=['channels','competition','competition_alternatives','diagnostics','decisions','operations','evaluations','evaluationWindows','coverage','claims','holds','corridor_events'] as const;
 export type StateSection=typeof STATE_SECTIONS[number];
 export interface StatePageQuery {section:StateSection;offset?:number;version?:string;provider?:'lndg'|'lightningMate';collection?:'forwards'|'failures'|'failureRollups'|'rebalances';channel?:string;}
 function providerSummary(p:any){if(!p)return null;const {forwards,failures,failureRollups,rebalances,...meta}=p;return {...meta,counts:{forwards:forwards?.length??null,failures:failures?.length??null,failureRollups:failureRollups?.length??null,rebalances:rebalances?.length??null}};}

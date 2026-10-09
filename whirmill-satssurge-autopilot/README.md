@@ -316,3 +316,32 @@ are under `/Users/whirmill/.local/share/satssurge`; screenshots are in its
 `screenshots/` directory: `034-umbrel-installed.jpg`, `034-pi-stream.jpg`,
 `034-nodo-installed.jpg`, `034-nodo-mobile.jpg`. Current financial receipts must
 be preserved during recovery; a checkpoint never authorizes replay or erasure.
+
+### 0.3.5 source preparation — publication and installed qualification pending
+
+The current accepted installed release is 0.3.4. Package and root lockfile
+versions are 0.3.5; Umbrel manifest and compose remain on verified 0.3.4 until
+new image verification, then will be published together.
+
+The new source adds bounded immutable evidence views with explicit completeness,
+persistent research/finalization budgets across submitted recovery, truthful
+analysis origin/purpose and nonfinancial review-wait triggers. Public reasoning
+includes only qualified provider summaries; raw thinking and signatures stay
+private. Authenticated lazy details and full-answer pages preserve original
+receipts. GFM tables, grouped disclosures, bounded virtual history and persistent
+System/light/dark themes improve presentation without deleting private history.
+Financial mandate/executor/receipt identity and schema 4 remain unchanged.
+
+Independent review approved the stable source. Local Node 24 suite passed 112
+and Python passed 16 tests; final build/typecheck passed. Visible heavy fixture
+qualified 24 responsive cases, computed dark contrast, concurrent requests,
+queued cancellation, reconnect, simulated expiry, refresh and process restart.
+These are local fixture proofs, not installed 0.3.5 acceptance or comparative
+performance savings. Native iOS keyboard/pinch behavior and VoiceOver remain
+unverified. No financial tests, regtest or M3/M4 expansion were introduced.
+
+Next: tested-source Git/tag handoff for `satssurge-autopilot-v0.3.5`, CI and
+anonymous amd64/arm64 index/config/all-layer verification, combined manifest/
+compose publication, fresh verified checkpoint, installed read-only Pi/browser
+acceptance and original autonomy/timer restoration. Preserve current financial
+receipts and pending operations; never restore old accounting to retry effects.

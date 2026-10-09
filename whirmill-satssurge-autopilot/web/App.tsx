@@ -1,3 +1,6 @@
+import { repositoryFor } from "./components/repository";
+import { useExpansion, pruneExpansions } from "./components/expansions";
+import { FixtureMetrics, fixtureCounters } from "./components/FixtureMetrics";
 import { ownerEventStream } from "../src/ui-stream.js";
 import {
   useCallback,
@@ -8,6 +11,7 @@ import {
   useState,
   createContext,
   useContext,
+  useSyncExternalStore,
 } from "react";
 import {
   AssistantRuntimeProvider,
@@ -16,8 +20,12 @@ import {
   useExternalStoreRuntime,
   useAuiState,
   type ThreadMessageLike,
+  ExportedMessageRepository,
 } from "@assistant-ui/react";
-import Markdown from "react-markdown";
+import { ThemePicker } from "./components/Theme";
+import { Mark } from "./components/Markdown";
+import { VirtualMessages } from "./components/VirtualMessages";
+import { ProjectionIndex } from "../src/ui-index";
 import {
   Zap,
   MessageSquare,
@@ -65,6 +73,7 @@ import {
   type Job,
   type Pending,
 } from "../src/ui-client";
+const identityMessage = (message: ThreadMessageLike) => message;
 const empty: Projection = { jobs: {}, events: [], cursor: 0 };
 const labels: Record<string, string> = {
   queued: "In coda",
@@ -82,7 +91,17 @@ const tabs = [
   ["experiments", "Esperimenti", FlaskConical],
   ["settings", "Impostazioni", Settings],
 ] as const;
-const jobContext = createContext<Projection>(empty);
+const detailContext = createContext<(path: string) => Promise<any>>(
+  async () => ({ events: [] }),
+);
+const jobContext = createContext<ProjectionIndex>(new ProjectionIndex());
+function useJob(id: string) {
+  const index = useContext(jobContext);
+  return useSyncExternalStore(
+    (fn) => index.subscribe(id, fn),
+    () => index.get(id),
+  );
+}
 function Json({
   value,
   label = "Dettagli",
@@ -90,138 +109,279 @@ function Json({
   value: unknown;
   label?: string;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <details className="details">
+    <details
+      className="details"
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
       <summary>
         {label}
         <ChevronDown size={14} />
       </summary>
-      <pre tabIndex={0} aria-label={label}>
-        {JSON.stringify(value, null, 2)}
-      </pre>
+      {open && (
+        <pre tabIndex={0} aria-label={label}>
+          {JSON.stringify(value, null, 2)}
+        </pre>
+      )}
     </details>
-  );
-}
-function Mark({ children }: { children: string }) {
-  return (
-    <div className="markdown">
-      <Markdown
-        skipHtml
-        urlTransform={(url) => safeUrl(url) ?? ""}
-        components={{
-          img: () => null,
-          a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noopener noreferrer">
-              {children}
-            </a>
-          ),
-          pre: ({ children }) => <pre tabIndex={0}>{children}</pre>,
-        }}
-      >
-        {children}
-      </Markdown>
-    </div>
   );
 }
 function Badge({ state }: { state: string }) {
   return <MiniBadge state={state} />;
 }
 function ToolCards({ id }: { id: string }) {
-  const p = useContext(jobContext);
-  const calls = new Map<string, any>();
-  for (const e of p.events.filter(
-    (e) => e.job_id === id && ["tool_call", "tool_result"].includes(e.type),
-  )) {
-    const key = e.data.toolCallId;
-    calls.set(key, { ...calls.get(key), ...e.data, [e.type]: true });
-  }
+  const view = useJob(id);
+  const calls = view?.tools ?? new Map<string, any>();
+  const [open, setOpen] = useExpansion(id + "|tools");
+  const [count, setCount] = useState(24);
   if (!calls.size) return null;
   return (
-    <details className="tool-group">
+    <details
+      className="tool-group"
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
       <summary>
         <Shield size={14} />
         {calls.size} strumenti utilizzati
       </summary>
-      <div className="tool-list">
-        {[...calls.entries()].map(([key, t]) => (
-          <details className="tool" key={key}>
-            <summary>
-              <Shield size={14} />
-              <span>{t.toolName ?? "Strumento"}</span>
-              <Badge
-                state={
-                  t.tool_result
-                    ? t.isError
-                      ? "failed"
-                      : t.unavailable
-                        ? "Risultato non disponibile"
-                        : "completed"
-                    : "running"
-                }
-              />
-            </summary>
-            <p className="muted">Eseguito dal backend · {key}</p>
-            {t.argsAvailable === false ? (
-              <p className="muted">
-                Parametri non disponibili nello snapshot di recupero.
-              </p>
-            ) : (
-              <Json value={t.args} label="Parametri" />
-            )}
-            {t.tool_result && <Json value={t.result} label="Risultato" />}
-          </details>
-        ))}
-      </div>
+      {open && (
+        <div className="tool-list">
+          {[...calls.entries()].slice(0, count).map(([key, t]) => (
+            <ToolRow key={key} call={t} callId={key} jobId={id} />
+          ))}
+          {calls.size > count && (
+            <Button variant="ghost" onClick={() => setCount((n) => n + 24)}>
+              Altri strumenti
+            </Button>
+          )}
+        </div>
+      )}
     </details>
   );
 }
+function ToolRow({ call, callId, jobId }: any) {
+  const [open, setOpen] = useExpansion(jobId + "|tool:" + callId),
+    [detail, setDetail] = useState<any>(null),
+    [error, setError] = useState("");
+  const api = useContext(detailContext);
+  useEffect(() => {
+    let active = true;
+    if (open && call.detailEventId && !detail)
+      void api(
+        "jobs/events?jobId=" +
+          encodeURIComponent(jobId) +
+          "&after=" +
+          (call.detailEventId - 1) +
+          "&toolCallId=" +
+          encodeURIComponent(callId),
+      )
+        .then((p) => {
+          const rows = p.events?.filter(
+            (r: any) => r.data.toolCallId === callId,
+          );
+          const merged = Object.assign(
+            {},
+            ...rows.map((r: any) => ({ ...r.data, [r.type]: true })),
+          );
+          if (active) setDetail(rows?.length ? merged : { unavailable: true });
+        })
+        .catch(() => {
+          if (active)
+            setError("Dettaglio non disponibile; puoi riaprire per riprovare.");
+        });
+    return () => {
+      active = false;
+    };
+  }, [open, call.detailEventId, detail, jobId, api]);
+  const t = { ...call, ...detail };
+  return (
+    <details
+      className="tool"
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
+      <summary>
+        <Shield size={14} />
+        <span>{t.toolName ?? "Strumento"}</span>
+        <Badge
+          state={
+            t.tool_result
+              ? t.isError
+                ? "failed"
+                : t.unavailable
+                  ? "Risultato non disponibile"
+                  : "completed"
+              : "running"
+          }
+        />
+      </summary>
+      {open && (
+        <>
+          <p className="muted">Eseguito dal backend · {callId}</p>
+          {error && <p role="status">{error}</p>}
+          {call.detailEventId && !detail ? (
+            <p>Caricamento dettaglio…</p>
+          ) : (
+            <>
+              <Json value={t.args ?? null} label="Parametri" />
+              {t.tool_result && (
+                <Json value={t.result ?? null} label="Risultato" />
+              )}
+            </>
+          )}
+        </>
+      )}
+    </details>
+  );
+}
+const MESSAGE_PARTS = {
+  Text: ({ text }: { text: string }) => <Mark>{text}</Mark>,
+};
 function ChatMessage() {
+  if (fixtureCounters.enabled) fixtureCounters.renders++;
   const id = useAuiState((s) => s.message.id);
   const role = useAuiState((s) => s.message.role);
-  const p = useContext(jobContext),
-    job = p.jobs[id.replace(/:(user|assistant)$/, "")];
+  const view = useJob(id.replace(/:(user|assistant)$/, "")),
+    job = view?.job;
   return (
     <MessagePrimitive.Root className={"message " + role}>
       <div className="message-meta">
         {role === "user"
-          ? "Tu"
+          ? job?.origin === "owner"
+            ? "Tu"
+            : job?.origin === "scheduler"
+              ? "Richiesta automatica"
+              : job?.origin === "qualification"
+                ? "Verifica tecnica"
+                : "Richiesta · origine non registrata"
           : job?.kind === "analysis"
             ? "Analista · sola lettura"
             : "Coordinatore"}
         {role !== "user" && job && <Badge state={job.state} />}
       </div>
-      <MessagePrimitive.Parts
-        components={{ Text: ({ text }) => <Mark>{text}</Mark> }}
-      />
+      <MessagePrimitive.Parts components={MESSAGE_PARTS} />
       {role !== "user" && job && (
         <>
           <ToolCards id={job.id} />
-          {p.events
-            .filter((e) => e.job_id === job.id && e.type === "progress")
-            .at(-1) && (
-            <p className="progress-note">
-              {(
-                {
-                  run_start: "Pi ha avviato il lavoro",
-                  turn_start: "Risposta in elaborazione",
-                  turn_end: "Passaggio completato",
-                  run_end: "Pi ha terminato il lavoro",
-                  compaction_start: "Pi sta compattando il contesto",
-                  compaction_end: "Contesto aggiornato",
-                  resynchronized: "Cronologia sincronizzata",
-                } as Record<string, string>
-              )[
-                p.events
-                  .filter((e) => e.job_id === job.id && e.type === "progress")
-                  .at(-1)!.data.state
-              ] ?? "Aggiornamento da Pi Durable"}
-            </p>
+          {!!view?.reasoning.size && (
+            <Reasoning
+              jobId={job.id}
+              summaries={[...view.reasoning.values()]}
+            />
+          )}
+          {view?.progress && <p className="progress-note">{view.progress}</p>}
+          <p className="muted">
+            {job.state === "completed"
+              ? "Risposta finale"
+              : job.state === "failed"
+                ? "Risposta parziale · interrotta"
+                : job.state === "cancelled"
+                  ? "Annullata"
+                  : "Risposta in corso"}
+            {job.state === "failed" && job.error?.includes("aborted")
+              ? " · causa storica non registrata"
+              : ""}
+          </p>
+          {(parseJson(job.result)?.answerDetailAvailable ||
+            view?.events.some(
+              (e) => e.type === "text" && e.data.bodyDetailAvailable,
+            )) && (
+            <AnswerPages
+              jobId={job.id}
+              detailKey={parseJson(job.result)?.answerDetailKey}
+            />
           )}
           {job.error && <p className="error">{job.error}</p>}
           {job.wait_reason && <p className="muted">{job.wait_reason}</p>}
         </>
       )}
     </MessagePrimitive.Root>
+  );
+}
+function Reasoning({
+  summaries,
+  jobId,
+}: {
+  summaries: string[];
+  jobId: string;
+}) {
+  const [open, setOpen] = useExpansion(jobId + "|reasoning");
+  return (
+    <details
+      className="reasoning-group"
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
+      <summary>Ragionamento · sintesi</summary>
+      {open && summaries.map((text, i) => <Mark key={i}>{text}</Mark>)}
+    </details>
+  );
+}
+function AnswerPages({
+  jobId,
+  detailKey,
+}: {
+  jobId: string;
+  detailKey?: string;
+}) {
+  const api = useContext(detailContext),
+    [open, setOpen] = useState(false),
+    [page, setPage] = useState<any>(null),
+    [error, setError] = useState("");
+  const read = async (offset = 0) => {
+    try {
+      setPage(
+        await api(
+          (detailKey
+            ? "chat/answer?key=" + encodeURIComponent(detailKey)
+            : "jobs/answer?jobId=" + encodeURIComponent(jobId)) +
+            "&offset=" +
+            offset,
+        ),
+      );
+      setError("");
+    } catch {
+      setError("Testo non disponibile.");
+    }
+  };
+  useEffect(() => {
+    if (open && !page) void read();
+  }, [open]);
+  return (
+    <details onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary>Testo completo · pagine</summary>
+      {open && (
+        <>
+          {error && <p role="status">{error}</p>}
+          {page && (
+            <>
+              <p className="muted">
+                Pagina di testo originale, {page.offset}–
+                {page.offset + page.text.length} di {page.total} caratteri. La
+                sintassi Markdown resta testo nelle pagine parziali.
+              </p>
+              <pre tabIndex={0}>{page.text}</pre>
+              <Button
+                variant="ghost"
+                disabled={!page.offset}
+                onClick={() => void read(Math.max(0, page.offset - 16384))}
+              >
+                Precedente
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={page.nextOffset === null}
+                onClick={() => void read(page.nextOffset)}
+              >
+                Successiva
+              </Button>
+            </>
+          )}
+        </>
+      )}
+    </details>
   );
 }
 function Panel({
@@ -282,9 +442,17 @@ export function App() {
     follow = useRef(true),
     currentSession = useRef(session);
   currentSession.current = session;
+  const projectionIndex = useRef(new ProjectionIndex()).current;
   const update = useCallback((fn: (p: Projection) => Projection) => {
     canonical.current = fn(canonical.current);
+    const paintStart = performance.now();
+    projectionIndex.publish(canonical.current);
     setProjection(canonical.current);
+    if (fixtureCounters.enabled)
+      requestAnimationFrame(() => {
+        fixtureCounters.chunks.push(performance.now() - paintStart);
+        if (fixtureCounters.chunks.length > 512) fixtureCounters.chunks.shift();
+      });
   }, []);
   const api = useCallback(
     async (path: string, body?: unknown, signal?: AbortSignal) => {
@@ -403,43 +571,57 @@ export function App() {
       ),
     [projection.jobs],
   );
+  const messageCache = useRef(
+    new Map<
+      string,
+      { job: Job; text: string; messages: ThreadMessageLike[] }
+    >(),
+  );
   const messages = useMemo<ThreadMessageLike[]>(
     () =>
       jobs
         .filter((j) => parseJson(j.payload)?.message)
-        .flatMap((j) => [
-          {
-            id: j.id + ":user",
-            role: "user" as const,
-            content: [
-              {
-                type: "text" as const,
-                text: String(parseJson(j.payload).message),
-              },
-            ],
-          },
-          {
-            id: j.id + ":assistant",
-            role: "assistant" as const,
-            status: messageStatus(j),
-            content: [
-              {
-                type: "text" as const,
-                text:
-                  answerFor(projection, j.id) ||
-                  (j.state === "completed"
-                    ? "Attività completata senza testo restituito."
-                    : j.state === "failed"
-                      ? "Attività non completata."
-                      : j.state === "cancelled"
-                        ? "Richiesta annullata."
-                        : "In attesa di aggiornamenti…"),
-              },
-            ],
-          },
-        ]),
+        .flatMap((j) => {
+          const text =
+              projectionIndex.get(j.id)?.text ?? answerFor(projection, j.id),
+            old = messageCache.current.get(j.id);
+          if (old?.job === j && old.text === text) return old.messages;
+          const result: ThreadMessageLike[] = [
+            {
+              id: j.id + ":user",
+              role: "user",
+              content: [
+                { type: "text", text: String(parseJson(j.payload).message) },
+              ],
+            },
+            {
+              id: j.id + ":assistant",
+              role: "assistant",
+              status: messageStatus(j),
+              content: [
+                {
+                  type: "text",
+                  text:
+                    text ||
+                    (j.state === "completed"
+                      ? "Attività completata senza testo restituito."
+                      : j.state === "failed"
+                        ? "Attività non completata."
+                        : j.state === "cancelled"
+                          ? "Richiesta annullata."
+                          : "In attesa di aggiornamenti…"),
+                },
+              ],
+            },
+          ];
+          messageCache.current.set(j.id, { job: j, text, messages: result });
+          return result;
+        }),
     [jobs, projection],
   );
+  pruneExpansions(new Set(Object.keys(projection.jobs)));
+  for (const id of messageCache.current.keys())
+    if (!projection.jobs[id]) messageCache.current.delete(id);
   const submit = useCallback(
     async (kind: Pending["kind"], message = draft) => {
       if (busy || !message.trim()) return;
@@ -464,18 +646,28 @@ export function App() {
         await refresh().catch(() => {});
       } catch (e: any) {
         setError(e.message);
-        if(e.admissionRejected){sessionStorage.removeItem(pendingKey);setPending(null);}
-        setNotice(e.admissionRejected ? "Richiesta rifiutata prima dell’ammissione: puoi correggere il messaggio." :
-          "Se la richiesta è salvata, riprova con lo stesso identificatore.");
+        if (e.admissionRejected) {
+          sessionStorage.removeItem(pendingKey);
+          setPending(null);
+        }
+        setNotice(
+          e.admissionRejected
+            ? "Richiesta rifiutata prima dell’ammissione: puoi correggere il messaggio."
+            : "Se la richiesta è salvata, riprova con lo stesso identificatore.",
+        );
       } finally {
         setBusy(false);
       }
     },
     [api, draft, busy, update, refresh],
   );
+  const repositoryCache = useRef(new WeakMap<object, any>()).current;
   const runtime = useExternalStoreRuntime({
-    messages,
-    convertMessage: (m) => m,
+    convertMessage: identityMessage,
+    messageRepository: useMemo(
+      () => repositoryFor(messages, repositoryCache),
+      [messages],
+    ),
     isRunning: false,
     onNew: async (message) => {
       const text = message.content
@@ -490,7 +682,7 @@ export function App() {
       messages
         .slice(-2)
         .map((m) => m.id + JSON.stringify(m.content) + JSON.stringify(m.status))
-        .join("|") + projection.events.reduce((id,e)=>Math.max(id,e.id),0),
+        .join("|") + projection.events.reduce((id, e) => Math.max(id, e.id), 0),
     [messages, projection.events],
   );
   useEffect(() => {
@@ -527,26 +719,6 @@ export function App() {
       setBusy(false);
     }
   };
-  useLayoutEffect(() => {
-    const el = scroll.current,
-      saved = restoreScroll.current;
-    if (!el || !saved) return;
-    const restore = () => {
-      if (el.querySelectorAll(".message").length < messages.length)
-        return false;
-      el.scrollTop = saved.top + el.scrollHeight - saved.height;
-      restoreScroll.current = null;
-      return true;
-    };
-    // assistant-ui publishes its message tree independently of the parent.
-    // Anchor only when the new messages are present in the DOM.
-    const observer = new MutationObserver(() => {
-      if (restore()) observer.disconnect();
-    });
-    observer.observe(el, { childList: true, subtree: true });
-    if (restore()) observer.disconnect();
-    return () => observer.disconnect();
-  }, [messages]);
   const loadOlder = async () => {
     if (!nextBefore) return;
     setOlder(true);
@@ -566,8 +738,17 @@ export function App() {
   };
   const recentHistory = async () => {
     setOlder(true);
-    try {const h=await api("history");update(p=>mergeHistory(p,h,true));setNextBefore(h.nextBefore);follow.current=true;setNotice("Cronologia recente caricata.");}
-    catch(e:any){setError(e.message);}finally{setOlder(false);}
+    try {
+      const h = await api("history");
+      update((p) => mergeHistory(p, h, true));
+      setNextBefore(h.nextBefore);
+      follow.current = true;
+      setNotice("Cronologia recente caricata.");
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setOlder(false);
+    }
   };
   const recover = async () => {
     if (!pending) return;
@@ -633,6 +814,7 @@ export function App() {
       </aside>
       <div className="workspace-main">
         <header className="topbar">
+          <ThemePicker />
           <span className="breadcrumb">
             Workspace <span>/</span>{" "}
             <strong>{tabs.find((t) => t[0] === tab)?.[1]}</strong>
@@ -749,153 +931,174 @@ export function App() {
                         {auth?.thinkingLevel ?? "livello non disponibile"}
                       </small>
                     </div>
-                    <jobContext.Provider value={projection}>
-                      <AssistantRuntimeProvider runtime={runtime}>
-                        <ThreadPrimitive.Root className="thread">
-                          <div
-                            className="chat-scroll"
-                            ref={scroll}
-                            onScroll={(e) => {
-                              const el = e.currentTarget;
-                              follow.current =
-                                el.scrollHeight -
-                                  el.scrollTop -
-                                  el.clientHeight <
-                                80;
-                              if (follow.current) setUnread(false);
-                            }}
-                          >
-                            {projection.truncatedHistory && <div role="status">Sono visibili al massimo 250 richieste concluse e quelle attive. Puoi continuare a leggere le pagine precedenti. <Button variant="ghost" disabled={older} onClick={()=>void recentHistory()}>Torna ai recenti</Button></div>}
-                            {nextBefore && (
-                              <Button
-                                variant="ghost"
-                                disabled={older}
-                                onClick={() => void loadOlder()}
-                              >
-                                {older
-                                  ? "Caricamento…"
-                                  : "Carica cronologia precedente"}
-                              </Button>
-                            )}
-                            {!messages.length && (
-                              <div className="chat-empty">
-                                <span className="empty-logo">
-                                  <Zap size={30} />
-                                </span>
-                                <h2>Conosci meglio il tuo nodo.</h2>
-                                <p>
-                                  Chiedi al coordinatore di leggere le evidenze
-                                  oppure avvia un’analisi in sola lettura.
-                                </p>
-                                <Button
-                                  variant="outline"
-                                  onClick={() =>
-                                    setDraft(
-                                      "Quali evidenze sono disponibili sul mio nodo?",
-                                    )
-                                  }
-                                >
-                                  Quali evidenze sono disponibili?
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  onClick={() =>
-                                    setDraft(
-                                      "Analizza la liquidità e le commissioni dei canali.",
-                                    )
-                                  }
-                                >
-                                  Analizza i canali
-                                </Button>
-                              </div>
-                            )}
-                            <ThreadPrimitive.Messages
-                              components={{
-                                UserMessage: ChatMessage,
-                                AssistantMessage: ChatMessage,
-                              }}
-                            />
-                          </div>
-                          {unread && (
-                            <Button
-                              className="new-messages"
-                              variant="outline"
-                              onClick={() => {
-                                follow.current = true;
-                                scroll.current?.scrollTo({
-                                  top: scroll.current.scrollHeight,
-                                });
-                                setUnread(false);
+                    <detailContext.Provider value={api}>
+                      <jobContext.Provider value={projectionIndex}>
+                        <FixtureMetrics
+                          enabled={status?.uiFixture === true}
+                          runtime={runtime}
+                        />
+                        <AssistantRuntimeProvider runtime={runtime}>
+                          <ThreadPrimitive.Root className="thread">
+                            <div
+                              className="chat-scroll"
+                              ref={scroll}
+                              onScroll={(e) => {
+                                const el = e.currentTarget;
+                                follow.current =
+                                  el.scrollHeight -
+                                    el.scrollTop -
+                                    el.clientHeight <
+                                  80;
+                                if (follow.current) setUnread(false);
                               }}
                             >
-                              <ArrowDown size={15} /> Nuovi aggiornamenti
-                            </Button>
-                          )}
-                          <form
-                            className="composer"
-                            onSubmit={(e) => {
-                              e.preventDefault();
-                              void submit(pending?.kind ?? "chat");
-                            }}
-                          >
-                            <label className="sr-only" htmlFor="message">
-                              Messaggio al coordinatore
-                            </label>
-                            <textarea
-                              id="message"
-                              value={draft}
-                              disabled={busy || !!pending}
-                              onChange={(e) => setDraft(e.target.value)}
-                              placeholder="Chiedi al tuo agente…"
-                              rows={3}
-                            />
-                            <div className="composer-actions">
-                              <span>
-                                <Shield size={13} /> Mandato applicato dal
-                                backend
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={busy || !draft.trim() || !!pending}
-                                onClick={() => void submit("analysis")}
-                              >
-                                Analisi in sola lettura
-                              </Button>
-                              <Button
-                                size="sm"
-                                disabled={busy || !draft.trim()}
-                                type="submit"
-                              >
-                                <ArrowUp size={16} />
-                                {busy
-                                  ? "Invio…"
-                                  : pending
-                                    ? "Riprova"
-                                    : "Invia"}
-                              </Button>
-                            </div>
-                            {pending && (
-                              <div className="pending">
-                                Richiesta salvata in attesa di conferma.
+                              {projection.truncatedHistory && (
+                                <div role="status">
+                                  Sono visibili al massimo 250 richieste
+                                  concluse e quelle attive. Puoi continuare a
+                                  leggere le pagine precedenti.{" "}
+                                  <Button
+                                    variant="ghost"
+                                    disabled={older}
+                                    onClick={() => void recentHistory()}
+                                  >
+                                    Torna ai recenti
+                                  </Button>
+                                </div>
+                              )}
+                              {nextBefore && (
                                 <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={busy}
-                                  onClick={() => void recover()}
+                                  variant="ghost"
+                                  disabled={older}
+                                  onClick={() => void loadOlder()}
                                 >
-                                  Recupera ricevuta
+                                  {older
+                                    ? "Caricamento…"
+                                    : "Carica cronologia precedente"}
+                                </Button>
+                              )}
+                              {!messages.length && (
+                                <div className="chat-empty">
+                                  <span className="empty-logo">
+                                    <Zap size={30} />
+                                  </span>
+                                  <h2>Conosci meglio il tuo nodo.</h2>
+                                  <p>
+                                    Chiedi al coordinatore di leggere le
+                                    evidenze oppure avvia un’analisi in sola
+                                    lettura.
+                                  </p>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() =>
+                                      setDraft(
+                                        "Quali evidenze sono disponibili sul mio nodo?",
+                                      )
+                                    }
+                                  >
+                                    Quali evidenze sono disponibili?
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() =>
+                                      setDraft(
+                                        "Analizza la liquidità e le commissioni dei canali.",
+                                      )
+                                    }
+                                  >
+                                    Analizza i canali
+                                  </Button>
+                                </div>
+                              )}
+                              <VirtualMessages
+                                scroll={scroll}
+                                Message={ChatMessage}
+                                follow={follow}
+                              />
+                            </div>
+                            {unread && (
+                              <Button
+                                className="new-messages"
+                                variant="outline"
+                                onClick={() => {
+                                  follow.current = true;
+                                  scroll.current?.scrollTo({
+                                    top: scroll.current.scrollHeight,
+                                  });
+                                  setUnread(false);
+                                }}
+                              >
+                                <ArrowDown size={15} /> Nuovi aggiornamenti
+                              </Button>
+                            )}
+                            <form
+                              className="composer"
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                void submit(pending?.kind ?? "chat");
+                              }}
+                            >
+                              <label className="sr-only" htmlFor="message">
+                                Messaggio al coordinatore
+                              </label>
+                              <textarea
+                                id="message"
+                                value={draft}
+                                disabled={busy || !!pending}
+                                onChange={(e) => setDraft(e.target.value)}
+                                placeholder="Chiedi al tuo agente…"
+                                rows={3}
+                              />
+                              <div className="composer-actions">
+                                <span>
+                                  <Shield size={13} /> Mandato applicato dal
+                                  backend
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={busy || !draft.trim() || !!pending}
+                                  onClick={() => void submit("analysis")}
+                                >
+                                  Analisi in sola lettura
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  disabled={busy || !draft.trim()}
+                                  type="submit"
+                                >
+                                  <ArrowUp size={16} />
+                                  {busy
+                                    ? "Invio…"
+                                    : pending
+                                      ? "Riprova"
+                                      : "Invia"}
                                 </Button>
                               </div>
-                            )}
-                            <p className="composer-status" role="status">
-                              {notice || (projection.truncatedEvents ? "Dettagli più vecchi limitati in memoria; ricevute e cronologia restano persistite." :
-                                "La chat può proporre interventi entro il mandato. Le analisi restano in sola lettura.")}
-                            </p>
-                          </form>
-                        </ThreadPrimitive.Root>
-                      </AssistantRuntimeProvider>
-                    </jobContext.Provider>
+                              {pending && (
+                                <div className="pending">
+                                  Richiesta salvata in attesa di conferma.
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={busy}
+                                    onClick={() => void recover()}
+                                  >
+                                    Recupera ricevuta
+                                  </Button>
+                                </div>
+                              )}
+                              <p className="composer-status" role="status">
+                                {notice ||
+                                  (projection.truncatedEvents
+                                    ? "Dettagli più vecchi limitati in memoria; ricevute e cronologia restano persistite."
+                                    : "La chat può proporre interventi entro il mandato. Le analisi restano in sola lettura.")}
+                              </p>
+                            </form>
+                          </ThreadPrimitive.Root>
+                        </AssistantRuntimeProvider>
+                      </jobContext.Provider>
+                    </detailContext.Provider>
                   </section>
                   <div className="chat-aside">
                     <Panel title="Stato operativo">
@@ -989,57 +1192,62 @@ export function App() {
                     {!jobs.length && (
                       <p className="empty">Nessuna attività registrata.</p>
                     )}
-                    <jobContext.Provider value={projection}>
-                      {[...jobs].reverse().map((j) => (
-                        <article className="job" key={j.id}>
-                          <div className="row-heading">
-                            <h3>
-                              {j.kind === "analysis"
-                                ? "Analista · sola lettura"
-                                : j.kind === "chat"
-                                  ? "Coordinatore · chat"
-                                  : j.kind}
-                            </h3>
-                            <Badge state={j.state} />
-                            {canCancel(j) && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={busy}
-                                onClick={() =>
-                                  void mutate("jobs/cancel", { id: j.id })
-                                }
-                              >
-                                Annulla
-                              </Button>
-                            )}
-                          </div>
-                          <span className="job-date">
-                            {j.created_at
-                              ? new Date(j.created_at).toLocaleString("it-IT", {
-                                  dateStyle: "short",
-                                  timeStyle: "short",
-                                })
-                              : "Data non disponibile"}
-                          </span>
-                          {j.error && <p className="error">{j.error}</p>}
-                          <details className="compact-details">
-                            <summary>Messaggio e attività</summary>
-                            <p>{parseJson(j.payload)?.message}</p>
-                            <small className="muted">
-                              {j.id} · {j.lane ?? "corsia non specificata"}
-                            </small>
-                            {j.wait_reason && (
-                              <p className="muted">{j.wait_reason}</p>
-                            )}
-                            <ToolCards id={j.id} />
-                            {answerFor(projection, j.id) && (
-                              <Mark>{answerFor(projection, j.id)}</Mark>
-                            )}
-                          </details>
-                        </article>
-                      ))}
-                    </jobContext.Provider>
+                    <detailContext.Provider value={api}>
+                      <jobContext.Provider value={projectionIndex}>
+                        {[...jobs].reverse().map((j) => (
+                          <article className="job" key={j.id}>
+                            <div className="row-heading">
+                              <h3>
+                                {j.kind === "analysis"
+                                  ? "Analista · sola lettura"
+                                  : j.kind === "chat"
+                                    ? "Coordinatore · chat"
+                                    : j.kind}
+                              </h3>
+                              <Badge state={j.state} />
+                              {canCancel(j) && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void mutate("jobs/cancel", { id: j.id })
+                                  }
+                                >
+                                  Annulla
+                                </Button>
+                              )}
+                            </div>
+                            <span className="job-date">
+                              {j.created_at
+                                ? new Date(j.created_at).toLocaleString(
+                                    "it-IT",
+                                    {
+                                      dateStyle: "short",
+                                      timeStyle: "short",
+                                    },
+                                  )
+                                : "Data non disponibile"}
+                            </span>
+                            {j.error && <p className="error">{j.error}</p>}
+                            <details className="compact-details">
+                              <summary>Messaggio e attività</summary>
+                              <p>{parseJson(j.payload)?.message}</p>
+                              <small className="muted">
+                                {j.id} · {j.lane ?? "corsia non specificata"}
+                              </small>
+                              {j.wait_reason && (
+                                <p className="muted">{j.wait_reason}</p>
+                              )}
+                              <ToolCards id={j.id} />
+                              {answerFor(projection, j.id) && (
+                                <Mark>{answerFor(projection, j.id)}</Mark>
+                              )}
+                            </details>
+                          </article>
+                        ))}
+                      </jobContext.Provider>
+                    </detailContext.Provider>
                     {nextBefore && (
                       <Button
                         variant="outline"
@@ -1474,7 +1682,12 @@ export function App() {
                     <Button
                       variant="outline"
                       onClick={async () => {
-                        try {await api("owner/logout", {});} catch(e:any){setError(e.message);return;}
+                        try {
+                          await api("owner/logout", {});
+                        } catch (e: any) {
+                          setError(e.message);
+                          return;
+                        }
                         sessionStorage.removeItem("satssurge.ownerSession");
                         setSession("");
                         setStatus(null);

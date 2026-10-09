@@ -1,3 +1,4 @@
+import {provenance,type Origin,type Purpose} from './analysis-feed.js';
 import { UiEvents } from './ui-events.js';
 import { Store } from './store.js';
 import { id, now, hash, json, scrub } from './domain.js';
@@ -17,7 +18,7 @@ const activeFinancial="('reserved','preparing','sending','uncertain','in_flight'
 /** Queue ownership is transactional. Financial intents are owned exclusively by Executor. */
 export class Queue {
   constructor(readonly store:Store,readonly maxPending=100){}
-  enqueue(input:{requestId:string;kind:JobKind;payload:unknown;scope?:string;coalesceKey?:string},at=now()):Job {
+  enqueue(input:{requestId:string;kind:JobKind;payload:unknown;scope?:string;coalesceKey?:string;origin?:Origin;purpose?:Purpose},at=now()):Job {
     if(!/^[a-zA-Z0-9:_.-]{1,160}$/.test(input.requestId))throw new Error('Invalid request ID');
     if(!['chat','autonomy','events','analysis'].includes(input.kind))throw new Error('Unknown job kind');
     const payload=json(scrub(input.payload));if(Buffer.byteLength(payload)>16384)throw new Error('Job payload too large');
@@ -31,12 +32,12 @@ export class Queue {
       const priority=input.kind==='chat'?30:input.kind==='analysis'?20:input.kind==='events'?10:0;
       this.store.run(`INSERT INTO jobs(id,request_id,kind,lane,priority,payload,payload_digest,scope,snapshot_at,state,created_at,updated_at,coalesce_key)
         VALUES(?,?,?,?,?,?,?,?,?,'queued',?,?,?)`,key,input.requestId,input.kind,lane,priority,payload,digest,input.scope??'',this.store.get('snapshot')?.at??null,at,at,input.coalesceKey??null);
-      this.event(key,'accepted',{kind:input.kind,lane},at);return this.get(key)!;
+      this.event(key,'accepted',{kind:input.kind,lane,origin:input.origin??'unknown',purpose:input.purpose??'unknown'},at);return this.get(key)!;
     });
   }
   get(key:string):Job|undefined{return this.store.one('SELECT rowid history_id,* FROM jobs WHERE id=?',key);}
   list(limit=40){return this.store.all('SELECT rowid history_id,* FROM jobs ORDER BY rowid DESC LIMIT ?',Math.max(1,Math.min(100,limit)));}
-  event(key:string,type:string,details:unknown,at=now()){this.store.run('INSERT INTO job_events VALUES(?,?,?,?,?)',id(),key,at,type,json(scrub(details)));new UiEvents(this.store).append(key,'job',{state:this.get(key)?.state,kind:this.get(key)?.kind,lane:this.get(key)?.lane,type});}
+  event(key:string,type:string,details:unknown,at=now()){this.store.run('INSERT INTO job_events VALUES(?,?,?,?,?)',id(),key,at,type,json(scrub(details)));new UiEvents(this.store).append(key,'job',{state:this.get(key)?.state,kind:this.get(key)?.kind,lane:this.get(key)?.lane,...provenance(this.store,key),type});}
   claim(lane:Job['lane'],owner:string,at=now()):Job|undefined {
     return this.store.tx(()=>{
       if(this.store.get('enabled')!==true||!this.store.get('bootstrapReady'))return;

@@ -291,3 +291,509 @@ preserved; financial operations remained zero, enabled=true and claim=null.
 All four satssurge-autopilot backfill/diagnostics/interlock/competition timers
 were active; the final 20-minute backend window had zero MaxListenersExceeded,
 unhandledRejection or uncaughtException entries.
+
+### Piano di risoluzione dei run — 2026-10-09, consultazioni Astra
+
+Stato: piano preparato su richiesta dell'owner, non implementato né qualificato.
+Tre lane Astra/high in sola lettura hanno verificato lifecycle/budget,
+paginazione/selezione delle evidenze e UI/provenienza. Nessun runtime, mandato,
+OAuth, database o receipt è stato modificato dalle consultazioni. La versione
+installata rimane 0.3.4. Questa sezione integra il handoff esistente.
+
+Evidenza live del primary: dalle 10:00 UTC, 13 job terminati, 6 completati e 7
+falliti con `aborted` a circa 180 secondi; ultimo coordinatore con 32 tool call
+e due errori oltre il limite 30. Chat: zero tabelle Markdown renderizzate,
+168 paragrafi contenenti sintassi tabellare. Un coordinatore precedente ha
+incluso due verifiche UI tra sei analisi; il feed corrente è cambiato nel tempo.
+Operazioni e decisioni finanziarie risultavano zero alla lettura. Le cause
+storiche specifiche di ogni abort non sono registrate: non retroattribuirle.
+
+Ordine di attuazione, con review e verifica tra le fasi:
+
+1. **Letture coerenti e mirate.** In `agent-state.ts`, `agent.ts` e un helper
+   bounded di paginazione, aprire snapshot immutabili della sola collezione
+   richiesta, filtrata per SCID/intervallo canonico. Cursore posseduto dal job,
+   query e versione del contenuto; `capturedAt`, copertura e freschezza separati.
+   L'hash attuale include sia `capturedAt` sia la finestra mobile di copertura:
+   eliminarne soltanto uno non basta. Una continuazione usa la vista aperta,
+   senza mescolare nuove acquisizioni. Scelta iniziale: cache derivata in memoria
+   con limiti espliciti e TTL, non nuova tabella. Dopo restart, cursore scaduto e
+   riapertura esplicita nella stessa submission. Mantenere compatibilità per le
+   chiamate legacy `version/offset`. Ipotesi da dimensionare: tre viste per job,
+   4 MiB per vista, 16 MiB globali, TTL cinque minuti; nessuna eviction silenziosa.
+   Conservare envelope UTF-8 massimo 12 KB/20 righe e cleanup all'uscita.
+   Riepiloghi deterministici BigInt per corridoio devono ridurre la necessità di
+   leggere ogni record. Validare `captureCounts`; distinguere vista completa,
+   cattura completa e storia upstream sconosciuta. Non attribuire a un corridoio
+   bucket LM che identificano solo il target o record senza filtri supportati.
+   Rendere espliciti limite/prosecuzione/copertura di `corridor_events` (oggi
+   LIMIT 100) e delle proiezioni già limitate da `Store.stats()`.
+
+2. **Budget e conclusione controllata.** Separare ownership, ricerca e fase di
+   conclusione in `agent.ts`/helper di budget. Prompt e tool result espongono
+   chiamate/tempo residui, copertura e motivo dell'esaurimento. Riservare spazio
+   a stima/conclusione; esaurimento strutturato non deve generare un loop di
+   errori. Ipotesi di prova: soft deadline 120 s, hard 180 s, ricerca 12 call
+   analista/16 coordinatore, con riserva e limite assoluto 24–30. Sono parametri
+   da qualificare, non promesse né valori definitivi. Aumentare a 210/300 s solo
+   dopo misure sulle letture già circoscritte. Persistire budget/fase per non
+   rinnovarli dopo recovery; registrare causa terminale, duration, usage e call
+   anche nei fallimenti. Gestire l'esito asincrono dell'abort e cleanup.
+   Bloccare nuove azioni finanziarie nella fase finale; un tool finanziario già
+   entrato mantiene lease e segue receipt/reconciliation. Timeout non significa
+   pagamento cancellato. Non segnare `completed` un frammento senza finale.
+   Pi `whenBusy:steer` crea un'altra submission e `terminate` non produce una
+   nuova risposta: nessuna API final-only presunta, nessuna steer nel primo fix
+   senza test del vero Harness e lifecycle dei receipt di controllo.
+
+3. **Provenienza e selezione.** Registrare server-side origin/purpose nei
+   metadati dell'evento accepted, atomici con admission, in queue/server/scheduler;
+   payload, digest e ID originali restano invariati. Distinguere owner economico,
+   generale, scheduler e qualification. Prefissi request ID e testo non sono
+   prova: legacy resta unknown, salvo annotazione append-only di ID auditati.
+   `analyst_results` filtra purpose/scope e deduplica prima del limite; espone
+   ultima analisi pertinente per scope con freshness, gap e receipt. Un risultato
+   nuovo incompleto non deve essere nascosto da fallback silenzioso a uno vecchio.
+   Descrittori bounded e dettaglio separato; owner economico resta eleggibile,
+   qualification resta in cronologia ma fuori dal feed economico. La freschezza
+   proviene dalle letture, non dal timestamp di accodamento.
+
+4. **UI veritiera e leggibile.** Estrarre il renderer Markdown, aggiungere GFM
+   con dipendenza esatta verificata e tabelle semantiche a scroll confinato.
+   Mantenere skipHtml, immagini disabilitate, safeUrl e noopener; niente raw HTML.
+   Link vietati diventano testo. Mostrare 'Tu' solo con origine verificata,
+   titoli italiani per richieste automatiche e label neutra per legacy ambiguo.
+   Distinguere risposta in corso, parziale, finale e annullata; `aborted` storico
+   significa interruzione con causa non registrata. Nuovi timeout nominati solo
+   quando documentati dal backend. Nessun retry automatico terminale. Nuovi
+   output iniziano con sintesi pubblica; dettagli storici espandibili senza
+   riscrivere receipt, troncare Markdown o inventare reasoning.
+
+5. **Revisioni d'attesa persistenti, seconda fase circoscritta.** Dopo i fix
+   precedenti, aggiungere registro non finanziario separato da decisions e
+   evaluation_windows: scope, origine, evidenza consumata, requisiti mancanti,
+   scadenza e trigger materiali. Non riavviare 'altre 48 ore' a ogni revisione.
+   Tick periodico controlla scadenze; modello solo quando dovuto o cambiamenti
+   materiali, con massimo intervallo/backoff per evitare starvation. Consumo
+   del trigger solo dopo admission durevole, successori coalescenti, owner jobs
+   preservati. Le ore comparabili restano determinate dal forecast autorevole.
+   Eventuale nuovo schema è additivo e richiede prova migrazione/rollback; non
+   rifattorizzare scheduler/esecutore per uniformità di stile.
+
+Prove richieste prima della pubblicazione:
+
+- Dataset 229/18/34, refresh di soli metadata, mutazioni reali, paging legacy,
+  cursore di altro job/query, expiry/restart, cap piena e cleanup; contare tool
+  call e verificare somme/campionamento/gap, senza completezza upstream inventata.
+- Vero Pi Durable con modello simulato insistente/lento, race timeout/finale,
+  recovery senza nuova submission o budget, mock finanziario in-flight con
+  massimo un effetto e receipt uncertain preservato. Nessuna chiamata finanziaria
+  reale necessaria per questi test.
+- Selezione quattro economiche più due qualification, scope duplicati, owner
+  economico, legacy unknown, risultato nuovo incompleto e parità timestamp.
+- Markdown ostile, URL offuscati, HTML/immagini, tabelle parziali; matrice esiti
+  e origine dopo refresh. Preservare cache 250 terminali + attivi, 10000 eventi,
+  cursor/dedup, pagina storica, nonce incerti e scroll. Browser 320/390/768/1440,
+  zoom 200%, tastiera e VoiceOver reale dove disponibile; non dichiararlo senza
+  prova. Orologio simulato 72 h per scadenze/trigger/recovery della seconda fase.
+- Suite Node24/Python/typecheck/build/review su contenuti stabili. Accettazione
+  installata con Pi reale esclusivamente read-only, pagination attraverso due
+  acquisizioni host, concorrenti, refresh/restart e receipt originali; almeno
+  quattro intervalli per confrontare ripetizioni prima/dopo. Nessun risparmio
+  economico o di latenza dichiarato prima di misurarlo.
+
+Gate operativo invariato: checkpoint consistente delle tre SQLite sotto lock,
+SHA/integrità/restore isolato, release immutabile amd64/arm64, store e update
+Umbrel, verifica nel browser visibile, riconciliazione e ripristino dello stato
+iniziale di autonomia/timer/fence possedute. Nessun regtest o test finanziario,
+nessun replay di operazioni incerte, nessun restore sopra receipt nuovi; M3/M4
+restano fuori scope. Le consultazioni hanno terminato tutte le letture e non
+hanno creato processi persistenti o altre risorse.
+
+### Addendum UI, prestazioni e riferimento assistant-ui — 2026-10-09
+
+Richiesta owner: valutazioni Astra, prove sulla demo pubblica e integrazione nel
+piano; nessuna implementazione o nuova release in questa fase. Il riferimento
+visivo/interattivo è https://www.assistant-ui.com/, non una sostituzione del
+backend Pi o del modello Sol/high. **Ultima correzione owner prevalente:** JSON
+in Parameters/Results va bene; adottare thinking e strumenti raggruppati,
+collassabili, con righe leggere, senza box per ogni tool. Non è richiesto
+sostituire i risultati originali con nuove card di sintesi.
+
+Due lane Astra hanno verificato assistant-ui/react 0.15.25 e core 0.3.24:
+ThreadPrimitive.Messages monta tutti gli ID, senza virtualizzazione automatica.
+La finestra applicativa 250 job terminali (+ attivi) e 10000 eventi limita record,
+non DOM/byte. Details chiusi montano ugualmente tool/Markdown e JSON.stringify.
+Projection Context invalida tutti i messaggi; scansioni ripetute degli eventi e
+converter inline invalidano cache. Riproduzione isolata sul core installato:
+finestre di 500 messaggi visitando 3000 ID => visible=500, retainedRepository=3000.
+Prova di ritenzione degli oggetti, non misura di heap o stallo nel browser.
+
+Interventi UI obbligatori nel piano, oltre a GFM/stati/provenienza già previsti:
+
+- Stabilizzare converter/componenti e identità dei messaggi immutati; indice
+  incrementale per job/toolCallId/latest text/progress e subscription mirate.
+  Poll invariato e chunk di un job non devono rilavorare tutto il thread.
+- Allineare anche il repository interno assistant-ui alla retention della
+  finestra. Qualificare l'adattatore messageRepository che elimina gli assenti;
+  nessuna cancellazione dei job/journal per liberare una cache. Test di navigazione
+  su migliaia di ID, con receipt attivi e history/recovery invariati.
+- Raggruppamento come la demo: intestazione compatta aperta/chiusa, singole righe
+  espandibili, Parameters e Results JSON lazy. Details chiusi non montano né
+  serializzano i discendenti pesanti. Apertura/focus per ID stabile; lista tool
+  aperta anch'essa bounded. Stato reale e breve risultato nel titolo solo quando
+  direttamente disponibile, nessun riepilogo generato da un altro modello.
+- Qualificare una lista virtuale ad altezze variabili con API installate
+  unstable_useThreadMessageIds/Unstable_MessageById isolate in un adapter pinned.
+  Finestra DOM distinta dalla retention, valida anche con molti job attivi.
+  Ancoraggio ID+offset, overscan, resize, tool aperti, streaming e prepend; rimuovere
+  l'attesa attuale DOM count == messages.length. Non bastano memo/content-visibility.
+- Limitare separatamente byte per finestra, corpo e dettagli; una history response
+  che raccoglie tutti gli eventi di 50 job può essere grande prima del cap client.
+  Prevedere dettaglio autenticato paginato e disponibilità esplicita senza alterare
+  receipt. Coalescere soltanto pubblicazioni UI cumulative sostituibili, mantenendo
+  cursor/ordine/eventi terminali/tool e flush finale; nessuna coda illimitata.
+
+Thinking: verificato direttamente nel provider Pi installato, non soltanto nei
+componenti della demo. Il catalogo Sol usa openai-responses, non il vecchio
+provider Codex: openai-responses.js richiede già reasoning effort high/summary auto,
+Pi Durable generation trasmette thinkingLevel e conserva thinking_delta;
+openai-responses-shared.js converte response.reasoning_summary_text.delta in
+thinking_delta. Quindi la capacità e il flag di richiesta esistono, mentre
+ui-events oggi li esclude. Verificare l'intero percorso provider/Pi Durable/snapshot/SSE,
+selezionando **solo sintesi pubbliche con provenienza qualificata**. Il medesimo
+campo interno può avere fallback da reasoning content: non pubblicare genericamente
+ogni blocco thinking. Escludere chain-of-thought nascosta, reasoning signature,
+encrypted content e provider metadata. Se la provenienza non è distinguibile,
+aggiungere un adapter tipizzato e test prima di abilitare la proiezione.
+Per finale/snapshot, candidato da qualificare: leggere solo sul server l'item
+Responses conservato nel thinkingSignature, validare type reasoning e selezionare
+esclusivamente summary[] di tipo summary_text. Nessun fallback a content/thinking,
+nessuna signature o encrypted_content nel journal pubblico. Per i delta preservare
+la provenienza prima della normalizzazione generica; onProviderStreamEvent è un
+candidato, non un'integrazione durable già provata. Binding job/conversazione/
+tentativo/item/summary index e persistenza idempotente obbligatori. Test di firme
+malformate, raw-only, summary vuoti e encrypted payload esclusi. Nessuna risposta
+autenticata reale è stata letta in questa lane: capacità non significa che ogni
+risposta restituisca un summary. Fonti ufficiali:
+[Reasoning summaries](https://developers.openai.com/api/docs/guides/reasoning),
+[Streaming events](https://developers.openai.com/api/reference/resources/responses/streaming-events).
+Sezione collassabile 'Ragionamento · sintesi' con streaming autentico, snapshot,
+ID/dedup/recovery, limiti e montaggio lazy; nessun testo inventato o percentuale.
+Disponibilità dipende anche dal modello/risposta: assenza della sintesi è uno
+stato supportato, non un errore. Mantenerla distinta da milestone operative.
+
+Capacità libreria: ExternalStoreRuntime e renderer tools.by_name/Fallback,
+GroupedParts/groupPartByType sono installati; ToolGroup/ReasoningGroup nei vecchi
+slot sono deprecati. Componenti registry Reasoning/ToolGroup richiedono integrazione
+esplicita. AI Elements non fornisce virtualizzazione automatica e non giustifica
+una migrazione ora. Fonti: [Thread](https://www.assistant-ui.com/docs/api-reference/primitives/thread),
+[Message](https://www.assistant-ui.com/docs/api-reference/primitives/message),
+[Tool UI](https://www.assistant-ui.com/docs/tools/tool-ui),
+[Reasoning](https://www.assistant-ui.com/elements/reasoning).
+
+Prove demo effettivamente eseguite dal primary nel browser visibile: richiesta
+meteo generica, streaming iniziale 'thinking', gruppo 'ran 2 tools', espansione
+di get_weather con parametri/risultato JSON; richiesta generica di tre punti e
+tabella, tabella semantica completata; tema e full screen, pulsante ritorno al
+fondo presente. Nessun dato privato trasmesso. Non è una prova di performance
+della demo né di reasoning summary con Sol/high. Screenshot privato:
+`/Users/whirmill/.local/share/satssurge/screenshots/assistant-ui-reference-dark.jpg`.
+
+Tema nel piano: Chiaro/Scuro/Sistema, default Sistema, preferenza locale validata
+e persistente. matchMedia segue il sistema solo in modalità Sistema; sincronizzare
+schede e gestire storage indisponibile. Bootstrap prima del primo paint nella SPA
+con asset locale compatibile CSP script-src self, senza unsafe-inline. Token per
+superfici/testo/bordi/focus/stati/Markdown/tool/grafici, color-scheme e theme-color;
+nessun semplice invert. Cambio tema non rimonta runtime né perde draft, aperture,
+cursor o scroll. Contrasto e stati distinguibili anche senza colore.
+
+Accettazione aggiuntiva: baseline prima della patch e confronto stessa macchina,
+build/browser/dataset: 500 messaggi pesanti/GFM, 10000 eventi, molti attivi, singolo
+corpo grande e migliaia di job paginati. Misurare nodi e righe montati, render React,
+merge/parsing/Markdown, p95 input e chunk-to-paint, long task, heap dopo warm-up e
+cicli ripetuti. Fissare soglie prima dell'implementazione; oggi non sono misurate.
+Invarianti: DOM <= finestra+overscan+eccezione focus documentata; zero discendenti
+pesanti nei details chiusi; repository non cresce con tutti gli ID visitati;
+nessuna crescita monotona non spiegata a cicli equivalenti. Test summary pubblico
+vs raw/encrypted thinking, assenza summary, refresh/restart/dedup, tema Sistema
+live/override/refresh/cross-tab, entrambi i temi 320/390/768/1440 e zoom 200%,
+tastiera/VoiceOver dove verificabile. Runtime finanziario e M3/M4 restano esclusi.
+
+### Source implementation checkpoint — resolution plan, 2026-10-09
+
+Source implementation owner completed a stable local checkpoint in the existing
+checkout. Installed release remains **0.3.4**; no Git publication, image release,
+SSH, LND/financial RPC, external mutation or deployment was performed by this lane.
+Original financial executor, mandate, receipts, queue IDs/digests and schema4 are
+preserved. New budget/review state uses additive meta records, not decisions or
+financial evaluation tables. Qualification admissions explicitly deny financial,
+review-wait and proposal mutations.
+
+Implemented source:
+
+- `evidence-source.ts` acquires only the requested collection;
+  `evidence-views.ts` keeps immutable job/query-owned SCID/time-scoped snapshots.
+  Three views/job, 4MiB/view, 16MiB globally, 5-minute TTL; capacity/expiry/restart
+  are explicit, never silently evicting a live cursor. Release is explicit and
+  all job views are released at exit. Pages reserve envelope headroom for budget
+  metadata and remain <=12KB/20 rows. Legacy version/offset remains supported.
+  BigInt summary totals, unsupported-filter rows, captureCounts validation and
+  separate view/capture/upstream-history completeness are included. Target-only
+  LM buckets cannot become complete corridor evidence. Store projection limits
+  are explicit. `corridor_events` uses the same immutable paging instead of a
+  silent 100-row terminal list; its source acquisition cap is explicit.
+- `run-budget.ts` persists original start/calls/research/finalization across
+  submitted recovery: research12 analyst/16 coordinator, soft120s/hard180s and
+  absolute24 attempted tools before terminal control. On the next provider
+  request finalization sets `toolChoice:none`; already-generated tools get
+  structured denial, and new financial execution is blocked. An entered mocked
+  financial tool is awaited through abort without losing ownership or replay.
+  Terminal metrics include budget, cause and available usage even on failures.
+  Pre-submission unavailable-model waits discard only the unused budget.
+- Accepted origin/purpose metadata is atomic with admission and excluded from
+  the immutable original payload digest. Legacy is unknown. Latest relevant
+  economic analyst selection uses SQL scope ranking before the bounded limit;
+  an incomplete successor exposes a gap, never an older silent fallback.
+  Descriptors contain receipt IDs and actual evidence times; original text has
+  bounded separate detail pages. Owner analysis is economic by default; explicit
+  general stays general. Authenticated `purpose:"qualification"` is the supported
+  installed read-only qualification admission contract, with no prefix/text
+  inference and no UI QA control.
+- `review-waits.ts` is a bounded256-scope nonfinancial persistent registry. It
+  retains original deadlines, consumed evidence/missing requirements, material
+  policy/operation or measured-forward triggers, backoff up to6h and maximum24h
+  revisit. A trigger is consumed only with durable pending admission and an
+  append-only linked trigger receipt. Scheduled successors coalesce; backlog
+  preserves triggers and owner jobs. Forecast comparable hours are unchanged.
+- GFM is pinned to remark-gfm4.0.1. Markdown tables are semantic and confine
+  horizontal scroll; HTML/images/executable links remain excluded. New statuses
+  distinguish final/partial/cancelled/current and origin is shown truthfully.
+  Tools have lightweight grouped rows, with no mounted/serialized heavy JSON
+  beneath closed disclosures. Detail pointers load authenticated original
+  Parameters/Results on expansion. Reasoning is a separate lazy public-summary
+  group, with no generated card replacing original output.
+- Responses summaries are selected exclusively from qualified
+  `reasoning.summary[].summary_text` signatures for snapshot/final projection.
+  Streaming wraps the installed provider boundary, not serialized Durable
+  streamOptions functions: persisted ProviderDoc sessionId maps to owned job,
+  conversation and attempt; callbacks recheck the durable run token. Only typed
+  `response.reasoning_summary_text.delta` is admitted, with sequence dedup and
+  restart hydration. Raw thinking/content, signatures, encrypted data and provider
+  metadata never enter public events. Per-job64 items and UTF-8-safe24KB summaries
+  are bounded and cleaned up. Coalescing replaces only cumulative public text
+  publications over80ms and flushes final/exit; journal cursor/tool/terminal
+  semantics are preserved.
+- UI job-local subscriptions and event/tool/text/progress/summary indexes avoid
+  unrelated message invalidation; immutable message objects are reused. A pinned
+  replacement messageRepository prunes absent IDs. A variable-height list uses
+  the installed unstable ID adapter with overscan4 and at most one focused row
+  beyond the window; ID/offset anchors replace DOM-count waiting. Heights and
+  expansion state are bounded to retained job/message IDs. Repository receipts
+  and original journal are never deleted to free UI memory.
+- History SQL reads are bounded before tool-body serialization: <=2048 public
+  descriptors and2MiB per history event page, with partial/detail availability.
+  Client events retain <=10000 records/8MiB; public bodies have128KiB cap and
+  oversized answers expose exact authenticated plain-text pages rather than
+  parsing truncated Markdown. Original private answer receipts remain intact.
+  Tool detail responses have a bounded32-record read and explicit legacy-body
+  unavailability above its cap.
+- Dark/Light/System preference defaults to System, validates storage, follows
+  media only for System and syncs tabs. Local classic bootstrap runs before paint
+  under script-src self, without unsafe-inline. Tokens cover existing UI surfaces,
+  Markdown/tools/charts/states; theme-color/color-scheme follow preference. Theme
+  does not recreate runtime. Mobile inputs/selects/textarea are >=16px, touch
+  controls44px, dvh/safe-area composer and confined tables preserve manual zoom.
+  The bootstrap asset is explicitly unignored for publication.
+
+Stable local verification: Node24.21 `npm test` **109/109 PASS**, including actual
+Pi Durable provider-boundary tests with three concurrent owned conversations,
+public-summary dedup, final-only generation, explicit qualification write denial,
+mocked financial in-flight deadline/recovery with exactly one effect and unchanged
+submission/start budget. Tests also cover229-row immutable paging through mutation,
+canonical scope, expiry/caps/release, capture-vs-history gaps, feed newest incomplete,
+72h Scheduler/backpressure/deadline retention and first-paint storage/system behavior.
+The actual installed assistant-ui core retained exactly500 messages while visiting
+3000 IDs and kept an active receipt. Python **16/16 PASS**. Frontend/backend compile,
+GFM dependency/build and explicit typecheck are included in the verification lane.
+Private local logs: `/tmp/satssurge-resolution-node-20261009.log`,
+`/tmp/satssurge-resolution-python-20261009.log`,
+`/tmp/satssurge-resolution-typecheck-20261009.log`.
+
+**Pending primary acceptance, not claimed complete:** rendered local heavy-fixture
+qualification of variable-height anchors, focus/disclosure restoration, theme
+contrast/cross-tab/system, table security,320/390/768/1440,200% zoom, mobile keyboard
+and streaming/reconnect. `UI_FIXTURE_DIR=<private temp> FIXTURE_HISTORY_COUNT=3000
+FIXTURE_HEAVY=1 node scripts/ui-fixture.mjs` seeds bounded heavy GFM/tool history.
+Fixture-only `data-ui-performance` reports DOM/mounted rows/closed heavy descendants,
+retained runtime repository, renders, p95 input/chunk paint and long tasks without
+payloads. Primary must establish empirical thresholds/baseline comparison; no
+latency/cost saving or heap improvement is claimed by helper tests. Native iOS
+Safari keyboard/VoiceOver and real installed Responses streaming are still
+unqualified. Independent review, immutable release and installed acceptance remain
+primary-owned. No fixture server/process or persistent test resource was left
+running by the source owner; all Harness/databases/temp effect fixtures closed.
+
+### Stable review fixes — 2026-10-09
+
+Source owner completed the review correction pass and stopped repository writes.
+All three persistent tool/summary disclosures bind native `open` to their saved
+React expansion state, preserving disclosure consistency through virtualized
+remounts while keeping closed JSON children unmounted. The theme picker and its
+media/storage lifecycle now live in the persistent application topbar, so System
+and cross-tab preference updates continue on every page without recreating the
+conversation runtime.
+
+Evidence query normalization now precedes SQL acquisition: timestamps use canonical
+ISO instants and numeric comparisons; SQL uses `julianday` for seconds/milliseconds
+and equivalent time-zone offsets. Equivalent query property order shares the same
+immutable cursor view. Coalesced cumulative text clears any pending earlier timer
+before direct publication, preventing a stale final flush from regressing text.
+
+Both `/api/status` chat and `/api/history` legacyChat now use the128KiB public
+answer descriptor contract. Oversized originals remain private and unchanged;
+authenticated `/api/chat/answer?key=<descriptor-key>&offset=<codepoint-offset>`
+serves16384-codepoint pages, at most65536 UTF-8 bytes. Legacy conversation rows carry
+the descriptor key into the existing lazy full-text page control. The HTTP test
+verifies authentication, invalid offsets, exact public-text recovery, suppression
+of raw reasoning and unchanged private storage.
+
+Actual Pi Durable Harness40-tool batching showed that SDK tool termination alone
+can still schedule a final provider generation. The owned provider boundary now
+refuses generation after the persisted absolute tool limit; reconciliation reports
+terminal partial failure rather than accepting SDK `done` as a completed answer.
+The regression proves one underlying provider call, one original submission,
+zero mocked financial effects and hydrated qualified summary text without replay
+concatenation. The20-tool case still reaches the intended `toolChoice:none` final
+synthesis. No live financial system was involved.
+
+Mobile viewport includes `viewport-fit=cover`, preserves manual zoom, and applies
+notch/safe-area padding plus44px checkbox labels. No VisualViewport lifecycle was
+added: primary exploratory reduced-height focus testing already kept the composer
+visible by normal document scrolling. This does not qualify native iOS Safari
+keyboard behavior; primary browser validation of stable contents remains pending.
+
+Stable verification: Node24.21 `npm test` **112/112 PASS**, including build;
+explicit `npm run typecheck` PASS; Python **16/16 PASS**. Logs:
+`/tmp/satssurge-resolution-review-node-20261009.log`,
+`/tmp/satssurge-resolution-review-typecheck-20261009.log`,
+`/tmp/satssurge-resolution-review-python-20261009.log`.
+No source-owner process, fixture server or test resource remains running.
+Version remains0.3.4. Browser acceptance, review and release remain primary-owned.
+
+### Dark contrast correction — 2026-10-09
+
+Primary browser qualification exposed a dark white conversation card with pale
+text and an inverted sidebar background. CSS now separates semantic surface,
+input, sidebar, selected-navigation and status-background roles from legacy numeric
+foreground accents. Removed the literal white chat-panel surface, corrected input
+foreground/placeholder and yellow-logo ink, brightened status/chart accents, and
+kept disclosure/tool layout unchanged. Theme select uses96px width and the mobile
+header wraps, preserving full mode labels without forcing a320px page overflow.
+
+CSS palette contrast calculation for final dark role pairs: conversation12.60,
+muted conversation7.45, sidebar14.42, inactive navigation8.53, selected navigation8.48,
+input13.66, success8.34, danger7.76, warning8.58, local7.62. These are source palette
+checks, not a browser contrast claim. Primary must repeat actual computed styles
+and screenshots for stable final build. Targeted first-paint test passed; build
+includes backend/frontend typecheck. Logs `/tmp/satssurge-resolution-dark-build-20261009.log`
+and `/tmp/satssurge-resolution-dark-targeted-20261009.log`. Backend/features remain
+at the preceding112/112 and16/16 checkpoints; this pass modifies only CSS/handoff.
+
+### 320px heading overflow correction — 2026-10-09
+
+Primary stable matrix passed23 viewport/page combinations;320px Conversation
+exposed3px horizontal overflow from the heading's autonomy badge. Narrow headers
+now wrap with12px gap and constrain heading content/badge to the available width.
+CSS/handoff-only correction preserves accepted dark colors and other layouts.
+Build/typechecks PASS; final browser320px readback remains primary-owned.
+Log `/tmp/satssurge-resolution-320-build-20261009.log`. Source writer stopped with
+no owned processes/resources left running.
+
+### Explicit dark semantic foregrounds — 2026-10-09
+
+Final CSS explicitly declares dark local/remote/success/danger/warning/neutral
+foregrounds after all legacy rules. Error text uses semantic danger directly.
+Chart fills/strokes use distinct drawing colors, leaving financial labels and
+status text at brighter readable tones. This makes final cascade roles explicit
+for primary error/negative-P&L fixture qualification; preceding320px wrapping and
+surface corrections remain intact. Build/backend/frontend typechecks PASS; log
+`/tmp/satssurge-resolution-semantic-build-20261009.log`. CSS/handoff only; writer
+stopped with no owned resources left running.
+
+
+### Primary local browser qualification — 2026-10-09, release pending
+
+Stable112-test source plus CSS-only corrections passed in the visible in-app
+browser against the private3000-job heavy fixture. All24 page/viewport cases
+(Conversation,Activity,Node,Accounting,Experiments,Settings at320/390/768/1440)
+have no document overflow and mobile inputs/selects/textarea are16px. At390x400,
+focus naturally scrolls the entire composer into the viewport; scale remains1
+in desktop emulation. Manual zoom is permitted by viewport metadata. Native
+iOS keyboard/pinch zoom and VoiceOver are not proven by desktop emulation.
+
+Dark mode was corrected after visible evidence of white cards/light text.
+Actual computed contrast: Markdown12.60,muted7.45,active navigation8.48,
+inputs13.66,status8.34. Real rendered fixture negativeP&L and login errors use
+rgb(255,179,187), not the obsolete dark-red declarations. System follows the
+current media preference; cross-tab changes update Settings outside the chat.
+Explicit theme survives reload. Theme controls remain96px wide.
+
+Grouped tools mount no heavy descendants while closed. Group/tool expansion
+survives virtual unmount/remount; nested JSON disclosure resets closed (minor
+usability limit). Seven loaded history pages retained exactly500 core messages,
+with6 mounted messages/456 DOM nodes in that sample. On a separate streaming
+fixture sample: input p95=7ms, projection-to-next-frame p95=29.2ms, maximum
+observed long task91ms; these are local fixture observations, not before/after
+latency or heap-saving claims. Original installed baseline is206 messages and
+42376 DOM nodes, a different dataset. Heap was not profiled.
+
+Two concurrent simulated requests ran together and completed once. Queued
+cancellation, pause/resume(initial true restored), SSE disconnect/reconnect,
+expiry with login focus, keyboard Enter login, refresh and process restart
+preserved4 request IDs:3 completed/1 cancelled,0 financial operations. Console
+warn/error capture is empty, including deliberate rejected login/session expiry.
+Backend112/112 and Python16/16 remain valid; final CSS builds/typechecks pass.
+Independent review approved backend/disclosure/budget and final cascade; the
+intermediate low-contrast concern was retracted after cascade reconciliation.
+
+Private evidence: plan-035-browser-matrix.json,plan-035-fixture-performance.json
+and screenshots/plan-035-fixture-mobile-dark.jpg under local satssurge evidence.
+Fixture cleanup is complete: tabs 15/16 closed, viewport reset, native session
+53666 exited 130 and port 19538 has no listener. The private fixture database
+remains evidence; no fixture process resources remain. At this browser-proof
+checkpoint the version was 0.3.4; no release/installed acceptance was claimed. Next:0.3.5 immutable release,
+consistent verified checkpoint, installed real Pi/read-only acceptance and
+original autonomy/timer restoration.
+
+### 0.3.5 source preparation — publication and installed qualification pending
+
+The current accepted installed release is 0.3.4. Package and root lockfile
+versions are 0.3.5; Umbrel manifest and compose remain on verified 0.3.4 until
+new image verification, then will be published together.
+
+The new source adds bounded immutable evidence views with explicit completeness,
+persistent research/finalization budgets across submitted recovery, truthful
+analysis origin/purpose and nonfinancial review-wait triggers. Public reasoning
+includes only qualified provider summaries; raw thinking and signatures stay
+private. Authenticated lazy details and full-answer pages preserve original
+receipts. GFM tables, grouped disclosures, bounded virtual history and persistent
+System/light/dark themes improve presentation without deleting private history.
+Financial mandate/executor/receipt identity and schema 4 remain unchanged.
+
+Independent review approved the stable source. Local Node 24 suite passed 112
+and Python passed 16 tests; final build/typecheck passed. Visible heavy fixture
+qualified 24 responsive cases, computed dark contrast, concurrent requests,
+queued cancellation, reconnect, simulated expiry, refresh and process restart.
+These are local fixture proofs, not installed 0.3.5 acceptance or comparative
+performance savings. Native iOS keyboard/pinch behavior and VoiceOver remain
+unverified. No financial tests, regtest or M3/M4 expansion were introduced.
+
+Next: tested-source Git/tag handoff for `satssurge-autopilot-v0.3.5`, CI and
+anonymous amd64/arm64 index/config/all-layer verification, combined manifest/
+compose publication, fresh verified checkpoint, installed read-only Pi/browser
+acceptance and original autonomy/timer restoration. Preserve current financial
+receipts and pending operations; never restore old accounting to retry effects.
+
+Release preparation changes only package/root lock versions and documentation.
+Exact source SHA, Actions run and image digest remain unset until publication.

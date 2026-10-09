@@ -7,3 +7,6 @@ auth.json
 __pycache__/
 *.pyc
 public/
+
+!web/public/
+!web/public/theme.js

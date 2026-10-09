@@ -18,6 +18,16 @@ test("actual HTTP auth, legacy projection, history pages and SSE replay use dura
   socket.close();
   const store = new Store(join(dir, "operational.sqlite"));
   store.set("enabled", false);
+  const largePublic = "π".repeat(150000),
+    largePrivate = JSON.stringify([
+      {
+        role: "assistant",
+        content: [
+          { type: "thinking", thinking: "HIDDEN-LARGE-SECRET" },
+          { type: "text", text: largePublic },
+        ],
+      },
+    ]);
   store.set("chat", [
     {
       requestId: "legacy",
@@ -33,15 +43,21 @@ test("actual HTTP auth, legacy projection, history pages and SSE replay use dura
         },
       ]),
     },
+    {
+      at: "2026-10-09T00:00:00Z",
+      requestId: "large-legacy",
+      user: "large answer",
+      answer: largePrivate,
+    },
   ]);
   const q = new Queue(store),
     events = new UiEvents(store);
-  const legacyMessage="sk-a"+"a".repeat(17000);
+  const legacyMessage = "sk-a" + "a".repeat(17000);
   for (let n = 0; n < 60; n++) {
     const job = q.enqueue({
       requestId: "http:" + n,
       kind: "chat",
-      payload: { message: n===0 ? legacyMessage : "Read only " + n },
+      payload: { message: n === 0 ? legacyMessage : "Read only " + n },
     });
     events.append(job.id, "text", { text: "Persisted public text " + n });
   }
@@ -80,6 +96,58 @@ test("actual HTTP auth, legacy projection, history pages and SSE replay use dura
     assert.equal(history.jobs.length, 50);
     assert.equal(history.cursor, cursor);
     assert.equal(history.legacyChat[0].answer, "Public only");
+    const descriptor = history.legacyChat[1];
+    assert.equal(descriptor.answerDetailAvailable, true);
+    assert.ok(Buffer.byteLength(descriptor.answer) < 128 * 1024);
+    assert.ok(descriptor.answerDetailKey.startsWith("legacyChat:"));
+    const boundedStatus = (await (
+      await fetch(base + "/api/status", { headers })
+    ).json()) as any;
+    assert.equal(boundedStatus.chat[1].answerDetailAvailable, true);
+    assert.ok(Buffer.byteLength(boundedStatus.chat[1].answer) < 128 * 1024);
+    assert.equal(
+      (
+        await fetch(
+          base +
+            "/api/chat/answer?key=" +
+            encodeURIComponent(descriptor.answerDetailKey),
+        )
+      ).status,
+      401,
+    );
+    let offset = 0,
+      recoveredAnswer = "";
+    do {
+      const page = (await (
+        await fetch(
+          base +
+            "/api/chat/answer?key=" +
+            encodeURIComponent(descriptor.answerDetailKey) +
+            "&offset=" +
+            offset,
+          { headers },
+        )
+      ).json()) as any;
+      assert.ok(Buffer.byteLength(page.text) <= 65536);
+      recoveredAnswer += page.text;
+      offset = page.nextOffset;
+    } while (offset !== null);
+    assert.equal(recoveredAnswer, largePublic);
+    assert.equal(
+      (
+        await fetch(
+          base +
+            "/api/chat/answer?key=" +
+            encodeURIComponent(descriptor.answerDetailKey) +
+            "&offset=-1",
+          { headers },
+        )
+      ).status,
+      400,
+    );
+    const originalStore = new Store(join(dir, "operational.sqlite"));
+    assert.equal(originalStore.get<any[]>("chat")![1].answer, largePrivate);
+    originalStore.close();
     assert.doesNotMatch(
       JSON.stringify(history),
       /HIDDEN-SECRET|private-provider/,
@@ -113,19 +181,72 @@ test("actual HTTP auth, legacy projection, history pages and SSE replay use dura
       (await fetch(base + "/api/events?after=-1", { headers })).status,
       400,
     );
-    const status = await (await fetch(base + '/api/status', {headers})).json() as any;
-    const logoutHeaders={...headers,Origin:base,'Content-Type':'application/json','X-CSRF-Token':status.csrf};
-    const original=await (await fetch(base+'/api/jobs/receipt?requestId=http:0',{headers})).json() as any;
-    const recoveredResponse=await fetch(base+'/api/chat',{method:'POST',headers:logoutHeaders,body:JSON.stringify({requestId:'http:0',message:legacyMessage})});
-    assert.equal(recoveredResponse.status,202);const recovered=await recoveredResponse.json() as any;assert.equal(recovered.job.id,original.job.id);
-    const oversized=await fetch(base+'/api/chat',{method:'POST',headers:logoutHeaders,body:JSON.stringify({requestId:'never-admitted',message:'x'.repeat(17000)})});
-    assert.equal(oversized.status,413);assert.equal((await oversized.json() as any).admissionRejected,true);
-    assert.equal((await fetch(base+'/api/owner/logout',{method:'POST',headers:{...logoutHeaders,Origin:'http://other.invalid'},body:'{}'})).status,403);
-    assert.equal((await fetch(base+'/api/owner/logout',{method:'POST',headers:{...logoutHeaders,'X-CSRF-Token':'bad'},body:'{}'})).status,403);
-    assert.equal((await fetch(base+'/api/history',{headers})).status,200);
-    assert.equal((await fetch(base+'/api/owner/logout',{method:'POST',headers:logoutHeaders,body:'{}'})).status,200);
-    assert.equal((await fetch(base+'/api/history',{headers})).status,401);
-    assert.equal((await fetch(base+'/api/events?after=0',{headers})).status,401);
+    const status = (await (
+      await fetch(base + "/api/status", { headers })
+    ).json()) as any;
+    const logoutHeaders = {
+      ...headers,
+      Origin: base,
+      "Content-Type": "application/json",
+      "X-CSRF-Token": status.csrf,
+    };
+    const original = (await (
+      await fetch(base + "/api/jobs/receipt?requestId=http:0", { headers })
+    ).json()) as any;
+    const recoveredResponse = await fetch(base + "/api/chat", {
+      method: "POST",
+      headers: logoutHeaders,
+      body: JSON.stringify({ requestId: "http:0", message: legacyMessage }),
+    });
+    assert.equal(recoveredResponse.status, 202);
+    const recovered = (await recoveredResponse.json()) as any;
+    assert.equal(recovered.job.id, original.job.id);
+    const oversized = await fetch(base + "/api/chat", {
+      method: "POST",
+      headers: logoutHeaders,
+      body: JSON.stringify({
+        requestId: "never-admitted",
+        message: "x".repeat(17000),
+      }),
+    });
+    assert.equal(oversized.status, 413);
+    assert.equal(((await oversized.json()) as any).admissionRejected, true);
+    assert.equal(
+      (
+        await fetch(base + "/api/owner/logout", {
+          method: "POST",
+          headers: { ...logoutHeaders, Origin: "http://other.invalid" },
+          body: "{}",
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await fetch(base + "/api/owner/logout", {
+          method: "POST",
+          headers: { ...logoutHeaders, "X-CSRF-Token": "bad" },
+          body: "{}",
+        })
+      ).status,
+      403,
+    );
+    assert.equal((await fetch(base + "/api/history", { headers })).status, 200);
+    assert.equal(
+      (
+        await fetch(base + "/api/owner/logout", {
+          method: "POST",
+          headers: logoutHeaders,
+          body: "{}",
+        })
+      ).status,
+      200,
+    );
+    assert.equal((await fetch(base + "/api/history", { headers })).status, 401);
+    assert.equal(
+      (await fetch(base + "/api/events?after=0", { headers })).status,
+      401,
+    );
   } finally {
     child.kill("SIGTERM");
     await once(child, "exit");
