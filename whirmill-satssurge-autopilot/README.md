@@ -187,7 +187,7 @@ immutable image receipts are recorded in the implementation handoff.
 
 ### Installed M2.1 acceptance — 2026-10-09
 
-Current installed release **0.3.1** is healthy on Umbrel amd64, pinned to OCI index
+Previously qualified release **0.3.1** ran healthy on Umbrel amd64, pinned to OCI index
 `sha256:1f3ac8c0481fae8ae98625bb7bc47d5936a01afdbb87f510d8b7c20aa5483915`,
 source `719c20be7916440b2a9b6b8b565e9081a6c7e0f2`. [CI37900459290](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37900459290)
 passed70Node24/15Python; both architecture manifests/configs and all22layers were
@@ -231,7 +231,7 @@ The visible in-app browser qualified concurrent read-only Pi requests, increment
 
 Slow-client timeout and timed session expiration have simulated test coverage plus production source review; natural eight-hour expiration was not observed by waiting. Optional HTLC, page and Pi adapters, and massive exports, remain future candidates. Five-second status polling remains separate. Private screenshots and acceptance receipts are retained outside Git.
 
-### 0.3.4 review remediation — source ready, publication pending
+### 0.3.4 review remediation — published and installed accepted
 
 Version 0.3.4 addresses the dispatch budget/reserve race and seven recovery,
 retention, admission, presentation, authentication, shutdown and backfill
@@ -255,10 +255,64 @@ A visible local 350-job fixture verified editable oversized input followed by
 valid admission, seven older pages reaching the oldest entry, the bounded
 250-job/500-message history window, and return to recent history with 100
 messages, latest content visible and the limit notice released. Console errors
-were absent. This is fixture proof; installed 0.3.4 qualification is pending.
-Publication of immutable amd64/arm64 images, image signal verification, a fresh
-stopped three-database checkpoint, installed 0.3.4 acceptance and operational
-reconciliation remain pending. The accepted 0.3.3 installation is the current
-qualified release; the compose image remains its verified digest until 0.3.4
-publication is verified. Recovery must preserve current financial receipts;
-a checkpoint is never permission to replay or discard pending operations.
+were absent. This is fixture proof; installed qualification is recorded below.
+
+### Installed qualification — 0.3.4, 2026-10-09
+
+Umbrel amd64 runs healthy 0.3.4 at immutable index
+`sha256:f8eeca46bacdaa69b046530a2821886b818289ba962ec077193b3caffea42c32`,
+source `a3fad86bad3ae86ebc3798ea34d17fb609012770`.
+[CI 37912510129](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37912510129)
+passed 95 Node 24 and 16 Python tests. Anonymous index, both platform configs
+and all 22 layers passed SHA-256/size checks; both configs use `flock --no-fork`.
+All nine review findings and the additional bounded terminal-history cache are
+addressed. Schema remains 4.
+
+The stopped/flock-protected `pre-034-review-fixes-20261009` three-database
+checkpoint passed host/Mac SHA, SQLite checks and isolated restore. All baseline
+101 ledger rows, 71 terminal jobs and 85 history files were preserved by ID;
+natural later revenue rows remain valid additions. Owner/password digest,
+mandate, OAuth, model and Sol/high were preserved.
+
+Three owned visible read-only Pi requests each completed once with one
+submission and a node_state call; a fourth was cancelled while queued with zero
+attempts/submissions. Refresh showed 166 messages with the original request
+once; reconnect worked. Owner logout revoked a copied bearer (401), closed
+idle SSE and retained Origin/CSRF rejection (403). Live 17000-character input
+validation left the draft editable. Local 350-job fixture evidence separately
+qualified older-page navigation, the 250-terminal-job/500-message window and
+return to 100 recent messages. Installed 390/768/1440 layouts had no document
+overflow; console errors/warnings were empty, re-login and keyboard Enter passed.
+
+Synthetic active-job SIGTERM exited 0 with drained=true and an exclusive lock.
+The real restart reached its bounded 25-second drain limit for three existing
+background jobs: original request/conversation/submission receipts survived in
+waiting recovery and were enabled for reconciliation. This does not prove all
+live jobs drained. No uncertain operation was resubmitted for acceptance.
+
+Fresh final preservation readback confirms all three previously submitted
+background jobs completed after reconciliation with unchanged original request,
+conversation and submission IDs: attempts advanced from 1 to 2 while submitted
+remained 1. A fourth previously queued autonomy job naturally acquired its first
+IDs; it was not replayed after restart. All 101 baseline ledger rows, 71 terminal
+jobs, 85 history files, password, mandate, model and installedAt remained
+preserved; financial operations remained zero, enabled=true and claim=null.
+All four satssurge-autopilot backfill/diagnostics/interlock/competition timers
+were active; the final 20-minute backend window had zero MaxListenersExceeded,
+unhandledRejection or uncaughtException entries.
+
+Umbrel retained the old host backfill script during update; the official
+`install-backfill.sh` installed the corrected script (SHA-256
+`4656b9de7c7a9d26b2ad8dac336fee056e63980f123143ef392505e57c53a1b3`).
+Installer service exited successfully; all four initial timers were active.
+Final readback: enabled=true, maintenanceClaim=null, bootstrapReady=true and
+zero financial operations/pending financial operations. No financial tests,
+regtest or M3/M4 expansion occurred.
+
+Global journal retention and per-result byte limits remain future work;
+tombstones do not rewrite old aggregates whose detail already expired.
+VoiceOver was not tested; timed expiry has simulated coverage. Private receipts
+are under `/Users/whirmill/.local/share/satssurge`; screenshots are in its
+`screenshots/` directory: `034-umbrel-installed.jpg`, `034-pi-stream.jpg`,
+`034-nodo-installed.jpg`, `034-nodo-mobile.jpg`. Current financial receipts must
+be preserved during recovery; a checkpoint never authorizes replay or erasure.

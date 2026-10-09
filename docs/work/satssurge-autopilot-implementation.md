@@ -226,3 +226,68 @@ recovery coalescence-index collisions preserve both original and successor
 receipts. This does not qualify the installed new version. Immutable 0.3.4
 publication and actual installed acceptance remain pending; 0.3.3 acceptance
 is complete. Release documentation writer stopped after scoped checks.
+
+### Installed qualification — 0.3.4, 2026-10-09
+
+Umbrel amd64 runs healthy 0.3.4 at immutable index
+`sha256:f8eeca46bacdaa69b046530a2821886b818289ba962ec077193b3caffea42c32`,
+source `a3fad86bad3ae86ebc3798ea34d17fb609012770`.
+[CI 37912510129](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37912510129)
+passed 95 Node 24 and 16 Python tests. Anonymous index, both platform configs
+and all 22 layers passed SHA-256/size checks; both configs use `flock --no-fork`.
+All nine review findings and the additional bounded terminal-history cache are
+addressed. Schema remains 4.
+
+The stopped/flock-protected `pre-034-review-fixes-20261009` three-database
+checkpoint passed host/Mac SHA, SQLite checks and isolated restore. All baseline
+101 ledger rows, 71 terminal jobs and 85 history files were preserved by ID;
+natural later revenue rows remain valid additions. Owner/password digest,
+mandate, OAuth, model and Sol/high were preserved.
+
+Three owned visible read-only Pi requests each completed once with one
+submission and a node_state call; a fourth was cancelled while queued with zero
+attempts/submissions. Refresh showed 166 messages with the original request
+once; reconnect worked. Owner logout revoked a copied bearer (401), closed
+idle SSE and retained Origin/CSRF rejection (403). Live 17000-character input
+validation left the draft editable. Local 350-job fixture evidence separately
+qualified older-page navigation, the 250-terminal-job/500-message window and
+return to 100 recent messages. Installed 390/768/1440 layouts had no document
+overflow; console errors/warnings were empty, re-login and keyboard Enter passed.
+
+Synthetic active-job SIGTERM exited 0 with drained=true and an exclusive lock.
+The real restart reached its bounded 25-second drain limit for three existing
+background jobs: original request/conversation/submission receipts survived in
+waiting recovery and were enabled for reconciliation. This does not prove all
+live jobs drained. No uncertain operation was resubmitted for acceptance.
+
+Umbrel retained the old host backfill script during update; the official
+`install-backfill.sh` installed the corrected script (SHA-256
+`4656b9de7c7a9d26b2ad8dac336fee056e63980f123143ef392505e57c53a1b3`).
+Installer service exited successfully; all four initial timers were active.
+Final readback: enabled=true, maintenanceClaim=null, bootstrapReady=true and
+zero financial operations/pending financial operations. No financial tests,
+regtest or M3/M4 expansion occurred.
+
+Global journal retention and per-result byte limits remain future work;
+tombstones do not rewrite old aggregates whose detail already expired.
+VoiceOver was not tested; timed expiry has simulated coverage. Private receipts
+are under `/Users/whirmill/.local/share/satssurge`; screenshots are in its
+`screenshots/` directory: `034-umbrel-installed.jpg`, `034-pi-stream.jpg`,
+`034-nodo-installed.jpg`, `034-nodo-mobile.jpg`. Current financial receipts must
+be preserved during recovery; a checkpoint never authorizes replay or erasure.
+
+Final 0.3.4 publication/install acceptance supersedes the earlier source-ready
+and pending checkpoints above. Documentation Git publication remains primary-owned.
+
+Final follow-up evidence: `preservation-accepted034.json` confirms:
+
+Fresh final preservation readback confirms all three previously submitted
+background jobs completed after reconciliation with unchanged original request,
+conversation and submission IDs: attempts advanced from 1 to 2 while submitted
+remained 1. A fourth previously queued autonomy job naturally acquired its first
+IDs; it was not replayed after restart. All 101 baseline ledger rows, 71 terminal
+jobs, 85 history files, password, mandate, model and installedAt remained
+preserved; financial operations remained zero, enabled=true and claim=null.
+All four satssurge-autopilot backfill/diagnostics/interlock/competition timers
+were active; the final 20-minute backend window had zero MaxListenersExceeded,
+unhandledRejection or uncaughtException entries.

@@ -41,5 +41,12 @@ releaseNotes: >-
   Immutable amd64/arm64 image publication is verified against source
   a3fad86bad3ae86ebc3798ea34d17fb609012770. CI 37912510129 passed 95 Node
   and 16 Python tests; all 22 layers passed anonymous SHA-256 and size checks.
-  Installed qualification of 0.3.4 remains pending; 0.3.3 qualification is complete. No financial acceptance test,
-  regtest, M3/M4 capability or profitability qualification is introduced.
+  Installed 0.3.4 is healthy and accepted on Umbrel amd64. Checkpoint and
+  isolated restore passed; baseline ledger/jobs/history, OAuth, mandate and
+  owner credentials were preserved. Live read-only requests, cancellation,
+  reconnect, logout, input validation and responsive layouts passed. Real
+  restart preserved three background jobs in recovery after its bounded drain
+  deadline; synthetic shutdown drained successfully. Corrected host backfill
+  was installed and four timers plus initial autonomy were restored. No
+  financial acceptance test, regtest, M3/M4 capability or profitability
+  qualification is introduced.
