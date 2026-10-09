@@ -222,3 +222,11 @@ Accounting remains partial and M3/M4 remain outside this release.
 La UI0.3.2 aggiunge colori semantici, distribuzione locale/remota della liquidità e barre per canale con filtro e ordinamento, ricavi/costi, budget, confronto delle commissioni e stati della coda. Dettagli tecnici e risultati dei tool restano apribili. I grafici usano dati osservati e importi esatti; copertura parziale e valori non disponibili sono espliciti.
 
 La0.3.3 sostituisce il polling del journal SSE a500ms con un EventEmitter condiviso per Store, notifiche post-COMMIT e generatori asincroni con cursore SQLite autorevole. Il frontend consuma lo stream fuori da React con decodifica incrementale, replay e cleanup. Heartbeat15s, scadenza owner, backpressure limitata e refresh dello stato5s restano separati. Test Node24:84PASS; Python15PASS; qualifica installata in corso.
+
+### Installed visual and reactive qualification — 0.3.3
+
+Installed on Umbrel with immutable index `sha256:dea14693bda4ec9337216636c250ab81e09dab5d861ef9ccac3558f6f56c3af4`, source `1a0481580cfa9cc702558d982cabe7476ba1c4fa`. CI run 37906474987 passed 84 Node 24 and 15 Python tests. Both architectures and all 22 layers were verified.
+
+The visible in-app browser qualified concurrent read-only Pi requests, incremental text and tools, refresh, restart and session invalidation, original receipt preservation, queued cancellation, long-history deduplication and responsive charts. No financial operation or regtest was used. A consistent three-database checkpoint was verified before the update. Original ledger rows, history, mandate, OAuth and owner credentials were preserved; initial autonomy and timers were restored.
+
+Slow-client timeout and timed session expiration have simulated test coverage plus production source review; natural eight-hour expiration was not observed by waiting. Optional HTLC, page and Pi adapters, and massive exports, remain future candidates. Five-second status polling remains separate. Private screenshots and acceptance receipts are retained outside Git.
