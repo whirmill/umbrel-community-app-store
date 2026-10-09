@@ -443,3 +443,19 @@ Package/root lock versions are0.3.7; catalog manifest/compose remain0.3.6 until
 new anonymous amd64/arm64 image verification, then publish metadata together.
 Primary owns checkpoint, installed0.3.7 lazy/Pi/browser acceptance and final
 original autonomy/timer restoration. No financial test/regtest/M3/M4 expansion.
+
+### 0.3.8 immutable publication verified — installed acceptance pending
+
+Source `566dfcd4c295becef8a7d68b42e57bdde149e47d`, tag
+`satssurge-autopilot-v0.3.8`, [CI 37942146614](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37942146614)
+passed 139 Node24 and 16 Python tests. Verified image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.3.8@sha256:129d0cb546bc22d99088e42df5fa1b0c2c4b0376ebc89e3f31c066b5d6246cf7`.
+Anonymous index, both configs and all 22 layers passed SHA-256/size checks
+(218115925 compressed bytes). Configs match source and use `flock --no-fork`;
+extracted image package version is 0.3.8. Private receipt:
+`/Users/whirmill/.local/share/satssurge/image-038-receipt.json`.
+Manifest and compose are prepared together for this verified release; immutable
+0.3.7 remains published but skips installation. Actual installed 0.3.8 browser/
+Pi/natural economic closure, checkpoint/reconciliation and original autonomy/
+timer restoration remain primary-owned and pending. Current owned pause/fence
+is preserved until acceptance; financial receipts must never be replayed.

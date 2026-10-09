@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.3.6"
+version: "0.3.8"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -25,19 +25,19 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.3.6 corrects terminal conversation and Activity presentation found
-  during installed 0.3.5 qualification. Failed responses without text are
-  explicitly incomplete; cancelled/completed empty responses retain their true
-  state. Terminal rows no longer show stale progress or active-wait placeholders.
-  Original sanitized errors appear behind collapsed lazy Dettaglio errore,
-  escaped as text, without inferring a cause. Preserves original private receipts,
-  public summaries, schema 4, mandate and financial executor. Retains 0.3.5
-  scoped evidence, persisted run budgets, virtual/GFM history, themes and mobile
-  16px focus/safe areas/manual zoom. CI 37932221537 passed 113 Node 24 and
-  16 Python tests. Anonymous amd64/arm64 configurations and all 22 image layers
-  passed SHA-256/size checks against source
-  32a2d0feaa9313146864ba9e163227298548a688; package version is 0.3.6 and both
-  commands use flock --no-fork. Installed 0.3.6 qualification remains pending.
-  Local terminal/320px fixture passed; native iOS and VoiceOver are unverified.
-  No financial acceptance test, regtest, M3/M4 capability or profitability
-  qualification is introduced.
+  Version 0.3.8 adds mandatory structured nonfinancial follow-up closure and
+  truthful policy fallback without inferring waits from prose or widening
+  financial authority. Model selection is synchronized between composer and
+  Preferences, pinned per new admission; submitted/legacy recovery retains the
+  original model. Default Sol/high and fixed high reasoning remain. Paginated
+  legacy history, exact reading anchors, repo-native favicon and neutral themes
+  preserve original receipts. Includes lazy Activity/Node details and mobile
+  16px fields, 44px controls, safe areas and manual zoom. Preserves schema 4,
+  subscription OAuth, mandate and financial executor. CI 37942146614 passed
+  139 Node 24 and 16 Python tests. Anonymous amd64/arm64 configs and all 22
+  layers passed SHA-256/size checks against source
+  566dfcd4c295becef8a7d68b42e57bdde149e47d; package version is 0.3.8 and both
+  commands use flock --no-fork. Installed qualification and natural economic
+  closure readback remain pending. Local 24 responsive/model/history checks
+  passed; native iOS and VoiceOver are unverified. No financial acceptance test,
+  regtest, M3/M4 capability or profitability qualification is introduced.
