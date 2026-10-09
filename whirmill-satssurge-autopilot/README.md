@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Published release `0.4.0` is awaiting installed acceptance; `0.3.9` is currently installed healthy under the owned qualification pause. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Current installed and accepted release is `0.4.0`, using the official assistant-ui composer. Original autonomy and all four watcher timers are restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -498,3 +498,71 @@ Verifiedpre-040-20261009T153545Z checkpoint preserved111ledger/all original jobs
 85history/owner/mandate/operations; original naturally queued job remains
 unsubmitted and provider cooldown respected. Publication does not clear the
 owned pause/fence or authorize financial replay. Native iOS/VoiceOver unproven.
+
+### Installed 0.4.0 acceptance complete — 2026-10-09
+
+The official assistant-ui Composer.Root/Input/Send is installed and accepted.
+Umbrel amd64 runs healthy at immutable index
+`sha256:65053c9e00624efc274274143b15ad679f84eb05d3047bfa46fcc37d7de19fc3`,
+config `sha256:debf11687edcedf5d2011380cb23d5c250321499aa837ca4e16cb002b3d19aac`,
+source `50beed67ecfc9a3259173ff622bacea10ba0abfc`, package0.4.0 and
+`flock --no-fork`. [CI 37952913853](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37952913853)
+passed148Node24 and16Python; anonymous both-platform configs and all22layers
+passed SHA-256/size verification. Earlier pending checkpoints are superseded.
+
+The fresh `pre-040-20261009T154406Z` three-database checkpoint passed host/Mac
+verification and isolated restore: Store quick_check=ok, schema4,111ledger,
+85history and owner checksum. All jobs/history/owner/operations/ledger were
+unchanged through update. Controlled040restart preserved three queued read-only
+requests and owned cancellation rows exactly. OAuth was unchanged; old owner
+sessions invalidated and fresh private owner login succeeded. Browser refresh
+retained UI/history with no repeated POST admission.
+
+Actual native Enter read-only qualification completed once in28.016s and two
+analysts completed in25.876/28.143s, with two node_state/state_page tools each.
+All used high effort, attempts1/submitted1; three running jobs were observed
+concurrently. Qualification is excluded from follow-up/economic feed. Owned
+queued native Enter cancellation remained cancelled with attempts/submission0
+and exact keyboard-selected receipt. Real qualified public reasoning was visible
+(81events on original autonomy and a497-character summary on its successor);
+hidden thinking was not exposed.
+
+The original queued autonomy job completed once in130.660s with60s soft/180s
+hard budget. Closure persisted at95.415s and final provider request used
+`tool_choice:none` at95.430s, leaving49.340s at completion. A scheduler job already
+queued before that closure completed once in121.858s, closure87.660s and final
+none87.674s, leaving58.142s. Both preserve the same original wait deadline
+2026-10-10T14:30Z. These are original and finite pre-existing pending work, not
+proof of two independent15-minute cycles; normal coordinator cadence remains.
+Previous039 successful natural receipts remain intact. Its provider stream-ended
+failure remains failed without replay; the recorded cooldown was honored, not
+reclassified as a new040 failure.
+
+Actual04024responsive cases at320/390/768/1440 passed all pages with no overflow,
+mobile16px fields/44px targets. Popup selects were16px/45px, unclipped with44
+models/5efforts; Escape returned focus. Native input started44px, ShiftEnter grew
+to140px with long text;192px cap was qualified in the fixture. Legacy oldest row0
+and exact58.796875px reading anchor survived Node return. Closed tools mounted
+zero JSON; group expansion showed two items and only the selected tool mounted
+its parameter/result pre bodies. Real GFM tables rendered. Installed console
+warnings/errors were zero. Origin/CSRF returned403, copied bearer after logout401
+and idle SSE closed. Eight-hour wall-clock expiry was not waited; fake-clock
+coverage remains separate.
+
+Final reconciliation proved zero active jobs, all queue rows terminal and zero
+pending financial operations. Original terminal receipts,111ledger,85history,
+owner, OAuth, mandate and operations were preserved. Only the owned
+plan-035-qualification claim was cleared after reconciliation. Initial enabled=true,
+Sol/high and all four backfill/diagnostics/interlock/competition timers were
+restored; foreign timers and mandate were untouched. Financial acceptance effects
+and tests were zero; no regtest or M3/M4 expansion.
+
+Private installed screenshots were viewed at
+`/Users/whirmill/.local/share/satssurge/040-installed-desktop.jpg` and
+`040-installed-mobile.jpg`; responsive/history/console/owner-security receipts
+remain private under that evidence directory. Native iOS keyboard/VoiceOver and
+comparative heap savings remain unverified. Catalog capacity272K is capacity
+only; current context usage is unavailable. Upstream coverage/accounting gaps
+remain explicit, with no profitability claim. Massive exports/additional iterable
+adapters remain future candidates. Recovery must preserve current financial
+receipts and never replay uncertain sends or restore older accounting over them.
