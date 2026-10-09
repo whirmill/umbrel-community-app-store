@@ -392,3 +392,19 @@ metadata files together. Primary owns verified checkpoint, installed read-only
 Pi/browser acceptance and original autonomy/timer restoration. Preserve original
 financial pending/completed receipts; do not replay effects or restore old
 accounting over current state.
+
+### 0.3.6 immutable publication verified — installed acceptance pending
+
+Source `32a2d0feaa9313146864ba9e163227298548a688`, tag
+`satssurge-autopilot-v0.3.6`, [CI 37932221537](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37932221537)
+passed 113 Node24 and 16 Python tests. Verified image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.3.6@sha256:4faff07dec9f6f8a794d8f33cd2c367b856e5c39549c21a7d25e401e8786c3ce`.
+Anonymous index, both architecture configs and all 22 layers passed SHA-256 and
+size checks (218087053 compressed bytes). Configs match source and use
+`flock --no-fork`; extracted image package version is 0.3.6. Private receipt:
+`/Users/whirmill/.local/share/satssurge/image-036-receipt.json`.
+Manifest and compose are prepared together for this verified new patch.
+Actual installed 0.3.6 Pi/browser qualification and final operational
+reconciliation remain pending; the earlier installed 0.3.5 presentation defect
+is corrected in source but is not yet claimed qualified on the installed patch.
+Preserve original financial receipts and pending operations without replay.
