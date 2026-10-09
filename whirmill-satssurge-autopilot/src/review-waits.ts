@@ -40,12 +40,16 @@ export class ReviewWaits {
       throw Error(
         "Review registry capacity reached; no existing deadline was discarded",
       );
+    if (old?.origin.startsWith("agent:") && input.origin.startsWith("policy:"))
+      return old;
+    const replacePolicy =
+      old?.origin.startsWith("policy:") && input.origin.startsWith("agent:");
     const entry: ReviewWait = {
       ...input,
       evidenceIds: input.evidenceIds.slice(0, 32),
       missing: input.missing.slice(0, 16),
       dueAt:
-        old?.dueAt ??
+        (!replacePolicy ? old?.dueAt : undefined) ??
         new Date(
           Math.min(Date.parse(input.dueAt), at + 7 * 86400000),
         ).toISOString(),

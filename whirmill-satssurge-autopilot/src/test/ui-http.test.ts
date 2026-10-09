@@ -81,6 +81,18 @@ test("actual HTTP auth, legacy projection, history pages and SSE replay use dura
       } catch {}
       await new Promise((r) => setTimeout(r, 20));
     }
+    const favicon = await fetch(base + "/favicon.svg");
+    assert.equal(favicon.status, 200);
+    assert.match(favicon.headers.get("content-type")!, /image\/svg\+xml/);
+    assert.match(await favicon.text(), /<svg/);
+    assert.match(
+      favicon.headers.get("content-security-policy")!,
+      /default-src 'self'/,
+    );
+    assert.match(
+      await (await fetch(base + "/")).text(),
+      /href="\/favicon.svg"/,
+    );
     assert.equal((await fetch(base + "/api/events?after=0")).status, 401);
     const login = await fetch(base + "/api/owner/login", {
       method: "POST",
@@ -94,6 +106,22 @@ test("actual HTTP auth, legacy projection, history pages and SSE replay use dura
     assert.equal(response.status, 200);
     const history = (await response.json()) as any;
     assert.equal(history.jobs.length, 50);
+    assert.equal(history.nextLegacyBefore, null);
+    const legacyPage = (await (
+      await fetch(base + "/api/history?before=1&legacyBefore=1", { headers })
+    ).json()) as any;
+    assert.equal(legacyPage.jobs.length, 0);
+    assert.equal(legacyPage.legacyChat.length, 1);
+    assert.equal(legacyPage.legacyChat[0].legacyIndex, 0);
+    assert.equal(legacyPage.cursor, history.cursor);
+    assert.equal(
+      (await fetch(base + "/api/history?legacyBefore=-1", { headers })).status,
+      400,
+    );
+    assert.equal(
+      (await fetch(base + "/api/history?before=1&legacyBefore=1")).status,
+      401,
+    );
     assert.equal(history.cursor, cursor);
     assert.equal(history.legacyChat[0].answer, "Public only");
     const descriptor = history.legacyChat[1];

@@ -10,3 +10,5 @@ public/
 
 !web/public/
 !web/public/theme.js
+
+!web/public/favicon.svg

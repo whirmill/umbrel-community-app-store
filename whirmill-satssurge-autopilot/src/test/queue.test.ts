@@ -87,3 +87,14 @@ test('drain retains original submission receipt and waits without admitting the 
   release();assert.equal(await scheduler.drain(100),true);
   assert.equal(q.get(first.id)?.state,'completed');assert.equal(q.get(second.id)?.state,'queued');s.close();
 });
+
+test('changing the selected model preserves queued and duplicate receipts',()=>{
+  const {s,q}=ready();s.set('model','gpt-6.1-sol');
+  const original=q.enqueue({requestId:'model-original',kind:'chat',payload:{message:'read'}});
+  s.set('model','other-model');
+  assert.equal(q.enqueue({requestId:'model-original',kind:'chat',payload:{message:'read'}}).id,original.id);
+  assert.equal(s.get(`jobModel:${original.id}`),'gpt-6.1-sol');
+  const next=q.enqueue({requestId:'model-next',kind:'chat',payload:{message:'read'}});
+  assert.equal(s.get(`jobModel:${next.id}`),'other-model');
+  assert.equal(q.get(original.id)?.submitted,0);s.close();
+});

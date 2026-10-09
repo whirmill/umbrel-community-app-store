@@ -1,5 +1,6 @@
+import { legacyHistory } from "../dist/legacy-history.js";
 import { historyEvents } from "../dist/ui-history.js";
-import { publicJob } from "../dist/public-job.js";
+import { publicJob, exchangeAnswerPage } from "../dist/public-job.js";
 // Explicit local-only simulation; never imported by production or copied into image.
 import { createServer } from "node:http";
 import { readFileSync, mkdirSync } from "node:fs";
@@ -78,6 +79,18 @@ if (!store.get("seeded")) {
         });
       }
   }
+  if (process.env.FIXTURE_LEGACY_COUNT)
+    store.set(
+      "legacyChat",
+      Array.from(
+        { length: Math.min(5000, Number(process.env.FIXTURE_LEGACY_COUNT)) },
+        (_, i) => ({
+          at: new Date(Date.parse("2026-01-01") + i * 1000).toISOString(),
+          user: "Legacy fixture " + i,
+          answer: "Historical preserved answer " + i,
+        }),
+      ),
+    );
   store.set("seeded", true);
 }
 let session = "fixture-session";
@@ -126,6 +139,12 @@ function run(job) {
     queue.event(job.id, "completed", {});
   });
 }
+// Explicit synthetic catalog: these capacities are fixture values, not provider claims.
+const fixtureModels = [
+  { id: "gpt-6.1-sol", name: "GPT-6.1 Sol · simulato", provider: "openai", contextWindow: 128000 },
+  { id: "gpt-6-luna", name: "GPT-6 Luna · simulato", provider: "openai", contextWindow: 64000 },
+];
+if (!store.get("model")) store.set("model", "gpt-6.1-sol");
 let authPrompt = false;
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, "http://127.0.0.1");
@@ -149,13 +168,16 @@ const server = createServer(async (req, res) => {
     }
     if (!url.pathname.startsWith("/api/")) {
       const path = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
-      if (!/^(index.html|theme.js|assets\/[\w.-]+)$/.test(path))
+      if (!/^(index.html|theme.js|favicon.svg|assets\/[\w.-]+)$/.test(path))
         return send({}, 404);
       res.setHeader(
         "Content-Type",
-        { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" }[
-          extname(path)
-        ] ?? "application/octet-stream",
+        {
+          ".html": "text/html",
+          ".js": "text/javascript",
+          ".css": "text/css",
+          ".svg": "image/svg+xml",
+        }[extname(path)] ?? "application/octet-stream",
       );
       return res.end(readFileSync(resolve("public", path)));
     }
@@ -189,8 +211,9 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/api/auth")
       return send({
         connected: true,
-        models: [{ id: "gpt-6.1-sol", name: "GPT-6.1 Sol" }],
-        selected: "gpt-6.1-sol",
+        models: fixtureModels,
+        selected: store.get("model"),
+        catalogProvenance: "simulated fixture capacities",
         thinkingLevel: "high",
         events: [],
         prompt: authPrompt ? { message: "Codice OAuth simulato" } : null,
@@ -208,8 +231,23 @@ const server = createServer(async (req, res) => {
         ),
         cursor: events.cursor(),
         nextBefore: jobs.length === 50 ? jobs.at(-1).history_id : null,
-        legacyChat: [],
+        ...legacyHistory(
+          store,
+          url.searchParams.has("legacyBefore")
+            ? Number(url.searchParams.get("legacyBefore"))
+            : undefined,
+        ),
       });
+    }
+    if (url.pathname === "/api/chat/answer") {
+      const page = exchangeAnswerPage(
+        store,
+        url.searchParams.get("key") ?? "",
+        Number(url.searchParams.get("offset") ?? 0),
+      );
+      return page
+        ? send(page)
+        : send({ error: "Original exchange unavailable" }, 404);
     }
     if (url.pathname === "/api/jobs/events") {
       const jobId = url.searchParams.get("jobId") ?? "",
@@ -288,7 +326,12 @@ const server = createServer(async (req, res) => {
       authPrompt = false;
       return send({ connected: true });
     }
-    if (url.pathname === "/api/model") return send({ saved: true });
+    if (url.pathname === "/api/model") {
+      if (!fixtureModels.some((model) => model.id === body.model))
+        return send({ error: "Unavailable simulated model" }, 400);
+      store.set("model", body.model);
+      return send({ saved: true });
+    }
     send({ error: "Not found" }, 404);
   } catch (e) {
     send({ error: e.message }, 400);

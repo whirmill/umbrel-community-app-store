@@ -271,7 +271,12 @@ export function mergeHistory(
       ...(reset
         ? { jobs: retainedActive, events: [], cursor: resetCursor }
         : state),
-      historyWindowIds: history.jobs.map((j) => j.id),
+      historyWindowIds: [
+        ...history.jobs.map((j) => j.id),
+        ...(history.legacyChat ?? []).map(
+          (c, index) => "legacy:" + (c.requestId ?? c.legacyIndex ?? index),
+        ),
+      ],
     },
     history.jobs,
   );
@@ -285,11 +290,11 @@ export function mergeHistory(
       delete p.jobs[j.id];
   for (const [index, c] of (history.legacyChat ?? []).entries())
     if (!c.requestId || !requests.has(c.requestId)) {
-      const id = "legacy:" + (c.requestId ?? index);
+      const id = "legacy:" + (c.requestId ?? c.legacyIndex ?? index);
       p.jobs[id] = {
         id,
         request_id: c.requestId,
-        history_id: -index - 1,
+        history_id: -(c.legacyIndex ?? index) - 1,
         kind: "chat",
         state: "completed",
         created_at: c.at,

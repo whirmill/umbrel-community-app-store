@@ -386,7 +386,7 @@ for (const toolCount of [20, 40])
             requestId: "provider-harness",
             kind: "chat",
             origin: "owner",
-            purpose: "economic",
+            purpose: "general",
             payload: { message: "bounded model" },
           }),
           job = q.claim("coordinator", "test")!;
@@ -529,6 +529,8 @@ test("actual Harness hard deadline awaits an entered financial mock and recovery
     const queued = q.enqueue({
       requestId: "deadline",
       kind: "chat",
+      origin: "owner",
+      purpose: "economic",
       payload: { message: "mock only" },
     });
     const started = Date.now();
@@ -545,12 +547,19 @@ test("actual Harness hard deadline awaits an entered financial mock and recovery
     await assert.rejects(agent.runJob(owned), /hard deadline/);
     assert.equal(effects, 1);
     assert.equal(released, true);
+    const followUp = store.get<any>("followUpOutcome:" + queued.id);
+    assert.equal(followUp.outcome, "unregistered");
+    assert.equal(
+      followUp.dueAt,
+      new Date(Date.parse(queued.created_at) + 3600000).toISOString(),
+    );
     const receipt = q.get(queued.id)!;
     assert.ok(receipt.submission_id);
     q.recoverAfterRestart();
     owned = q.claim("coordinator", "new-owner")!;
     await assert.rejects(agent.runJob(owned));
     assert.equal(effects, 1);
+    assert.deepEqual(store.get("followUpOutcome:" + queued.id), followUp);
     assert.equal(q.get(queued.id)!.submission_id, receipt.submission_id);
     assert.equal(store.get<any>("runBudget:" + queued.id).started, started);
     assert.ok(

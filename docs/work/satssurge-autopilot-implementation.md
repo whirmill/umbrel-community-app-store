@@ -967,3 +967,170 @@ Package/root lock versions are0.3.7; catalog manifest/compose remain0.3.6 until
 new anonymous amd64/arm64 image verification, then publish metadata together.
 Primary owns checkpoint, installed0.3.7 lazy/Pi/browser acceptance and final
 original autonomy/timer restoration. No financial test/regtest/M3/M4 expansion.
+
+### In-progress source0.3.8 contract — 2026-10-09
+
+Primary holds the plan035 financial claim with enabled=false and backfill stopped;
+original true/timer configuration is restored only after final acceptance. Actual
+0.3.6 remains installed;0.3.7 image published with metadata held. Target is a new
+immutable0.3.8 release. Primary checkpoint pre037-20261009T130801Z: three SQLite
+stores/schema4,108 ledger rows (original107 unchanged plus one natural routing
+revenue),85 historical exchanges and original terminal receipts preserved. Three
+read-only Pi qualifications ran once plus six natural economic runs completed;
+no financial operations. These are primary runtime observations, not source-owner
+live actions. Subsequent ledger validation must preserve original-row subsets,
+allowing natural collector revenue rather than demanding a frozen row count.
+
+Astra diagnosis: natural economic replies recommended48h waiting but registered
+no durable review outcome; optional tool was exhausted before closure. Source
+strategy is one structured nonfinancial wait/no_wait outcome in the original
+submission and24-call/180s budget. Verified Responses/Codex onPayload adapter forces
+required tool choice until closure; after research/soft bounds only the closure
+function remains in the request and other tool guards reject research/finance.
+After valid outcome, final synthesis uses tool_choice none. Missing/invalid/timeout
+outcome persists truthful policy fallback with fixed admission+1h deadline and
+original submission receipt, never parses prose or reasoning for48h. Explicit agent
+wait replaces policy deadline; policy cannot overwrite explicit wait/evidence, and
+prior agent deadline never restarts. no_wait records this run without silently
+removing prior unresolved waits. Eligibility requires accepted economic owner or
+scheduler provenance; general/unknown/qualification never auto-write the registry.
+
+User additions remain in this same source lane: paged authenticated legacy history
+with stable absolute IDs and independent job/legacy cursors through bounded retained
+windows, recent-return control and original data untouched; repo-native SVG favicon
+under self CSP with explicit production MIME path; neutral near-black dark surfaces
+and blue/orange status/chart accents, no green palette. Primary reproduced blank
+Conversation after Node return: restored physical scroll at bottom but mounted
+first18 rows, all above viewport, because child layout read parent ref before it
+attached. Source now passes explicit attached viewport identity and persists measured
+heights/ID-offset anchor across tab unmount; fixture metrics add visible intersections.
+
+This section is in progress. Primary browser and natural installed-economic
+acceptance follow stable writer STOPPED, review, immutable release and deployment.
+No release/Git/deploy/live-system mutation belongs to this source lane.
+
+### Stable source0.3.8 checkpoint — 2026-10-09
+
+Source implementation is stable; repository writer is STOPPED after this checkpoint.
+Node24.21 `npm test` **135/135 PASS** (build/backend/frontend compile included),
+explicit typecheck PASS, Python **16/16 PASS**. Private logs:
+`/tmp/satssurge-resolution-followup-node-20261009.log`,
+`/tmp/satssurge-resolution-followup-typecheck-20261009.log`,
+`/tmp/satssurge-resolution-followup-python-20261009.log`.
+No owned fixture/server/Harness/test process remains running. No version, Git,
+release, deployment, SSH, operational MCP or live financial mutation was performed.
+Source package remains the primary's0.3.7; next immutable release is0.3.8.
+
+Verified closure: actual Pi Durable Harness invokes the owned provider payload hook
+using its declared tools. Cases cover early wait/no_wait; coordinator16+closure17
+and analyst12+closure13; soft boundary; provider-ignored required choice; invalid
+outcome/malformed bounded loop; hard timeout; closure followed by final model error;
+recovery after cooldown; qualification/general/unknown zero registry mutation;
+insistent financial call after closure (zero effects); duplicate40-closure batch
+(one outcome, absolute limit); and economic financial mock already entered at hard
+deadline (one effect, original submission and budget retained). All tests use mocked
+providers/executor effects, not real LND. Outcome and registry writes are atomic and
+idempotent by original job/submission. Finally fallback rechecks current ownership.
+
+Legacy pending compatibility: installed SDK preserves a persisted tool filter
+across configure. A real Harness test creates a node_state-only old conversation,
+submits its original input before the new Agent owns the run, holds its first
+provider stream in flight, resumes the same submission with the original aged
+budget, then releases the old stream. If closure is absent from the original
+provider context, research closes and the request uses tool_choice none with a
+truthful admission+1h policy fallback (`closure_tool_unavailable_in_original_context`).
+No missing required function or empty-tool required request is sent, original tool
+context is not rewritten, no new submission is made, and recovery repeats no
+provider/financial effect. This is an explicit legacy per-receipt gap, not an agent
+wait inferred from historical text. New runs use mandatory structured closure.
+
+Verified history contract: `/api/history` accepts additive independent `before`
+(job rowid) and `legacyBefore` (exclusive absolute legacy index). Responses return
+`nextBefore`/`nextLegacyBefore`; existing before compatibility remains. Legacy pages
+are<=50 rows and1MiB of projected data, acquired through SQLite json_each rather
+than parsing the whole private array in JavaScript. Stable legacyIndex IDs prevent
+page-relative collisions. Both older controls continue until both collections end;
+recent-return reloads newest pages while retaining active receipts. A1350-row
+fixture (1000 durable+350 legacy) reaches every original through a<=250 retained
+window, preserves SSE cursor77 during pagination, fetches exact paged oversized
+public text, preserves original private arrays and produces zero submissions.
+Production HTTP verifies legacy cursor authentication/validation and full-text
+access. Fresh heavy browser fixture can use `FIXTURE_HISTORY_COUNT=3000
+FIXTURE_LEGACY_COUNT=350 FIXTURE_HEAVY=1` (seed applies only to a fresh fixture).
+
+Favicon is repo-native `web/public/favicon.svg`, explicitly unignored, linked in
+index and served as image/svg+xml by production/fixture static routes. Real HTTP
+confirms200, content, index link and self CSP. No external image dependency.
+
+User theme correction uses neutral near-black body#111113/card#18181b/sidebar#09090b,
+bright blue/purple/orange semantic text and distinct chart colors. Source palette
+regression rejects green RGB hues anywhere in CSS and checks>=4.5 text contrast
+for surfaces, sidebar/navigation, inputs and financial/error/status accents. System,
+manual mode, media/storage lifecycle,16px mobile text,44px controls, safe areas and
+manual zoom remain intact. Actual browser contrast is still primary qualification.
+
+Conversation return fix uses stable callback adoption of the actual viewport
+identity; listeners/observers depend on that element and clean up on replacement.
+Measured heights and ID-offset reading anchor live in App across tab unmount,
+without replacing projection/runtime/history. Range is recomputed from attached
+scroll geometry. Regression covers the reproduced29567.5px bottom position,
+reading-history positions, remount/resize/prepending with variable heights; fixture
+metrics now expose `visibleMessages` intersections for primary real browser checks.
+Actual tab-return, expanded-summary history anchoring, focus/resize and500-core
+bounds need stable rendered qualification. No browser claim is inferred from pure
+geometry tests.
+
+Scope limit: persistent waits back off/coalesce per review scope, with fixed deadlines
+and material triggers. The coordinator's existing15-minute scheduled cadence and
+pending/event responsibilities remain unchanged; no global coordinator backoff is
+claimed. Natural installed economic closure readback, all browser controls, final
+independent review, release/deploy and fence/timer restoration remain primary-owned.
+
+Final fixture parity check: local simulation also serves authenticated
+`/api/chat/answer` through the same original-exchange page helper. Node syntax
+check PASS. Final135/135/source build/typecheck and16/16 Python remain valid;
+this parity addition changes only the fixture script. Writer is now STOPPED with
+all native execution sessions finished.
+
+### Source 0.3.8 follow-up checkpoint: history return and composer model (2026-10-09)
+
+Sole-writer reassignment invalidated the previous browser candidate acceptance. The navigation callback no longer forces `follow=true` when Conversation is reopened: reading history retains its App-owned message ID/offset anchor and manual follow mode; explicitly returning to recent history and sending still use their existing follow actions. Regression executes the production navigation callback through Activity/Node/Conversation and checks retained legacy anchor plus intersecting virtual range. Final browser history-offset qualification remains primary-owned.
+
+The composer now exposes the same controlled model setting as Preferences, through the existing authenticated/CSRF `/api/model` validation and refresh path. A failed save cannot optimistically change `auth.selected`. Provider identity, fixed `high` reasoning and positive safe-integer capacity from the runtime model catalog are shown; capacity is explicitly not current usage. No cumulative usage/context ratio, fictional token count, configurable effort, voice or attachment capabilities were added. The compact controls wrap, with 16px select text and 44px minimum target height; the existing neutral palette, safe-area/zoom behavior and paginated historical access remain.
+
+At admission the selected model is pinned privately under `jobModel:<jobid>` outside the immutable payload/digest. Duplicate admissions retain the original pin; subsequent jobs use the new setting. Agent execution uses that pin. Already-submitted conversation recovery retains its original persisted `pi.agent.model` before configure. Old queued records without a pin retain the previous current-setting fallback; no receipt or historical payload is rewritten. Actual Harness early-no-wait now changes the setting after admission to an invalid new value and still proves the original GPT-6.1 Sol provider model executes.
+
+Verification: Node 24.21 full `npm test` build + **138/138 PASS**; explicit typecheck PASS; Python **16/16 PASS**. Logs: `/tmp/satssurge-composer-node-20261009.log`, `/tmp/satssurge-composer-typecheck-20261009.log`, `/tmp/satssurge-composer-python-20261009.log`. This assignment changed `src/agent.ts`, `src/queue.ts`, `src/ui-model-picker.ts` (new), `src/test/{follow-up,queue,ui-virtual-window}.test.ts`, `src/test/ui-model-picker.test.ts` (new), `web/{App.tsx,style.css}` and this handoff. Generated ignored dist/public rebuilt. No Git/release/deploy/live financial writes or child resources. Package version remains release-owned. Writer STOPPED; primary review/browser/mobile acceptance and 0.3.8 publication/installed qualification remain pending.
+
+Fixture-only composer qualification parity: auth now exposes Sol/Luna explicitly named “simulato”, with synthetic fixture capacity constants and catalog provenance. `/api/model` validates this synthetic catalog, persists selection in the fixture Store and auth reads it back. Production provider/defaults are untouched. `node --check scripts/ui-fixture.mjs` PASS; primary owns the already-running old fixture stop/restart and HTTP/browser synchronization qualification. Writer STOPPED after this fixture + handoff patch; no test/server process started by child.
+
+
+Legacy model recovery review fix: Agent resolves the persisted submitted pi.agent.model before model validation and configure, and uses that effective model in provider configuration, status and returned result. Legacy receipts without jobModel recover even if the current preference is invalid or points at a different valid model. Actual Harness regression runs both cases on the original in-flight submission/old tool filter; original submission/budget/financial receipts stay intact, provider/result remain Sol, effects=0, no extra submission. Full Node24.21 build + **139/139 PASS**; explicit typecheck PASS. Logs /tmp/satssurge-model-recovery-node.log and /tmp/satssurge-model-recovery-typecheck.log. Initial test typo (kv instead of meta) caused cleanup to wait on mock provider; terminated that run, removed its exact leftover test directory, and added mock release to final cleanup. No child resources remain. Assignment changed only src/agent.ts, src/test/follow-up.test.ts and this handoff. Writer STOPPED; browser/release remains primary-owned.
+
+### 0.3.8 release preparation — source ready, publication/install pending
+
+Package and both root lockfile version fields are now 0.3.8. Immutable 0.3.7 is
+published but will skip installation; manifest/compose remain on installed0.3.6
+until 0.3.8 index/config/all-layer verification, then metadata publish together.
+Source includes mandatory structured nonfinancial economic closure and truthful
+policy fallback without prose inference, replay or widened financial authority;
+legacy history paging/full-text access, stable reading anchors, repo-native
+favicon, neutral palette and composer/Preferences model synchronization.
+New admissions pin their selected model outside original payload digests;
+submitted/legacy recovery retains the original persisted model. Default remains
+Sol/high, reasoning fixed high, subscription OAuth preserved.
+
+Source owner/reviewer stopped and approved. Final Node24 tests/build passed
+139/139 (`/tmp/satssurge-038-final-node.log`); Python16/16 and typecheck passed.
+Primary's visible24 cases at320/390/768/1440 had no overflow, mobile16px fields/
+44px controls and empty console. Bidirectional composer model sync, exact
+history anchor and oldest legacy access with bounded DOM passed. Native iOS,
+VoiceOver and comparative heap/latency savings remain unproven. Natural
+installed economic closure is not claimed from fixtures or mocked Harness.
+
+Next primary schedules exact tested source commit/tag, then release lane
+verifies immutable amd64/arm64 publication and updates catalog metadata. Primary
+owns consistent checkpoint, installed real Pi/browser/natural follow-up evidence
+and original autonomy/four-timer restoration. Keep the owned pause/fence until
+that acceptance; preserve original accounting, OAuth, mandate and pending
+receipts. No financial tests/regtest/M3/M4 expansion or historical prose import.

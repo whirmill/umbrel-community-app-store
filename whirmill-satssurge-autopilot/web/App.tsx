@@ -1,3 +1,5 @@
+import { ModelPicker } from "../src/ui-model-picker";
+import { virtualMemory } from "../src/ui-virtual-window";
 import { LazyDisclosure } from "../src/ui-disclosure";
 import { repositoryFor } from "./components/repository";
 import { useExpansion, pruneExpansions } from "./components/expansions";
@@ -206,7 +208,11 @@ function ToolRow({ call, callId, jobId }: any) {
     >
       <summary>
         <Shield size={14} />
-        <span>{t.toolName ?? "Strumento"}</span>
+        <span>
+          {t.toolName?.startsWith("follow_up_outcome")
+            ? "Esito e revisione"
+            : (t.toolName ?? "Strumento")}
+        </span>
         <Badge
           state={
             t.tool_result
@@ -482,6 +488,7 @@ export function App() {
     [tab, setTab] = useState("chat"),
     [projection, setProjection] = useState<Projection>(empty),
     [nextBefore, setNextBefore] = useState<number | null>(null),
+    [nextLegacyBefore, setNextLegacyBefore] = useState<number | null>(null),
     [connection, setConnection] = useState("Connessione…"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -507,6 +514,12 @@ export function App() {
       else document.getElementById("password")?.focus();
     }
   }, [tab, session]);
+  const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
+  const virtualState = useRef(virtualMemory()).current;
+  const adoptViewport = useCallback((node: HTMLDivElement | null) => {
+    scroll.current = node;
+    setViewport(node);
+  }, []);
   const restoreScroll = useRef<{ height: number; top: number } | null>(null);
   const csrf = useRef(""),
     canonical = useRef(empty),
@@ -580,6 +593,7 @@ export function App() {
       if (controller.signal.aborted) return;
       update((p) => mergeHistory(p, h, reset));
       setNextBefore(h.nextBefore);
+      setNextLegacyBefore(h.nextLegacyBefore ?? null);
     };
     void (async () => {
       try {
@@ -751,7 +765,7 @@ export function App() {
   );
   useEffect(() => {
     if (tab !== "chat") return;
-    const el = scroll.current;
+    const el = viewport;
     if (!el) return;
     if (follow.current) {
       const followLatest = () => {
@@ -768,7 +782,7 @@ export function App() {
       return () => observer.disconnect();
     }
     setUnread(true);
-  }, [latestFingerprint, tab]);
+  }, [latestFingerprint, tab, viewport]);
   const mutate = async (path: string, body: unknown = {}) => {
     setBusy(true);
     setError("");
@@ -784,16 +798,22 @@ export function App() {
     }
   };
   const loadOlder = async () => {
-    if (!nextBefore) return;
+    if (!nextBefore && !nextLegacyBefore) return;
     setOlder(true);
     const el = scroll.current,
       oldHeight = el?.scrollHeight ?? 0;
     follow.current = false;
     try {
-      const h = await api("history?before=" + nextBefore);
+      const h = await api(
+        "history?before=" +
+          (nextBefore ?? 1) +
+          "&legacyBefore=" +
+          (nextLegacyBefore ?? 0),
+      );
       restoreScroll.current = { height: oldHeight, top: el?.scrollTop ?? 0 };
       update((p) => mergeHistory(p, h));
       setNextBefore(h.nextBefore);
+      setNextLegacyBefore(h.nextLegacyBefore ?? null);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -806,6 +826,7 @@ export function App() {
       const h = await api("history");
       update((p) => mergeHistory(p, h, true));
       setNextBefore(h.nextBefore);
+      setNextLegacyBefore(h.nextLegacyBefore ?? null);
       follow.current = true;
       setNotice("Cronologia recente caricata.");
     } catch (e: any) {
@@ -860,7 +881,6 @@ export function App() {
               key={id}
               aria-current={tab === id ? "page" : undefined}
               onClick={() => {
-                if (id === "chat") follow.current = true;
                 setTab(id);
               }}
             >
@@ -1005,7 +1025,7 @@ export function App() {
                           <ThreadPrimitive.Root className="thread">
                             <div
                               className="chat-scroll"
-                              ref={scroll}
+                              ref={adoptViewport}
                               onScroll={(e) => {
                                 const el = e.currentTarget;
                                 follow.current =
@@ -1030,7 +1050,7 @@ export function App() {
                                   </Button>
                                 </div>
                               )}
-                              {nextBefore && (
+                              {(nextBefore || nextLegacyBefore) && (
                                 <Button
                                   variant="ghost"
                                   disabled={older}
@@ -1075,7 +1095,8 @@ export function App() {
                                 </div>
                               )}
                               <VirtualMessages
-                                scroll={scroll}
+                                viewport={viewport}
+                                memory={virtualState}
                                 Message={ChatMessage}
                                 follow={follow}
                               />
@@ -1112,6 +1133,14 @@ export function App() {
                                 onChange={(e) => setDraft(e.target.value)}
                                 placeholder="Chiedi al tuo agente…"
                                 rows={3}
+                              />
+                              <ModelPicker
+                                id="composer-model"
+                                auth={auth}
+                                disabled={busy || !!pending}
+                                onChange={(model) =>
+                                  void mutate("model", { model })
+                                }
                               />
                               <div className="composer-actions">
                                 <span>
@@ -1301,7 +1330,7 @@ export function App() {
                         ))}
                       </jobContext.Provider>
                     </detailContext.Provider>
-                    {nextBefore && (
+                    {(nextBefore || nextLegacyBefore) && (
                       <Button
                         variant="outline"
                         disabled={older}

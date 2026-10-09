@@ -1,3 +1,8 @@
+import {
+  anchorAt,
+  visibleRange,
+  type VirtualMemory,
+} from "../../src/ui-virtual-window";
 // Pinned adapter: assistant-ui/react 0.15.25, core 0.3.24.
 import {
   ThreadPrimitive,
@@ -12,16 +17,19 @@ import {
 } from "react";
 const OVERSCAN = 4;
 export function VirtualMessages({
-  scroll,
+  viewport,
+  memory,
   Message,
   follow,
 }: {
-  scroll: RefObject<HTMLDivElement | null>;
+  viewport: HTMLDivElement | null;
+  memory: VirtualMemory;
   Message: ComponentType;
   follow?: RefObject<boolean>;
 }) {
   const ids = unstable_useThreadMessageIds();
-  const heights = useRef(new Map<string, number>());
+  const heights = useRef(memory.heights);
+  const restored = useRef(false);
   const [range, setRange] = useState({ start: 0, end: 18 });
   const [, resize] = useState(0);
   const nodes = useRef(new Map<string, HTMLElement>());
@@ -37,9 +45,13 @@ export function VirtualMessages({
   for (const id of ids)
     offsets.push(offsets.at(-1)! + (heights.current.get(id) ?? 180));
   useLayoutEffect(() => {
-    const el = scroll.current;
+    const el = viewport;
     if (!el) return;
     const old = previous.current;
+    if (!restored.current) {
+      pendingAnchor.current = memory.anchor;
+      restored.current = true;
+    }
     const container = el.querySelector(".virtual-messages") as HTMLElement;
     const origin = container
       ? container.getBoundingClientRect().top -
@@ -69,9 +81,9 @@ export function VirtualMessages({
         el.scrollTop = origin + offsets[next]! + (top - old.offsets[index]!);
     }
     previous.current = { ids, offsets };
-  }, [ids, offsets.join(",")]);
+  }, [viewport, ids, offsets.join(",")]);
   useLayoutEffect(() => {
-    const el = scroll.current;
+    const el = viewport;
     if (!el) return;
     const update = () => {
       const container = el.querySelector(".virtual-messages") as HTMLElement;
@@ -82,15 +94,8 @@ export function VirtualMessages({
         : 0;
       const top = Math.max(0, el.scrollTop - origin),
         bottom = top + el.clientHeight;
-      let start = 0,
-        end = 0;
-      while (start < ids.length && offsets[start + 1]! < top) start++;
-      end = start;
-      while (end < ids.length && offsets[end]! < bottom) end++;
-      setRange({
-        start: Math.max(0, start - OVERSCAN),
-        end: Math.min(ids.length, end + OVERSCAN),
-      });
+      memory.anchor = anchorAt(ids, offsets, top);
+      setRange(visibleRange(offsets, top, el.clientHeight, OVERSCAN));
     };
     el.addEventListener("scroll", update, { passive: true });
     const observer = new ResizeObserver(update);
@@ -100,9 +105,9 @@ export function VirtualMessages({
       el.removeEventListener("scroll", update);
       observer.disconnect();
     };
-  }, [ids, scroll, offsets.join(",")]);
+  }, [viewport, ids, offsets.join(",")]);
   useLayoutEffect(() => {
-    const el = scroll.current;
+    const el = viewport;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
       let changed = false;
@@ -131,7 +136,6 @@ export function VirtualMessages({
             node.getBoundingClientRect().height,
           old = heights.current.get(id) ?? 180;
         if (Math.abs(size - old) > 1) {
-          const index = ids.indexOf(id);
           heights.current.set(id, size);
           changed = true;
         }
@@ -140,7 +144,7 @@ export function VirtualMessages({
     });
     for (const node of nodes.current.values()) observer.observe(node);
     return () => observer.disconnect();
-  }, [ids, range]);
+  }, [viewport, ids, range]);
   // Keep at most one focused row mounted outside the window; browser focus is never discarded.
   const focused =
     typeof document === "undefined"

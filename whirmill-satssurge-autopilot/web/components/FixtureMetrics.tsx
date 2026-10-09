@@ -51,6 +51,13 @@ export function FixtureMetrics({
       setStats({
         nodes: document.querySelectorAll("*").length,
         mountedMessages: document.querySelectorAll(".message").length,
+        visibleMessages: [
+          ...document.querySelectorAll("[data-message-id]"),
+        ].filter((e) => {
+          const row = e.getBoundingClientRect(),
+            rect = scroll?.getBoundingClientRect();
+          return !!rect && row.bottom > rect.top && row.top < rect.bottom;
+        }).length,
         mountedToolRows: document.querySelectorAll(".tool").length,
         closedHeavy: document.querySelectorAll(
           "details:not([open]) pre,details:not([open]) .markdown",

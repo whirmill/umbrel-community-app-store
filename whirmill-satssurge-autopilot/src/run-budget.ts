@@ -69,6 +69,11 @@ export class RunBudget {
       this.state.calls <= 24 && (!financial || this.state.phase === "research")
     );
   }
+  closeResearch() {
+    this.state.phase = "finalization";
+    this.state.reason ??= "follow_up_registered";
+    this.save();
+  }
   hardExhaust() {
     this.state.phase = "finalization";
     this.state.reason = "absolute_tool_limit";

@@ -1,3 +1,4 @@
+import { legacyHistory } from "./legacy-history.js";
 import { publicJob, publicExchange, exchangeAnswerPage } from "./public-job.js";
 import { historyEvents } from "./ui-history.js";
 import { provenance } from "./analysis-feed.js";
@@ -95,6 +96,7 @@ const staticFiles: Record<string, [string, string]> = {
   "/": ["index.html", "text/html; charset=utf-8"],
   "/app.js": ["app.js", "text/javascript; charset=utf-8"],
   "/style.css": ["style.css", "text/css; charset=utf-8"],
+  "/favicon.svg": ["favicon.svg", "image/svg+xml"],
   "/theme.js": ["theme.js", "text/javascript; charset=utf-8"],
 };
 const server = createServer(async (req, res) => {
@@ -248,10 +250,12 @@ const server = createServer(async (req, res) => {
         eventsPartial: page.partial,
         detailAccess: page.detailAccess,
         nextBefore: jobs.length === 50 ? jobs.at(-1)?.history_id : null,
-        legacyChat: (before === Number.MAX_SAFE_INTEGER
-          ? (store.get<any[]>("legacyChat") ?? [])
-          : []
-        ).map((c) => publicExchange(c, "legacyChat")),
+        ...legacyHistory(
+          store,
+          url.searchParams.has("legacyBefore")
+            ? Number(url.searchParams.get("legacyBefore"))
+            : undefined,
+        ),
       });
       return;
     }

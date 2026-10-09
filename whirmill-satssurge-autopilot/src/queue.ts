@@ -32,6 +32,7 @@ export class Queue {
       const priority=input.kind==='chat'?30:input.kind==='analysis'?20:input.kind==='events'?10:0;
       this.store.run(`INSERT INTO jobs(id,request_id,kind,lane,priority,payload,payload_digest,scope,snapshot_at,state,created_at,updated_at,coalesce_key)
         VALUES(?,?,?,?,?,?,?,?,?,'queued',?,?,?)`,key,input.requestId,input.kind,lane,priority,payload,digest,input.scope??'',this.store.get('snapshot')?.at??null,at,at,input.coalesceKey??null);
+      const model=this.store.get<string>('model');if(model)this.store.set(`jobModel:${key}`,model);
       this.event(key,'accepted',{kind:input.kind,lane,origin:input.origin??'unknown',purpose:input.purpose??'unknown'},at);return this.get(key)!;
     });
   }

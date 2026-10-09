@@ -19,7 +19,7 @@ export function ThemePicker() {
       document.documentElement.style.colorScheme = dark ? "dark" : "light";
       document
         .querySelector('meta[name="theme-color"]')
-        ?.setAttribute("content", dark ? "#141b18" : "#f5f5f0");
+        ?.setAttribute("content", dark ? "#111113" : "#f7f7f8");
     };
     apply();
     const sync = (e: StorageEvent) => {
