@@ -2,6 +2,8 @@
 
 ## Current continuation checkpoint — 2026-10-09 AI data access
 
+0.2.3 source66e3c3cd6a1fa99a1432efb729a18b840598864a and tag31c8eedc8414601f018c34007a15e0486c3a7d71 published; CI37890628266 SUCCESS58Node14Python onNode24. Independent bounded review accepted: all201unique diagnosticrows recoverable/tail200, versionchangedrestart, missingdataunknown, samecallerfence/analystnofinance. Release specialist verified anonymousindex/config/alllayerHEAD200 and exactsource for amd64manifest64940e2f2631214875f65808b971766b496f590f9bfef35e56bede992929d59b and arm64manifest1b5aa9e03db808452f80601502715abba10fc89f6e657834c6edd522816b92f1. OCIindex8a079bfa201d528b6e2007d1652eba1a683bd3ef4dd67321685a7f8c1a1050e2 nowpinnedincompose; manifest0.2.3. Pendingstoremetadata push/install/actualAIpageacceptance/finalresume; no financialRPC. Sourceprojectionqualified but modelreadingcompletion remains pending. FullM2goalACTIVE.
+
 Owner login is now verified in the installed external browser: login heading absent; status `In pausa`, coordinator available, analysts0/2, one financial executor. No further owner-login blocker for0.2.2.
 
 Actual completed AI receipts exposed a remaining M2 gap: `node_state` returned the entire stats projection and Pi's50KB output window clipped later diagnostic/competition/accounting content. New `agent-state.ts` provides a compact summary and typed `state_page` for each coordinator/analyst, with<=12000byte/20row pages, section content versions, explicit acquisition-change restart, unavailable counts null and coverage retained. Competition summaries keep all10 peers/quotes; alternatives are a separate page with upstream truncation explicit. Diagnostic attempts and buckets remain distinct from payment counts. No new financial capability.

@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.2.2"
+version: "0.2.3"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -25,13 +25,13 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.2.2 preserves the Umbrel app-proxy session on same-origin API calls,
-  fixing the external browser login redirect. Autopilot still requires its
-  separate explicit bearer session; cookies alone grant no owner authority.
-  Origin and CSRF checks remain enforced. CI passed 54 Node and 14 Python tests;
-  immutable amd64/arm64 images identify source c7febdb982be086ee59981e162e09bb4d7ddfa92.
-  Retains the persistent queue, one coordinator, two read-only analysts,
-  qualified diagnostics and immutable 7/30-day evaluations. Installed 0.2.1
-  passed bounded schema 3 and concurrency qualification; 0.2.2 installation
-  and external proxy acceptance remain pending. Financial limits are unchanged;
-  no channel lifecycle, Magma, Telegram or profitability qualification.
+  Version 0.2.3 replaces oversized agent state output with a bounded 3 KB
+  summary and versioned pages capped at 12 KB, preserving access to qualified
+  evidence without Pi's 50 KB tool-output truncation. Pages retain ownership
+  checks and grant no additional execution authority. CI passed 58 Node and
+  14 Python tests; immutable amd64/arm64 images identify source
+  66e3c3cd6a1fa99a1432efb729a18b840598864a. Retains explicit bearer authentication,
+  the Umbrel same-origin proxy session, persistent queue, bounded read-only
+  analysts and M2 diagnostics/evaluations. Installation and live acceptance of
+  this release remain pending. Financial limits are unchanged; no channel
+  lifecycle, Magma, Telegram or profitability qualification.
