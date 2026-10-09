@@ -1,3 +1,5 @@
+import { getSupportedThinkingLevels } from "./model-settings.js";
+import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { FollowUps } from "./follow-up.js";
 import { evidenceSource } from "./evidence-source.js";
 import { ReviewWaits } from "./review-waits.js";
@@ -125,6 +127,45 @@ export class Agent {
               ([, run]) => run.job.id === owned.job.id,
             )?.[0]
           : "");
+      const requestStarted = Date.now();
+      let requestOrdinal: number | undefined,
+        firstText = false,
+        responseFinished = false;
+      let requestPhase: "research" | "closure" | "finalization" = closed
+        ? "finalization"
+        : economic && owned?.budget.exhausted()
+          ? "closure"
+          : "research";
+      const recordRequest = (payload: any, requestModel: { id: string }) => {
+        // The preceding payload hook may cross the soft boundary; classify the final request.
+        requestPhase =
+          closed ||
+          payload?.tool_choice === "none" ||
+          (!economic && owned?.budget.exhausted())
+            ? "finalization"
+            : economic && owned?.budget.exhausted()
+              ? "closure"
+              : "research";
+        const current = owned ? this.queue.get(owned.job.id) : undefined;
+        if (
+          owned &&
+          current?.state === "running" &&
+          current.run_token === owned.job.run_token &&
+          current.conversation_id === owned.job.conversation_id
+        )
+          requestOrdinal = owned.budget.phase("request_start", {
+            phase: requestPhase,
+            model: requestModel.id,
+            effort: options?.reasoning ?? "off",
+            toolChoice: payload?.tool_choice ?? options?.toolChoice ?? "auto",
+            toolNames: Array.isArray(payload?.tools)
+              ? payload.tools
+                  .map((tool: any) => tool.name ?? tool.function?.name)
+                  .filter((name: any) => typeof name === "string")
+              : [],
+          });
+        return payload;
+      };
       return stream(model, transcript, {
         ...options,
         ...(closed || (!economic && owned?.budget.exhausted())
@@ -133,7 +174,8 @@ export class Agent {
         onPayload: async (payload, requestModel) => {
           const transformed =
             (await options?.onPayload?.(payload, requestModel)) ?? payload;
-          if (!economic || !owned) return transformed;
+          if (!economic || !owned)
+            return recordRequest(transformed, requestModel);
           const row = this.queue.get(owned.job.id);
           if (
             row?.state !== "running" ||
@@ -142,7 +184,11 @@ export class Agent {
           )
             throw Error("Lost closure ownership");
           const request = transformed as any;
-          if (closed) return { ...request, tool_choice: "none" };
+          if (closed)
+            return recordRequest(
+              { ...request, tool_choice: "none" },
+              requestModel,
+            );
           if (
             !["openai-responses", "openai-codex-responses"].includes(
               requestModel.api,
@@ -162,16 +208,23 @@ export class Agent {
               row,
               "closure_tool_unavailable_in_original_context",
             );
-            return { ...request, tool_choice: "none" };
+            requestPhase = "finalization";
+            return recordRequest(
+              { ...request, tool_choice: "none" },
+              requestModel,
+            );
           }
-          return {
-            ...request,
-            tool_choice: "required",
-            parallel_tool_calls: false,
-            ...(owned.budget.exhausted()
-              ? { tools: tools.filter((t: any) => t.name === closureName) }
-              : {}),
-          };
+          return recordRequest(
+            {
+              ...request,
+              tool_choice: "required",
+              parallel_tool_calls: false,
+              ...(owned.budget.exhausted()
+                ? { tools: tools.filter((t: any) => t.name === closureName) }
+                : {}),
+            },
+            requestModel,
+          );
         },
         onProviderStreamEvent: async (event) => {
           await options?.onProviderStreamEvent?.(event, model);
@@ -183,6 +236,39 @@ export class Agent {
             row.conversation_id !== owned.job.conversation_id
           )
             return;
+          const eventType = (event as any)?.type;
+          if (eventType === "response.output_text.delta" && !firstText) {
+            firstText = true;
+            owned.budget.phase("public_first_text", {
+              phase: requestPhase,
+              model: model.id,
+              effort: options?.reasoning ?? "off",
+              requestOrdinal,
+              requestElapsedMs: Date.now() - requestStarted,
+            });
+          }
+          if (
+            [
+              "response.completed",
+              "response.failed",
+              "response.incomplete",
+            ].includes(eventType) &&
+            !responseFinished
+          ) {
+            responseFinished = true;
+            owned.budget.phase(
+              eventType === "response.completed"
+                ? "response_finish"
+                : "response_failed",
+              {
+                phase: requestPhase,
+                model: model.id,
+                effort: options?.reasoning ?? "off",
+                requestOrdinal,
+                requestElapsedMs: Date.now() - requestStarted,
+              },
+            );
+          }
           const delta = summaryDelta(event, model.api);
           if (!delta) return;
           const key = owned.job.id + ":" + delta.itemId + ":" + delta.index;
@@ -476,6 +562,7 @@ export class Agent {
               exhausted() ?? result({ blocked: true, reason: "hard_deadline" })
             );
           const outcome = outcomes.record(self.queue.get(run.job.id)!, a);
+          run.budget.phase("closure_registered", { phase: "closure" });
           run.budget.closeResearch();
           return result(outcome);
         },
@@ -500,10 +587,13 @@ export class Agent {
           const outcomes = new FollowUps(self.store);
           if (!outcomes.eligible(current()!.job))
             return result({ blocked: true, reason: "not_economic" });
+          const already = outcomes.get(current()!.job.id);
           const outcome = outcomes.record(self.queue.get(current()!.job.id)!, {
             ...a,
             outcome: "wait",
           });
+          if (!already)
+            current()!.budget.phase("closure_registered", { phase: "closure" });
           current()!.budget.closeResearch();
           return result(outcome);
         },
@@ -669,13 +759,14 @@ export class Agent {
         id: m.id,
         name: m.name,
         provider: m.provider,
+        thinkingLevels: getSupportedThinkingLevels(m),
         contextWindow:
           Number.isSafeInteger(m.contextWindow) && m.contextWindow > 0
             ? m.contextWindow
             : undefined,
       })),
       selected: this.store.get("model"),
-      thinkingLevel: THINKING_LEVEL,
+      thinkingLevel: this.store.get("thinkingLevel") ?? THINKING_LEVEL,
     };
   }
   login() {
@@ -761,7 +852,9 @@ export class Agent {
       this.coordinator = {
         job,
         calls: 0,
-        budget: new RunBudget(this.store, job.id, false),
+        budget: new RunBudget(this.store, job.id, false, Date.now, {
+          economic: new FollowUps(this.store).eligible(job),
+        }),
       };
     } else {
       if (this.analysts.has(slot))
@@ -769,7 +862,9 @@ export class Agent {
       this.analysts.set(slot, {
         job,
         calls: 0,
-        budget: new RunBudget(this.store, job.id, true),
+        budget: new RunBudget(this.store, job.id, true, Date.now, {
+          economic: new FollowUps(this.store).eligible(job),
+        }),
         proposals: [],
       });
     }
@@ -797,6 +892,9 @@ export class Agent {
     let model =
       this.store.get<string>(`jobModel:${job.id}`) ??
       this.store.get<string>("model");
+    let thinkingLevel = (this.store.get(`jobThinkingLevel:${job.id}`) ??
+      this.store.get("thinkingLevel") ??
+      THINKING_LEVEL) as ModelThinkingLevel;
     try {
       if (!(await this.available()))
         throw new ModelUnavailable(
@@ -817,6 +915,7 @@ export class Agent {
           try {
             const state = original.value.docs["pi.agent"] as any;
             if (state?.model?.modelId) model = state.model.modelId;
+            if (state?.thinkingLevel) thinkingLevel = state.thinkingLevel;
           } finally {
             original.dispose();
           }
@@ -836,7 +935,7 @@ export class Agent {
           : "You are a read-only analyst. You cannot execute, reserve capital, change fees or delegate. Propose falsifiable drafts with evidence to the single coordinator.");
       const config = {
         model: { provider: "openai", modelId: model },
-        thinkingLevel: THINKING_LEVEL,
+        thinkingLevel,
         extensions: [
           {
             name:
@@ -907,11 +1006,16 @@ export class Agent {
           at: now(),
           status: "running",
           model,
-          thinkingLevel: THINKING_LEVEL,
+          thinkingLevel,
           jobId: job.id,
         });
       timer = setTimeout(() => {
         terminalCause = "hard_deadline";
+        budget.phase("hard_abort", {
+          phase: "lifecycle",
+          model,
+          effort: thinkingLevel,
+        });
         aborting = conversation!.abort(context);
         void aborting.catch(() => {});
       }, budget.status().remainingMs);
@@ -1007,7 +1111,7 @@ export class Agent {
           at: now(),
           status: "idle",
           model,
-          thinkingLevel: THINKING_LEVEL,
+          thinkingLevel,
           jobId: job.id,
         });
       fallbackOutcome("early_unregistered_final");
@@ -1022,7 +1126,7 @@ export class Agent {
         budget: budget.status(),
         followUpOutcome: new FollowUps(this.store).get(job.id) ?? null,
         model,
-        thinkingLevel: THINKING_LEVEL,
+        thinkingLevel,
       };
     } catch (e) {
       if (e instanceof ModelUnavailable)

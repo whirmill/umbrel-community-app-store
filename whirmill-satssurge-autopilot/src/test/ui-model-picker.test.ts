@@ -3,13 +3,19 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ModelPicker } from "../ui-model-picker.js";
-test("composer model uses authoritative selection and verified capacity without fabricated usage", () => {
+test("closed compact composer shows authoritative model/effort and verified capacity without full-width selects or fabricated usage", () => {
   const auth = {
-    selected: "sol",
+    selected: "gpt-6.1-sol",
     thinkingLevel: "high",
     models: [
-      { id: "sol", name: "GPT Sol", provider: "openai", contextWindow: 128000 },
-      { id: "other", name: "Other" },
+      {
+        id: "gpt-6.1-sol",
+        name: "GPT Sol",
+        provider: "openai",
+        contextWindow: 128000,
+        thinkingLevels: ["low", "high"],
+      },
+      { id: "other", name: "Other", thinkingLevels: ["off"] },
     ],
   };
   const render = () =>
@@ -21,31 +27,19 @@ test("composer model uses authoritative selection and verified capacity without 
         onChange: () => {},
       }),
     );
-  assert.match(render(), /value="sol" selected/);
-  assert.match(render(), /OpenAI/);
-  assert.match(render(), /Ragionamento · high/);
-  assert.match(render(), /128.000 token/);
-  assert.doesNotMatch(render(), /1.1M|microfono/);
-  let requested = "";
-  const tree = ModelPicker({
-    id: "composer-model",
-    auth,
-    disabled: false,
-    onChange: (model) => {
-      requested = model;
-    },
-  });
-  const select = (tree.props as any).children[1];
-  select.props.onChange({ target: { value: "other" } });
-  assert.equal(requested, "other");
-  assert.equal(
-    auth.selected,
-    "sol",
-    "failed save leaves authoritative selection unchanged",
+  assert.match(render(), /GPT Sol/);
+  assert.match(render(), /model-short-name[^>]*>Sol/);
+  assert.match(render(), /model-effort.*high/);
+  assert.match(
+    render(),
+    /Capacità contesto 128000 token; utilizzo corrente non disponibile/,
   );
+  assert.doesNotMatch(render(), /<select|<label|1.1M|microfono/);
+  assert.match(render(), /aria-expanded="false"/);
   auth.selected = "other";
-  assert.match(render(), /value="other" selected/);
-  assert.doesNotMatch(render(), /Capacità contesto/);
+  auth.thinkingLevel = "off";
+  assert.match(render(), /Other/);
+  assert.doesNotMatch(render(), /model-capacity/);
   assert.match(
     renderToStaticMarkup(
       createElement(ModelPicker, {

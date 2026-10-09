@@ -2168,30 +2168,168 @@ h1:focus {
   --border: #3f3f46;
 }
 
+/* Compact composer selector: menu stays inside the composer's width. */
 .composer-model {
+  position: relative;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
   padding: 8px 0;
-  color: var(--muted);
-  font-size: 12px;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  gap: 8px;
 }
-.composer-model label {
+.model-trigger {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-.composer-model select {
   min-height: 44px;
-  min-width: 0;
-  max-width: 100%;
-  font-size: 16px;
-  width: auto;
-  flex: 1 1 180px;
+  max-width: calc(100% - 56px);
+  padding: 6px 8px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 14px;
 }
-.composer-model .model-metadata {
-  display: flex;
-  flex-wrap: wrap;
+.model-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.model-effort {
+  color: var(--tone-29);
+  font-size: 12px;
+}
+.model-capacity {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 12px 2px;
+  cursor: help;
+}
+.model-menu {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  bottom: calc(100% + 4px);
+  width: min(320px, 100%);
+  max-height: min(360px, 55dvh);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 8px 30px #0004;
+  display: grid;
   gap: 8px;
+}
+.composer-model .model-menu select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  font-size: 16px;
+}
+.model-menu-close {
+  min-height: 44px;
+}
+.chat-panel:has(.model-menu) {
+  overflow: visible;
+}
+/* One composer surface with a single compact control row. */
+.composer {
+  border-top: 0;
+}
+.composer-surface {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-input);
+  padding: 4px;
+}
+.composer-surface:focus-within {
+  outline: 2px solid var(--local);
+  outline-offset: 2px;
+}
+.composer .composer-surface textarea {
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 16px;
+  padding: 12px;
+  resize: vertical;
+}
+.composer-actions {
+  flex-wrap: nowrap;
+  padding: 0 4px 4px;
+  gap: 4px;
+}
+.composer-actions .composer-model {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0;
+  gap: 4px;
+}
+.composer-actions .model-trigger {
+  min-width: 0;
+  gap: 4px;
+  padding: 4px;
+}
+.composer-actions .model-effort {
+  flex-shrink: 0;
+}
+.composer-actions .model-capacity {
+  padding: 10px 0;
+}
+.composer-actions .button.composer-analysis,
+.composer-actions .button.composer-send {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  flex: 0 0 44px;
+  border-radius: 50%;
+}
+.model-short-name {
+  display: none;
+}
+.composer-surface .model-menu {
+  width: min(320px, calc(100vw - 72px));
+  max-width: calc(100vw - 72px);
+}
+@media (max-width: 480px) {
+  .model-full-name {
+    display: none;
+  }
+  .model-short-name {
+    display: inline;
+  }
+}
+@media (max-width: 480px) {
+  .composer-actions .composer-model {
+    gap: 2px;
+  }
+  .composer-actions .model-trigger {
+    max-width: none;
+    flex: 1 1 auto;
+    padding: 0 2px;
+    gap: 3px;
+  }
+  .composer-actions .model-trigger > span:first-child,
+  .composer-actions .model-capacity > span {
+    display: none;
+  }
+}
+@media (max-width: 768px) {
+  .compact-details > summary,
+  .tool-group > summary,
+  .channel-details > summary,
+  details > summary {
+    min-height: 44px;
+    box-sizing: border-box;
+    padding-block: 12px;
+  }
 }

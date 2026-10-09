@@ -89,12 +89,12 @@ test('drain retains original submission receipt and waits without admitting the 
 });
 
 test('changing the selected model preserves queued and duplicate receipts',()=>{
-  const {s,q}=ready();s.set('model','gpt-6.1-sol');
+  const {s,q}=ready();s.set('model','gpt-6.1-sol');s.set('thinkingLevel','low');
   const original=q.enqueue({requestId:'model-original',kind:'chat',payload:{message:'read'}});
-  s.set('model','other-model');
+  s.set('model','other-model');s.set('thinkingLevel','high');
   assert.equal(q.enqueue({requestId:'model-original',kind:'chat',payload:{message:'read'}}).id,original.id);
-  assert.equal(s.get(`jobModel:${original.id}`),'gpt-6.1-sol');
+  assert.equal(s.get(`jobModel:${original.id}`),'gpt-6.1-sol');assert.equal(s.get(`jobThinkingLevel:${original.id}`),'low');
   const next=q.enqueue({requestId:'model-next',kind:'chat',payload:{message:'read'}});
-  assert.equal(s.get(`jobModel:${next.id}`),'other-model');
+  assert.equal(s.get(`jobModel:${next.id}`),'other-model');assert.equal(s.get(`jobThinkingLevel:${next.id}`),'high');
   assert.equal(q.get(original.id)?.submitted,0);s.close();
 });

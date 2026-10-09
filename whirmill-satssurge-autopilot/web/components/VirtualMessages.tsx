@@ -92,9 +92,9 @@ export function VirtualMessages({
           el.getBoundingClientRect().top +
           el.scrollTop
         : 0;
-      const top = Math.max(0, el.scrollTop - origin),
-        bottom = top + el.clientHeight;
-      memory.anchor = anchorAt(ids, offsets, top);
+      const rawTop = el.scrollTop - origin;
+      const top = Math.max(0, rawTop);
+      memory.anchor = anchorAt(ids, offsets, rawTop);
       setRange(visibleRange(offsets, top, el.clientHeight, OVERSCAN));
     };
     el.addEventListener("scroll", update, { passive: true });

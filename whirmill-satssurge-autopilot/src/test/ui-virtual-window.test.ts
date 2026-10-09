@@ -94,3 +94,59 @@ test("the actual section navigation handler preserves manual history follow mode
   navigate(() => {}, "chat", follow);
   assert.equal(follow.current, true);
 });
+
+test("production viewport update retains negative first-history anchor below the leading control", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(
+    new URL("../../web/components/VirtualMessages.tsx", import.meta.url),
+    "utf8",
+  );
+  const update = source.match(
+    /const update = \(\) => \{([\s\S]*?)\n    \};/,
+  )?.[1];
+  assert.ok(update, "qualify the production scroll/resize callback");
+  const memory = virtualMemory(),
+    ids = ["legacy:0:user", "legacy:0:assistant", "legacy:1:user"],
+    offsets = [0, 192.46875, 500, 700];
+  const viewport = {
+    scrollTop: 0,
+    clientHeight: 392,
+    getBoundingClientRect: () => ({ top: 345.5 }),
+    querySelector: () => ({ getBoundingClientRect: () => ({ top: 407.5 }) }),
+  };
+  let range = { start: -1, end: -1 };
+  const capture = new Function(
+    "el",
+    "memory",
+    "ids",
+    "offsets",
+    "anchorAt",
+    "visibleRange",
+    "setRange",
+    "OVERSCAN",
+    update.replace(/ as HTMLElement/g, ""),
+  );
+  capture(
+    viewport,
+    memory,
+    ids,
+    offsets,
+    anchorAt,
+    visibleRange,
+    (value: typeof range) => {
+      range = value;
+    },
+    4,
+  );
+  assert.deepEqual(memory.anchor, { id: "legacy:0:user", offset: -62 });
+  assert.equal(range.start, 0);
+  assert.ok(range.end >= 2);
+  const restoredScrollTop =
+    62 + offsets[ids.indexOf(memory.anchor!.id)]! + memory.anchor!.offset;
+  assert.equal(restoredScrollTop, 0);
+  assert.equal(62 + offsets[0]! - restoredScrollTop, 62);
+  assert.equal(62 + offsets[1]! - restoredScrollTop, 254.46875);
+  viewport.scrollTop = restoredScrollTop;
+  capture(viewport, memory, ids, offsets, anchorAt, visibleRange, () => {}, 4);
+  assert.deepEqual(memory.anchor, { id: "legacy:0:user", offset: -62 });
+});

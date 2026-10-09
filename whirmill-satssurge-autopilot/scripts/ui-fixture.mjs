@@ -141,8 +141,20 @@ function run(job) {
 }
 // Explicit synthetic catalog: these capacities are fixture values, not provider claims.
 const fixtureModels = [
-  { id: "gpt-6.1-sol", name: "GPT-6.1 Sol · simulato", provider: "openai", contextWindow: 128000 },
-  { id: "gpt-6-luna", name: "GPT-6 Luna · simulato", provider: "openai", contextWindow: 64000 },
+  {
+    id: "gpt-6.1-sol",
+    name: "GPT-6.1 Sol · simulato",
+    provider: "openai",
+    contextWindow: 128000,
+    thinkingLevels: ["low", "medium", "high"],
+  },
+  {
+    id: "gpt-6-luna",
+    name: "GPT-6 Luna · simulato",
+    provider: "openai",
+    contextWindow: 64000,
+    thinkingLevels: ["low", "medium", "high"],
+  },
 ];
 if (!store.get("model")) store.set("model", "gpt-6.1-sol");
 let authPrompt = false;
@@ -214,7 +226,7 @@ const server = createServer(async (req, res) => {
         models: fixtureModels,
         selected: store.get("model"),
         catalogProvenance: "simulated fixture capacities",
-        thinkingLevel: "high",
+        thinkingLevel: store.get("thinkingLevel") ?? "high",
         events: [],
         prompt: authPrompt ? { message: "Codice OAuth simulato" } : null,
       });
@@ -329,7 +341,15 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/api/model") {
       if (!fixtureModels.some((model) => model.id === body.model))
         return send({ error: "Unavailable simulated model" }, 400);
-      store.set("model", body.model);
+      const selected = fixtureModels.find((model) => model.id === body.model);
+      const thinkingLevel =
+        body.thinkingLevel ?? store.get("thinkingLevel") ?? "high";
+      if (!selected.thinkingLevels.includes(thinkingLevel))
+        return send({ error: "Unavailable simulated reasoning level" }, 400);
+      store.tx(() => {
+        store.set("model", body.model);
+        store.set("thinkingLevel", thinkingLevel);
+      });
       return send({ saved: true });
     }
     send({ error: "Not found" }, 404);

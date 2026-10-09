@@ -1150,3 +1150,60 @@ Manifest and compose are prepared together for this verified release; immutable
 Pi/natural economic closure, checkpoint/reconciliation and original autonomy/
 timer restoration remain primary-owned and pending. Current owned pause/fence
 is preserved until acceptance; financial receipts must never be replayed.
+
+### Source 0.3.9: leading history anchor and compact model/effort controls
+
+Actual installed038 first-history reproduction: at scrollTop=0 the first legacy row was 62px below the viewport due to the leading history control. Returning from Node preserved IDs but shifted them 62px. VirtualMessages now stores the raw scrollTop-minus-container-origin (negative offsets included), while visibleRange still uses nonnegative top. Regression executes the production scroll/resize callback with the observed 62px geometry, verifies legacy0 user/assistant offsets62/254.46875 and exact scroll0 across capture/remount.
+
+Latest explicit user request supersedes the earlier fixed-high-only UI scope: composer has one compact provider/model/effort trigger with chevron; an accessible menu offers model and reasoning selects, plus Escape/outside close and focus return/initial select focus. Capacity stays compact at the right and labels only provider catalog capacity, with current context usage explicitly unavailable. No aggregate token ratio, microphone or attachments. Closed composer has no full-width model select or verbose capability label. Menu uses bounded height/scroll, 16px inputs and 44px controls; chat-panel overflow is released only while this menu exists to avoid clipping. Preferences retains synchronized model and reasoning controls.
+
+Auth model catalog uses installed Pi getSupportedThinkingLevels: unsupported null mappings are excluded and xhigh/max require explicit mappings. Existing authenticated/CSRF model endpoint validates model+level and atomically saves both. Default remains Sol/high; changing model without explicit effort retains compatible current effort, otherwise high when supported, otherwise the catalog's first supported level. Queue pins effort alongside model outside immutable payload/digest. Submitted recovery reads original pi.agent model AND effort before validation/configure; results/status reflect them. Actual Harness verifies admitted low effort reaches provider options.reasoning despite later high preference, and old unpinned submitted conversations preserve original low under invalid/different valid model preferences. No budget/scheduler/financial authority changes.
+
+Fixture catalog exposes explicitly simulated Sol/Luna capacities and supported levels; settings persist and read back so primary can qualify both composer and Preferences. Final verification Node24.21 full build + **141/141 PASS**, explicit typecheck PASS, Python **16/16 PASS**, fixture node-check PASS. Logs /tmp/satssurge-composer039-{node,typecheck,python}.log. Initial anchor-only140 run had one existing hard-deadline financial-mock timing assertion fail under concurrent compiler load (/tmp/satssurge-leading-anchor-node.log); that assertion and production budget were unchanged, and subsequent full141 runs passed. No native iOS, browser menu/mobile/contrast or installed039 acceptance is claimed by child; primary owns these.
+
+Assignment files: web/components/VirtualMessages.tsx; src/test/ui-virtual-window.test.ts; src/model-settings.ts (new); src/test/model-settings.test.ts (new); src/ui-model-picker.ts; src/test/ui-model-picker.test.ts; src/{agent,queue,server}.ts; src/test/{queue,follow-up}.test.ts; web/{App.tsx,style.css}; scripts/ui-fixture.mjs; this handoff. Generated ignored dist/public rebuilt; package version remains release-owned. All child tests/checks exited, no child app/browser/server resources created. Writer STOPPED; primary review/browser, immutable039 publication and installed financial-fenced qualification remain.
+
+039 visual-only integrated composer refinement: after inspecting primary's candidate screenshot, wrapped textarea and all footer controls in one rounded composer surface. Textarea is transparent/borderless with 16px text; focus-within highlights only the outer surface. One nonwrapping footer row contains the compact model/effort picker, its capacity indicator, a 44px read-only analysis icon and 44px arrow submit at far right. Full labels remain accessible/title; visible verbose mandate footer text removed. Pending retry/recovery, nonce, endpoint/auth/effort settings and financial protections are unchanged. Picker flexes with min-width0 and model ellipsis while effort/capacity remain distinct; existing safe-area/zoom/theme behavior preserved. No backend edits in this refinement. Files only web/App.tsx, web/style.css and this handoff. Full Node24.21 build +141/141 PASS and explicit typecheck PASS; logs /tmp/satssurge-integrated-composer-{node,typecheck}.log. Writer STOPPED, no child resources; primary owns final matched screenshot/mobile/browser qualification before039 publication.
+
+### 039 economic closure time reserve after actual038 evidence
+
+Primary/Astra evidence: three actual read-only qualification runs completed, once each and without follow-up registry writes. Four natural high-effort economic runs registered actual wait outcomes but failed at the original180s deadline; closure around149s left only31s for the additional final generation. Persistent agent waits/receipts remain useful and were not replayed; complete natural outcomes are not claimed. Primary records three scoped waits (48h/24h as explicitly produced), preserves pending work and the financial fence. This source correction targets time reserve, not a higher hard limit or silently reduced effort.
+
+New RunBudget optional fifth policy parameter (fourth clock remains compatible) gives **60s soft** only when accepted metadata explicitly qualifies owner/scheduler economic. Qualification/general/unknown stay120s. Existing persisted budget objects, start, soft/hard and submission remain authoritative; policy never renews them. Hard180s, absolute24, analyst12/coordinator16 caps are unchanged. Kept research parallel_tool_calls=false pending independent financial-sequencing proof; no claim that serialization cost was removed.
+
+Added up to96 additive run_phase events per original job, across recovery. A whitelist stores stage, request ordinal, phase/elapsed/remaining time, model/effort, tool choice and <=24 trusted tool names with truthful total count/truncation. Request start uses actual onPayload; first public text and response finish/failure use typed Responses provider hooks when emitted; closure registration and hard abort are explicit code boundaries. No prompt, arguments, text, hidden reasoning, signature, encrypted data, credentials or raw provider errors are stored. No retry metric is inferred where the SDK exposes no explicit retry event. Existing run_metrics/receipts remain.
+
+Accelerated real-Harness tests retain an original synthetic start near60s, delay research then closure and final provider turns, prove closure-only payload at the60s boundary and tool_choice:none afterward, successful public final, one original submission, hard180 unchanged and zero mocked financial effects. A second actual-Harness case retains a pre-existing120s soft policy through the same sequence. Pure clock/cap tests preserve24 absolute and12 analyst; telemetry tests enforce96 rows across reconstruction,24 names/30 count and reject private extra fields. Existing Harness tests now assert explicit economic60 versus qualification/general/unknown120.
+
+Verification: full Node24.21 build + **145/145 PASS**, explicit typecheck PASS, Python **16/16 PASS**. Logs /tmp/satssurge-economic-reserve-{node,typecheck,python}.log. Files only src/run-budget.ts, src/agent.ts, src/test/economic-reserve.test.ts (new), src/test/follow-up.test.ts and this handoff; generated ignored dist/public rebuilt. Earlier141 composer/effort/history-anchor contracts remain included. No version/Git/deploy/real provider or financial call. No child live resources. Writer STOPPED; primary owns final039 review/browser/release and financial-fenced natural-high completion/timing qualification, which is still pending.
+
+Final039 narrow mobile polish after primary320px screenshot: the compact trigger displays Sol/Luna short labels at <=480px while its accessible label retains full provider/model identity. Desktop keeps catalog names. Popup width is now up to320px bounded by viewport-minus72px, independently of the small trigger width, so native model/effort choices are legible. Source SSR test checks the Sol short label; full145-suite/build and typecheck rerun PASS, Python16PASS retained in the same economic-reserve logs. Added assignment files src/ui-model-picker.ts, src/test/ui-model-picker.test.ts and web/style.css. Primary's root-owned fixture remains untouched; mobile popup/focus/screenshot verification is primary-owned. Writer STOPPED after final checks; all child process IDs completed and no child live resource remains.
+
+Final039 reviewer/mobile boundary correction: request_start.phase is derived from the final tool choice/current budget immediately before recording, after awaited upstream payload hooks. Actual Harness test injects that original hook through the models boundary (not persisted function configuration), advances a bounded fake clock across60s during await, and asserts sole follow_up_outcome payload plus phase=closure at60000ms, then finalization/one submission/hard180/zero effects. Initial test used request0 although provider increments before invoking the hook; corrected its guard torequest1 without weakening assertions.
+
+At <=480px footer frees space by hiding only decorative provider/context-clock spans, removing fixed trigger-width subtraction and reducing gaps/padding. Full provider/model accessible label, Sol/Luna short text, effort/capacity and44px actions remain; desktop unchanged. At <=768px native details summaries (tools, Activity/source, channel table and nested disclosures) receive minimum44px/padding12 targets while preserving native keyboard semantics.
+
+Final full Node24.21 build **146/146 PASS**, explicit typecheck PASS, Python **16/16 PASS**. Logs /tmp/satssurge-final039-{node,typecheck,python}.log. This final bounded assignment changed only src/agent.ts, src/test/economic-reserve.test.ts, web/style.css and this handoff. All test/check processes exited; no child live resources. Writer STOPPED; primary final mobile screenshot/disclosure-target/review/release/natural-high acceptance remains pending.
+
+### 0.3.9 source version preparation — installed acceptance pending
+
+Package and both root lockfile version fields are 0.3.9. Manifest/compose remain
+on verified installed 0.3.8 until immutable 0.3.9 multiarchitecture verification.
+No new release/tag/source SHA is claimed by this preparation. Source writer is
+stopped; 146 Node tests/build/typecheck and 16 Python passed, including the
+provider phase-hook boundary. Final independent review/browser gates remain
+primary-owned.
+
+0.3.9 provides a unified composer model/effort picker and Settings sync, with
+supported selectable effort pinned per new job and original submitted recovery
+retained; default is Sol/high. It corrects the negative history reading anchor.
+New eligible economic runs use a 60-second research soft boundary; every old
+persisted budget remains immutable, hard180s and caps24/12/16 remain. Phase
+metrics use a whitelist capped at96; no financial authority is widened.
+
+Fresh pre-039-20261009T144906Z checkpoint passed host/Mac/isolated restore:
+111 ledger rows,85 history files, one naturally queued unsubmitted job, original
+owner/OAuth/mandate/operations preserved. Existing owned pause/fence and backfill
+hold remain until installed0.3.9 natural economic, Pi/browser and reconciliation
+acceptance. No financial tests/regtest/M3/M4 expansion. Primary owns final
+checkpoint/update, acceptance and original autonomy/timer restoration.

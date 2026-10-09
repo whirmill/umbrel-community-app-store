@@ -1123,50 +1123,69 @@ export function App() {
                                 void submit(pending?.kind ?? "chat");
                               }}
                             >
-                              <label className="sr-only" htmlFor="message">
-                                Messaggio al coordinatore
-                              </label>
-                              <textarea
-                                id="message"
-                                value={draft}
-                                disabled={busy || !!pending}
-                                onChange={(e) => setDraft(e.target.value)}
-                                placeholder="Chiedi al tuo agente…"
-                                rows={3}
-                              />
-                              <ModelPicker
-                                id="composer-model"
-                                auth={auth}
-                                disabled={busy || !!pending}
-                                onChange={(model) =>
-                                  void mutate("model", { model })
-                                }
-                              />
-                              <div className="composer-actions">
-                                <span>
-                                  <Shield size={13} /> Mandato applicato dal
-                                  backend
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled={busy || !draft.trim() || !!pending}
-                                  onClick={() => void submit("analysis")}
-                                >
-                                  Analisi in sola lettura
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  disabled={busy || !draft.trim()}
-                                  type="submit"
-                                >
-                                  <ArrowUp size={16} />
-                                  {busy
-                                    ? "Invio…"
-                                    : pending
-                                      ? "Riprova"
-                                      : "Invia"}
-                                </Button>
+                              <div className="composer-surface">
+                                <label className="sr-only" htmlFor="message">
+                                  Messaggio al coordinatore
+                                </label>
+                                <textarea
+                                  id="message"
+                                  value={draft}
+                                  disabled={busy || !!pending}
+                                  onChange={(e) => setDraft(e.target.value)}
+                                  placeholder="Chiedi al tuo agente…"
+                                  rows={3}
+                                />
+                                <div className="composer-actions">
+                                  <ModelPicker
+                                    id="composer-model"
+                                    auth={auth}
+                                    disabled={busy || !!pending}
+                                    onChange={(model, thinkingLevel) =>
+                                      void mutate("model", {
+                                        model,
+                                        thinkingLevel,
+                                      })
+                                    }
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="composer-analysis"
+                                    aria-label="Analisi in sola lettura"
+                                    title="Analisi in sola lettura · mandato applicato dal backend"
+                                    disabled={
+                                      busy || !draft.trim() || !!pending
+                                    }
+                                    onClick={() => void submit("analysis")}
+                                  >
+                                    <FlaskConical
+                                      size={17}
+                                      aria-hidden="true"
+                                    />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    className="composer-send"
+                                    disabled={busy || !draft.trim()}
+                                    type="submit"
+                                    aria-label={
+                                      busy
+                                        ? "Invio…"
+                                        : pending
+                                          ? "Riprova"
+                                          : "Invia"
+                                    }
+                                    title={
+                                      busy
+                                        ? "Invio…"
+                                        : pending
+                                          ? "Riprova la richiesta salvata"
+                                          : "Invia"
+                                    }
+                                  >
+                                    <ArrowUp size={18} aria-hidden="true" />
+                                  </Button>
+                                </div>
                               </div>
                               {pending && (
                                 <div className="pending">
@@ -1744,9 +1763,27 @@ export function App() {
                         </option>
                       ))}
                     </select>
-                    <p className="muted">
-                      Ragionamento · {auth?.thinkingLevel ?? "non disponibile"}
-                    </p>
+                    <label htmlFor="thinking-level">Ragionamento</label>
+                    <select
+                      id="thinking-level"
+                      value={auth?.thinkingLevel ?? "high"}
+                      disabled={busy || !auth?.models?.length}
+                      onChange={(e) =>
+                        void mutate("model", {
+                          model: auth?.selected,
+                          thinkingLevel: e.target.value,
+                        })
+                      }
+                    >
+                      {(
+                        auth?.models?.find((m: any) => m.id === auth?.selected)
+                          ?.thinkingLevels ?? []
+                      ).map((level: string) => (
+                        <option value={level} key={level}>
+                          {level}
+                        </option>
+                      ))}
+                    </select>
                   </Panel>
                   <Panel title="Sessione del proprietario">
                     <p>La sessione resta nel browser corrente.</p>

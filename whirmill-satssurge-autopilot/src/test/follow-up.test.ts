@@ -52,12 +52,18 @@ for (const scenario of [
     const threshold = analyst ? 12 : 16;
     const dueAt = new Date(Date.now() + 48 * 3600000).toISOString();
     provider.streamSimple = (model, transcript, options) => {
-      if (scenario === "early_no_wait")
+      if (scenario === "early_no_wait") {
+        assert.equal(
+          options?.reasoning,
+          "low",
+          "actual provider receives pinned reasoning effort",
+        );
         assert.equal(
           model.id,
           "gpt-6.1-sol",
           "actual Harness uses admitted model after preference change",
         );
+      }
       const request = ++requests,
         stream = createAssistantMessageEventStream();
       queueMicrotask(async () => {
@@ -217,6 +223,7 @@ for (const scenario of [
             : scenario === "unknown"
               ? undefined
               : "economic";
+      if (scenario === "early_no_wait") store.set("thinkingLevel", "low");
       const admitted = queue.enqueue({
         requestId: "closure-test",
         kind: analyst ? "analysis" : "chat",
@@ -230,8 +237,10 @@ for (const scenario of [
         purpose,
         payload: { message: "fixture" },
       });
-      if (scenario === "early_no_wait")
+      if (scenario === "early_no_wait") {
         store.set("model", "invalid-new-selection");
+        store.set("thinkingLevel", "high");
+      }
       if (["soft", "hard"].includes(scenario))
         store.set("runBudget:" + admitted.id, {
           started: Date.now(),
@@ -252,12 +261,21 @@ for (const scenario of [
         ].includes(scenario)
       )
         await assert.rejects(agent.runJob(job, analyst ? 0 : undefined));
-      else await agent.runJob(job, analyst ? 0 : undefined);
+      else {
+        const final = await agent.runJob(job, analyst ? 0 : undefined);
+        if (scenario === "early_no_wait")
+          assert.equal(final.thinkingLevel, "low");
+      }
       const outcomes = new FollowUps(store),
         outcome = outcomes.get(job.id),
         economic = purpose === "economic";
       assert.equal(effects, 0);
       assert.equal(queue.get(job.id)!.submitted, 1);
+      if (!["soft", "hard"].includes(scenario))
+        assert.equal(
+          store.get<any>("runBudget:" + job.id).softMs,
+          purpose === "economic" ? 60000 : 120000,
+        );
       if (!economic) {
         assert.equal(outcome, undefined);
         assert.equal(new ReviewWaits(store).all().length, 0);
@@ -411,6 +429,7 @@ for (const changedPreference of ["invalid-current-model", "gpt-6-luna"])
       const payloads: any[] = [];
       provider.streamSimple = (model, transcript, options) => {
         assert.equal(model.id, "gpt-6.1-sol");
+        assert.equal(options?.reasoning, "low");
         const request = ++requests,
           stream = createAssistantMessageEventStream();
         const emit = async () => {
@@ -493,6 +512,7 @@ for (const changedPreference of ["invalid-current-model", "gpt-6-luna"])
             ownership: { kind: "ownerless" },
             agent: {
               model: { provider: "openai", modelId: "gpt-6.1-sol" },
+              thinkingLevel: "low",
               extensions: [{ name: "satssurge" }],
               tools: [{ name: "node_state" }],
             },
@@ -523,6 +543,7 @@ for (const changedPreference of ["invalid-current-model", "gpt-6-luna"])
         assert.equal(requests, 1);
         store.run("DELETE FROM meta WHERE key=?", `jobModel:${claimed.id}`);
         store.set("model", changedPreference);
+        store.set("thinkingLevel", "high");
         const run = agent.runJob(queue.get(claimed.id)!);
         for (let i = 0; i < 100 && (agent as any).sessions.size === 0; i++)
           await new Promise((r) => setTimeout(r, 1));
@@ -531,6 +552,7 @@ for (const changedPreference of ["invalid-current-model", "gpt-6-luna"])
         const result: any = await run;
         assert.equal(result.answer, "Original legacy answer");
         assert.equal(result.model, "gpt-6.1-sol");
+        assert.equal(result.thinkingLevel, "low");
         assert.equal(requests, 2);
         assert.equal(effects, 0);
         assert.equal(payloads[1].tool_choice, "none");

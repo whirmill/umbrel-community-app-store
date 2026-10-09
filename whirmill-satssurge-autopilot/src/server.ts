@@ -1,3 +1,4 @@
+import { modelSettings } from "./model-settings.js";
 import { legacyHistory } from "./legacy-history.js";
 import { publicJob, publicExchange, exchangeAnswerPage } from "./public-job.js";
 import { historyEvents } from "./ui-history.js";
@@ -449,14 +450,16 @@ const server = createServer(async (req, res) => {
       return;
     }
     if (url.pathname === "/api/model") {
-      if (
-        typeof body.model !== "string" ||
-        !(await agent.models.getAvailable("openai")).some(
-          (m) => m.id === body.model,
-        )
-      )
-        throw new Error("Unavailable model");
-      store.set("model", body.model);
+      const settings = modelSettings(
+        await agent.models.getAvailable("openai"),
+        body.model,
+        body.thinkingLevel,
+        store.get<string>("thinkingLevel") ?? "high",
+      );
+      store.tx(() => {
+        store.set("model", settings.model);
+        store.set("thinkingLevel", settings.thinkingLevel);
+      });
       send({ saved: true });
       return;
     }

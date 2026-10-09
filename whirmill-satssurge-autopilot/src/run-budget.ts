@@ -16,6 +16,7 @@ export class RunBudget {
     readonly jobId: string,
     analyst: boolean,
     private clock = Date.now,
+    policy: { economic?: boolean } = {},
   ) {
     this.key = "runBudget:" + jobId;
     this.state = store.get(this.key) ?? {
@@ -24,7 +25,7 @@ export class RunBudget {
       phase: "research",
       reason: null,
       hardMs: 180000,
-      softMs: 120000,
+      softMs: policy.economic ? 60000 : 120000,
       researchCalls: analyst ? 12 : 16,
     };
     this.save();
@@ -84,6 +85,76 @@ export class RunBudget {
   }
   discardBeforeSubmission() {
     this.store.run("DELETE FROM meta WHERE key=?", this.key);
+  }
+  /** Bounded whitelist telemetry: never accepts prompts, arguments, reasoning or errors. */
+  phase(
+    stage:
+      | "request_start"
+      | "public_first_text"
+      | "response_finish"
+      | "response_failed"
+      | "closure_registered"
+      | "hard_abort",
+    details: {
+      phase?: "research" | "closure" | "finalization" | "lifecycle";
+      model?: string;
+      effort?: string;
+      toolChoice?: string;
+      toolNames?: string[];
+      requestOrdinal?: number;
+      requestElapsedMs?: number;
+    } = {},
+  ) {
+    return this.store.tx(() => {
+      const count = this.store.one(
+        "SELECT count(*) n FROM job_events WHERE job_id=? AND type='run_phase'",
+        this.jobId,
+      ).n;
+      if (count >= 96) return undefined;
+      const ordinal = count + 1,
+        status = this.status(),
+        phase = details.phase ?? status.phase;
+      const first = this.store.one(
+        "SELECT details FROM job_events WHERE job_id=? AND type='run_phase' AND json_extract(details,'$.phase')=? ORDER BY at,id LIMIT 1",
+        this.jobId,
+        phase,
+      );
+      const firstElapsed = first
+        ? JSON.parse(first.details).elapsedMs
+        : status.elapsedMs;
+      const allNames = (details.toolNames ?? []).filter((name) =>
+        /^[a-zA-Z0-9_-]{1,100}$/.test(name),
+      );
+      const names = allNames.slice(0, 24);
+      this.store.run(
+        "INSERT INTO job_events VALUES(?,?,?,?,?)",
+        `phase:${this.jobId}:${ordinal}`,
+        this.jobId,
+        now(),
+        "run_phase",
+        json({
+          stage,
+          ordinal,
+          phase,
+          elapsedMs: status.elapsedMs,
+          phaseElapsedMs: Math.max(0, status.elapsedMs - firstElapsed),
+          remainingMs: status.remainingMs,
+          model: details.model?.slice(0, 100),
+          effort: details.effort?.slice(0, 16),
+          toolChoice: ["auto", "required", "none"].includes(
+            details.toolChoice ?? "",
+          )
+            ? details.toolChoice
+            : undefined,
+          toolCount: allNames.length,
+          toolNamesTruncated: allNames.length > names.length,
+          toolNames: names,
+          requestOrdinal: details.requestOrdinal,
+          requestElapsedMs: details.requestElapsedMs,
+        }),
+      );
+      return ordinal;
+    });
   }
   finish(cause: string, usage: unknown) {
     this.store.run(
