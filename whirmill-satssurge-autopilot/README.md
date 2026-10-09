@@ -64,13 +64,25 @@ Acceptance: chat stays responsive during corridor analysis; worker crashes canno
 
 Acceptance: attributable operations/costs reconcile to LND and receipts, adapters fail visibly on incompatible schemas, forecast errors are measurable, and profitability claims identify coverage and causal limits. Technical success, predictive quality and economic result remain separate.
 
+**M2.1 — Responsive web UI/UX: NEXT milestone, prioritized 2026-10-09.** Migrate the vanilla frontend to React + TypeScript + Vite + shadcn/ui. Retain Pi Durable, subscription OAuth, the durable queue and single guarded financial executor. Design mobile/tablet/desktop chat, activity, node state, budgets, accounting, decisions, experiments and pause/resume, with accessible navigation/focus, Italian monetary formatting, Markdown/code rendering and explicit loading/empty/error/offline states. This milestone does not change financial authority or the mandate.
+
+Preferred chat candidate: **assistant-ui**, to qualify with an integration spike against actual Pi Durable events. Its custom runtimes accept an existing backend: assess ExternalStoreRuntime/AssistantTransport for durable jobs and structured agent state, or a custom adapter/data stream for message deltas. **Vercel AI Elements** is the alternative shadcn-based component set, including Conversation, Reasoning and Tool. Keep Pi as the agent backend; a UI library does not require adopting a second agent framework. Official sources checked 2026-10-09: [custom runtimes](https://www.assistant-ui.com/docs/runtimes/custom/overview), [stream protocol](https://www.assistant-ui.com/docs/runtimes/custom/data-stream), [Assistant Transport](https://www.assistant-ui.com/docs/runtimes/custom/assistant-transport), [tool rendering](https://www.assistant-ui.com/docs/tools/tool-ui), [AI Elements Reasoning](https://elements.ai-sdk.dev/components/reasoning), [AI Elements Tool](https://elements.ai-sdk.dev/components/tool). Pin compatible versions and verify licenses during the spike; documented support is not installed integration proof.
+
+Expose authenticated SSE or a qualified equivalent over backend-owned durable events: text deltas, available explanatory progress/reasoning summaries, tool-call IDs/arguments/results, worker identity, decision receipts and accurate queued/running/waiting/completed/failed/cancelled states. Show expandable tool cards and linked evidence; separate model explanation from deterministic execution audit. Display only summaries actually exposed by the provider, never invented reasoning or hidden chain-of-thought. Bound/redact payloads, render untrusted content safely and retain credentials/provider access server-side. Preserve same-origin owner authentication; use authenticated fetch streaming rather than bearer tokens in SSE URLs.
+
+Reconnect with durable event IDs/cursors, snapshot resynchronization, deduplication and explicit coverage gaps. Queue acceptance must not depend on keeping a stream open. Reloads, disconnects and repeated submissions must not repeat financial effects; disconnect is not payment cancellation. Explain queued-job cancellation separately from already-started operation reconciliation. Attribute concurrent coordinator/analyst work to its conversation. Fix the observed stale “In coda” status after completion and add follow-latest scrolling that respects reading older messages, with a new-message indicator.
+
+Acceptance: visible browser checks on mobile/tablet/desktop, keyboard/screen-reader access, concurrent requests, long histories, streamed tool results, empty/failed/expired-auth states and accurate job transitions. Verify interrupted streams/reconnect/reload without missing or duplicate messages or effects, preserving conversation, OAuth, mandate and pending receipts through deployment. Use actual Pi read-only prompts for text/tool-event integration and gracefully handle providers without reasoning summaries. Release immutable amd64/arm64 images through the existing workflow; no financial send is required solely to test presentation.
+
 **M3 — Channel lifecycle and Magma.** After explicit capability enablement, support channel qualification, batched openings, cooperative closures, inbound purchase and outbound liquidity sales. Represent contract duration, routing promises, HODL invoices, pending obligations and capital reservations in the same durable accounting/queue. Qualify current official APIs; do not inherit unsupported legacy Lightning Mate seller paths. Include opening/closing/lease costs, inventory opportunity cost and realistic demand in net forecasts. A buyer order does not become earned revenue before settlement/reconciliation. Force closures and unplanned swaps are not implied capabilities.
 
 Acceptance: every contract/funding step has durable intent and receipt, crash/timeout recovery cannot create duplicate channels or payments, reserve and outstanding obligations remain covered, and contract terms survive updates.
 
-**M4 — Telegram.** Add a second interface to the same request queue, decisions and durable memory, accessible only to the linked owner. Support chat, status, pause/resume, job progress and aggregated actionable notifications. Deduplicate notifications, configure quiet periods and preserve access checks; Telegram does not broaden financial limits.
+**M4 — Outbound webhook notifications, Discord first.** Replaces the Telegram bot milestone by user instruction on 2026-10-09. The responsive web app remains the sole owner interaction/control interface. Deliver notifications to a configured Discord webhook first, with a versioned generic webhook payload as a later extension. No Discord bot, inbound webhook, slash command, reply handler, remote action button or financial/control capability is included. Receiving or replying to a notification cannot create a job, change a policy, pause/resume the app or execute an operation; links only navigate to the authenticated web app.
 
-Acceptance: concurrent web/Telegram requests share consistent state, unauthorized senders are rejected, and reconnects do not duplicate jobs or sensitive notifications.
+Notify significant completed operations, actionable failures, authentication/quota blockers, budget/reserve warnings and scheduled economic summaries. Allow owner-selected categories, severity, aggregation and quiet periods, with critical alerts handled explicitly. Send concise summaries and authenticated app links, not full chat, model reasoning, raw tool results, personal-payment details or credentials. Keep the webhook URL private server-side, redact it from logs and exports, and make configuration/test/disable available only through owner-authenticated settings. Network targets require validation against SSRF; a destination configured by the owner is not a URL the agent can rewrite.
+
+Use a durable notification outbox with stable event IDs, bounded retry/backoff, rate-limit handling, delivery receipts and visible failed/uncertain delivery. Notification failures do not retry financial operations or stop deterministic reconciliation. Deduplicate event generation and aggregate bursts; do not promise exactly-once external delivery after an uncertain timeout. Generic webhook receivers can deduplicate by event ID; Discord retries need an explicit duplicate-risk policy. Acceptance: a mocked/test destination verifies payload redaction, category filters, quiet periods, crash recovery, rate limits and timeout behavior; owner-authorized live test verifies Discord delivery. Confirm there is no inbound control surface and a reply cannot reach the agent. No Telegram integration remains planned.
 
 **Ongoing across milestones — Reliability and deployment.** Retain ordinary detailed data 90 days; preserve accounting, decisions, corrections and linked evidence indefinitely. Verify consistent SQLite backups and restore/migration paths, software rollback without operation replay, schema/version gates, bounded retention and immutable amd64/arm64 releases. Expand mocked crash/concurrency tests and bounded real-node qualification within the mandate; no regtest. Monitor authentication, quota, collector freshness, queue age, interlocks and manual interventions.
 
@@ -143,4 +155,32 @@ At06:04:57UTC final reconciliation proved zero active qualification jobs/financi
 |Owner web chat/state/accounting/budget/decisions/experiments/pause|Shipped web-script tests plus installed authenticated rendering; queue job/result receipts and owner bearer/origin/CSRF boundaries verified|
 |amd64/arm64 immutable publication, update preservation and recovery|CI58Node/14Python, both OCI platform configurations match exact source; installed digest/health, threeDB backup/isolated restore, ledger digest preservation|
 
-The economic result remains explicitly partial; exact private financial figures and runtime receipts are retained locally in `autopilot-m2-acceptance-20261009.json`, outside Git. Future7/30day evaluation observations have not matured; technical qualification does not certify profitability or historical completeness. M3 channels/Magma and M4Telegram remain separate, explicitly enabled future milestones. No regtest was used.
+The economic result remains explicitly partial; exact private financial figures and runtime receipts are retained locally in `autopilot-m2-acceptance-20261009.json`, outside Git. Future7/30day evaluation observations have not matured; technical qualification does not certify profitability or historical completeness. M3 channels/Magma and M4 outbound webhook notifications remain separate future milestones; channel/Magma operations require explicit capability enablement. No regtest was used.
+
+### M2.1 React workspace
+
+The web client uses React 19, TypeScript, Vite and shadcn/ui conventions (Radix
+Slot/CVA Button), with assistant-ui's ExternalStoreRuntime as the qualified primary
+chat adapter. Pi Durable remains the sole runtime and backend tool authority;
+GPT-6.1 Sol/high and subscription OAuth are unchanged. assistant-ui 0.15.25 is MIT.
+AI Elements 1.9.0 (Apache-2.0) remains the alternative: its documented React 19,
+Next.js/AI SDK setup has not been qualified against this standalone Vite/Pi
+backend. See [assistant-ui external store](https://www.assistant-ui.com/docs/runtimes/custom/external-store)
+and [AI Elements setup](https://elements.ai-sdk.dev/docs/setup).
+
+Schema 4 adds a durable, sanitized UI event journal and immutable message entries.
+Owner-authenticated same-origin fetch SSE carries numeric event cursors; history
+loads 50 jobs per page. Reconnection replays missing IDs and deduplicates them;
+refresh recovers canonical receipts without resubmitting accepted jobs. Only
+provider-visible assistant text, actual progress and tool calls/results are
+projected. Hidden thinking and raw provider errors are excluded; no reasoning
+summary is invented. Tool payloads are bounded and credential fields redacted.
+Markdown skips raw HTML, rejects executable links and suppresses remote images.
+Queued or unsubmitted waiting jobs can be cancelled; submitted Pi work is not
+advertised as cancellable. Terminal receipts determine completed state.
+
+`npm test` builds both clients and runs simulated provider/HTTP/queue regressions.
+`UI_FIXTURE_DIR=/tmp/isolated-dir node scripts/ui-fixture.mjs` serves the local-only
+browser fixture on 127.0.0.1:19538 (password `fixture-only`); it is excluded from
+production images and performs no financial operations. Installed acceptance and
+immutable image receipts are recorded in the implementation handoff.

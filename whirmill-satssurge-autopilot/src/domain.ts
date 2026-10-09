@@ -12,7 +12,7 @@ export function integer(v: unknown): bigint {
   return n;
 }
 export const day = (at: string) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(at));
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 export const MANDATE = Object.freeze({
   version: 1, totalMsat: '30000000', dailyMsat: '1500000', exploratoryDailyMsat: '750000',
   attemptMsat: '100000', reserveSat: '500000', feeWindowHours: 48,

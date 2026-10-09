@@ -26,6 +26,23 @@ def payment():
 
 
 class BackfillTests(unittest.TestCase):
+    def test_schema4_maintenance_preserves_guard(self):
+        import tempfile
+        import pathlib
+        with tempfile.TemporaryDirectory() as directory:
+            app = pathlib.Path(directory)
+            (app / 'data').mkdir()
+            db = b.sqlite3.connect(app / 'data/operational.sqlite')
+            db.executescript('PRAGMA user_version=4; CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT); CREATE TABLE operations(state TEXT);')
+            db.close()
+            with b.maintenance(app):
+                db = b.sqlite3.connect(app / 'data/operational.sqlite')
+                self.assertIsNotNone(db.execute("SELECT value FROM meta WHERE key='maintenanceClaim'").fetchone())
+                db.close()
+            db = b.sqlite3.connect(app / 'data/operational.sqlite')
+            self.assertIsNone(db.execute("SELECT value FROM meta WHERE key='maintenanceClaim'").fetchone())
+            db.close()
+
     def test_maintenance_claim_is_atomic_persistent_on_failure_and_recoverable(self):
         with tempfile.TemporaryDirectory() as directory:
             app = pathlib.Path(directory)

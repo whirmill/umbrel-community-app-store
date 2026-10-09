@@ -1,0 +1,120 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawn } from "node:child_process";
+import { createServer } from "node:net";
+import { once } from "node:events";
+import { Store } from "../store.js";
+import { Queue } from "../queue.js";
+import { UiEvents } from "../ui-events.js";
+test("actual HTTP auth, legacy projection, history pages and SSE replay use durable cursors without secrets", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "surge-http-"));
+  const socket = createServer();
+  socket.listen(0, "127.0.0.1");
+  await once(socket, "listening");
+  const port = (socket.address() as any).port;
+  socket.close();
+  const store = new Store(join(dir, "operational.sqlite"));
+  store.set("enabled", false);
+  store.set("chat", [
+    {
+      requestId: "legacy",
+      user: "hello",
+      answer: JSON.stringify([
+        {
+          role: "assistant",
+          provider: "private-provider",
+          content: [
+            { type: "thinking", thinking: "HIDDEN-SECRET" },
+            { type: "text", text: "Public only" },
+          ],
+        },
+      ]),
+    },
+  ]);
+  const q = new Queue(store),
+    events = new UiEvents(store);
+  for (let n = 0; n < 60; n++) {
+    const job = q.enqueue({
+      requestId: "http:" + n,
+      kind: "chat",
+      payload: { message: "Read only " + n },
+    });
+    events.append(job.id, "text", { text: "Persisted public text " + n });
+  }
+  const cursor = events.cursor();
+  store.close();
+  writeFileSync(join(dir, "owner.secret"), "fixture-password", { mode: 0o600 });
+  const child = spawn(process.execPath, ["dist/server.js"], {
+    env: {
+      ...process.env,
+      DATA_DIR: dir,
+      HISTORY_DIR: join(dir, "missing"),
+      PORT: String(port),
+    },
+    stdio: "ignore",
+  });
+  const base = "http://127.0.0.1:" + port;
+  try {
+    for (let n = 0; n < 100; n++) {
+      try {
+        if ((await fetch(base + "/health")).ok) break;
+      } catch {}
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    assert.equal((await fetch(base + "/api/events?after=0")).status, 401);
+    const login = await fetch(base + "/api/owner/login", {
+      method: "POST",
+      headers: { Origin: base, "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "fixture-password" }),
+    });
+    assert.equal(login.status, 200);
+    const { session } = (await login.json()) as any;
+    const headers = { Authorization: "Bearer " + session };
+    const response = await fetch(base + "/api/history", { headers });
+    assert.equal(response.status, 200);
+    const history = (await response.json()) as any;
+    assert.equal(history.jobs.length, 50);
+    assert.equal(history.cursor, cursor);
+    assert.equal(history.legacyChat[0].answer, "Public only");
+    assert.doesNotMatch(
+      JSON.stringify(history),
+      /HIDDEN-SECRET|private-provider/,
+    );
+    const older = (await (
+      await fetch(base + "/api/history?before=" + history.nextBefore, {
+        headers,
+      })
+    ).json()) as any;
+    assert.equal(older.jobs.length, 10);
+    assert.equal(older.nextBefore, null);
+    const controller = new AbortController();
+    const stream = await fetch(base + "/api/events?after=" + (cursor - 2), {
+      headers,
+      signal: controller.signal,
+    });
+    assert.equal(stream.headers.get("content-type"), "text/event-stream");
+    const reader = stream.body!.getReader();
+    const chunk = await reader.read();
+    const wire = new TextDecoder().decode(chunk.value);
+    assert.match(wire, new RegExp("id: " + cursor));
+    assert.doesNotMatch(wire, new RegExp("id: " + (cursor - 2) + "\\n"));
+    controller.abort();
+    await reader.cancel().catch(() => {});
+    assert.equal(
+      (await fetch(base + "/api/events?after=" + (cursor + 1), { headers }))
+        .status,
+      409,
+    );
+    assert.equal(
+      (await fetch(base + "/api/events?after=-1", { headers })).status,
+      400,
+    );
+  } finally {
+    child.kill("SIGTERM");
+    await once(child, "exit");
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -51,7 +51,9 @@ export class Store {
         operation_id TEXT PRIMARY KEY REFERENCES operations(id),source TEXT NOT NULL,target TEXT NOT NULL,
         at TEXT NOT NULL,until_at TEXT NOT NULL,volume_msat TEXT NOT NULL,benefit_msat TEXT NOT NULL
       );
-      PRAGMA user_version=3;
+      CREATE TABLE IF NOT EXISTS ui_events(id INTEGER PRIMARY KEY AUTOINCREMENT,job_id TEXT NOT NULL REFERENCES jobs(id),at TEXT NOT NULL,type TEXT NOT NULL,data TEXT NOT NULL,event_key TEXT,UNIQUE(job_id,event_key));
+      CREATE TABLE IF NOT EXISTS ui_messages(job_id TEXT NOT NULL REFERENCES jobs(id),entry_id INTEGER NOT NULL,text TEXT NOT NULL,PRIMARY KEY(job_id,entry_id));
+      PRAGMA user_version=4;
       COMMIT;`);
     this.tx(()=>{
       for(const row of this.all("SELECT r.*,d.forecast FROM reservations r JOIN operations o ON o.id=r.operation_id JOIN decisions d ON d.id=o.decision_id WHERE r.category='ordinary' AND o.state<>'FAILED' AND NOT EXISTS (SELECT 1 FROM benefit_claims b WHERE b.operation_id=r.operation_id)")){
@@ -193,7 +195,7 @@ export class Store {
       decisions:this.all('SELECT * FROM decisions ORDER BY at DESC LIMIT 50').map(r=>({...r,proposal:JSON.parse(r.proposal),forecast:JSON.parse(r.forecast)})),
       evaluations:this.all('SELECT * FROM evaluations ORDER BY at DESC LIMIT 30'),evaluationWindows:this.all('SELECT * FROM evaluation_windows ORDER BY at DESC LIMIT 60').map(r=>({...r,result:JSON.parse(r.result)})),coverage:this.all('SELECT * FROM coverage ORDER BY end DESC LIMIT 20'),
       claims:this.all('SELECT * FROM claims ORDER BY at DESC LIMIT 25'), holds:this.all('SELECT * FROM channel_holds'),
-      agent:this.get('agent')??{},importReport:this.get('importReport')??{}, roadmap:['M1 · fee/rebalance POC','M2 · validation / LNDg / Lightning Mate','M3 · channels / Magma (disabled)','M4 · Telegram (not implemented)']};
+      agent:this.get('agent')??{},importReport:this.get('importReport')??{}, roadmap:['M1 · fee/rebalance POC','M2 · validation / LNDg / Lightning Mate','M3 · channels / Magma (disabled)','M4 · outbound Discord webhook (not implemented)']};
   }
   retain(at=now()) {
     const cutoff=new Date(Date.parse(at)-90*86400_000).toISOString();

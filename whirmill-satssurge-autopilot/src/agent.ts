@@ -1,10 +1,11 @@
-import { Harness,createRegistry,defineTool,type Conversation } from '@earendil-works/pi-durable';
+import { Harness,createRegistry,defineTool,type Conversation,watchEvents,type AgentEventStream } from '@earendil-works/pi-durable';
 import { openNodeSqliteDatabase } from '@earendil-works/pi-durable/storage/sqlite/node';
 import { SqliteStorage } from '@earendil-works/pi-durable/storage/sqlite';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import { createModels } from '@earendil-works/pi-ai/models';
 import { openaiProvider } from '@earendil-works/pi-ai/providers/openai';
 import { Type,type AuthPrompt,type AuthEvent } from '@earendil-works/pi-ai';
+import {UiEvents,ConversationProjection} from './ui-events.js';
 import { Credentials } from './credentials.js';
 import { Store } from './store.js';
 import { Executor } from './executor.js';
@@ -67,7 +68,7 @@ export class Agent {
     // Ownership is acquired before the first await. Separate conversations prevent cross-request steering.
     if(slot===undefined){if(this.coordinator)throw new Error('Coordinator already owned');this.coordinator={job,calls:0};}
     else{if(this.analysts.has(slot))throw new Error('Analyst slot already owned');this.analysts.set(slot,{job,calls:0,proposals:[]});}
-    let conversation:Conversation|undefined;let timer:ReturnType<typeof setTimeout>|undefined;
+    let conversation:Conversation|undefined;let timer:ReturnType<typeof setTimeout>|undefined;let events:AgentEventStream|undefined;
     const model=this.store.get<string>('model');
     try{
       if(!await this.available())throw new ModelUnavailable('Subscription unavailable; request remains queued');
@@ -80,6 +81,9 @@ export class Agent {
       this.queue.bindConversation(job.id,job.run_token!,String(conversation.id));
       await conversation.configure(config,context);
       const payload=JSON.parse(job.payload);if(typeof payload.message!=='string')throw new Error('Invalid persisted job message');
+      const projection=new ConversationProjection(new UiEvents(this.store),job.id);
+      events=await watchEvents(this.harness,conversation.id,context);projection.accept(events.snapshot);
+      events.start(async(batch)=>{for(const event of batch)projection.accept(event);});
       let submission;
       if(job.submission_id){submission=await this.harness.submission(Number(job.submission_id) as any,context);if(!submission)throw new Error('Original submission missing; never resend an uncertain financial run');}
       else submission=await conversation.submit({type:'input',content:payload.message,requestId:job.request_id,whenBusy:'reject'},context);
@@ -87,6 +91,11 @@ export class Agent {
       if(slot===undefined)this.store.set('agent',{at:now(),status:'running',model,thinkingLevel:THINKING_LEVEL,jobId:job.id});
       timer=setTimeout(()=>{void conversation!.abort(context);},180000);
       const settled=await submission.wait(context);
+      // stop() drops pending watch batches. Reconcile the authoritative final
+      // view first; merging entry IDs preserves pre-compaction public history.
+      await events.stop();events=undefined;
+      const finalEvents=await watchEvents(this.harness,conversation.id,context);
+      try{projection.accept(finalEvents.snapshot);}finally{await finalEvents.stop();}
       if(settled.status!=='done'){
         // A terminal submission cannot be replayed after quota/auth recovers.
         // Keep it failed, with its original IDs; other admitted jobs wait out the
@@ -103,6 +112,6 @@ export class Agent {
       if(slot===undefined)this.store.set('agent',{at:now(),status:'idle',model,thinkingLevel:THINKING_LEVEL,jobId:job.id});
       return {answer,proposals:drafts,usage:ownUsage,snapshotAt:job.snapshot_at,model,thinkingLevel:THINKING_LEVEL};
     }catch(e){if(e instanceof ModelUnavailable||e instanceof TerminalModelFailure){this.cooldown=Date.now()+30*60000;this.store.set('modelUnavailableUntil',this.cooldown);this.store.set('agent',{at:now(),status:'unavailable',until:new Date(this.cooldown).toISOString(),note:'Model/auth/quota unavailable; deterministic collection/reconciliation remain active'});}throw e;}
-    finally{if(timer)clearTimeout(timer);if(slot===undefined)this.coordinator=undefined;else this.analysts.delete(slot);}
+    finally{if(events)await events.stop();if(timer)clearTimeout(timer);if(slot===undefined)this.coordinator=undefined;else this.analysts.delete(slot);}
   }
 }

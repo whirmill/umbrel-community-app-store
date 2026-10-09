@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { readFileSync,mkdirSync,existsSync } from 'node:fs';
-import { resolve,join } from 'node:path';
+import { resolve,join,extname } from 'node:path';
 import { randomBytes,timingSafeEqual,createHash } from 'node:crypto';
 import { Store } from './store.js';
 import { Lnd } from './lnd.js';
@@ -9,9 +9,10 @@ import { Collector } from './collector.js';
 import { Queue } from './queue.js';
 import { Scheduler } from './scheduler.js';
 import { Agent } from './agent.js';
+import {UiEvents} from './ui-events.js';
 import { OwnerSessions } from './owner-auth.js';
 import { importHistory } from './importer.js';
-import { now,json,publicAnswer } from './domain.js';
+import { now,json,publicAnswer,scrub } from './domain.js';
 const directory=resolve(process.env.DATA_DIR??'/data');mkdirSync(directory,{recursive:true,mode:0o700});
 const store=new Store(join(directory,'operational.sqlite'));if(!store.get('installedAt'))store.set('installedAt',now());
 const importDir=process.env.HISTORY_DIR??'/history';if(existsSync(importDir))importHistory(store,importDir);
@@ -19,7 +20,10 @@ const csrf=randomBytes(32).toString('hex');
 const ownerPath=join(directory,'owner.secret');if(!existsSync(ownerPath)){const {writeFileSync}=await import('node:fs');writeFileSync(ownerPath,randomBytes(24).toString('hex'),{mode:0o600});}
 const owner=readFileSync(ownerPath,'utf8').trim();const ownerDigest=createHash('sha256').update(owner).digest();
 const sessions=new OwnerSessions();
+const uiEvents=new UiEvents(store);
 const queue=new Queue(store);queue.recoverAfterRestart();
+// Preserve pre-queue exchanges once. Durable jobs own all subsequent history.
+if(store.get('legacyChat')===undefined)store.set('legacyChat',(store.get<any[]>('chat')??[]).filter(c=>!c.requestId||!store.one('SELECT id FROM jobs WHERE request_id=?',c.requestId)));
 let agent:Agent|undefined,collector:Collector|undefined,scheduler:Scheduler|undefined;
 const intervals:ReturnType<typeof setInterval>[]=[];const streamAbort=new AbortController();
 let closing=false;let streamRetry:ReturnType<typeof setTimeout>|undefined;
@@ -40,6 +44,10 @@ const server=createServer(async(req,res)=>{
   const send=(data:unknown,status=200)=>{res.statusCode=status;res.setHeader('Content-Type','application/json');res.end(json(data));};
   try{
     if(closing){send({error:'Service shutting down; retry the same request ID after restart'},503);return;}
+    if(req.method==='GET'&&url.pathname.startsWith('/assets/')&&/^\/assets\/[a-zA-Z0-9_.-]+$/.test(url.pathname)){
+      const file=resolve('public',url.pathname.slice(1));if(!existsSync(file)){send({error:'Not found'},404);return;}
+      res.setHeader('Content-Type',({'.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.woff2':'font/woff2'} as Record<string,string>)[extname(file)]??'application/octet-stream');res.end(readFileSync(file));return;
+    }
     if(req.method==='GET'&&staticFiles[url.pathname]){const [file,type]=staticFiles[url.pathname]!;res.setHeader('Content-Type',type);res.end(readFileSync(resolve('public',file)));return;}
     if(req.method==='GET'&&url.pathname==='/health'){send({ok:true});return;}
     if(req.method==='POST'&&url.pathname==='/api/owner/login'){
@@ -49,8 +57,32 @@ const server=createServer(async(req,res)=>{
       const session=sessions.issue();res.setHeader('Set-Cookie','satssurge=; Max-Age=0; HttpOnly; SameSite=Strict; Path=/');send({connected:true,session});return;
     }
     if(!sessions.accepts(req.headers.authorization)){send({error:'Owner authentication required'},401);return;}
-    if(req.method==='GET'&&url.pathname==='/api/status'){send({...store.stats(),csrf,chat:(store.get<any[]>('chat')??[]).map(c=>({...c,answer:publicAnswer(c.answer)})),collector:store.get('collector')??{},queue:queue.metrics(),jobs:queue.list().map(({run_token,lease_owner,payload_digest,...job}:any)=>job),pool:scheduler?.status(),modelUsage:store.get('modelUsage')});return;}
-    if(req.method==='GET'&&url.pathname==='/api/jobs/receipt'){const job=store.one('SELECT * FROM jobs WHERE request_id=?',url.searchParams.get('requestId')??'');if(!job){send({error:'Request receipt not found'},404);return;}const {run_token,lease_owner,payload_digest,...receipt}=job;send({job:receipt});return;}
+    if(req.method==='GET'&&url.pathname==='/api/events'){
+      const supplied=url.searchParams.get('after')??String(req.headers['last-event-id']??'0');
+      if(!/^\d{1,15}$/.test(supplied)){send({error:'Invalid event cursor'},400);return;}
+      let cursor=Number(supplied);if(cursor>uiEvents.cursor()){send({error:'Cursor ahead of store; resynchronize history'},409);return;}
+      res.setHeader('Content-Type','text/event-stream');res.setHeader('X-Accel-Buffering','no');res.setHeader('Connection','keep-alive');res.flushHeaders();
+      let blocked=false;res.on('drain',()=>{blocked=false;});
+      const tick=()=>{
+        if(closing||!sessions.accepts(req.headers.authorization)){res.end();return;}
+        if(blocked)return;
+        const batch=uiEvents.after(cursor);
+        if(!batch.length){blocked=!res.write(': heartbeat\n\n');return;}
+        for(const event of batch){cursor=event.id;blocked=!res.write('id: '+event.id+'\nevent: update\ndata: '+json(event)+'\n\n');if(blocked)break;}
+      };
+      tick();const timer=setInterval(tick,500);res.on('close',()=>clearInterval(timer));return;
+    }
+    if(req.method==='GET'&&url.pathname==='/api/history'){
+      const before=Number(url.searchParams.get('before')??Number.MAX_SAFE_INTEGER);
+      if(!Number.isSafeInteger(before)||before<1){send({error:'Invalid history cursor'},400);return;}
+      // Cursor and materialized events are read synchronously on the single writer.
+      const cursor=uiEvents.cursor();
+      const jobs=store.all('SELECT rowid history_id,* FROM jobs WHERE rowid<? ORDER BY rowid DESC LIMIT 50',before).map(({run_token,lease_owner,payload_digest,...job}:any)=>job);
+      const ids=jobs.map(j=>j.id);const projections=ids.length?store.all(`SELECT * FROM ui_events WHERE job_id IN (${ids.map(()=>'?').join(',')}) AND (type<>'text' OR id IN (SELECT max(id) FROM ui_events WHERE type='text' GROUP BY job_id)) ORDER BY id`,...ids).map(e=>({...e,data:JSON.parse(e.data)})):[];
+      send({cursor,jobs,events:projections,nextBefore:jobs.length===50?jobs.at(-1)?.history_id:null,legacyChat:(before===Number.MAX_SAFE_INTEGER?(store.get<any[]>('legacyChat')??[]):[]).map(c=>({...c,answer:scrub(publicAnswer(c.answer))}))});return;
+    }
+    if(req.method==='GET'&&url.pathname==='/api/status'){send({...store.stats(),csrf,chat:(store.get<any[]>('chat')??[]).slice(-12).map(c=>({...c,answer:publicAnswer(c.answer)})),collector:store.get('collector')??{},queue:queue.metrics(),jobs:queue.list().map(({run_token,lease_owner,payload_digest,...job}:any)=>job),pool:scheduler?.status(),modelUsage:store.get('modelUsage')});return;}
+    if(req.method==='GET'&&url.pathname==='/api/jobs/receipt'){const job=store.one('SELECT rowid history_id,* FROM jobs WHERE request_id=?',url.searchParams.get('requestId')??'');if(!job){send({error:'Request receipt not found'},404);return;}const {run_token,lease_owner,payload_digest,...receipt}=job;send({job:receipt});return;}
     if(req.method==='GET'&&url.pathname==='/api/auth'){send(agent?await agent.authStatus():{connected:false,events:[]});return;}
     if(req.method!=='POST'){send({error:'Not found'},404);return;}
     // Umbrel app proxy supplies authentication. Every write also requires same-origin + anti-CSRF.

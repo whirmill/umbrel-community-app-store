@@ -1,3 +1,4 @@
+import { UiEvents } from './ui-events.js';
 import { Store } from './store.js';
 import { id, now, hash, json, scrub } from './domain.js';
 
@@ -22,7 +23,7 @@ export class Queue {
     const payload=json(scrub(input.payload));if(Buffer.byteLength(payload)>16384)throw new Error('Job payload too large');
     const digest=hash(json([input.kind,payload,input.scope??'']));
     return this.store.tx(()=>{
-      const old=this.store.one('SELECT * FROM jobs WHERE request_id=?',input.requestId);
+      const old=this.store.one('SELECT rowid history_id,* FROM jobs WHERE request_id=?',input.requestId);
       if(old){if(old.payload_digest!==digest)throw new Error('Request ID conflicts with original payload');return old;}
       if(input.coalesceKey){const existing=this.store.one(`SELECT * FROM jobs WHERE coalesce_key=? AND state IN ${pending}`,input.coalesceKey);if(existing)return existing;}
       if(this.store.one(`SELECT count(*) n FROM jobs WHERE state IN ${pending}`).n>=this.maxPending)throw new Error('Queue full; try later with the same request ID');
@@ -33,9 +34,9 @@ export class Queue {
       this.event(key,'accepted',{kind:input.kind,lane},at);return this.get(key)!;
     });
   }
-  get(key:string):Job|undefined{return this.store.one('SELECT * FROM jobs WHERE id=?',key);}
-  list(limit=40){return this.store.all('SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?',Math.max(1,Math.min(100,limit)));}
-  event(key:string,type:string,details:unknown,at=now()){this.store.run('INSERT INTO job_events VALUES(?,?,?,?,?)',id(),key,at,type,json(scrub(details)));}
+  get(key:string):Job|undefined{return this.store.one('SELECT rowid history_id,* FROM jobs WHERE id=?',key);}
+  list(limit=40){return this.store.all('SELECT rowid history_id,* FROM jobs ORDER BY rowid DESC LIMIT ?',Math.max(1,Math.min(100,limit)));}
+  event(key:string,type:string,details:unknown,at=now()){this.store.run('INSERT INTO job_events VALUES(?,?,?,?,?)',id(),key,at,type,json(scrub(details)));new UiEvents(this.store).append(key,'job',{state:this.get(key)?.state,kind:this.get(key)?.kind,lane:this.get(key)?.lane,type});}
   claim(lane:Job['lane'],owner:string,at=now()):Job|undefined {
     return this.store.tx(()=>{
       if(this.store.get('enabled')!==true||!this.store.get('bootstrapReady'))return;
