@@ -45,6 +45,7 @@ import {
   messageStatus,
   parseJson,
   pendingSubmission,
+  ownerRequestId,
   pendingKey,
   requestHeaders,
   expireSession,
@@ -468,7 +469,7 @@ export function App() {
           sessionStorage,
           message.trim(),
           kind,
-          () => "owner:" + crypto.randomUUID().replaceAll("-", ""),
+          () => ownerRequestId(),
         );
         setPending(p);
         const accepted = await api(kind === "analysis" ? "analyze" : "chat", {
@@ -515,11 +516,21 @@ export function App() {
     [messages, projection.events],
   );
   useEffect(() => {
+    if (tab !== "chat") return;
+    const el = scroll.current;
+    if (!el) return;
     if (follow.current) {
-      scroll.current?.scrollTo({ top: scroll.current.scrollHeight });
+      const followLatest = () => {
+        if (follow.current) el.scrollTop = el.scrollHeight;
+      };
+      const observer = new MutationObserver(followLatest);
+      observer.observe(el, { childList: true, subtree: true, characterData: true });
+      followLatest();
       setUnread(false);
-    } else setUnread(true);
-  }, [latestFingerprint]);
+      return () => observer.disconnect();
+    }
+    setUnread(true);
+  }, [latestFingerprint, tab]);
   const mutate = async (path: string, body: unknown = {}) => {
     setBusy(true);
     setError("");
@@ -614,7 +625,7 @@ export function App() {
             <button
               key={id}
               aria-current={tab === id ? "page" : undefined}
-              onClick={() => setTab(id)}
+              onClick={() => { if (id === "chat") follow.current = true; setTab(id); }}
             >
               <Icon size={18} />
               {label}

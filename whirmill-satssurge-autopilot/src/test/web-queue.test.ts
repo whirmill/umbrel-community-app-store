@@ -9,6 +9,7 @@ import {
   mergeHistory,
   messageStatus,
   pendingSubmission,
+  ownerRequestId,
   pendingKey,
   requestHeaders,
   safeUrl,
@@ -255,4 +256,16 @@ test("slow status polling cannot overwrite a more recent terminal receipt", () =
     { id: "a", kind: "chat", state: "running", updated_at: "2026-01-01" },
   ]);
   assert.equal(p.jobs.a?.state, "completed");
+});
+
+test("HTTP-origin request IDs use secure randomness without randomUUID", () => {
+  let calls = 0;
+  const httpCrypto = { getRandomValues(bytes: Uint8Array) { calls++; bytes.fill(calls); return bytes; } };
+  const first = ownerRequestId(httpCrypto), second = ownerRequestId(httpCrypto);
+  assert.match(first, /^owner:[a-f0-9]{32}$/);
+  assert.notEqual(first, second);
+  assert.equal(calls, 2);
+  const s = storage();
+  const pending = pendingSubmission(s, "HTTP Umbrel request", "chat", () => ownerRequestId(httpCrypto));
+  assert.equal(pendingSubmission(s, pending.message, "chat", () => { throw Error("must reuse receipt"); }).requestId, pending.requestId);
 });

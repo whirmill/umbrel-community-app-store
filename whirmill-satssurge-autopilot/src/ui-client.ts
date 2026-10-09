@@ -219,3 +219,9 @@ export function messageStatus(
         ? { type: "incomplete", reason: "cancelled" }
         : { type: "running" };
 }
+
+/** getRandomValues is available on Umbrel HTTP origins where randomUUID is not. */
+export function ownerRequestId(source: { getRandomValues(bytes: Uint8Array): Uint8Array } = globalThis.crypto): string {
+  const bytes = source.getRandomValues(new Uint8Array(16));
+  return "owner:" + Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+}
