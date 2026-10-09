@@ -2333,3 +2333,78 @@ h1:focus {
     padding-block: 12px;
   }
 }
+/* Official assistant-ui homepage composer geometry; SDK autosize covers browsers without field-sizing. */
+.agent-composer {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding-inline: 20px;
+}
+.agent-composer .composer-surface {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  background: color-mix(in srgb, var(--surface-muted) 30%, transparent);
+  border-radius: 16px;
+  transition: border-color 150ms;
+}
+.agent-composer .composer-surface:focus-within {
+  outline: none;
+  border-color: color-mix(in srgb, var(--ink) 25%, transparent);
+}
+.agent-composer .composer-surface textarea {
+  min-height: 0;
+  max-height: 12rem;
+  width: 100%;
+  resize: none;
+  border: 0;
+  background: transparent;
+  padding: 12px 16px 8px;
+  font-size: 16px;
+  line-height: 24px;
+  border-radius: 0;
+  outline: none;
+}
+.agent-composer .composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 8px 8px;
+}
+.composer-left {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+.composer-right {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+}
+.agent-composer .composer-send,
+.agent-composer .composer-analysis {
+  border-radius: 6px !important;
+}
+.agent-composer .composer-send {
+  background: var(--ink);
+  color: var(--surface);
+  border: 0;
+}
+.agent-composer .composer-send:hover:not(:disabled) {
+  opacity: 0.85;
+  background: var(--ink);
+}
+.agent-composer .composer-send:disabled {
+  opacity: 0.4;
+}
+
+@media (max-width: 768px) {
+  .agent-composer {
+    padding-inline: 12px;
+  }
+}

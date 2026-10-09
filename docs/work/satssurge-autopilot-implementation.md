@@ -1225,3 +1225,39 @@ original autonomy/timer restoration remain pending. DefaultSol/high remains,
 with supported user-selectable effort/model pinned per new admission and original
 submitted recovery preserved. The existing owned pause/fence is not released
 by publication; financial receipts must never be replayed.
+
+### Source040: actual official composer primitives (039 remains immutable)
+
+Latest user request is actual homepage composer, not another custom lookalike. Inspected official main source https://github.com/assistant-ui/assistant-ui/blob/main/apps/docs/components/pages/home/demo/composer.tsx and installed @assistant-ui/react0.15.25 Root/Input/Send/createActionButton implementation. New web/components/AgentComposer.tsx uses real ComposerPrimitive.Root/Input/Send with the relative full-width root, one muted rounded shell, border10%/focus25%, borderless16px/24px input and footer spacing16/12/8px as appropriate. Cross-browser adaptation: installed native autosize minRows1/maxRows8 plus CSS max12rem/resize:none replaces the homepage's asChild field-sizing-content textarea. Empty input is one row; no current fixed3-row/resizable field or amber circular send. Neutral foreground send uses rounded6px control; existing mobile44px target requirement is retained. Real model/effort/capacity and read-only analysis remain; no microphone/attachment capabilities added.
+
+App owns draft and persistent nonce. Layout effect synchronizes SDK composer text from App state, including pending draft on remount and acknowledged empty state. Native Input updates both; Root caller prevents default and calls existing durable submit, and Send caller prevents default then requests that same form submission. Installed Radix composition therefore suppresses default runtime.send/automatic clear; acceptance/recovery still controls clearing. Input disables pasted attachments, Escape cancellation and automatic run/scroll/thread-switch focus; touch-primary Enter newline flag is enabled, desktop Enter submits/ShiftEnter newline follows the official primitive. Analysis remains separate typebutton. Ordinary empty-composer hint is removed; real notices/uncertain-recovery UI remain. Accepted notices now plain “Messaggio inviato”/“Analisi accodata”; recovery “Richiesta recuperata”. Receipt IDs remain in their existing receipt/Activity views.
+
+Fixture-only FIXTURE_DROP_ACK_ONCE=1 destroys the first chat response AFTER durable Queue admission and starting its mock pipeline. Original ID/job remains, and duplicate/recovery cannot start it again; default fixture flow and production endpoints are unchanged. Primary owns live fixture/ACK-loss qualification; no child fixture process started.
+
+Node regressions execute the production Root/Send event callbacks through the installed Radix composeEventHandlers, prove exactly one durable callback per event and zero default runtime sends/clears, guard busy/empty input, and exercise draft-to-SDK synchronization without sending. Full Node24.21 build **148/148 PASS**, explicit typecheck PASS, Python **16/16 PASS**, fixture node-check PASS. Logs /tmp/satssurge-official040-{node,typecheck,python}.log. Exact files: web/App.tsx, new web/components/AgentComposer.tsx, web/style.css, scripts/ui-fixture.mjs, new src/test/official-composer.test.ts, this handoff. Generated ignored dist/public rebuilt. Initial case-sensitive Button import compile error corrected to existing ui/button before full successful checks. No Agent/RunBudget/finance/scheduler/version/Git/deploy/provider edits; backend146 contract remains.
+
+Primary039 evidence carried unchanged: leading history offsets62/254.46875 now exact across Node-return; three real qualification runs completed19/23/28s; natural high analyst98s/events132s registered waits without due changes. Other analyst provider stream ended before terminal (not deadline), existing cooldown until15:42:40Z honored, no replay/clear. Pending original autonomy bff remains queued and financial fence plan035 remains primary-owned. 039 actual healthy but acceptance in progress;040 publication/installed/browser/native-mobile acceptance is NOT claimed. Writer STOPPED; all child build/test/check processes exited and no child live resources remain. Primary owns one-row/autogrow/Enter/ShiftEnter/tab-draft/ACK-loss and matched official screenshot qualification, review and immutable040 release.
+
+### 0.4.0 source version preparation — official composer, acceptance pending
+
+Exact next version is0.4.0; intended workflow tag is
+`satssurge-autopilot-v0.4.0`. Package and both root lock version fields are0.4.0;
+manifest/compose remain on verified installed0.3.9 until new image verification.
+0.3.9 backend remains unchanged. New frontend uses official Composer.Root/Input/
+Send with one durable submission callback, native single-line autosizing and
+persistent admission nonce. Review approved; Node tests/build/typecheck passed
+148 and Python16 (`/tmp/satssurge-official040*.log`).
+
+Actual local fixture qualified Enter/ShiftEnter,44→68px autosize, draft return
+across tabs and recovery of a dropped post-COMMIT acknowledgment into one job.
+24 responsive cases had no overflow, mobile controls>=16px text/44px targets
+and empty console. These are candidate frontend proofs; installed0.4.0
+acceptance is pending, not inferred from installed healthy0.3.9.
+
+Current original autonomy remains paused under ownedplan-035-qualification;
+backfill timer inactive, zero active/financial-pending operations, original
+naturally queued job preserved under legitimate model cooldown. Publication
+never authorizes clearing that fence or replaying its submission. Primary owns
+checkpoint/update, real official composer/Pi/browser/natural economic checks,
+reconciliation and original autonomy/timer restoration. Previous immutable
+0.3.9 tag/image remain unchanged. No financial tests/regtest/M3/M4 expansion.

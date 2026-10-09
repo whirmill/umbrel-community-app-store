@@ -158,6 +158,7 @@ const fixtureModels = [
 ];
 if (!store.get("model")) store.set("model", "gpt-6.1-sol");
 let authPrompt = false;
+let droppedAdmissionAck = false;
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, "http://127.0.0.1");
   const send = (x, status = 200) => {
@@ -305,6 +306,16 @@ const server = createServer(async (req, res) => {
           kind: url.pathname.endsWith("analyze") ? "analysis" : "chat",
           payload: { message: body.message },
         });
+      if (
+        url.pathname === "/api/chat" &&
+        process.env.FIXTURE_DROP_ACK_ONCE === "1" &&
+        !droppedAdmissionAck
+      ) {
+        droppedAdmissionAck = true;
+        if (!old) run(job);
+        res.destroy();
+        return;
+      }
       send({ accepted: true, job }, 202);
       if (!old) run(job);
       return;

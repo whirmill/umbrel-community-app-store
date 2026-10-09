@@ -1,4 +1,4 @@
-import { ModelPicker } from "../src/ui-model-picker";
+import { AgentComposer } from "./components/AgentComposer";
 import { virtualMemory } from "../src/ui-virtual-window";
 import { LazyDisclosure } from "../src/ui-disclosure";
 import { repositoryFor } from "./components/repository";
@@ -719,7 +719,9 @@ export function App() {
         sessionStorage.removeItem(pendingKey);
         setPending(null);
         setDraft("");
-        setNotice("Richiesta accettata · " + accepted.job.id);
+        setNotice(
+          kind === "analysis" ? "Analisi accodata" : "Messaggio inviato",
+        );
         follow.current = true;
         await refresh().catch(() => {});
       } catch (e: any) {
@@ -846,7 +848,7 @@ export function App() {
       sessionStorage.removeItem(pendingKey);
       setPending(null);
       setDraft("");
-      setNotice("Ricevuta recuperata · " + r.job.id);
+      setNotice("Richiesta recuperata");
     } catch (e: any) {
       setError(
         e.status === 404
@@ -1116,97 +1118,25 @@ export function App() {
                                 <ArrowDown size={15} /> Nuovi aggiornamenti
                               </Button>
                             )}
-                            <form
-                              className="composer"
-                              onSubmit={(e) => {
-                                e.preventDefault();
-                                void submit(pending?.kind ?? "chat");
-                              }}
-                            >
-                              <div className="composer-surface">
-                                <label className="sr-only" htmlFor="message">
-                                  Messaggio al coordinatore
-                                </label>
-                                <textarea
-                                  id="message"
-                                  value={draft}
-                                  disabled={busy || !!pending}
-                                  onChange={(e) => setDraft(e.target.value)}
-                                  placeholder="Chiedi al tuo agente…"
-                                  rows={3}
-                                />
-                                <div className="composer-actions">
-                                  <ModelPicker
-                                    id="composer-model"
-                                    auth={auth}
-                                    disabled={busy || !!pending}
-                                    onChange={(model, thinkingLevel) =>
-                                      void mutate("model", {
-                                        model,
-                                        thinkingLevel,
-                                      })
-                                    }
-                                  />
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="composer-analysis"
-                                    aria-label="Analisi in sola lettura"
-                                    title="Analisi in sola lettura · mandato applicato dal backend"
-                                    disabled={
-                                      busy || !draft.trim() || !!pending
-                                    }
-                                    onClick={() => void submit("analysis")}
-                                  >
-                                    <FlaskConical
-                                      size={17}
-                                      aria-hidden="true"
-                                    />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    className="composer-send"
-                                    disabled={busy || !draft.trim()}
-                                    type="submit"
-                                    aria-label={
-                                      busy
-                                        ? "Invio…"
-                                        : pending
-                                          ? "Riprova"
-                                          : "Invia"
-                                    }
-                                    title={
-                                      busy
-                                        ? "Invio…"
-                                        : pending
-                                          ? "Riprova la richiesta salvata"
-                                          : "Invia"
-                                    }
-                                  >
-                                    <ArrowUp size={18} aria-hidden="true" />
-                                  </Button>
-                                </div>
-                              </div>
-                              {pending && (
-                                <div className="pending">
-                                  Richiesta salvata in attesa di conferma.
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={busy}
-                                    onClick={() => void recover()}
-                                  >
-                                    Recupera ricevuta
-                                  </Button>
-                                </div>
-                              )}
-                              <p className="composer-status" role="status">
-                                {notice ||
-                                  (projection.truncatedEvents
-                                    ? "Dettagli più vecchi limitati in memoria; ricevute e cronologia restano persistite."
-                                    : "La chat può proporre interventi entro il mandato. Le analisi restano in sola lettura.")}
-                              </p>
-                            </form>
+                            <AgentComposer
+                              draft={draft}
+                              setDraft={setDraft}
+                              busy={busy}
+                              pending={!!pending}
+                              auth={auth}
+                              onSubmit={() => submit(pending?.kind ?? "chat")}
+                              onAnalysis={() => submit("analysis")}
+                              onRecover={recover}
+                              onModelChange={(model, thinkingLevel) =>
+                                void mutate("model", { model, thinkingLevel })
+                              }
+                              notice={
+                                notice ||
+                                (projection.truncatedEvents
+                                  ? "Dettagli più vecchi limitati in memoria; ricevute e cronologia restano persistite."
+                                  : "")
+                              }
+                            />
                           </ThreadPrimitive.Root>
                         </AssistantRuntimeProvider>
                       </jobContext.Provider>
