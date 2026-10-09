@@ -797,3 +797,19 @@ receipts and pending operations; never restore old accounting to retry effects.
 
 Release preparation changes only package/root lock versions and documentation.
 Exact source SHA, Actions run and image digest remain unset until publication.
+
+### 0.3.5 immutable publication verified — installed acceptance pending
+
+Source `13f43facfc061d22db2b1c878aab4c4f1bef7905`, tag
+`satssurge-autopilot-v0.3.5`, [CI 37929672372](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37929672372)
+passed 112 Node24 and 16 Python tests. Verified image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.3.5@sha256:b4c9d4e75c52ddccd2d22b05ff64308a5c72b3a37d51f9be8d1d1d983f6a7846`.
+Anonymous index, both architecture configurations and all 22 layers passed
+SHA-256 and size checks (218076698 compressed bytes). Both configs match source
+and use `flock --no-fork`; package.json extracted from image layers confirms
+0.3.5. Private receipt: `/Users/whirmill/.local/share/satssurge/image-035-receipt.json`.
+Umbrel manifest and compose are now prepared together for this verified image.
+Current accepted installed release remains 0.3.4: fresh checkpoint, installed
+0.3.5 read-only Pi/browser qualification and operational reconciliation are
+pending. Previous immutable releases remain intact; original receipts must be
+preserved without financial replay.

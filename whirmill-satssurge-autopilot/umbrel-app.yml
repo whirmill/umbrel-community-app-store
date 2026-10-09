@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.3.4"
+version: "0.3.5"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -25,28 +25,17 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.3.4 rechecks budgets, the active reservation, interlocks and
-  protected on-chain obligations immediately before financial dispatch.
-  Durable queue successors preserve original requests through recovery;
-  retained event identities prevent duplicate historical aggregation.
-  Oversized chat drafts can be corrected before admission, while ambiguous
-  requests, including legacy oversized drafts, retain their original retry
-  identity. Recovery preserves original and successor receipts. History keeps
-  250 completed jobs plus active receipts, with older-page navigation and return
-  to recent history. Bounded UI projections keep current progress visible. Owner logout revokes the server
-  session, the container forwards shutdown signals to Node, and Lightning
-  Mate backfill avoids unnecessary restart when its retained log is unchanged.
-  Preserves schema 4, private data, subscription OAuth, mandate and pending
-  operation receipts. Final local suites passed 95 Node 24 and 16 Python tests.
-  Immutable amd64/arm64 image publication is verified against source
-  a3fad86bad3ae86ebc3798ea34d17fb609012770. CI 37912510129 passed 95 Node
-  and 16 Python tests; all 22 layers passed anonymous SHA-256 and size checks.
-  Installed 0.3.4 is healthy and accepted on Umbrel amd64. Checkpoint and
-  isolated restore passed; baseline ledger/jobs/history, OAuth, mandate and
-  owner credentials were preserved. Live read-only requests, cancellation,
-  reconnect, logout, input validation and responsive layouts passed. Real
-  restart preserved three background jobs in recovery after its bounded drain
-  deadline; synthetic shutdown drained successfully. Corrected host backfill
-  was installed and four timers plus initial autonomy were restored. No
-  financial acceptance test, regtest, M3/M4 capability or profitability
-  qualification is introduced.
+  Version 0.3.5 adds immutable scoped evidence views with explicit completeness,
+  persistent research/finalization budgets and hard provider limits, truthful
+  analysis metadata and bounded nonfinancial review waits. Qualified public
+  provider summaries and authenticated lazy details preserve private originals.
+  GFM tables, grouped tools, virtual history and persistent System/light/dark
+  themes improve the interface. Preserves schema 4, mandate, financial executor,
+  OAuth and original operation receipts. CI 37929672372 passed 112 Node 24 and
+  16 Python tests. Anonymous amd64/arm64 configurations and all 22 image layers
+  passed SHA-256 and size checks against source
+  13f43facfc061d22db2b1c878aab4c4f1bef7905; package version is 0.3.5 and both
+  image commands use flock --no-fork. Installed 0.3.5 qualification is pending;
+  0.3.4 remains the accepted installed release. Local heavy-fixture responsive,
+  dark contrast and recovery checks passed. No financial acceptance test,
+  regtest, M3/M4 capability or profitability qualification is introduced.
