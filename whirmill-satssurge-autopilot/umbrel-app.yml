@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.3.0"
+version: "0.3.1"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -25,13 +25,14 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.3.0 delivers the M2.1 responsive React chat interface with
-  authenticated streaming, durable history replay, tool receipts and canonical
-  job states. Includes safe Markdown, accessible navigation, session expiry,
-  reconnect recovery and history scroll anchoring. Retains Pi Durable,
-  subscription OAuth, the guarded executor and existing financial limits.
-  CI passed 69 Node and 15 Python tests. Immutable amd64/arm64 images identify
-  source d0c702a906378dd596f6ef23fcbe9335b167a306; both platforms and all image
-  layers passed anonymous registry download and digest verification.
+  Version 0.3.1 fixes chat request IDs on the installed Umbrel HTTP origin by
+  using cryptographically secure getRandomValues IDs where randomUUID is
+  unavailable. Improves follow-latest scrolling and navigation in the M2.1
+  responsive React interface. Retains authenticated streaming, durable history
+  replay, safe Markdown, Pi Durable, subscription OAuth, the guarded executor
+  and existing financial limits. CI passed 70 Node and 15 Python tests.
+  Immutable amd64/arm64 images identify source
+  719c20be7916440b2a9b6b8b565e9081a6c7e0f2; both platforms and all image layers
+  passed anonymous registry download and digest verification.
   Installation and live acceptance of this release remain pending.
   No channel lifecycle, Magma, Telegram or profitability qualification.
