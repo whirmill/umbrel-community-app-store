@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -33,10 +34,14 @@ def check(path):
         connection.close()
 
 
-def capture(source, target, final_guard=None):
+def capture(source, target, final_guard=None, release=None):
     target.mkdir(parents=True, exist_ok=False, mode=0o700)
     manifest = {'version': 1, 'capturedAt': utc(dt.datetime.now(dt.timezone.utc).isoformat()), 'files': {},
-                'scope': 'Three databases with stopped application; pending state preserved, not replayed'}
+                'scope': 'Three databases with stopped application; pending state preserved, not replayed',
+                'recoveryScope': 'database checkpoint only',
+                'release': release or {'source': 'unrecorded', 'imageDigest': 'unrecorded'},
+                'fullInstallRecoveryRequires': ['owner.secret preserved separately with original permissions', 'mounted LND and provider credentials preserved separately', 'immutable release image and source manifest'],
+                'rollbackPolicy': 'Never restore older financial receipts over new or uncertain effects; schema compatibility must be verified'}
     for name in FILES:
         path = source / name
         if not path.is_file():
@@ -95,11 +100,11 @@ def require_stopped():
         raise ValueError('Application must be proven stopped for consistent capture')
 
 
-def capture_locked(source, target, guard=require_stopped):
+def capture_locked(source, target, guard=require_stopped, release=None):
     with (source / 'executor.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         guard()
-        return capture(source, target, final_guard=guard)
+        return capture(source, target, final_guard=guard, release=release)
 
 
 if __name__ == '__main__':
@@ -107,6 +112,8 @@ if __name__ == '__main__':
     parser.add_argument('mode', choices=['capture', 'verify', 'restore'])
     parser.add_argument('source', type=pathlib.Path)
     parser.add_argument('target', type=pathlib.Path, nargs='?')
+    parser.add_argument('--release-source')
+    parser.add_argument('--release-image')
     args = parser.parse_args()
     try:
         if args.mode == 'capture':
@@ -114,7 +121,12 @@ if __name__ == '__main__':
                 raise ValueError('Destination required')
             # Same inode used by the container entrypoint: prevent a concurrent
             # start from writing between sequential database checkpoints.
-            capture_locked(args.source, args.target)
+            release = None
+            if args.release_source or args.release_image:
+                if not re.fullmatch(r'[0-9a-f]{40}', args.release_source or '') or not re.fullmatch(r'sha256:[0-9a-f]{64}', args.release_image or ''):
+                    raise ValueError('Both exact release source and immutable image digest required')
+                release = {'source': args.release_source, 'imageDigest': args.release_image}
+            capture_locked(args.source, args.target, release=release)
         elif args.mode == 'restore':
             if args.target is None:
                 raise ValueError('Isolated destination required')

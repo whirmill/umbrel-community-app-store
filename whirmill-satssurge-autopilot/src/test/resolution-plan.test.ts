@@ -576,7 +576,7 @@ test("actual Harness hard deadline awaits an entered financial mock and recovery
     assert.equal(followUp.outcome, "unregistered");
     assert.equal(
       followUp.dueAt,
-      new Date(Date.parse(queued.created_at) + 3600000).toISOString(),
+      null,
     );
     const receipt = q.get(queued.id)!;
     assert.ok(receipt.submission_id);
@@ -642,38 +642,38 @@ test("scheduler fixed deadlines survive 72h, same-bucket finished work cannot co
   try {
     const waits = new ReviewWaits(store),
       entry = waits.register({
-        scope: "s",
+        scope: "0x0x1->0x0x2",
         origin: "owner",
         evidenceIds: ["a"],
         missing: ["48h"],
         dueAt: new Date(clock + 48 * 3600000).toISOString(),
       });
-    waits.signal("s", "first");
+    waits.signal("0x0x1->0x0x2", "first");
     scheduler.tick();
-    const first = store.one("SELECT * FROM jobs WHERE scope='s'");
+    const first = store.one("SELECT * FROM jobs WHERE scope='0x0x1->0x0x2'");
     assert.ok(first);
     store.run("UPDATE jobs SET state='completed' WHERE id=?", first.id);
-    waits.signal("s", "policy:new");
+    waits.signal("0x0x1->0x0x2", "policy:new");
     clock += 900000; // backoff boundary in same 15-min bucket generation uses trigger/sequence IDs
     scheduler.tick();
     const second = store.one(
-      "SELECT * FROM jobs WHERE scope='s' ORDER BY rowid DESC LIMIT 1",
+      "SELECT * FROM jobs WHERE scope='0x0x1->0x0x2' ORDER BY rowid DESC LIMIT 1",
     );
     assert.notEqual(second.id, first.id);
-    assert.equal(waits.get("s")!.consumedTrigger, "policy:new");
+    assert.equal(waits.get("0x0x1->0x0x2")!.consumedTrigger, "policy:new");
     clock += 72 * 3600000;
     scheduler.tick();
-    assert.equal(waits.get("s")!.dueAt, entry.dueAt);
-    store.run("UPDATE jobs SET state='completed' WHERE scope='s'");
+    assert.equal(waits.get("0x0x1->0x0x2")!.dueAt, entry.dueAt);
+    store.run("UPDATE jobs SET state='completed' WHERE scope='0x0x1->0x0x2'");
     const cap = new Queue(store, 1),
       blockedScheduler = new Scheduler(cap, {
         available: async () => false,
         runJob: async () => undefined,
       });
-    waits.signal("s", "policy:blocked");
+    waits.signal("0x0x1->0x0x2", "policy:blocked");
     clock += 7 * 3600000;
     blockedScheduler.tick();
-    assert.notEqual(waits.get("s")!.consumedTrigger, "policy:blocked");
+    assert.notEqual(waits.get("0x0x1->0x0x2")!.consumedTrigger, "policy:blocked");
     blockedScheduler.stop();
     await blockedScheduler.drain();
   } finally {
@@ -772,10 +772,9 @@ test("capture completeness is independently validated and target-only buckets ca
     source: "1x0x0",
     target: "2x0x0",
   });
-  assert.equal(page.total, 0);
-  assert.equal(page.metadata.unsupportedRows, 1);
-  assert.equal(page.metadata.captureComplete, null);
-  assert.equal(views.releaseCursor("j", page.cursor), true);
+  assert.equal(page.available, false);
+  assert.equal(page.unsupportedFilter, true);
+  assert.equal(page.rows, null);
   assert.equal(views.metrics().views, 0);
 });
 import { readFileSync } from "node:fs";

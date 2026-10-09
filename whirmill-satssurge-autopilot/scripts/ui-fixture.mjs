@@ -1,3 +1,4 @@
+import {Research} from '../dist/research.js';
 import { legacyHistory } from "../dist/legacy-history.js";
 import { historyEvents } from "../dist/ui-history.js";
 import { publicJob, exchangeAnswerPage } from "../dist/public-job.js";
@@ -23,7 +24,7 @@ store.set("snapshot", {
   confirmedSat: "502858",
   channels: [
     {
-      id: "fake1",
+      id: process.env.FIXTURE_RESEARCH_REPAIR==='1'?'1':'fake1',
       alias: "SatsSurge · demo",
       localSat: "672264",
       remoteSat: "326762",
@@ -93,6 +94,40 @@ if (!store.get("seeded")) {
     );
   store.set("seeded", true);
 }
+// Research examples are appended after historical jobs so they are in the latest window.
+if(process.env.FIXTURE_RESEARCH_REPAIR==='1'&&!store.get('researchRepairSeededV2')){
+  const research=new Research(store);
+  const make=(name,message)=>queue.enqueue({requestId:'fixture-research-v2:'+name,kind:'analysis',scope:'node',origin:'scheduler',purpose:'economic',payload:{message:'Fixture sintetica · '+message}});
+  const finish=(job,answer)=>{
+    const at=new Date().toISOString();
+    store.run("UPDATE jobs SET state='completed',result=?,finished_at=?,updated_at=? WHERE id=?",JSON.stringify({answer:'Fixture locale, senza provider o effetti finanziari. '+answer}),at,at,job.id);
+    queue.event(job.id,'completed',{});
+  };
+  const budget=(job,calls,elapsed)=>store.set('runBudget:'+job.id,{started:Date.now()-elapsed,calls,phase:'finalization',reason:'fixture',hardMs:180000,softMs:60000,researchCalls:12,endedMs:elapsed,usage:{input:1,output:1,totalTokens:2}});
+  const partial=make('partial','ricerca parziale con dati non acquisiti');research.initialize(partial);research.state(partial);budget(partial,3,4200);finish(partial,'Ricerca parziale: il budget è stato letto; copertura e confronto restano da esaminare.');
+  const blocked=make('blocked','ricerca al limite dei tre segmenti');const blockedState=research.initialize(blocked);blockedState.segmentIndex=2;store.set('research:'+blocked.id,blockedState);research.state(blocked);budget(blocked,24,180000);finish(blocked,'Tre segmenti raggiunti: servono nuovi fatti materiali.');
+  const complete=make('observation','ricerca completa sulle evidenze disponibili; attesa esplicita, idoneità non dimostrata');const completeState=research.initialize(complete);research.state(complete);
+  for(const key of completeState.required){
+    if(key==='state_budget'||key==='alternatives')continue;
+    let query;
+    if(key.startsWith('diagnostics:')){const [,provider,collection]=key.split(':');query={section:'diagnostics',provider,collection};}
+    else if(key.startsWith('competition_alternatives:'))query={section:'competition_alternatives',channel:key.slice('competition_alternatives:'.length)};
+    else if(key.startsWith('corridor_events:')){const [source,target]=key.slice('corridor_events:'.length).split('->');query={section:'corridor_events',source,target};}
+    else query={section:key};
+    query=research.query(complete,query);
+    // Missing sources complete their explicit availability assessment, never assert financial eligibility.
+    research.page(complete,query,{available:false,rows:null,nextOffset:null,note:'Fonte non disponibile nella fixture sintetica',version:null});
+  }
+  research.alternatives(complete,{wait:'Attendere dati autorevoli completi.',priceChange:'Non giustificato senza copertura.',smallerRebalance:'Non giustificato senza previsione.',proposedAction:'Nessuna azione finanziaria nella fixture.'});
+  const dueAt=new Date(Date.now()+48*3600000).toISOString();
+  store.set('followUpOutcome:'+complete.id,{outcome:'wait',scope:'node',dueAt,at:new Date().toISOString(),provenance:'fixture'});
+  budget(complete,12,15000);finish(complete,'Ricerca completa sulle fonti disponibili, con lacune esplicite. Attendere la scadenza o fatti materiali; non è una previsione idonea.');
+  store.ledger({id:'fixture-routing-revenue',at:new Date().toISOString(),classification:'revenue',amountMsat:'364358',category:'routing'});
+  store.ledger({id:'fixture-swap-revenue',at:new Date().toISOString(),classification:'revenue',amountMsat:'1958000',details:{scope:'swap'}});
+  store.ledger({id:'fixture-unallocated-cost',at:new Date().toISOString(),classification:'expense',amountMsat:'10705169'});
+  store.set('researchRepairSeededV2',true);
+}
+if(process.env.FIXTURE_OPERATIONAL_BLOCKED==='1')store.set('blockers',['Blocco operativo sintetico: acquisizione autorevole non disponibile']);
 let session = "fixture-session";
 const later = (ms, fn) => {
   const t = setTimeout(() => {
@@ -368,8 +403,10 @@ const server = createServer(async (req, res) => {
     send({ error: e.message }, 400);
   }
 });
-server.listen(19538, "127.0.0.1", () =>
-  console.log("UI fixture listening on19538"),
+const fixturePort=Number(process.env.UI_FIXTURE_PORT??19538);
+if(!Number.isInteger(fixturePort)||fixturePort<1024||fixturePort>65535)throw Error('Invalid local fixture port');
+server.listen(fixturePort, "127.0.0.1", () =>
+  console.log('UI fixture listening on'+fixturePort),
 );
 process.once("SIGTERM", () => {
   for (const t of timers) clearTimeout(t);

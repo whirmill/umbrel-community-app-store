@@ -44,8 +44,11 @@ export class Collector {
         const routes=(p.htlcs??[]).filter((h:any)=>h.status==='SUCCEEDED').map((h:any)=>h.route);
         if(!routes.length || routes.some((r:any)=>r.hops?.at(-1)?.pub_key!==s.identity))continue;
         if(this.store.one('SELECT id FROM operations WHERE payment_hash=?',p.payment_hash))continue;
-        const at=new Date(Number(BigInt(p.creation_time_ns??'0')/1000000n)).toISOString();if(at<start)continue;
+        const settled=(p.htlcs??[]).filter((h:any)=>h.status==='SUCCEEDED').map((h:any)=>h.resolve_time_ns).filter((t:any)=>t&&BigInt(t)>0n);
+        const creationAt=new Date(Number(BigInt(p.creation_time_ns??'0')/1000000n)).toISOString();
+        const at=settled.length===routes.length?new Date(Number(settled.map(BigInt).reduce((a:bigint,b:bigint)=>a>b?a:b,0n)/1000000n)).toISOString():creationAt;if(at<start)continue;
         const source=String(routes[0].hops[0].chan_id),target=String(routes[0].hops.at(-1).chan_id);
+        const affectedChannels=[...new Set<string>(routes.flatMap((r:any)=>[String(r.hops[0].chan_id),String(r.hops.at(-1).chan_id)]))];
         const historicalRows=this.store.all("SELECT id,amount_msat,details FROM ledger WHERE classification='expense'").filter(r=>{const d=JSON.parse(r.details);return r.id==='rebalance-'+p.payment_hash || [d.paymentHash,d.payment_hash,d.evidence?.paymentHash,d.evidence?.payment_hash].includes(p.payment_hash);});
         const historical=historicalRows.length===1;
         if(historical && historicalRows[0].amount_msat!==String(p.fee_msat))throw new Error('Historical fee discrepancy: correction required');
@@ -53,9 +56,9 @@ export class Collector {
         if(!historical)this.store.ledger({id:'manual:'+p.payment_hash,at,classification:'expense',amountMsat:String(p.fee_msat),category:'manual_rebalance',details:{paymentHash:p.payment_hash,source,target}});
         const eventId='manual:'+p.payment_hash;
         if(!this.store.one('SELECT id FROM events WHERE id=?',eventId)&&at>=(this.store.get('installedAt')??now())) {
-          for(const c of [source,target])this.store.run('INSERT OR REPLACE INTO channel_holds VALUES(?,?,?,?)',c,now(),'Manual payment under reconciliation',s.at);
+          for(const c of affectedChannels)this.store.run('INSERT OR REPLACE INTO channel_holds VALUES(?,?,?,?)',c,now(),'Manual payment under reconciliation',s.at);
         }
-        this.store.event({id:eventId,at,type:'manual_operation',source,target,amountMsat:String(p.value_msat),feeMsat:String(p.fee_msat),pinned:true,details:{paymentHash:p.payment_hash,index:p.payment_index}});
+        this.store.event({id:eventId,at,type:'manual_operation',source,target,amountMsat:String(p.value_msat),feeMsat:String(p.fee_msat),pinned:true,baseline:at<(this.store.get('installedAt')??now()),details:{paymentHash:p.payment_hash,index:p.payment_index,affectedChannels,creationAt,settlementAt:settled.length===routes.length?at:null,timestampPrecision:settled.length===routes.length?'ns-truncated-to-ms':'creation-only',settlementUncertain:settled.length!==routes.length}});
       }
       const forwards=await this.node.forwards(Math.floor(Date.parse(start)/1000),Math.floor(Date.parse(end)/1000));
       const seen=new Map<string,number>();
@@ -63,7 +66,7 @@ export class Collector {
         for(const e of forwards) {
           const at=e.timestamp_ns?new Date(Number(BigInt(e.timestamp_ns)/1000000n)).toISOString():new Date(Number(e.timestamp)*1000).toISOString();
           const key=hash(json([e.timestamp_ns??e.timestamp,e.chan_id_in,e.chan_id_out,e.amt_in_msat,e.amt_out_msat,e.fee_msat]));const occurrence=seen.get(key)??0;seen.set(key,occurrence+1);
-          this.store.event({id:'fwd:'+key+':'+occurrence,at,type:'external_forward',source:String(e.chan_id_in),target:String(e.chan_id_out),amountMsat:String(e.amt_out_msat),feeMsat:String(e.fee_msat),details:{source:'LND forwardinghistory',timestampPrecision:e.timestamp_ns?'ns':'s'}});
+          this.store.event({id:'fwd:'+key+':'+occurrence,at,type:'external_forward',source:String(e.chan_id_in),target:String(e.chan_id_out),amountMsat:String(e.amt_out_msat),feeMsat:String(e.fee_msat),baseline:at<(this.store.get('installedAt')??end),details:{source:'LND forwardinghistory',timestampPrecision:e.timestamp_ns?'ns':'s'}});
           this.store.ledger({id:'fwd:'+key+':'+occurrence,at,classification:'revenue',amountMsat:String(e.fee_msat),category:'routing'});
         }
         this.store.run('INSERT OR REPLACE INTO coverage VALUES(?,?,?,?,?,?)','forwards',start,end,'LND forwards',1,json({pagesComplete:true,events:forwards.length}));

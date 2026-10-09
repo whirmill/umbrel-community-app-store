@@ -19,6 +19,18 @@ export type Job = {
   wait_reason?: string;
   [key: string]: any;
 };
+/** Research receipts have their own monotonic clock; lifecycle timestamps fence only job state. */
+const researchFields=new Set(['researchStatus','researchProgress','researchGaps','nextTrigger','followUpState','triggerDetails','economicEligible','economicReasons','operationOutcome','researchProjectionVersion']);
+function mergeJobProjection(old:Job,incoming:Partial<Job>,lifecycleFresh:boolean):Job {
+  const lifecycle=Object.fromEntries(Object.entries(incoming).filter(([key])=>!researchFields.has(key)));
+  const next={...old,...(lifecycleFresh?lifecycle:{})};
+  const oldVersion=old.researchProjectionVersion,newVersion=incoming.researchProjectionVersion;
+  const versioned=Number.isSafeInteger(newVersion)&&newVersion>0;
+  const previousVersioned=Number.isSafeInteger(oldVersion)&&oldVersion>0;
+  const researchFresh=versioned?(!previousVersioned||newVersion>=oldVersion):(!previousVersioned&&lifecycleFresh);
+  if(researchFresh)for(const key of researchFields)if(Object.hasOwn(incoming,key))next[key]=incoming[key];
+  return next;
+}
 export type Projection = {
   jobs: Record<string, Job>;
   events: UiEvent[];
@@ -78,8 +90,11 @@ export function mergeEvents(
     .reverse();
   for (const e of ordered) {
     const j = jobs[e.job_id];
-    if (e.type === "job" && j && (!j.updated_at || e.at >= j.updated_at))
-      jobs[e.job_id] = { ...j, ...e.data, updated_at: e.at };
+    if(e.type==='job'&&j){
+      const lifecycleFresh=!j.updated_at||e.at>=j.updated_at;
+      const hasLifecycle=Object.keys(e.data).some(key=>!researchFields.has(key));
+      jobs[e.job_id]=mergeJobProjection(j,{...e.data,...(hasLifecycle?{updated_at:e.at}:{})},lifecycleFresh);
+    }
   }
   return {
     ...state,
@@ -98,11 +113,11 @@ export function mergeJobs(state: Projection, incoming: Job[]): Projection {
   const jobs = { ...state.jobs };
   for (const j of incoming) {
     const old = jobs[j.id];
-    if (!old?.updated_at || !j.updated_at || j.updated_at >= old.updated_at)
-      jobs[j.id] =
-        old && Object.keys(j).every((k) => old[k] === j[k])
-          ? old
-          : { ...old, ...j };
+    if(!old)jobs[j.id]=j;
+    else {
+      const merged=mergeJobProjection(old,j,!old.updated_at||!j.updated_at||j.updated_at>=old.updated_at);
+      jobs[j.id]=Object.keys(merged).every(k=>old[k]===merged[k])?old:merged;
+    }
     for (const existing of Object.values(jobs))
       if (
         existing.id.startsWith("legacy:") &&

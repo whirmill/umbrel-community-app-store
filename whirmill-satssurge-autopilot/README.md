@@ -641,3 +641,131 @@ viewport reset. Catalog272K is capacity only, not actual context usage; native
 iOS Safari/VoiceOver and comparative heap savings remain unverified. Upstream
 coverage/accounting gaps and profitability limits remain explicit. Recovery must
 preserve current financial receipts and never replay uncertain effects.
+
+### 0.4.4 release candidate — local acceptance complete (schema 5)
+
+This source candidate uses package version 0.4.4 and keeps the existing OAuth,
+mandate, financial intent/hash reconciliation and frontend conventions. It has
+not been deployed. Schema 5 is additive: monotonic ingestion metadata, automatic
+scope generations/admissions, immutable derived views/progress, expired input
+intervals and append-only ledger annotations. The original ledger, reservations,
+receipts, conversations and submissions remain authoritative.
+
+All automatic ingresses share one transactional gate. Coordinator scope is
+`node`; analyst corridors use canonical SCIDs. Admission captures watermarks,
+generation, quota receipt and queue job in the same transaction. Queued, running
+and submitted waiting jobs retain ownership; newer facts remain pending. Owner
+requests and deterministic collection/reconciliation bypass the automatic cap.
+The limit is four automatic revisions per scope in a rolling 24 hours, including
+failed revisions; read-only continuation segments do not consume another revision.
+Only mature fixed due times, ten newly ingested external forwards in the exact
+corridor, touching manual interventions or changed blockers admit successors.
+Backfill, duplicates and expired tombstones never manufacture triggers. Migration
+adopts old automatic receipts/pending jobs and resumes its atomic adoption step
+using a durable marker if a process exits after DDL installation.
+
+Economic research has a code-owned manifest: state/budget, channels, coverage,
+scoped original forwards/failures, manual/policy events, both diagnostic providers,
+competition, per-channel alternatives and a structured alternatives comparison;
+a proposed forecast adds the trusted forecast receipt. An unavailable source is
+an explicit gap, never zero. A completed queue job can have partial or blocked
+research. New partial successors supersede older complete results. Narrow queries,
+changed/expired views, repeated pages/errors and rewritten comparison prose do
+not certify complete sections or new material evidence.
+
+Views filter SQL before the acquisition cap, join nested decision scope explicitly,
+freeze the revision interval and persist canonical query, semantic digest and
+progress. Use `nextCall` with its full query/cursor/offset. A version without an
+immutable cursor requires an explicit reopen. Summaries partition original LND
+forwards, HTLC attempts and manual events; companion diagnostics and buckets are
+separate. Failed/missed fees do not establish distinct recoverable demand. Derived
+research/view IDs are never financial evidence IDs and cannot reset demand
+fingerprints, retry/cost caps, suspended strategies or benefit claims.
+
+Only measured advancement admits a fresh read-only analyst job/conversation/
+submission, at most three total segments. Each segment retains the existing
+60-second economic research / 180-second hard budgets, 12 analyst or 16
+coordinator research calls and 24 absolute calls. Persisted counters, completed
+elapsed time and allowlisted usage survive recovery; the chain is bounded by 72
+absolute calls and 540 seconds. Original submissions recover separately; uncertain
+financial effects reconcile by their persisted hash and never replay. Research
+capability is persisted at admission, the analyst registry excludes finance, and
+the coordinator executor entry checks the immutable capability before execution.
+
+Forecast and initial/7/30-day qualification require authoritative acquisition
+coverage and available original inputs, both synchronized/active/same-price/liquid
+snapshot endpoints and at most two minutes between samples. Missing direct cost
+is unknown; an explicit zero expense receipt is valid. Effective or uncertain
+executed shared-channel interventions confound comparisons; an unexecuted proposal
+does not. Expired forward/snapshot detail makes later revisions inconclusive and
+nonreproducible. Direct-operation cost completeness is separate from global
+historical accounting completeness. Manual MPP records cover every affected local
+endpoint and book the payment cost once; absent settlement precision is explicit
+and conservatively contaminates overlapping observation.
+
+Accounting keeps original 30-day/cumulative totals and budget unchanged. Its exact
+partition has sector (routing/swap/other/unknown) and receipt attribution
+(verified/shared/unattributed). Spend category is separate from sector. Explicit,
+versioned annotations classify receipts without rewriting ledger amounts. Unknown
+or unallocated costs suppress routing contribution; subscription cost metadata
+alone does not book an expense or clear partial accounting.
+
+The local fixture accepts `FIXTURE_RESEARCH_REPAIR=1` to exercise completed-job /
+partial-research recovery and sector accounting in the existing UI. This is
+synthetic localhost evidence and does not qualify an installed release.
+
+Recovery boundary: `scripts/checkpoint.py` captures only the three databases,
+with schema/digest/size manifests and a proven stopped executor. Full install
+recovery must also preserve `owner.secret` with its original permissions and all
+mounted LND/provider credentials separately, without displaying their values.
+Retain the immutable release image/source digest alongside the checkpoint.
+Software rollback must respect schema compatibility (schema-4 software refuses
+schema 5). Never restore an older checkpoint over newly created or uncertain
+financial receipts; reconcile and preserve the newer receipt set first. No
+rollback, live install or financial operation is authorized by this candidate.
+
+Research progress is visible in both chat and activity cards: processed required
+sections, known rows, recorded calls/time, frozen interval and segment1..3.
+Follow-up state and next trigger remain visible for complete observation waits and
+operational blocks, independently of the gap list. Economic eligibility and effect
+outcome are separate from queue completion. Accounting sector/attribution figures
+and exact reconciliation are readable without expanding JSON; unknown/shared
+costs prevent a determined routing contribution. In the local research fixture,
+examples are appended after history. `FIXTURE_OPERATIONAL_BLOCKED=1` exercises the
+synthetic operational-block view. Local browser acceptance is complete; installed qualification remains a separate
+activity after publication and explicit installation authority.
+
+Research projection freshness uses a persisted semantic version separate from the
+job lifecycle timestamp. Current blocker, progress and economic/outcome state survives
+API refresh and historical SSE replay while terminal job receipts retain their
+existing timestamp fence. Legacy jobs without a research receipt remain unknown.
+
+### 0.4.4 publication preparation — 2026-10-09
+
+Package and both root lockfile versions are `0.4.4`; the reserved next release tag
+is `satssurge-autopilot-v0.4.4`. Remote main was verified at
+`049a08b9d35d6e4731e86bd7fad719ffea9403a2`, with no matching 0.4.4 tag or release.
+The existing tag-triggered workflow runs Node 24 build/tests and Python host
+adapter tests before publishing `ghcr.io/whirmill/umbrel-satssurge-autopilot:0.4.4`
+for linux/amd64 and linux/arm64. Store compose and manifest remain on the verified
+0.4.3 image until Actions and the new immutable OCI index/configs/layers are verified.
+The package is private; distribution is through GHCR and this Umbrel store.
+
+The accepted local repair passed 172 Node 24 tests and 16 Python tests, backend
+and frontend typechecks, fixture syntax and whitespace checks. Primary review and
+visible synthetic desktop/mobile/tablet checks qualified partial/blocked research,
+three-segment exhaustion, refresh/SSE replay, operational next triggers and exact
+readable accounting. Source/scripts/web contain 115 files with SHA-256
+`addc9fb5d3925f6313eaebcb4be93b330ca9e6354b121440cbbae7ce842d2578`.
+These checks do not establish installed migration/provider acceptance or economic
+profitability. Installed 0.4.3 remains the accepted baseline.
+
+If publication or image verification fails, retain the 0.4.3 store digest and
+do not advertise the candidate as available. Never overwrite an existing version
+tag or image to repair a release. A future installation requires a stopped-executor
+checkpoint of all three databases plus separately preserved owner secret and
+mounted credentials, original permissions and image/source/schema metadata.
+After schema-5 migration, returning to 0.4.3 requires schema-compatible recovery
+that preserves every new or uncertain financial receipt; restoring a pre-upgrade
+database over newer receipts is not a valid rollback. Publication alone does not
+authorize installation, restoration or real financial effects.

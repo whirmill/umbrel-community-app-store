@@ -1606,3 +1606,154 @@ viewport reset. Catalog272K is capacity only, not actual context usage; native
 iOS Safari/VoiceOver and comparative heap savings remain unverified. Upstream
 coverage/accounting gaps and profitability limits remain explicit. Recovery must
 preserve current financial receipts and never replay uncertain effects.
+
+### Research/economics repair candidate — sole-writer checkpoint, 2026-10-09
+
+Local source only; package 0.4.3 and installed immutable release remain unchanged.
+The approved repair uses additive schema 5 and code-owned admission/research
+contracts rather than a new workflow platform. README documents scope generations,
+watermarks, four revisions/rolling24h, three read-only segments, frozen typed views,
+manifest/gap truth, finance qualification, MPP and exact accounting dimensions.
+
+Authentic anonymized migration DDL is in
+`src/test/fixtures/schema-040.sql`, extracted from commit
+`50beed67ecfc9a3259173ff622bacea10ba0abfc`, without private runtime state. Tests
+seed original ledger/mandate/enabled, an uncertain operation/reservation and
+original conversation/submission IDs; migration adopts old pending automatic jobs,
+retains receipts and is idempotent. Existing actual Pi Durable crash/hash recovery
+and analyst financial-denial regressions remain required; no real finance or
+regtest is part of candidate verification.
+
+A three-database checkpoint is not full install recovery: preserve `owner.secret`
+and mounted credentials separately with original permissions and no values in
+logs/docs. Pair DB schema/digest manifest with immutable release/source metadata.
+Schema-4 software refuses schema 5; preserve/reconcile all new receipts before any
+rollback and never replay an uncertain effect. No remote write, Git publication,
+version bump, deployment or credential read was performed by this implementation.
+
+Final local validation: pinned Node24.21.0 full build/tests166/166 PASS and
+TypeScript backend/frontend typecheck PASS; Python16/16 PASS. Logs are
+`/tmp/satssurge-repair-node24.log` and `/tmp/satssurge-repair-python.log`.
+Regressions include48h/no25h early maturity, exact rolling24h quota/pendingoverflow,
+atomic queue/crash failure, lateforward9/10/exactcorridor, baseline/duplicate/
+retention, originaldeadline acrossearlymanual successor,103durable scoped pages,
+no narrowing/changed-page certification, fresh native Pi analyst continuation
+financialdenial,60h rationalforecast evaluation, initial/window qualification
+parity, second endpoint liquidity, allMPPaffectedchannels/unknownsettlement,
+expired-detail revisions,2322358revenue/10705169cost exact partition and immutable
+annotation totals, synthetic nestedprivacy and authentic040 migration/idempotency.
+Existing unsafe-tool crash/hashno-replay and in-flight mock drainage still pass.
+
+Primary still owns stable source review and visible browser fixture acceptance;
+local test proof is not installed acceptance or profitability. Fixture command:
+`UI_FIXTURE_DIR=<private temporary directory> FIXTURE_RESEARCH_REPAIR=1 UI_FIXTURE_PORT=19548 node scripts/ui-fixture.mjs`.
+It binds127.0.0.1 only; password is synthetic `fixture-only`. Check the latest
+completed analyst receipt's partialresearch/gaps/nexttrigger after refresh and
+reconnect, then accounting's exact sector/attribution disclosure. Close fixture
+and delete only its synthetic temporary directory after acceptance.
+
+Compact UI completion follow-up: the shared research summary in chat and activity
+cards now displays independent job/research/follow-up truth, segment1..3, processed
+required sections, known row count, actual calls/elapsed, frozen UTC interval,
+reasoned gaps and the next actual trigger even when no gaps exist. Economic
+eligibility and operational outcome remain separate. Accounting exposes readable
+sector and attribution figures, exact original-total reconciliation and unknown
+routing contribution when costs remain unassigned/shared, with optional JSON detail.
+Node waits now look up only node scope; analyst legacy-corridor fallback remains
+bounded to the analyst lane. Trigger SQL aggregates only relevant types/sequences
+above their own watermarks, avoiding historical signal-row materialization.
+
+Fixture research examples now follow historical seeding so partial, three-segment
+blocked and complete-on-available-evidence observation waits appear in the newest
+window. All absent authoritative sources remain explicit gaps and economic
+eligibility is not asserted. Optional `FIXTURE_OPERATIONAL_BLOCKED=1` displays
+current synthetic operational blocking/next-trigger truth. Primary still owns
+visible frozen-source browser acceptance and no installed acceptance is claimed.
+
+Final follow-up qualification: Node24.21.0 build170/170 tests PASS, backend and
+frontend typecheck PASS, fixture syntax PASS, Python16/16 PASS and diff-check PASS.
+The four added checks cover node/corridor wait independence plus aggregate-only
+pending ingestion, persisted UI progress through refresh/SSE, complete-wait and
+operational-block next triggers without gaps, and exact readable accounting with
+unknown/shared costs. Visible browser acceptance remains primary-owned/pending.
+
+Browser refresh repair: research/economic/operation projections now carry a persisted
+per-job semantic `researchProjectionVersion`, independent of lifecycle timestamps.
+Unchanged reads retain their version; changed blocker/progress/outcome projections
+advance it. API refresh accepts newer research even when a later persisted terminal
+UI event already fenced job state. Replayed older research and unversioned legacy
+events cannot erase a versioned receipt. Research-only events do not advance the
+job lifecycle clock. Legacy jobs without research retain `legacy_unknown`.
+Regression evidence exercises the actual queued/research-save/completed-event path,
+then blocker changes, history refresh and replay; it also checks blocker resolution,
+slow earlier lifecycle polling and independently newer research events. Visible
+browser acceptance of this frozen candidate remains primary-owned/pending.
+
+Refresh-repair qualification: Node24.21.0 build172/172 tests PASS, backend/frontend
+typecheck PASS, fixture syntax PASS, Python16/16 PASS and diff-check PASS. Native
+final validation execution57327 exited0. No worker servers or background writers
+were started during this repair.
+
+Primary acceptance of the local candidate is complete. Independent Node24.21.0
+execution of the 22 targeted research/economics/UI regressions passed (native
+command exit0). Final bounded source review found no actionable blockers.
+Visible localhost browser fixtures verified partial research, three-segment
+exhaustion, completed availability assessment with explicit gaps and observation
+wait, measured counters/frozen interval, chat/activity consistency and readable
+sector/attribution accounting. Synthetic original totals reconcile exactly;
+unassigned costs leave routing contribution unknown and global accounting partial.
+Refresh and server-induced SSE disconnection/reconnection preserve three unique
+research panels. The operational-blocker case now remains blocked with its
+resolution trigger after refresh, historical replay and activity navigation.
+Mobile390/tablet768 page reflow has no horizontal document overflow; accounting
+tables scroll inside their container. Console warnings/errors were zero.
+
+Final source/scripts/web fingerprint:115 files,
+SHA256 addc9fb5d3925f6313eaebcb4be93b330ca9e6354b121440cbbae7ce842d2578.
+All task-owned browser tabs and fixture servers closed; final native server59476
+exited1 after Ctrl-C and ports19548/19549 have no listeners. Synthetic fixture
+directories were removed; test logs remain in /tmp. No publication, version bump,
+installed migration, deployment, credential read or real financial action occurred.
+Installed-provider/real-model acceptance remains a separate release activity;
+these local proofs establish repair correctness, not profitability.
+
+### 0.4.4 release candidate prepared — 2026-10-09
+
+User requested publication of the accepted research/economics repair. Package
+and both root lockfile versions are now 0.4.4; target tag is
+`satssurge-autopilot-v0.4.4`. Remote main, local HEAD and origin/main were verified
+at `049a08b9d35d6e4731e86bd7fad719ffea9403a2`. Remote target tag/release are absent;
+the latest published baseline is 0.4.3. No release or Git mutation occurred in
+this preparation phase. Source/scripts/web remain the accepted 115-file SHA-256
+`addc9fb5d3925f6313eaebcb4be93b330ca9e6354b121440cbbae7ce842d2578`.
+
+Existing `.github/workflows/satssurge-autopilot-image.yml` requires the tag prefix
+`satssurge-autopilot-v`, runs Node24 and Python checks, then publishes linux/amd64
+and linux/arm64 to GHCR using packages:write only in the publish job. No workflow
+change is necessary. The private npm package is not published to npm.
+Compose/manifest deliberately retain version 0.4.3 and its immutable digest until
+the new CI run and OCI index, platform configs, layers and packaged version pass
+verification. GitHub release notes are prepared in
+`/tmp/satssurge-autopilot-v0.4.4-release-notes.md`.
+
+Next primary handoff: typed git-operator stages only the accepted app repair,
+package/README and this existing handoff; commits and pushes the reviewed source
+to main with normal hooks and no force, creates annotated
+`satssurge-autopilot-v0.4.4` on that exact source commit, then pushes the tag.
+Recheck remote main and target uniqueness first. Return exact commit/tag/remote
+proof before release-engineer begins image verification. After successful OCI
+verification, a separate metadata commit publishes the pinned image digest and
+0.4.4 manifest/release notes; publish the GitHub release for the source tag and
+verify all resulting remote state. Preserve the immutable source tag when
+committing later store metadata.
+
+Failure boundary: leave 0.4.3 store metadata in place if build/publish/image
+verification fails; do not overwrite existing release refs or image versions.
+Schema 5 prevents a direct 0.4.3 binary rollback. Future install recovery requires
+all three stopped-executor SQLite backups plus separately preserved owner secret
+and mounted credentials with original permissions, immutable source/image/schema
+metadata and retention/reconciliation of every newer or uncertain effect. Never
+restore older receipts or replay an uncertain payment. No installed update,
+live migration, credential read or real financial operation is included in this
+publication request. Local 172 Node/16 Python and browser evidence remain valid
+for the unchanged accepted source, not installed or profitability acceptance.

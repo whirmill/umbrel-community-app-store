@@ -51,14 +51,14 @@ test('missing quota retains admitted requests and recovery never steals a runnin
 });
 
 test('scheduled backlog defers work without crashing and event bursts use a single receipt',()=>{
-  const {s}=ready();s.event({id:'fwd:one',at:new Date().toISOString(),type:'external_forward',source:'a',target:'b',amountMsat:'1000',feeMsat:'1'});
+  const {s}=ready();s.event({id:'fwd:one',at:new Date().toISOString(),type:'external_forward',source:'1',target:'2',amountMsat:'1000',feeMsat:'1'});
   const q=new Queue(s,1),scheduler=new Scheduler(q,{available:async()=>false,runJob:async()=>({})});
-  scheduler.tick();assert.equal(q.list().length,1);assert.equal(s.get<any>('queueBackpressure').kind,'events');assert.equal(s.get('queuedEventCursor'),undefined);
+  scheduler.tick();assert.equal(q.list().length,1);assert.match(s.get<any>('queueBackpressure').reason,/deferred/);assert.equal(s.get('queuedEventCursor'),undefined);
   scheduler.stop();s.close();
   const second=ready(),q2=second.q;
-  second.s.event({id:'fwd:one',at:new Date().toISOString(),type:'external_forward',source:'a',target:'b',amountMsat:'1000',feeMsat:'1'});
+  second.s.event({id:'fwd:one',at:new Date().toISOString(),type:'external_forward',source:'1',target:'2',amountMsat:'1000',feeMsat:'1'});
   const scheduler2=new Scheduler(q2,{available:async()=>false,runJob:async()=>({})});scheduler2.tick();scheduler2.tick();
-  assert.equal(q2.list().filter(j=>j.kind==='events').length,1);assert.equal(second.s.get('queuedEventCursor'),1);scheduler2.stop();second.s.close();
+  assert.equal(q2.list().filter(j=>j.lane==='coordinator').length,1);assert.equal(q2.list().filter(j=>j.lane==='analyst').length,1);assert.equal(second.s.get('queuedEventCursor'),undefined);scheduler2.stop();second.s.close();
 });
 
 test('uncertain financial sends defer autonomy while owner chat remains available',()=>{

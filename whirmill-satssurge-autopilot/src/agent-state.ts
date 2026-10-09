@@ -2,7 +2,7 @@ import {hash,json,scrub} from './domain.js';
 
 // Smaller than the harness output window. Pagination never silently omits rows.
 export const STATE_PAGE_BYTES=12000;
-export const STATE_SECTIONS=['channels','competition','competition_alternatives','diagnostics','decisions','operations','evaluations','evaluationWindows','coverage','claims','holds','corridor_events'] as const;
+export const STATE_SECTIONS=['channels','competition','competition_alternatives','diagnostics','decisions','operations','evaluations','evaluationWindows','coverage','claims','holds','corridor_events','manual_events','policy_events'] as const;
 export type StateSection=typeof STATE_SECTIONS[number];
 export interface StatePageQuery {section:StateSection;offset?:number;version?:string;provider?:'lndg'|'lightningMate';collection?:'forwards'|'failures'|'failureRollups'|'rebalances';channel?:string;}
 function providerSummary(p:any){if(!p)return null;const {forwards,failures,failureRollups,rebalances,...meta}=p;return {...meta,counts:{forwards:forwards?.length??null,failures:failures?.length??null,failureRollups:failureRollups?.length??null,rebalances:rebalances?.length??null}};}
@@ -16,7 +16,7 @@ export function stateSummary(s:any){
     diagnostics:diagnostics?{at:diagnostics.at,lndg:providerSummary(diagnostics.lndg),lightningMate:providerSummary(diagnostics.lightningMate)}:null,
     competition:competition?{status:competition.status,at:competition.at,capturedAt:competition.capturedAt,coverage:competition.coverage,reason:competition.reason,channelCount:competition.channels?.length??null}:null,
     counts:{operations:operations?.length??null,decisions:decisions?.length??null,evaluations:evaluations?.length??null,evaluationWindows:evaluationWindows?.length??null,coverage:coverage?.length??null,claims:claims?.length??null,holds:holds?.length??null},
-    detailAccess:{tool:'state_page (same analyst suffix as node_state)',sections:STATE_SECTIONS,diagnosticProviders:['lndg','lightningMate'],diagnosticCollections:['forwards','failures','failureRollups','rebalances'],note:'Read all nextOffset pages with the first page version. A changed version requires restarting that section. Counts describe the retained projection, not full historical coverage.'}});
+    detailAccess:{tool:'state_page (same analyst suffix as node_state)',sections:STATE_SECTIONS,diagnosticProviders:['lndg','lightningMate'],diagnosticCollections:['forwards','failures','failureRollups','rebalances'],note:'Use nextCall with its full saved query, immutable cursor and nextOffset. A changed or expired view requires explicit reopening; it is never a completed section. Counts describe the retained projection, not full historical coverage.'}});
 }
 export function statePage(s:any,q:StatePageQuery){
   if(!STATE_SECTIONS.includes(q.section))throw new Error('Unknown state section');

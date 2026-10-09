@@ -10,6 +10,8 @@ export class RunBudget {
     hardMs: number;
     softMs: number;
     researchCalls: number;
+    endedMs?:number;
+    usage?:any;
   };
   constructor(
     private store: Store,
@@ -44,7 +46,7 @@ export class RunBudget {
     }
     return {
       ...this.state,
-      elapsedMs: this.clock() - this.state.started,
+      elapsedMs: this.state.endedMs??this.clock() - this.state.started,
       remainingMs: Math.max(
         0,
         this.state.hardMs - (this.clock() - this.state.started),
@@ -58,6 +60,13 @@ export class RunBudget {
   call(financial = false) {
     this.status();
     this.state.calls++;
+    const research=this.store.get<any>('research:'+this.jobId);
+    if(research){
+      const prior=(research.jobs??[]).filter((id:string)=>id!==this.jobId).map((id:string)=>this.store.get<any>('runBudget:'+id)).filter(Boolean);
+      const totalCalls=prior.reduce((n:number,b:any)=>n+b.calls,0)+this.state.calls;
+      const totalMs=prior.reduce((n:number,b:any)=>n+(b.endedMs??Math.min(b.hardMs,this.clock()-b.started)),0)+(this.clock()-this.state.started);
+      if(totalCalls>72||totalMs>=540000){this.hardExhaust();return false;}
+    }
     if (
       this.state.calls >= this.state.researchCalls &&
       this.state.phase === "research"
@@ -157,13 +166,18 @@ export class RunBudget {
     });
   }
   finish(cause: string, usage: unknown) {
+    if(cause==='model_unavailable_before_submission'&&!this.store.get(this.key))return;
+    const raw=usage as any,selected=raw?.totals??raw;
+    this.state.usage=Object.fromEntries(['input','output','cacheRead','cacheWrite','totalTokens'].map(k=>[k,typeof selected?.[k]==='number'&&Number.isFinite(selected[k])?selected[k]:null]));
+    this.state.endedMs??=Math.max(0,this.clock()-this.state.started);
+    this.save();
     this.store.run(
       "INSERT INTO job_events VALUES(?,?,?,?,?)",
       "budget:" + this.jobId + ":" + now(),
       this.jobId,
       now(),
       "run_metrics",
-      json({ ...this.status(), cause, usage }),
+      json({ ...this.status(), cause:['completed','failure','model_unavailable_before_submission','terminal_model_error','hard_deadline','absolute_tool_limit','cancelled','aborted','tool_error','max_tokens','no_answer'].includes(cause)?cause:'provider_unknown', usage:this.state.usage }),
     );
   }
 }

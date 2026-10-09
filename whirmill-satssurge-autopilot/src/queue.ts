@@ -1,3 +1,4 @@
+import {Research} from './research.js';
 import {provenance,type Origin,type Purpose} from './analysis-feed.js';
 import { UiEvents } from './ui-events.js';
 import { Store } from './store.js';
@@ -23,7 +24,10 @@ export class Queue {
     if(!['chat','autonomy','events','analysis'].includes(input.kind))throw new Error('Unknown job kind');
     const payload=json(scrub(input.payload));if(Buffer.byteLength(payload)>16384)throw new Error('Job payload too large');
     const digest=hash(json([input.kind,payload,input.scope??'']));
-    return this.store.tx(()=>{
+    return this.store.tx(()=>this.enqueueWithinTransaction(input,at,payload,digest));
+  }
+  /** Caller owns Store.tx; admission and watermark commit together. */
+  enqueueWithinTransaction(input:Parameters<Queue['enqueue']>[0],at=now(),payload=json(scrub(input.payload)),digest=hash(json([input.kind,payload,input.scope??'']))):Job {
       const old=this.store.one('SELECT rowid history_id,* FROM jobs WHERE request_id=?',input.requestId);
       if(old){if(old.payload_digest!==digest)throw new Error('Request ID conflicts with original payload');return old;}
       if(input.coalesceKey){const existing=this.store.one(`SELECT * FROM jobs WHERE coalesce_key=? AND (state='queued' OR (state='waiting' AND submitted=0))`,input.coalesceKey);if(existing)return existing;}
@@ -32,14 +36,14 @@ export class Queue {
       const priority=input.kind==='chat'?30:input.kind==='analysis'?20:input.kind==='events'?10:0;
       this.store.run(`INSERT INTO jobs(id,request_id,kind,lane,priority,payload,payload_digest,scope,snapshot_at,state,created_at,updated_at,coalesce_key)
         VALUES(?,?,?,?,?,?,?,?,?,'queued',?,?,?)`,key,input.requestId,input.kind,lane,priority,payload,digest,input.scope??'',this.store.get('snapshot')?.at??null,at,at,input.coalesceKey??null);
+      this.store.set('jobCapability:'+key,lane==='analyst'?'read_only_research':input.purpose==='qualification'?'read_only_qualification':'financial_guarded');
       const model=this.store.get<string>('model');if(model)this.store.set(`jobModel:${key}`,model);
       this.store.set(`jobThinkingLevel:${key}`,this.store.get('thinkingLevel')??'high');
       this.event(key,'accepted',{kind:input.kind,lane,origin:input.origin??'unknown',purpose:input.purpose??'unknown'},at);return this.get(key)!;
-    });
   }
   get(key:string):Job|undefined{return this.store.one('SELECT rowid history_id,* FROM jobs WHERE id=?',key);}
   list(limit=40){return this.store.all('SELECT rowid history_id,* FROM jobs ORDER BY rowid DESC LIMIT ?',Math.max(1,Math.min(100,limit)));}
-  event(key:string,type:string,details:unknown,at=now()){this.store.run('INSERT INTO job_events VALUES(?,?,?,?,?)',id(),key,at,type,json(scrub(details)));new UiEvents(this.store).append(key,'job',{state:this.get(key)?.state,kind:this.get(key)?.kind,lane:this.get(key)?.lane,...provenance(this.store,key),type});}
+  event(key:string,type:string,details:unknown,at=now()){this.store.run('INSERT INTO job_events VALUES(?,?,?,?,?)',id(),key,at,type,json(scrub(details)));new UiEvents(this.store).append(key,'job',{...new Research(this.store).status(key),state:this.get(key)?.state,kind:this.get(key)?.kind,lane:this.get(key)?.lane,...provenance(this.store,key),type});}
   claim(lane:Job['lane'],owner:string,at=now()):Job|undefined {
     return this.store.tx(()=>{
       if(this.store.get('enabled')!==true||!this.store.get('bootstrapReady'))return;

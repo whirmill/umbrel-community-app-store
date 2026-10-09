@@ -1,3 +1,4 @@
+import {Research} from './research.js';
 import { Store } from "./store.js";
 export type Origin = "owner" | "scheduler" | "qualification" | "unknown";
 export type Purpose = "economic" | "general" | "qualification" | "unknown";
@@ -35,11 +36,12 @@ export function analystFeed(store: Store, scope?: string, limit = 6) {
       submissionId: j.submission_id,
       evidenceAt: r.evidenceAt ?? null,
       finishedAt: j.finished_at,
-      complete: j.state === "completed" && !!r.answer,
+      ...new Research(store).status(j.id),
+      complete: j.state === "completed" && new Research(store).status(j.id).researchStatus==='complete',
       gap:
-        j.state === "completed"
+        new Research(store).status(j.id).researchStatus==='complete'&&new Research(store).status(j.id).researchGaps.length===0
           ? null
-          : "Latest relevant analysis is not complete; no older fallback.",
+          : 'Latest relevant research has explicit gaps or is not complete; no older fallback.',
       detailTool: "analysis_detail",
     };
   });

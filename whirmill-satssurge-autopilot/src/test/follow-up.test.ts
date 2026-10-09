@@ -291,7 +291,7 @@ for (const scenario of [
           assert.equal(outcome.provenance, "policy");
           assert.equal(
             outcome.dueAt,
-            new Date(Date.parse(job.created_at) + 3600000).toISOString(),
+            null,
           );
           assert.doesNotMatch(JSON.stringify(outcome), /48h/);
         } else {
@@ -568,7 +568,7 @@ for (const changedPreference of ["invalid-current-model", "gpt-6-luna"])
         );
         assert.equal(
           outcome.dueAt,
-          new Date(Date.parse(admitted.created_at) + 3600000).toISOString(),
+          null,
         );
         assert.equal(
           queue.get(claimed.id)!.submission_id,

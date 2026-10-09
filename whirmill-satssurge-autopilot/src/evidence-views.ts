@@ -1,3 +1,4 @@
+import {Store} from './store.js';
 import { hash, json, scrub, id } from "./domain.js";
 import { channelScid } from "./diagnostics.js";
 import {
@@ -55,30 +56,42 @@ export class EvidenceViews {
     readonly ttl = 300000,
     readonly perView = 4 * 1024 * 1024,
     readonly globalBytes = 16 * 1024 * 1024,
-  ) {}
+    private store?:Store,
+  ) {
+    for(const row of store?.all("SELECT key,value FROM meta WHERE key LIKE 'evidenceView:%'")??[]){const view=JSON.parse(row.value);this.views.set(row.key.slice(13),view);}
+    this.expire();
+  }
   releaseCursor(owner: string, cursor: string) {
     const v = this.views.get(cursor);
     if (!v) return false;
     if (v.owner !== owner) throw Error("Cursor owned by another job");
     this.views.delete(cursor);
+    this.store?.run("DELETE FROM meta WHERE key=?",'evidenceView:'+cursor);
     return true;
   }
   release(owner: string) {
     for (const [k, v] of this.views)
-      if (v.owner === owner) this.views.delete(k);
+      if (v.owner === owner) {this.views.delete(k);this.store?.run('DELETE FROM meta WHERE key=?','evidenceView:'+k);}
   }
   private expire() {
     for (const [k, v] of this.views)
-      if (v.expires <= this.clock()) this.views.delete(k);
+      if (v.expires <= this.clock()) {this.views.delete(k);this.store?.run('DELETE FROM meta WHERE key=?','evidenceView:'+k);}
   }
   page(owner: string, state: any, q: EvidenceQuery) {
     this.expire();
     const { cursor, offset = 0, version, ...query } = normalizeEvidenceQuery(q);
     if (!Number.isSafeInteger(offset) || offset < 0)
       throw Error("Invalid offset");
+    let canonicalQuery=query;
+    const existing=cursor?this.views.get(cursor):undefined;
+    if(existing){
+      const saved=JSON.parse(existing.query);
+      for(const [name,value] of Object.entries(query))if(value!==undefined&&saved[name]!==value)throw Error('Cursor belongs to another query');
+      canonicalQuery=saved;
+    }
     const key = json(
       Object.fromEntries(
-        Object.entries(query).sort(([a], [b]) => a.localeCompare(b)),
+        Object.entries(canonicalQuery).sort(([a], [b]) => a.localeCompare(b)),
       ),
     );
     let token = cursor,
@@ -96,7 +109,7 @@ export class EvidenceViews {
       throw Error("Cursor belongs to another job or query");
     if (!v) {
       // Preserve the legacy current-acquisition version contract when explicitly supplied.
-      if (version) return statePage(state, q);
+      if(version)return {available:false,changed:true,reopen:true,rows:[],nextOffset:null,nextCall:{tool:'state_page',query:{...query,offset:0}},note:'Version without immutable cursor requires explicit reopen; no section completion is implied'};
       if (offset) throw Error("Continuation requires cursor or legacy version");
       const first = statePage(state, {
         ...q,
@@ -127,7 +140,7 @@ export class EvidenceViews {
           )?.alternatives ?? [];
       else rows = state[q.section];
       let unsupported = 0;
-      rows = rows.filter((r) => {
+      rows = state.adapterFiltered ? rows : rows.filter((r) => {
         if (query.channel && q.section !== "competition_alternatives") {
           const channel = r.id ?? r.channelId ?? r.channel_id;
           if (!channel) {
@@ -168,9 +181,11 @@ export class EvidenceViews {
           (!query.end || Date.parse(at) < Date.parse(query.end))
         );
       });
+      if(unsupported)return {available:false,unsupportedFilter:true,rows:null,nextOffset:null,note:'Unsupported scoped filter is unavailable, never an empty result'};
       rows = JSON.parse(json(scrub(rows)));
       const metadata = {
         ...first.metadata,
+        ...state.sourceMetadata,
         scope: query,
         unsupportedRows: unsupported,
         viewComplete: true,
@@ -200,12 +215,13 @@ export class EvidenceViews {
         query: key,
         rows,
         metadata,
-        version: hash(json(rows)),
+        version: hash(json({schema:1,query,rows,coverage:metadata.coverage,limits:metadata.projectionLimits,captureComplete:metadata.captureComplete,captureCounts:metadata.captureCounts,upstreamHistoryComplete:metadata.upstreamHistoryComplete})),
         capturedAt: new Date(this.clock()).toISOString(),
         bytes,
         expires: this.clock() + this.ttl,
       };
       this.views.set(token, v);
+      this.store?.set('evidenceView:'+token,v);
     }
     if (offset > v.rows.length) throw Error("Offset beyond view");
     const page: any = {
@@ -232,7 +248,8 @@ export class EvidenceViews {
     }
     if (!page.rows.length && offset < v.rows.length)
       throw Error("Record exceeds bounded envelope; narrow source detail");
-    if (offset === 0) page.summary = this.summarize(v.rows);
+    page.nextCall=page.nextOffset===null?null:{tool:'state_page',query:{...JSON.parse(v.query),cursor:token,offset:page.nextOffset}};
+    if (offset === 0) page.summary = {...this.summarize(v.rows),schema:1,source:v.metadata.source??canonicalQuery.provider??canonicalQuery.section,granularity:canonicalQuery.collection==='failureRollups'?'attempt buckets':canonicalQuery.collection==='failures'?'HTLC attempts':'original records',scope:JSON.parse(v.query),interval:{start:canonicalQuery.start??null,end:canonicalQuery.end??null},selected:v.rows.length,processed:v.rows.length,truncated:v.metadata.projectionLimits?.truncated??false,coverage:v.metadata.coverage??null,sourceRefs:v.rows.slice(0,20).map(r=>r.id??r.evidence_id??null),note:'Whole retained view; diagnostic copies are separate from authoritative LND originals. Failed or missed fees do not establish distinct recoverable demand.'};
     if (Buffer.byteLength(json(page)) > STATE_PAGE_BYTES - 1024)
       delete page.summary;
     return page;
@@ -252,6 +269,9 @@ export class EvidenceViews {
           totals[k] = (totals[k] ?? 0n) + BigInt(row[k]);
     return {
       records: rows.length,
+      groups: ['external_forward','htlc_rejected','manual_operation','manual_policy'].map(type=>({type,records:rows.filter(r=>r.type===type).length,amountMsat:rows.filter(r=>r.type===type).reduce((n,r)=>n+BigInt(r.amount_msat??'0'),0n).toString(),feeMsat:rows.filter(r=>r.type===type).reduce((n,r)=>n+BigInt(r.fee_msat??'0'),0n).toString()})),
+      units:'integer msat; counts are records, not distinct recoverable demand',
+      combinesSources:false,
       totals: Object.fromEntries(
         Object.entries(totals).map(([k, v]) => [k, v.toString()]),
       ),

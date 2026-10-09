@@ -12,7 +12,7 @@ export function integer(v: unknown): bigint {
   return n;
 }
 export const day = (at: string) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(at));
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 export const MANDATE = Object.freeze({
   version: 1, totalMsat: '30000000', dailyMsat: '1500000', exploratoryDailyMsat: '750000',
   attemptMsat: '100000', reserveSat: '500000', feeWindowHours: 48,
@@ -38,7 +38,7 @@ export interface Proposal {
 export interface Forecast {
   eligible: boolean; samples: number; observedHours: number; observedDays: number;
   benefitMsat: string; requestedMsat: string; explanation: string;
-  rawRequestedMsat?:string; version?:number; baseline?:{at:string;sourceInboundMsat:string;targetOutboundMsat:string;targetPpm:number;targetBaseMsat:string;rate7MsatPerHour:string;rate30MsatPerHour:string;conservativeDemand30Msat:string;opportunityCostMsat:string};
+  reasons?:string[]; coverageComplete?:boolean; inputAvailability?:boolean; rawRequestedMsat?:string; version?:number; baseline?:{at:string;sourceInboundMsat:string;targetOutboundMsat:string;targetPpm:number;targetBaseMsat:string;rate7MsatPerHour:string;rate30MsatPerHour:string;conservativeDemand30Msat:string;opportunityCostMsat:string};
 }
 export interface PaymentOutcome { status: 'SUCCEEDED' | 'FAILED' | 'IN_FLIGHT'; feeMsat: string; amountSat: string; source?: string; target?: string; index?: string; }
 export const terminal = (s: string) => s === 'SUCCEEDED' || s === 'FAILED';
@@ -53,6 +53,7 @@ export function publicAnswer(value:unknown):string {
 export function scrub(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(scrub);
   if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).filter(([k]) => !/(preimage|payment_request|seed|mnemonic|macaroon|password|secret|credential|^auth$|oauth|authentication|token|destination_address|payment_addr)/i.test(k)).map(([k,x]) => [k,scrub(x)]));
+  if (typeof v === 'string' && /^[\s]*[\[{]/.test(v)) {try{const parsed=JSON.parse(v);if(parsed&&typeof parsed==='object')return json(scrub(parsed));}catch{}}
   if (typeof v === 'string') return v.replace(/\b(?:nsec1|sk-[a-zA-Z0-9]|gh[op]_)[a-zA-Z0-9_-]+/g, '[REDACTED]');
   return v;
 }

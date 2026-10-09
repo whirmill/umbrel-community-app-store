@@ -76,18 +76,14 @@ export class ReviewWaits {
   }
   due(r: ReviewWait) {
     const at = this.clock();
-    return (
-      (r.trigger !== null && r.trigger !== r.consumedTrigger) ||
-      (at >= Date.parse(r.nextCheckAt) &&
-        (at >= Date.parse(r.dueAt) ||
-          !r.lastAdmissionAt ||
-          at - Date.parse(r.lastAdmissionAt) >= 24 * 3600000))
-    );
+    return (r.trigger !== null && r.trigger !== r.consumedTrigger) ||
+      (at >= Date.parse(r.dueAt) && r.consumedTrigger !== 'due:'+r.dueAt);
   }
+
   admitted(scope: string, jobId?: string) {
     const r = this.get(scope);
     if (!r) return;
-    r.consumedTrigger = r.trigger;
+    r.consumedTrigger = r.trigger ?? (this.clock()>=Date.parse(r.dueAt)?'due:'+r.dueAt:null);
     r.lastAdmissionAt = new Date(this.clock()).toISOString();
     r.checks++;
     r.nextCheckAt = new Date(

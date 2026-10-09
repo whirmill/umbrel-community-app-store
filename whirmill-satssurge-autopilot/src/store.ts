@@ -1,3 +1,5 @@
+import {channelScid} from './diagnostics.js';
+import {accountingPartition} from './accounting.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -8,6 +10,7 @@ export class Store {
   constructor(path: string) {
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(path);
+    const previousSchema=Number(this.db.prepare('PRAGMA user_version').get()?.user_version);
     if(Number(this.db.prepare('PRAGMA user_version').get()?.user_version)>SCHEMA_VERSION)throw new Error('Database is newer than this software; rollback refused');
     this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
     this.db.exec(`
@@ -55,8 +58,33 @@ export class Store {
       );
       CREATE TABLE IF NOT EXISTS ui_events(id INTEGER PRIMARY KEY AUTOINCREMENT,job_id TEXT NOT NULL REFERENCES jobs(id),at TEXT NOT NULL,type TEXT NOT NULL,data TEXT NOT NULL,event_key TEXT,UNIQUE(job_id,event_key));
       CREATE TABLE IF NOT EXISTS ui_messages(job_id TEXT NOT NULL REFERENCES jobs(id),entry_id INTEGER NOT NULL,text TEXT NOT NULL,PRIMARY KEY(job_id,entry_id));
-      PRAGMA user_version=4;
+      CREATE TABLE IF NOT EXISTS event_ingestion(sequence INTEGER PRIMARY KEY AUTOINCREMENT,event_id TEXT UNIQUE NOT NULL,type TEXT NOT NULL,source TEXT NOT NULL,target TEXT NOT NULL,baseline INTEGER NOT NULL DEFAULT 0);
+      INSERT OR IGNORE INTO event_ingestion(event_id,type,source,target,baseline) SELECT id,type,source,target,1 FROM events ORDER BY acquired_at,id;
+      CREATE INDEX IF NOT EXISTS event_ingestion_signal ON event_ingestion(type,baseline,sequence,source,target);
+      CREATE TRIGGER IF NOT EXISTS ingest_event AFTER INSERT ON events BEGIN
+        INSERT INTO event_ingestion(event_id,type,source,target,baseline) VALUES(new.id,new.type,new.source,new.target,COALESCE(json_extract(new.details,'$.ingestionBaseline'),0));
+      END;
+      CREATE TABLE IF NOT EXISTS automatic_scopes(scope TEXT PRIMARY KEY,generation INTEGER NOT NULL DEFAULT 0,job_id TEXT,forward_sequence INTEGER NOT NULL DEFAULT 0,material_sequence INTEGER NOT NULL DEFAULT 0,blocker_digest TEXT,due_consumed TEXT,trigger_consumed TEXT);
+      CREATE TABLE IF NOT EXISTS automatic_admissions(scope TEXT NOT NULL,generation INTEGER NOT NULL,job_id TEXT NOT NULL,at TEXT NOT NULL,PRIMARY KEY(scope,generation));
+      CREATE TABLE IF NOT EXISTS ledger_annotations(ledger_id TEXT NOT NULL REFERENCES ledger(id),version INTEGER NOT NULL,sector TEXT NOT NULL,attribution TEXT NOT NULL,reason TEXT NOT NULL,PRIMARY KEY(ledger_id,version));
+      CREATE TABLE IF NOT EXISTS expired_intervals(start TEXT NOT NULL,end TEXT NOT NULL,type TEXT NOT NULL,source TEXT NOT NULL,target TEXT NOT NULL,count INTEGER NOT NULL);
+      PRAGMA user_version=5;
       COMMIT;`);
+    if(!this.get('schema5AdmissionAdopted'))this.tx(()=>{
+      for(const job of this.all("SELECT j.* FROM jobs j JOIN job_events e ON e.job_id=j.id AND e.type='accepted' WHERE json_extract(e.details,'$.origin')='scheduler' ORDER BY j.rowid")){
+        let scope='node';try{if(job.lane==='analyst')scope=job.scope.split('->').map(channelScid).join('->');}catch{continue;}
+        this.run('INSERT OR IGNORE INTO automatic_scopes(scope) VALUES(?)',scope);
+        const generation=this.one('SELECT generation FROM automatic_scopes WHERE scope=?',scope).generation+1;
+        this.run('INSERT OR IGNORE INTO automatic_admissions VALUES(?,?,?,?)',scope,generation,job.id,job.created_at);
+        this.run('UPDATE automatic_scopes SET generation=?,job_id=?,forward_sequence=(SELECT COALESCE(max(sequence),0) FROM event_ingestion),material_sequence=(SELECT COALESCE(max(sequence),0) FROM event_ingestion),blocker_digest=? WHERE scope=?',generation,job.id,hash(json(this.get('blockers')??[])),scope);
+        this.set('automaticOwnership:'+job.id,{scope,generation});
+      }
+      for(const job of this.all('SELECT id,lane FROM jobs'))if(!this.get('jobCapability:'+job.id))this.set('jobCapability:'+job.id,job.lane==='analyst'?'read_only_research':'financial_guarded');
+      this.set('schema5AdmissionAdopted',true);
+      for(const row of this.all("SELECT key,value FROM meta WHERE key LIKE 'reviewWait:%'")){
+        const wait=JSON.parse(row.value);try{const scope=wait.scope==='node'?'node':wait.scope.split('->').map(channelScid).join('->');if(scope!==wait.scope){this.run('DELETE FROM meta WHERE key=?',row.key);this.set('reviewWait:'+hash(scope),{...wait,scope});}}catch{}
+      }
+    });
     this.tx(()=>{
       for(const row of this.all("SELECT r.*,d.forecast FROM reservations r JOIN operations o ON o.id=r.operation_id JOIN decisions d ON d.id=o.decision_id WHERE r.category='ordinary' AND o.state<>'FAILED' AND NOT EXISTS (SELECT 1 FROM benefit_claims b WHERE b.operation_id=r.operation_id)")){
         this.run('INSERT INTO benefit_claims VALUES(?,?,?,?,?,?,?)',row.operation_id,row.source,row.target,row.at,new Date(Date.parse(row.at)+30*86400000).toISOString(),(integer(row.amount_sat)*1000n).toString(),integer(JSON.parse(row.forecast).benefitMsat).toString());
@@ -100,10 +128,11 @@ export class Store {
     }
     return key;
   }
-  event(row:{id:string;at:string;type:string;source:string;target:string;amountMsat:string;feeMsat:string;details?:unknown;pinned?:boolean}) {
+  event(row:{id:string;at:string;type:string;source:string;target:string;amountMsat:string;feeMsat:string;details?:unknown;pinned?:boolean;baseline?:boolean}) {
     integer(row.amountMsat);integer(row.feeMsat);
     if(this.one('SELECT id FROM expired_events WHERE id=?',row.id))return;
-    this.run('INSERT OR IGNORE INTO events VALUES(?,?,?,?,?,?,?,?,?,?)',row.id,row.at,now(),row.type,row.source,row.target,row.amountMsat,row.feeMsat,json(row.details??{}),row.pinned?1:0);
+    this.run('INSERT OR IGNORE INTO events VALUES(?,?,?,?,?,?,?,?,?,?)',row.id,row.at,now(),row.type,row.source,row.target,row.amountMsat,row.feeMsat,json({...row.details as object,ingestionBaseline:row.baseline===true}),row.pinned?1:0);
+
   }
   saveSnapshot(s:Snapshot) { this.run('INSERT INTO snapshots VALUES(?,?,?)',id(),s.at,json(s)); this.set('snapshot',s); }
   budget(at=now()) {
@@ -206,6 +235,10 @@ export class Store {
     for(const row of claims)if(row.operation_id!==excludeOperation&&row.until_at>at&&(row.target===target||row.source===source))claimed+=remaining.get(row.operation_id)!;
     const demand=integer(rawDemand);return (demand>claimed?demand-claimed:0n).toString();
   }
+  annotateLedger(ledgerId:string,sector:'routing'|'swap'|'other'|'unknown',attribution:'verified'|'shared'|'unattributed',reason:string) {
+    if(!reason.trim()||!['routing','swap','other','unknown'].includes(sector)||!['verified','shared','unattributed'].includes(attribution))throw Error('Explicit classification receipt required');
+    return this.tx(()=>{const version=(this.one('SELECT max(version) version FROM ledger_annotations WHERE ledger_id=?',ledgerId)?.version??0)+1;this.run('INSERT INTO ledger_annotations VALUES(?,?,?,?,?)',ledgerId,version,sector,attribution,reason);return version;});
+  }
   stats() {
     const ledger=this.all('SELECT * FROM ledger ORDER BY at');
     const since=new Date(Date.now()-30*86400_000).toISOString();
@@ -214,7 +247,9 @@ export class Store {
       return {revenueMsat:revenue.toString(),costMsat:cost.toString(),netMsat:(revenue-cost).toString()};
     };
     return {enabled:this.get('enabled'),bootstrapReady:this.get('bootstrapReady')??false,blockers:this.get('blockers')??[],mandate:MANDATE,budget:this.budget(),snapshot:this.get('snapshot')??null,
-      diagnostics:this.get('diagnostics')??null,competition:this.get('competition')??null,pnl30:sums(ledger.filter(r=>r.at>=since)),cumulative:sums(ledger),partial:this.get('historicalCoverageComplete')!==true || this.get('subscriptionCostMsat')===undefined,
+      diagnostics:this.get('diagnostics')??null,competition:this.get('competition')??null,pnl30:sums(ledger.filter(r=>r.at>=since)),cumulative:sums(ledger),partial:this.get('historicalCoverageComplete')!==true || !ledger.some(r=>r.classification==='expense'&&JSON.parse(r.details).scope==='subscription') || accountingPartition(ledger,this.all('SELECT * FROM ledger_annotations')).unassignedCosts,
+      accounting:accountingPartition(ledger,this.all('SELECT * FROM ledger_annotations')),
+      accounting30:accountingPartition(ledger.filter(r=>r.at>=since),this.all('SELECT * FROM ledger_annotations')),
       operations:this.all('SELECT id,decision_id,at,state,payment_hash,details FROM operations ORDER BY at DESC LIMIT 50'),
       decisions:this.all('SELECT * FROM decisions ORDER BY at DESC LIMIT 50').map(r=>({...r,proposal:JSON.parse(r.proposal),forecast:JSON.parse(r.forecast)})),
       evaluations:this.all('SELECT * FROM evaluations ORDER BY at DESC LIMIT 30'),evaluationWindows:this.all('SELECT * FROM evaluation_windows ORDER BY at DESC LIMIT 60').map(r=>({...r,result:JSON.parse(r.result)})),coverage:this.all('SELECT * FROM coverage ORDER BY end DESC LIMIT 20'),
@@ -225,12 +260,14 @@ export class Store {
     const cutoff=new Date(Date.parse(at)-90*86400_000).toISOString();
     this.tx(()=>{
       const rows=this.all('SELECT * FROM events WHERE occurred_at<? AND pinned=0',cutoff);
+      this.run('INSERT INTO expired_intervals SELECT min(occurred_at),max(occurred_at),type,source,target,count(*) FROM events WHERE occurred_at<? AND pinned=0 GROUP BY type,source,target',cutoff);
       const days=new Set(rows.map(r=>r.occurred_at.slice(0,10)));
       for(const d of days){ const events=rows.filter(r=>r.occurred_at.startsWith(d)); const old=this.one('SELECT content FROM aggregates WHERE day=?',d); const agg=old?JSON.parse(old.content):{events:0,amountMsat:'0',feeMsat:'0',detailExpired:true};
         agg.events+=events.length; agg.amountMsat=(integer(agg.amountMsat)+events.reduce((s,r)=>s+integer(r.amount_msat),0n)).toString();agg.feeMsat=(integer(agg.feeMsat)+events.reduce((s,r)=>s+integer(r.fee_msat),0n)).toString();
         this.run('INSERT INTO aggregates VALUES(?,?,1) ON CONFLICT(day) DO UPDATE SET content=excluded.content',d,json(agg)); }
       this.run('INSERT OR IGNORE INTO expired_events SELECT id FROM events WHERE occurred_at<? AND pinned=0',cutoff);
       this.run('DELETE FROM events WHERE occurred_at<? AND pinned=0',cutoff);
+      this.run("INSERT INTO expired_intervals SELECT min(at),max(at),'snapshot','','',count(*) FROM snapshots WHERE at<? HAVING count(*)>0",cutoff);
       this.run('DELETE FROM snapshots WHERE at<? AND id NOT IN (SELECT json_extract(details,\'$.snapshotId\') FROM operations WHERE json_extract(details,\'$.snapshotId\') IS NOT NULL)',cutoff);
     });
   }

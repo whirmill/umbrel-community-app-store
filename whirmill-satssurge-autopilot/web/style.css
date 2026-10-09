@@ -2356,3 +2356,11 @@ h1:focus {
   .owner-access h1 { font-size:25px; }
   .topbar { flex-wrap:wrap; height:auto; min-height:60px; padding-block:8px; }
 }
+
+.research-summary { margin-block: 1rem; padding-block: .75rem; border-block: 1px solid var(--border); }
+.research-summary p, .research-summary li { overflow-wrap: anywhere; }
+.research-summary .key-metrics { margin-block: .75rem; }
+.research-summary .notice ul { margin-block: .5rem 0; padding-inline-start: 1.25rem; }
+.accounting-sectors th, .accounting-sectors td { vertical-align: top; white-space: normal; }
+.sector-attribution { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1rem; margin-block: 1rem; }
+.sector-attribution ul { padding-inline-start: 1.25rem; margin-block: .5rem; }

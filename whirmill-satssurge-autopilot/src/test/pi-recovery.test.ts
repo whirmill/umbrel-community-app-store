@@ -96,3 +96,16 @@ test('another durable coordinator conversation cannot borrow an active job finan
     assert.equal(f.queue.get(job.id)?.conversation_id,ownedConversation);
   }finally{await ownRun?.catch(()=>{});await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
 });
+
+test('actual fresh continuation analyst denies finance and preserves parent receipt',{timeout:10000},async()=>{
+  const {Research}=await import('../research.js');
+  const directory=mkdtempSync(join(tmpdir(),'surge-pi-continuation-')),f=fixture(directory,'analyst');
+  try{
+    const research=new Research(f.store),parent=f.queue.enqueue({requestId:'continuation-parent',kind:'autonomy',scope:'node',origin:'scheduler',purpose:'economic',payload:{message:'parent'}});
+    research.initialize(parent);research.state(parent);
+    f.store.run("UPDATE jobs SET state='completed',submitted=1,conversation_id='synthetic-parent-conversation',submission_id='synthetic-parent-submission' WHERE id=?",parent.id);
+    const next=research.continue(f.queue,f.queue.get(parent.id)!)!;
+    await f.agent.open();const claimed=f.queue.claim('analyst','test')!;assert.equal(claimed.id,next.id);const result=await f.agent.runJob(claimed,0);assert.match(result.answer,/terminal tool receipt/);
+    assert.equal(existsSync(join(directory,'effects.jsonl')),false);assert.equal(f.queue.get(parent.id)!.submission_id,'synthetic-parent-submission');assert.notEqual(f.queue.get(next.id)!.submission_id,'synthetic-parent-submission');assert.notEqual(f.queue.get(next.id)!.conversation_id,'synthetic-parent-conversation');assert.equal(f.store.get('jobCapability:'+next.id),'read_only_research');
+  }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
+});

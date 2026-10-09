@@ -1,3 +1,5 @@
+import {Research} from './research.js';
+import {AutomaticAdmission} from './automatic-admission.js';
 import {ReviewWaits} from './review-waits.js';
 import { Queue, type Job } from './queue.js';
 import { id, now, hash } from './domain.js';
@@ -31,10 +33,10 @@ export class Scheduler {
     const token=job.run_token!;
     const timer=setInterval(()=>this.queue.renew(job.id,token),15000);this.heartbeats.set(job.id,timer);
     try {
-      const result=await this.runner.runJob(job,slot);this.queue.finish(job.id,token,'completed',result);
+      const result=await this.runner.runJob(job,slot);this.queue.finish(job.id,token,'completed',result);new Research(this.queue.store).continue(this.queue,this.queue.get(job.id)!);
     }catch(e){
       if(e instanceof ModelUnavailable)this.queue.wait(job.id,token,'model_unavailable');
-      else this.queue.finish(job.id,token,'failed',e instanceof Error?e.message:'Task failed');
+      else {this.queue.finish(job.id,token,'failed',e instanceof Error?e.message:'Task failed');new Research(this.queue.store).continue(this.queue,this.queue.get(job.id)!);}
     }finally{clearInterval(timer);this.heartbeats.delete(job.id);if(slot===undefined)this.coordinator=false;else this.analysts.delete(slot);void this.pump();}
   }
   private enqueueScheduled(input:Parameters<Queue['enqueue']>[0]) {
@@ -47,20 +49,16 @@ export class Scheduler {
   }
   tick() {
     const store=this.queue.store;if(this.stopped||!store.get('enabled')||!store.get('bootstrapReady'))return;
-    const bucket=Math.floor(Date.now()/900000);
-    this.enqueueScheduled({requestId:'autonomy:'+bucket,kind:'autonomy',payload:{message:'Review current state, corridor evidence, completed analyst proposals and budgets. Compare waiting and interventions; act only when mandate and evidence justify it.'},origin:'scheduler',purpose:'economic',coalesceKey:'autonomy'});
-    // Independent readings, not one AI run per HTLC. Two busiest measured corridors per window.
-    const since=new Date(Date.now()-7*86400000).toISOString();
-    for(const row of store.all("SELECT source,target,count(*) n FROM events WHERE type='external_forward' AND occurred_at>=? GROUP BY source,target ORDER BY n DESC LIMIT 2",since)){
-      const scope=row.source+'->'+row.target;const reviews=new ReviewWaits(store);const waiting=reviews.get(scope);if(waiting){const material=store.one("SELECT max(rowid) cursor FROM events WHERE (source IN (?,?) OR target IN (?,?)) AND type IN ('manual_policy','manual_operation')",row.source,row.target,row.source,row.target)?.cursor;if(material)reviews.signal(scope,'manual:'+material);if(!reviews.due(reviews.get(scope)!))continue;}
-      const admitted=this.enqueueScheduled({requestId:'analysis:'+bucket+':'+hash(scope),kind:'analysis',origin:'scheduler',purpose:'economic',scope,coalesceKey:'analysis:'+scope,payload:{message:'Analyze observed corridor '+scope+'. Compare wait, price changes and smaller rebalances. Read fresh evidence and costs; propose only. Never claim graph connectivity proves traffic.'}});if(admitted&&waiting&&['queued','running','waiting'].includes(admitted.state))reviews.admitted(scope,admitted.id);
-    }
-    const reviews=new ReviewWaits(store);for(const r of reviews.all()){const channels=r.scope.split('->');if(channels.length===2){const material=store.one("SELECT max(rowid) cursor FROM events WHERE (source IN (?,?) OR target IN (?,?)) AND type IN ('manual_policy','manual_operation')",channels[0],channels[1],channels[0],channels[1])?.cursor;if(material)reviews.signal(r.scope,'manual:'+material);const forwards=store.one("SELECT count(*) n FROM events WHERE source=? AND target=? AND type='external_forward' AND occurred_at>?",channels[0],channels[1],r.lastAdmissionAt??'')?.n;if(forwards>=10)reviews.signal(r.scope,'forwards:'+Math.floor(forwards/10)+':'+r.lastAdmissionAt);}if(reviews.due(reviews.get(r.scope)!)){const admitted=this.enqueueScheduled({requestId:'review:'+bucket+':'+hash(r.scope+':'+(r.trigger??'')+':'+r.checks),kind:'analysis',origin:'scheduler',purpose:'economic',scope:r.scope,coalesceKey:'analysis:'+r.scope,payload:{message:'Review due wait for '+r.scope+'. Fixed dueAt '+r.dueAt+'; missing '+r.missing.join(', ')+'. Compare new material evidence; do not restart the observation window or infer completed hours.'}});if(admitted&&['queued','running','waiting'].includes(admitted.state))reviews.admitted(r.scope,admitted.id);}}
-    const cursor=store.get<number>('queuedEventCursor')??0;
-    const signal=store.one("SELECT max(rowid) cursor,count(*) n FROM events WHERE rowid>? AND type IN ('external_forward','htlc_rejected','manual_policy','manual_operation')",cursor);
-    if(signal?.n){
-      const accepted=this.enqueueScheduled({requestId:'events:'+signal.cursor,kind:'events',origin:'scheduler',purpose:'economic',coalesceKey:'lightning-events',payload:{message:'New aggregated Lightning observations are available. Read current evidence and reconcile manual interventions; do not assume failed HTLCs are distinct payments or guaranteed demand.'}});
-      if(accepted)store.set('queuedEventCursor',signal.cursor);
+    const admission=new AutomaticAdmission(this.queue);
+    try {
+      for(const job of store.all("SELECT * FROM jobs WHERE state IN ('completed','failed') AND id IN (SELECT substr(key,10) FROM meta WHERE key LIKE 'research:%')"))new Research(store).continue(this.queue,job);
+      admission.admit('node','coordinator');
+      const scopes=new Set<string>(new ReviewWaits(store).all().filter(r=>r.scope.includes('->')).map(r=>r.scope));
+      for(const row of store.all("SELECT source,target,count(*) n FROM events WHERE type='external_forward' GROUP BY source,target ORDER BY n DESC LIMIT 2"))scopes.add(row.source+'->'+row.target);
+      for(const scope of scopes)admission.admit(scope,'analyst');
+    } catch(e) {
+      if(!(e instanceof Error)||!e.message.startsWith('Queue full'))throw e;
+      store.set('queueBackpressure',{at:now(),reason:'Automatic admission deferred; watermarks remain pending'});
     }
     void this.pump();
   }

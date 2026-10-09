@@ -1,3 +1,5 @@
+import {ResearchSummary} from './components/ResearchSummary';
+import {AccountingSectors} from './components/AccountingSectors';
 import { OwnerAccess } from "./components/OwnerAccess";
 import { AgentComposer } from "./components/AgentComposer";
 import { virtualMemory } from "../src/ui-virtual-window";
@@ -270,10 +272,12 @@ function ChatMessage() {
             ? "Analista · sola lettura"
             : "Coordinatore"}
         {role !== "user" && job && <Badge state={job.state} />}
+        {role !== 'user' && job?.researchStatus && <span className="muted">Ricerca: {job.researchStatus === 'complete' ? 'completa' : job.researchStatus === 'partial' ? 'parziale' : job.researchStatus === 'blocked' ? 'bloccata' : 'non registrata'}</span>}
       </div>
       <MessagePrimitive.Parts components={MESSAGE_PARTS} />
       {role !== "user" && job && (
         <>
+          <ResearchSummary job={job} />
           <ToolCards id={job.id} />
           {!!view?.reasoning.size && (
             <Reasoning
@@ -1287,6 +1291,7 @@ export function App() {
                             {j.error && (
                               <ErrorDetail jobId={j.id} error={j.error} />
                             )}
+                            <ResearchSummary job={j} />
                             <ActivityDetail jobId={j.id} />
                           </article>
                         ))}
@@ -1467,6 +1472,10 @@ export function App() {
                       </Panel>
                     ))}
                   </div>
+                  <Panel title="Settori · contabilità originale">
+                    <AccountingSectors partition={status.accounting30} pnl={status.pnl30} partial={status.partial} />
+                    <Json value={status.accounting30} label="Partizione esatta e attribuzione" />
+                  </Panel>
                   <Panel title="Ricavi e costi · 30 giorni">
                     <AccountingChart pnl={status.pnl30} label="30 giorni" />
                   </Panel>

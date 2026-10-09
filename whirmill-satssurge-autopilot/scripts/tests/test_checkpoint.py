@@ -48,7 +48,12 @@ class CheckpointTests(unittest.TestCase):
                     db.commit()
                     connections.append(db)
                 # The writer is idle, but its committed WAL pages are not closed.
-                manifest = c.capture(source, root / 'checkpoint')
+                release = {'source': 'a' * 40, 'imageDigest': 'sha256:' + 'b' * 64}
+                manifest = c.capture(source, root / 'checkpoint', release=release)
+                self.assertEqual(manifest['release'], release)
+                self.assertEqual(manifest['recoveryScope'], 'database checkpoint only')
+                self.assertTrue(any('owner.secret' in item for item in manifest['fullInstallRecoveryRequires']))
+                self.assertIn('uncertain', manifest['rollbackPolicy'])
                 c.restore(root / 'checkpoint', root / 'restored')
                 for name in c.FILES:
                     restored = root / 'restored' / name

@@ -1,3 +1,4 @@
+import {Research} from './research.js';
 import { provenance } from "./analysis-feed.js";
 import { Store } from "./store.js";
 export const PUBLIC_BODY_BYTES = 128 * 1024;
@@ -18,7 +19,7 @@ export function publicJob(store: Store, row: any) {
       answerBytes: Buffer.byteLength(result.answer),
     });
   }
-  return { ...job, ...provenance(store, row.id) };
+  return { ...job,...new Research(store).status(row.id), ...provenance(store, row.id) };
 }
 
 import { publicAnswer, scrub, hash, json } from "./domain.js";

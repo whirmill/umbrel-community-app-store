@@ -2,7 +2,7 @@ import { Store } from "./store.js";
 import { provenance } from "./analysis-feed.js";
 import { ReviewWaits } from "./review-waits.js";
 import { type Job } from "./queue.js";
-import { json } from "./domain.js";
+import { json,hash } from "./domain.js";
 
 export class FollowUps {
   constructor(
@@ -55,6 +55,12 @@ export class FollowUps {
     )
       throw Error("Wait needs an explicit future deadline");
     return this.store.tx(() => {
+      const ownership=this.store.get<any>('automaticOwnership:'+job.id);
+      const live=this.store.one('SELECT generation,job_id,due_consumed FROM automatic_scopes WHERE scope=?',scope);
+      const ownedGeneration=!ownership||(live?.generation===ownership.generation&&live?.job_id===job.id);
+      if(!ownedGeneration)return this.save(job,{outcome:input.outcome,scope,dueAt:input.dueAt??null,provenance:'agent',superseded:true,evidenceIds:input.evidenceIds,missing:input.missing});
+      const priorWait=new ReviewWaits(this.store,this.clock).get(scope);
+      if(ownership&&priorWait&&(live?.due_consumed===priorWait.dueAt||priorWait.consumedTrigger==='due:'+priorWait.dueAt))this.store.run('DELETE FROM meta WHERE key=?','reviewWait:'+hash(scope));
       const wait =
         input.outcome === "wait"
           ? new ReviewWaits(this.store, this.clock).register({
@@ -65,6 +71,9 @@ export class FollowUps {
               missing: input.missing,
             })
           : undefined;
+      const owner=this.store.get<any>('automaticOwnership:'+job.id);
+      if(input.outcome==='no_wait'&&owner&&ownedGeneration)
+        this.store.run('DELETE FROM meta WHERE key=?','reviewWait:'+hash(scope));
       return this.save(job, {
         outcome: input.outcome,
         scope,
@@ -78,33 +87,11 @@ export class FollowUps {
   fallback(job: Job, cause: string) {
     if (!this.eligible(job) || !job.submission_id || this.get(job.id))
       return this.get(job.id);
-    // Policy uses admission time, never parses prose or restarts an observation window.
-    const dueAt = new Date(Date.parse(job.created_at) + 3600000).toISOString();
-    const scope = job.scope || "node";
-    return this.store.tx(() => {
-      let registryError: string | null = null;
-      try {
-        new ReviewWaits(this.store, this.clock).register({
-          scope,
-          dueAt,
-          origin: "policy:" + job.id,
-          evidenceIds: [],
-          missing: ["follow-up outcome not registered"],
-        });
-      } catch {
-        registryError =
-          "Review registry unavailable; policy deadline retained in original outcome receipt";
-      }
-      return this.save(job, {
-        outcome: "unregistered",
-        scope,
-        dueAt,
-        provenance: "policy",
-        cause,
-        missing: ["follow-up outcome not registered"],
-        registryError,
-      });
-    });
+    return this.store.tx(()=>this.save(job,{
+      outcome:'unregistered',scope:job.scope||'node',dueAt:null,
+      researchStatus:'partial',provenance:'policy',cause,
+      missing:['follow-up outcome not registered'],
+    }));
   }
   private save(job: Job, detail: any) {
     const value = {

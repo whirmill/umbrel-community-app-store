@@ -62,7 +62,7 @@ test('prior shared-channel strategies and unreconciled holds contaminate later w
   const {s}=fixture('fee_change');complete(s);
   s.run('INSERT INTO decisions VALUES(?,?,?,?,?,?)','prior','2026-09-30T00:00:00.000Z',json({source:'c',target:'b'}),'{}','{}','evaluated');
   s.run('INSERT INTO channel_holds VALUES(?,?,?,?)','b','2026-10-02T00:00:00.000Z','External policy under reconciliation',start);
-  evaluateWindows(s,day7);const report=JSON.parse(s.one('SELECT result FROM evaluation_windows').result);assert.equal(report.status,'confounded');assert.deepEqual(report.overlappingDecisionIds,['prior']);assert.equal(report.channelHolds[0].channel_id,'b');s.close();
+  evaluateWindows(s,day7);const report=JSON.parse(s.one('SELECT result FROM evaluation_windows').result);assert.equal(report.status,'confounded');assert.deepEqual(report.overlappingDecisionIds,[], 'Never-executed proposal is not economic overlap');assert.equal(report.channelHolds[0].channel_id,'b');s.close();
 });
 
 test('post-intervention windows begin at reconciled settlement, not decision creation',()=>{
