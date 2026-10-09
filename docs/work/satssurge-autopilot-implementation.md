@@ -1261,3 +1261,24 @@ never authorizes clearing that fence or replaying its submission. Primary owns
 checkpoint/update, real official composer/Pi/browser/natural economic checks,
 reconciliation and original autonomy/timer restoration. Previous immutable
 0.3.9 tag/image remain unchanged. No financial tests/regtest/M3/M4 expansion.
+
+### 0.4.0 immutable publication verified — installed acceptance pending
+
+Source `50beed67ecfc9a3259173ff622bacea10ba0abfc`, tag
+`satssurge-autopilot-v0.4.0`, [CI 37952913853](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37952913853)
+passed148Node24 and16Python tests. Verified image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.4.0@sha256:65053c9e00624efc274274143b15ad679f84eb05d3047bfa46fcc37d7de19fc3`.
+Anonymous index, both configs and all22layers passed SHA-256/size checks
+(218150048 compressed bytes). Configs match source and use `flock --no-fork`;
+extracted package version is0.4.0. Private receipt:
+`/Users/whirmill/.local/share/satssurge/image-040-receipt.json`.
+Manifest and compose are prepared together. Currently installed0.3.9 remains
+healthy under the owned qualification pause; actual installed0.4.0 official
+composer/Pi/natural economic acceptance and original autonomy/timer restoration
+remain pending. Native fixture proof is in `040-fixture-native-admission.json`:
+exactly3original jobs (chat/chat/analysis), dropped post-COMMIT ACK recovered
+without second submission,44→68→192px autosize,24 responsive cases passed.
+Verifiedpre-040-20261009T153545Z checkpoint preserved111ledger/all original jobs,
+85history/owner/mandate/operations; original naturally queued job remains
+unsubmitted and provider cooldown respected. Publication does not clear the
+owned pause/fence or authorize financial replay. Native iOS/VoiceOver unproven.

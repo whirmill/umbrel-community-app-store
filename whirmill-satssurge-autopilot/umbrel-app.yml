@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.3.9"
+version: "0.4.0"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -25,19 +25,18 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.3.9 adds a unified compact composer model/effort picker synchronized
-  with Settings. Supported efforts are selectable; default remains Sol/high.
-  New jobs pin model/effort while submitted recovery keeps original configuration.
-  Corrects negative history-anchor restoration. New eligible economic runs use
-  a 60-second research soft boundary; all old persisted budgets stay immutable,
-  hard 180 seconds and tool caps 24/12/16 remain. Phase metrics use a whitelist
-  capped at 96. Preserves structured nonfinancial closure, truthful fallback,
-  original receipts, OAuth, schema 4, mandate and financial executor.
-  CI 37947859261 passed 146 Node 24 and 16 Python tests. Anonymous amd64/arm64
-  configs and all 22 layers passed SHA-256/size checks against source
-  ceabd7d9b1ddc4394e53b61a98daa2d3f08ce6a3; package version is 0.3.9 and both
-  commands use flock --no-fork. Installed acceptance and natural economic
-  completion remain pending. Final local 24 responsive cases passed with 16px
-  fields, 44px controls, no overflow and empty console. Native iOS/VoiceOver
-  and comparative heap savings are unverified. No financial acceptance test,
-  regtest, M3/M4 capability or profitability qualification is introduced.
+  Version 0.4.0 replaces the custom input with official assistant-ui
+  Composer.Root/Input/Send through one durable submission callback. Native
+  Enter, Send and analysis each preserve a distinct request; dropped post-COMMIT
+  acknowledgments recover the original nonce through the journal. Native input
+  autosizes from one line and draft persists on tab return. Backend 0.3.9,
+  model/effort selection, default Sol/high, original recovery, financial mandate,
+  OAuth and schema 4 remain unchanged. CI 37952913853 passed 148 Node 24 and
+  16 Python tests. Anonymous amd64/arm64 configs and all 22 layers passed
+  SHA-256/size checks against source 50beed67ecfc9a3259173ff622bacea10ba0abfc;
+  extracted package is 0.4.0 and both commands use flock --no-fork.
+  Actual installed acceptance remains pending. Local native admission/ACK recovery,
+  autosize 44/68/192px and 24 responsive cases passed with no overflow and empty
+  console. Native iOS/VoiceOver and comparative heap savings are unverified.
+  No financial acceptance test, regtest, M3/M4 capability or profitability
+  qualification is introduced.
