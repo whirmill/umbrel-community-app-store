@@ -35,6 +35,15 @@ import {
   ArrowDown,
   AlertCircle,
 } from "lucide-react";
+import {
+  Liquidity,
+  BudgetGauges,
+  AccountingChart,
+  QueueChart,
+  FeeChart,
+  MiniBadge,
+} from "./components/Charts";
+import { satLabel, financialTone } from "../src/ui-chart-data";
 import { Button } from "./components/ui/button";
 import {
   answerFor,
@@ -115,7 +124,7 @@ function Mark({ children }: { children: string }) {
   );
 }
 function Badge({ state }: { state: string }) {
-  return <span className={"badge " + state}>{labels[state] ?? state}</span>;
+  return <MiniBadge state={state} />;
 }
 function ToolCards({ id }: { id: string }) {
   const p = useContext(jobContext);
@@ -126,37 +135,44 @@ function ToolCards({ id }: { id: string }) {
     const key = e.data.toolCallId;
     calls.set(key, { ...calls.get(key), ...e.data, [e.type]: true });
   }
+  if (!calls.size) return null;
   return (
-    <div className="tool-list">
-      {[...calls.entries()].map(([key, t]) => (
-        <details className="tool" key={key}>
-          <summary>
-            <Shield size={14} />
-            <span>{t.toolName ?? "Strumento"}</span>
-            <Badge
-              state={
-                t.tool_result
-                  ? t.isError
-                    ? "failed"
-                    : t.unavailable
-                      ? "Risultato non disponibile"
-                      : "completed"
-                  : "running"
-              }
-            />
-          </summary>
-          <p className="muted">Eseguito dal backend · {key}</p>
-          {t.argsAvailable === false ? (
-            <p className="muted">
-              Parametri non disponibili nello snapshot di recupero.
-            </p>
-          ) : (
-            <Json value={t.args} label="Parametri" />
-          )}
-          {t.tool_result && <Json value={t.result} label="Risultato" />}
-        </details>
-      ))}
-    </div>
+    <details className="tool-group">
+      <summary>
+        <Shield size={14} />
+        {calls.size} strumenti utilizzati
+      </summary>
+      <div className="tool-list">
+        {[...calls.entries()].map(([key, t]) => (
+          <details className="tool" key={key}>
+            <summary>
+              <Shield size={14} />
+              <span>{t.toolName ?? "Strumento"}</span>
+              <Badge
+                state={
+                  t.tool_result
+                    ? t.isError
+                      ? "failed"
+                      : t.unavailable
+                        ? "Risultato non disponibile"
+                        : "completed"
+                    : "running"
+                }
+              />
+            </summary>
+            <p className="muted">Eseguito dal backend · {key}</p>
+            {t.argsAvailable === false ? (
+              <p className="muted">
+                Parametri non disponibili nello snapshot di recupero.
+              </p>
+            ) : (
+              <Json value={t.args} label="Parametri" />
+            )}
+            {t.tool_result && <Json value={t.result} label="Risultato" />}
+          </details>
+        ))}
+      </div>
+    </details>
   );
 }
 function ChatMessage() {
@@ -465,11 +481,8 @@ export function App() {
       setBusy(true);
       setError("");
       try {
-        const p = pendingSubmission(
-          sessionStorage,
-          message.trim(),
-          kind,
-          () => ownerRequestId(),
+        const p = pendingSubmission(sessionStorage, message.trim(), kind, () =>
+          ownerRequestId(),
         );
         setPending(p);
         const accepted = await api(kind === "analysis" ? "analyze" : "chat", {
@@ -524,7 +537,11 @@ export function App() {
         if (follow.current) el.scrollTop = el.scrollHeight;
       };
       const observer = new MutationObserver(followLatest);
-      observer.observe(el, { childList: true, subtree: true, characterData: true });
+      observer.observe(el, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
       followLatest();
       setUnread(false);
       return () => observer.disconnect();
@@ -546,10 +563,12 @@ export function App() {
     }
   };
   useLayoutEffect(() => {
-    const el = scroll.current, saved = restoreScroll.current;
+    const el = scroll.current,
+      saved = restoreScroll.current;
     if (!el || !saved) return;
     const restore = () => {
-      if (el.querySelectorAll('.message').length < messages.length) return false;
+      if (el.querySelectorAll(".message").length < messages.length)
+        return false;
       el.scrollTop = saved.top + el.scrollHeight - saved.height;
       restoreScroll.current = null;
       return true;
@@ -625,7 +644,10 @@ export function App() {
             <button
               key={id}
               aria-current={tab === id ? "page" : undefined}
-              onClick={() => { if (id === "chat") follow.current = true; setTab(id); }}
+              onClick={() => {
+                if (id === "chat") follow.current = true;
+                setTab(id);
+              }}
             >
               <Icon size={18} />
               {label}
@@ -674,8 +696,8 @@ export function App() {
               </h1>
               <p>
                 {tab === "chat"
-                  ? "Evidenze, strumenti e decisioni. Una conversazione continua con il tuo nodo."
-                  : "Il tuo nodo, osservato attraverso dati e risultati verificabili."}
+                  ? "Il tuo nodo, una conversazione continua."
+                  : "Dati osservati. Risultati misurabili."}
               </p>
             </div>
             {status && (
@@ -941,16 +963,20 @@ export function App() {
                       <strong className="large-number">
                         {sats(status.budget?.remainingMsat)} <small>sat</small>
                       </strong>
-                      <p className="muted">
-                        Oggi · {sats(status.budget?.dailyMsat)} / 1.500 sat
-                      </p>
-                      <p className="muted">
-                        Esplorazione · {sats(status.budget?.exploratoryMsat)} /
-                        750 sat
-                      </p>
+                      <BudgetGauges
+                        budget={status.budget}
+                        mandate={status.mandate}
+                        compact
+                      />
                       <div className="protected">
                         <Shield size={15} /> Riserva protetta · 500.000 sat
                       </div>
+                    </Panel>
+                    <Panel title="Liquidità del nodo">
+                      <Liquidity
+                        channels={status.snapshot?.channels ?? []}
+                        compact
+                      />
                     </Panel>
                   </div>
                 </div>
@@ -988,14 +1014,7 @@ export function App() {
                       " richieste · un solo esecutore finanziario"
                     }
                   >
-                    <div className="queue-counts">
-                      {(status.queue?.states ?? []).map((v: any) => (
-                        <span key={v.state}>
-                          {labels[v.state] ?? v.state}{" "}
-                          <strong>{v.count}</strong>
-                        </span>
-                      ))}
-                    </div>
+                    <QueueChart states={status.queue?.states ?? []} />
                     {!jobs.length && (
                       <p className="empty">Nessuna attività registrata.</p>
                     )}
@@ -1024,22 +1043,29 @@ export function App() {
                               </Button>
                             )}
                           </div>
-                          <small className="muted">
-                            {j.created_at} · {j.id} ·{" "}
-                            {j.lane ?? "corsia non specificata"}
-                          </small>
-                          <p>{parseJson(j.payload)?.message}</p>
-                          {j.wait_reason && (
-                            <p className="muted">{j.wait_reason}</p>
-                          )}
+                          <span className="job-date">
+                            {j.created_at
+                              ? new Date(j.created_at).toLocaleString("it-IT", {
+                                  dateStyle: "short",
+                                  timeStyle: "short",
+                                })
+                              : "Data non disponibile"}
+                          </span>
                           {j.error && <p className="error">{j.error}</p>}
-                          <ToolCards id={j.id} />
-                          {answerFor(projection, j.id) && (
-                            <details>
-                              <summary>Risposta dell’agente</summary>
+                          <details className="compact-details">
+                            <summary>Messaggio e attività</summary>
+                            <p>{parseJson(j.payload)?.message}</p>
+                            <small className="muted">
+                              {j.id} · {j.lane ?? "corsia non specificata"}
+                            </small>
+                            {j.wait_reason && (
+                              <p className="muted">{j.wait_reason}</p>
+                            )}
+                            <ToolCards id={j.id} />
+                            {answerFor(projection, j.id) && (
                               <Mark>{answerFor(projection, j.id)}</Mark>
-                            </details>
-                          )}
+                            )}
+                          </details>
                         </article>
                       ))}
                     </jobContext.Provider>
@@ -1058,57 +1084,60 @@ export function App() {
               {tab === "node" && (
                 <>
                   <Panel
-                    title="Canali Lightning"
+                    title="Distribuzione della liquidità"
                     sub={
                       "Snapshot · " +
                       (status.snapshot?.at ?? "non ancora disponibile")
                     }
                   >
-                    <div
-                      className="table-wrap"
-                      tabIndex={0}
-                      role="region"
-                      aria-label="Canali Lightning, tabella scorrevole"
-                    >
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Canale</th>
-                            <th>Uscita / ingresso</th>
-                            <th>Commissioni</th>
-                            <th>Stato</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(status.snapshot?.channels ?? []).map(
-                            (c: any, i: number) => (
-                              <tr key={c.id ?? i}>
-                                <td>
-                                  <strong>{c.alias}</strong>
-                                  <small>{c.id}</small>
-                                </td>
-                                <td>
-                                  {Number(c.localSat).toLocaleString("it-IT")} /{" "}
-                                  {Number(c.remoteSat).toLocaleString("it-IT")}{" "}
-                                  sat
-                                </td>
-                                <td>
-                                  {c.ppm} ppm + {c.baseMsat} msat
-                                </td>
-                                <td>
-                                  <Badge
-                                    state={c.active ? "Attivo" : "Offline"}
-                                  />
-                                </td>
-                              </tr>
-                            ),
-                          )}
-                        </tbody>
-                      </table>
-                      {!status.snapshot?.channels?.length && (
-                        <p className="empty">Nessun canale acquisito.</p>
-                      )}
-                    </div>
+                    <Liquidity channels={status.snapshot?.channels ?? []} />
+                    <details className="compact-details">
+                      <summary>Tabella completa dei canali</summary>
+                      <div
+                        className="table-wrap"
+                        tabIndex={0}
+                        role="region"
+                        aria-label="Canali Lightning, tabella scorrevole"
+                      >
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Canale</th>
+                              <th>Uscita / ingresso</th>
+                              <th>Commissioni</th>
+                              <th>Stato</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(status.snapshot?.channels ?? []).map(
+                              (c: any, i: number) => (
+                                <tr key={c.id ?? i}>
+                                  <td>
+                                    <strong>{c.alias}</strong>
+                                    <small>{c.id}</small>
+                                  </td>
+                                  <td>
+                                    {satLabel(c.localSat, false)} /{" "}
+                                    {satLabel(c.remoteSat, false)}
+                                  </td>
+                                  <td>
+                                    {c.ppm} ppm + {c.baseMsat} msat
+                                  </td>
+                                  <td>
+                                    <Badge
+                                      state={c.active ? "Attivo" : "Offline"}
+                                    />
+                                  </td>
+                                </tr>
+                              ),
+                            )}
+                          </tbody>
+                        </table>
+                        {!status.snapshot?.channels?.length && (
+                          <p className="empty">Nessun canale acquisito.</p>
+                        )}
+                      </div>
+                    </details>
                     <Json
                       value={status.snapshot}
                       label="Snapshot completo del nodo"
@@ -1127,22 +1156,41 @@ export function App() {
                               {name === "lndg" ? "LNDg" : "Lightning Mate"}{" "}
                               <Badge state={d?.status ?? "Non disponibile"} />
                             </h3>
-                            <p>Versione · {d?.version ?? "sconosciuta"}</p>
                             {d?.status === "qualified" ? (
                               <>
-                                <p>Acquisito · {d.capturedAt}</p>
-                                <p>
-                                  {d.failures?.length ?? 0} record di errore ·{" "}
-                                  {d.rebalances?.length ?? 0} rebalance
-                                </p>
-                                <p>
+                                <div className="key-metrics">
+                                  <span>
+                                    Record di errore
+                                    <strong className="tone-danger">
+                                      {d.failures?.length ?? "Non disponibili"}
+                                    </strong>
+                                  </span>
+                                  <span>
+                                    Rebalance nel log
+                                    <strong>
+                                      {d.rebalances?.length ??
+                                        "Non disponibili"}
+                                    </strong>
+                                  </span>
+                                </div>
+                                <p className="chart-note">
                                   Copertura{" "}
                                   {d.coverage?.complete
                                     ? "completa"
-                                    : "parziale"}{" "}
-                                  · {d.coverage?.note}
+                                    : "parziale"}
                                 </p>
-                                <Json value={d} label="Evidenze della fonte" />
+                                <details className="compact-details">
+                                  <summary>Fonte e acquisizione</summary>
+                                  <p>
+                                    Versione · {d.version ?? "sconosciuta"} ·{" "}
+                                    {d.capturedAt ?? "data non disponibile"}
+                                  </p>
+                                  <p>{d.coverage?.note}</p>
+                                  <Json
+                                    value={d}
+                                    label="Evidenze della fonte"
+                                  />
+                                </details>
                               </>
                             ) : (
                               <p>
@@ -1157,45 +1205,7 @@ export function App() {
                       title="Confronto commissioni"
                       sub="Prezzi annunciati: non provano rotte eseguibili, liquidità, domanda o redditività."
                     >
-                      {status.competition?.status !== "qualified" ? (
-                        <p className="empty">
-                          {status.competition?.reason ??
-                            "Confronto non disponibile"}
-                        </p>
-                      ) : (
-                        (status.competition.channels ?? []).map(
-                          (c: any, i: number) => (
-                            <article className="record" key={i}>
-                              <h3>
-                                {c.alias} <Badge state={c.status} />
-                              </h3>
-                              {c.quotes ? (
-                                <>
-                                  <p>
-                                    Grafo · {c.capturedChannels} /{" "}
-                                    {c.graphChannelCount} canali ·{" "}
-                                    {c.missingPolicies} policy mancanti
-                                  </p>
-                                  <small>{c.capturedAt}</small>
-                                  {c.quotes.map((q: any, n: number) => (
-                                    <p key={n}>
-                                      {q.amountSat} sat · nostra fee{" "}
-                                      {sats(q.ourFeeMsat)} sat · mediana{" "}
-                                      {q.medianFeeMsat == null
-                                        ? "sconosciuta"
-                                        : sats(q.medianFeeMsat) + " sat"}{" "}
-                                      · {q.cheaperThanUs} /{" "}
-                                      {q.announcedEligible} prezzi inferiori
-                                    </p>
-                                  ))}
-                                </>
-                              ) : (
-                                <p>{c.reason}</p>
-                              )}
-                            </article>
-                          ),
-                        )
-                      )}
+                      <FeeChart capture={status.competition} />
                     </Panel>
                   </div>
                   <Panel title="Copertura e inizializzazione">
@@ -1214,24 +1224,40 @@ export function App() {
               )}
               {tab === "accounting" && (
                 <>
-                  <div className="stats-row">
+                  <div className="stats-row financial-metrics">
                     {[
-                      ["Ricavi · 30 giorni", status.pnl30?.revenueMsat],
-                      ["Costi · 30 giorni", status.pnl30?.costMsat],
-                      [
-                        status.partial
+                      {
+                        title: "Ricavi · 30 giorni",
+                        value: status.pnl30?.revenueMsat,
+                        tone: "success",
+                        icon: "↗",
+                      },
+                      {
+                        title: "Costi · 30 giorni",
+                        value: status.pnl30?.costMsat,
+                        tone: "danger",
+                        icon: "↘",
+                      },
+                      {
+                        title: status.partial
                           ? "Risultato parziale"
                           : "Risultato netto",
-                        status.pnl30?.netMsat,
-                      ],
-                    ].map(([l, v]) => (
-                      <Panel key={l} title={l}>
-                        <strong className="large-number">
-                          {sats(v)} <small>sat</small>
+                        value: status.pnl30?.netMsat,
+                        tone: financialTone(status.pnl30?.netMsat),
+                        icon: "=",
+                      },
+                    ].map((m) => (
+                      <Panel key={m.title} title={m.title}>
+                        <strong className={"large-number tone-" + m.tone}>
+                          <span className="metric-symbol">{m.icon}</span>
+                          {satLabel(m.value)}
                         </strong>
                       </Panel>
                     ))}
                   </div>
+                  <Panel title="Ricavi e costi · 30 giorni">
+                    <AccountingChart pnl={status.pnl30} label="30 giorni" />
+                  </Panel>
                   {status.partial && (
                     <div className="notice">
                       Contabilità parziale: copertura storica o costi di
@@ -1240,32 +1266,24 @@ export function App() {
                   )}
                   <div className="two-columns">
                     <Panel title="Budget e riserva">
-                      <dl>
-                        <dt>Spesa giornaliera</dt>
-                        <dd>{sats(status.budget?.dailyMsat)} / 1.500 sat</dd>
-                        <dt>Esplorazione</dt>
-                        <dd>
-                          {sats(status.budget?.exploratoryMsat)} / 750 sat
-                        </dd>
-                        <dt>Residuo</dt>
-                        <dd>{sats(status.budget?.remainingMsat)} sat</dd>
-                        <dt>Riserva protetta</dt>
-                        <dd>500.000 sat</dd>
-                      </dl>
+                      <BudgetGauges
+                        budget={status.budget}
+                        mandate={status.mandate}
+                      />
+                      <div className="budget-remaining">
+                        Residuo
+                        <strong>
+                          {satLabel(status.budget?.remainingMsat)}
+                        </strong>
+                      </div>
                       <Json value={status.budget} label="Budget completo" />
                       <Json value={status.mandate} label="Mandato applicato" />
                     </Panel>
                     <Panel title="Contabilità cumulativa">
-                      <dl>
-                        <dt>Ricavi riconciliati</dt>
-                        <dd>{sats(status.cumulative?.revenueMsat)} sat</dd>
-                        <dt>Costi registrati</dt>
-                        <dd>{sats(status.cumulative?.costMsat)} sat</dd>
-                        <dt>
-                          Risultato {status.partial ? "parziale" : "netto"}
-                        </dt>
-                        <dd>{sats(status.cumulative?.netMsat)} sat</dd>
-                      </dl>
+                      <AccountingChart
+                        pnl={status.cumulative}
+                        label="Contabilità cumulativa"
+                      />
                       <Json value={status.modelUsage} label="Uso del modello" />
                     </Panel>
                   </div>
@@ -1294,20 +1312,34 @@ export function App() {
                           <h3>{d.proposal.problem}</h3>
                           <Badge state={d.status} />
                         </div>
-                        <p>{d.proposal.whyAct}</p>
-                        <p>{d.proposal.evidence}</p>
-                        <p>
-                          <strong>Ipotesi · </strong>
-                          {d.proposal.hypothesis}
-                        </p>
-                        <p>
-                          <strong>Verifica · </strong>
-                          {d.proposal.verify}
-                        </p>
-                        <small>
-                          {d.at} · massimo {sats(d.proposal.maxFeeMsat)} sat ·
-                          beneficio previsto {sats(d.forecast.benefitMsat)} sat
-                        </small>
+                        <div className="key-metrics">
+                          <span>
+                            Limite costo
+                            <strong className="tone-danger">
+                              {satLabel(d.proposal.maxFeeMsat)}
+                            </strong>
+                          </span>
+                          <span>
+                            Beneficio previsto
+                            <strong className="tone-success">
+                              {satLabel(d.forecast.benefitMsat)}
+                            </strong>
+                          </span>
+                        </div>
+                        <details className="compact-details">
+                          <summary>Evidenze e ipotesi</summary>
+                          <p>{d.proposal.whyAct}</p>
+                          <p>{d.proposal.evidence}</p>
+                          <p>
+                            <strong>Ipotesi · </strong>
+                            {d.proposal.hypothesis}
+                          </p>
+                          <p>
+                            <strong>Verifica · </strong>
+                            {d.proposal.verify}
+                          </p>
+                          <small>{d.at}</small>
+                        </details>
                         <Json value={d} label="Decisione completa" />
                       </article>
                     ))}
@@ -1328,19 +1360,35 @@ export function App() {
                             {r.horizon_days} giorni · revisione {r.revision}{" "}
                             <Badge state={r.status} />
                           </h3>
-                          <p>
-                            Contributo osservato ·{" "}
-                            {r.result.observedContributionMsat == null
-                              ? "non determinabile"
-                              : sats(r.result.observedContributionMsat) +
-                                " sat"}
-                          </p>
-                          <p>
-                            Costi ·{" "}
-                            {r.result.costMsat == null
-                              ? "non determinabili"
-                              : sats(r.result.costMsat) + " sat"}{" "}
-                            · {r.result.samples} inoltri · copertura{" "}
+                          <div className="key-metrics">
+                            <span>
+                              Contributo osservato
+                              <strong
+                                className={
+                                  "tone-" +
+                                  financialTone(
+                                    r.result.observedContributionMsat,
+                                  )
+                                }
+                              >
+                                {satLabel(r.result.observedContributionMsat)}
+                              </strong>
+                            </span>
+                            <span>
+                              Costi
+                              <strong className="tone-danger">
+                                {satLabel(r.result.costMsat)}
+                              </strong>
+                            </span>
+                            <span>
+                              Inoltri
+                              <strong>
+                                {r.result.samples ?? "Non disponibili"}
+                              </strong>
+                            </span>
+                          </div>
+                          <p className="chart-note">
+                            Copertura{" "}
                             {r.result.coverageComplete
                               ? "completa nella finestra"
                               : "incompleta"}

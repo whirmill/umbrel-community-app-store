@@ -990,3 +990,705 @@ h1:focus {
   font-size: 12px;
   color: #566454;
 }
+/* Operational charts: exact labels accompany bounded SVG drawing coordinates. */
+:root {
+  --local: #2563c1;
+  --remote: #7b48bf;
+  --success: #23754b;
+  --danger: #b63b43;
+  --warning: #996909;
+  --neutral: #647168;
+}
+.tone-local {
+  color: var(--local);
+}
+.tone-remote {
+  color: var(--remote);
+}
+.tone-success {
+  color: var(--success);
+}
+.tone-danger {
+  color: var(--danger);
+}
+.tone-warning {
+  color: var(--warning);
+}
+.tone-neutral {
+  color: var(--neutral);
+}
+.fill-local {
+  fill: var(--local);
+}
+.fill-remote {
+  fill: var(--remote);
+}
+.fill-success {
+  fill: var(--success);
+}
+.fill-danger {
+  fill: var(--danger);
+}
+.fill-warning {
+  fill: #d8a321;
+}
+.fill-neutral {
+  fill: #8a958e;
+}
+.chart-track {
+  fill: #e7eae5;
+}
+.stroke-local {
+  stroke: var(--local);
+}
+.stroke-remote {
+  stroke: var(--remote);
+}
+.stroke-neutral {
+  stroke: #dfe4de;
+}
+.badge {
+  gap: 5px;
+}
+.badge.tone-success {
+  background: #e8f4ec;
+  color: #23754b;
+}
+.badge.tone-danger {
+  background: #fbecee;
+  color: #a52f39;
+}
+.badge.tone-warning {
+  background: #fff4d8;
+  color: #835805;
+}
+.badge.tone-local {
+  background: #eaf1ff;
+  color: #2457a4;
+}
+.badge.tone-neutral {
+  background: #edf0ed;
+  color: #59665c;
+}
+.page-heading {
+  margin-bottom: 21px;
+}
+.page-heading p {
+  font-size: 12px;
+}
+.page-heading h1 {
+  font-size: 27px;
+  margin: 5px 0 7px;
+}
+.panel {
+  padding: 21px;
+}
+.panel > h2 {
+  margin-bottom: 17px;
+}
+.panel > p.muted {
+  margin: -5px 0 16px;
+}
+.panel-title {
+  padding: 14px 20px;
+}
+.liquidity-overview {
+  display: flex;
+  align-items: center;
+  gap: 29px;
+  padding: 9px 0 14px;
+}
+.liquidity-donut {
+  width: 153px;
+  height: 153px;
+  flex: none;
+}
+.donut-number {
+  fill: #28392d;
+  font-size: 23px;
+  font-weight: 700;
+  font-family: Manrope, system-ui;
+}
+.donut-label {
+  fill: #657065;
+  font-size: 10px;
+}
+.liquidity-key {
+  display: grid;
+  gap: 18px;
+}
+.key-number {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 11px;
+}
+.key-number strong {
+  display: block;
+  font-size: 21px;
+  letter-spacing: -0.4px;
+  margin-top: 5px;
+  font-family: Manrope, system-ui;
+}
+.liquidity-key > small {
+  font-size: 11px;
+  color: #5c695e;
+}
+.chart-note {
+  font-size: 11px;
+  color: #657361;
+  line-height: 1.65;
+  margin: 10px 0;
+}
+.channel-bars {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 28px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  margin-top: 18px;
+}
+.channel-row {
+  padding: 9px 0;
+  min-width: 0;
+}
+.channel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.channel-top > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.channel-balance {
+  display: block;
+  width: 100%;
+  height: 13px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.channel-amounts {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 9px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.channel-amounts span:last-child {
+  text-align: right;
+}
+.channel-amounts small {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  margin-top: 4px;
+}
+.channel-details summary {
+  font-size: 10px;
+  color: #657261;
+  padding-top: 8px;
+  cursor: pointer;
+}
+.channel-details p {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.chart-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+}
+.chart-controls label {
+  font-size: 11px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.chart-controls select {
+  width: 190px;
+  padding: 7px 9px;
+  font-size: 11px;
+  background: #f7f9f4;
+}
+.checkbox-label input {
+  width: 14px;
+  height: 14px;
+  accent-color: #2563c1;
+}
+.checkbox-label {
+  white-space: nowrap;
+}
+.chart-bar {
+  width: 100%;
+  height: 9px;
+  display: block;
+  overflow: visible;
+  margin: 9px 0;
+}
+.gauge {
+  margin: 20px 0;
+}
+.gauge-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.gauge-label span {
+  font-size: 11px;
+  color: #657361;
+}
+.gauge > small {
+  font-size: 11px;
+  color: #394b39;
+}
+.gauge > small > span {
+  color: #697965;
+}
+.budget-gauges.compact .gauge {
+  margin: 15px 0;
+}
+.budget-gauges.compact .gauge-label {
+  font-size: 11px;
+}
+.budget-gauges.compact .gauge > small {
+  font-size: 10px;
+}
+.budget-remaining {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 0 3px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.budget-remaining strong {
+  font-family: Manrope, system-ui;
+  font-size: 17px;
+}
+.compact .liquidity-overview {
+  gap: 12px;
+  padding: 0;
+}
+.compact .liquidity-donut {
+  width: 88px;
+  height: 88px;
+}
+.compact .key-number {
+  font-size: 10px;
+  gap: 5px;
+}
+.compact .key-number strong {
+  font-size: 13px;
+}
+.compact .liquidity-key {
+  gap: 11px;
+}
+.compact .liquidity-key > small {
+  font-size: 10px;
+}
+.compact .chart-note {
+  font-size: 10px;
+  margin-bottom: 0;
+}
+.metric-symbol {
+  font-size: 20px;
+  margin-right: 10px;
+}
+.financial-metrics .large-number {
+  font-size: 24px;
+  margin-bottom: 0;
+}
+.accounting-chart {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.4fr);
+  gap: 36px;
+  align-items: center;
+  padding: 5px 0;
+}
+.financial-row {
+  margin: 15px 0;
+}
+.financial-row > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 12px;
+}
+.financial-row strong {
+  font-family: Manrope, system-ui;
+  font-size: 15px;
+}
+.financial-row .chart-bar {
+  height: 12px;
+}
+.net-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f5f8f2;
+  border-radius: 9px;
+  padding: 22px 18px;
+  font-size: 12px;
+}
+.net-summary strong {
+  display: block;
+  margin-top: 5px;
+  font-family: Manrope, system-ui;
+  font-size: 21px;
+}
+.two-columns .accounting-chart {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.two-columns .net-summary {
+  padding: 15px;
+}
+.queue-visual {
+  padding: 8px 0 18px;
+}
+.queue-total {
+  display: flex;
+  align-items: baseline;
+  gap: 11px;
+  margin-bottom: 16px;
+}
+.queue-total strong {
+  font-family: Manrope, system-ui;
+  font-size: 28px;
+  line-height: 1;
+}
+.queue-total span {
+  font-size: 11px;
+  color: #61705f;
+}
+.queue-stack {
+  height: 17px;
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.queue-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+}
+.queue-legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+.job {
+  padding: 15px 0;
+}
+.job-date {
+  font-size: 10px;
+  color: #697665;
+  display: block;
+  margin-top: 8px;
+}
+.compact-details {
+  margin: 11px 0;
+}
+.compact-details > summary,
+.tool-group > summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: #546750;
+  padding: 7px 0;
+  min-height: 28px;
+}
+.compact-details > p {
+  font-size: 12px;
+}
+.tool-group > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tool-group {
+  border-top: 1px solid #e2e6de;
+  margin-top: 12px;
+}
+.tool-group .tool-list {
+  margin-top: 8px;
+}
+.tool-group > summary:after {
+  content: "⌄";
+  margin-left: auto;
+}
+.tool-group[open] > summary:after {
+  content: "⌃";
+}
+.record {
+  padding: 17px 0;
+}
+.record h3 {
+  font-size: 12px;
+}
+.key-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+  margin: 16px 0 5px;
+}
+.key-metrics > span {
+  font-size: 10px;
+  color: #657461;
+}
+.key-metrics strong {
+  display: block;
+  font-size: 15px;
+  margin-top: 6px;
+  font-family: Manrope, system-ui;
+}
+.chart-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  margin-bottom: 16px;
+}
+.chart-legend span:last-child {
+  color: #657261;
+  margin-left: auto;
+}
+.fee-channel {
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+}
+.fee-channel:first-of-type {
+  border-top: 0;
+  padding-top: 4px;
+}
+.fee-quote {
+  padding: 12px 0;
+}
+.quote-amount {
+  font-size: 10px;
+  color: #657361;
+  margin-bottom: 9px;
+}
+.quote-bar {
+  display: grid;
+  grid-template-columns: 100px minmax(40px, 1fr) minmax(70px, auto);
+  gap: 10px;
+  align-items: center;
+  font-size: 10px;
+}
+.quote-bar strong {
+  text-align: right;
+  font-weight: 500;
+}
+.quote-bar .chart-bar {
+  height: 7px;
+  margin: 6px 0;
+}
+.chat-aside .panel {
+  margin-bottom: 15px;
+}
+.chart-controls input:focus-visible,
+.channel-details summary:focus-visible,
+.compact-details summary:focus-visible {
+  outline: 3px solid #b37e00;
+  outline-offset: 4px;
+}
+@media (max-width: 1100px) {
+  .channel-bars {
+    grid-template-columns: 1fr;
+  }
+  .accounting-chart {
+    gap: 22px;
+  }
+  .financial-metrics .large-number {
+    font-size: 21px;
+  }
+  .quote-bar {
+    grid-template-columns: 84px minmax(35px, 1fr) minmax(65px, auto);
+    gap: 7px;
+  }
+}
+@media (max-width: 900px) {
+  .chat-aside {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .chat-aside .compact .liquidity-overview {
+    flex-direction: column;
+  }
+  .chat-aside .compact .liquidity-key {
+    width: 100%;
+  }
+  .chat-aside .compact .liquidity-key > small {
+    font-size: 9px;
+  }
+  .financial-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .financial-metrics .large-number {
+    font-size: 17px;
+  }
+  .metric-symbol {
+    font-size: 16px;
+    margin-right: 4px;
+  }
+}
+@media (max-width: 660px) {
+  .channel-bars {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .liquidity-overview {
+    gap: 17px;
+  }
+  .liquidity-donut {
+    width: 116px;
+    height: 116px;
+  }
+  .key-number strong {
+    font-size: 18px;
+  }
+  .liquidity-key {
+    gap: 15px;
+  }
+  .chart-controls {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .chart-controls label:first-child {
+    display: block;
+  }
+  .chart-controls select {
+    display: block;
+    margin-top: 6px;
+    width: 185px;
+  }
+  .checkbox-label {
+    padding-top: 29px;
+    font-size: 10px !important;
+  }
+  .financial-metrics {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .financial-metrics .panel {
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .financial-metrics .panel h2 {
+    font-size: 12px;
+    margin: 0;
+  }
+  .financial-metrics .large-number {
+    font-size: 21px;
+    margin: 0;
+  }
+  .accounting-chart {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .net-summary {
+    padding: 16px;
+  }
+  .chat-aside {
+    grid-template-columns: 1fr 1fr;
+  }
+  .chat-aside > .panel:last-child {
+    grid-column: 1/-1;
+  }
+  .chat-aside .compact .liquidity-overview {
+    flex-direction: row;
+    justify-content: center;
+    gap: 20px;
+  }
+  .chat-aside .compact .liquidity-key {
+    width: auto;
+  }
+  .chat-aside .compact .liquidity-donut {
+    width: 110px;
+    height: 110px;
+  }
+  .chat-aside .compact .key-number strong {
+    font-size: 16px;
+  }
+  .chart-legend {
+    gap: 12px;
+  }
+  .quote-bar {
+    grid-template-columns: 88px minmax(32px, 1fr) minmax(70px, auto);
+  }
+  .queue-legend {
+    gap: 10px 16px;
+  }
+  .key-metrics {
+    gap: 14px 21px;
+  }
+  .page-heading {
+    margin-bottom: 18px;
+  }
+  .page-heading p {
+    display: none;
+  }
+  .channel-top {
+    font-size: 12px;
+  }
+  .chart-note {
+    font-size: 11px;
+  }
+}
+@media (max-width: 380px) {
+  .liquidity-overview {
+    flex-direction: column;
+  }
+  .chart-controls {
+    flex-direction: column;
+  }
+  .checkbox-label {
+    padding-top: 0;
+  }
+  .quote-bar {
+    grid-template-columns: 75px minmax(28px, 1fr) minmax(65px, auto);
+    gap: 5px;
+  }
+  .chat-aside {
+    grid-template-columns: 1fr;
+  }
+  .chat-aside > .panel:last-child {
+    grid-column: auto;
+  }
+}
+.liquidity-key,
+.key-number > span {
+  min-width: 0;
+}
+.key-number strong,
+.financial-row strong,
+.net-summary strong,
+.financial-metrics .large-number,
+.key-metrics strong {
+  overflow-wrap: anywhere;
+}
+.quote-bar strong {
+  overflow-wrap: anywhere;
+}
+.liquidity-donut:focus-visible {
+  outline: 3px solid #b37e00;
+  outline-offset: 4px;
+}

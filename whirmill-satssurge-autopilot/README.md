@@ -218,3 +218,5 @@ scheduled analyst jobs reached the existing bounded run deadline; they remain
 terminal with their original receipts and no automatic replay. No public reasoning
 summary was available in this Pi event projection; hidden thinking is excluded.
 Accounting remains partial and M3/M4 remain outside this release.
+
+La UI0.3.2 aggiunge colori semantici, distribuzione locale/remota della liquidità e barre per canale con filtro e ordinamento, ricavi/costi, budget, confronto delle commissioni e stati della coda. Dettagli tecnici e risultati dei tool restano apribili. I grafici usano dati osservati e importi esatti; copertura parziale e valori non disponibili sono espliciti.
