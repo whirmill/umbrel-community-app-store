@@ -502,19 +502,32 @@ test("actual Harness hard deadline awaits an entered financial mock and recovery
             },
           ],
     };
-    queueMicrotask(() => {
+    // Reproduce a slower first provider chunk without racing the financial latch.
+    setTimeout(() => {
       stream.push({ type: "start", partial: message });
       stream.push({ type: "done", reason: message.stopReason, message });
-    });
+    }, done ? 0 : 75);
     return stream;
   };
   let released = false;
+  let entered = false;
+  let releaseFinancial!: () => void;
+  const financialRelease = new Promise<void>(resolve => { releaseFinancial = resolve; });
+  let running: Promise<unknown> | undefined;
+  const awaitCondition = async (condition: () => boolean, timeoutMs: number, description: string) => {
+    const deadline = Date.now() + timeoutMs;
+    while (!condition()) {
+      assert.ok(Date.now() < deadline, description);
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+  };
   const agent = new Agent(
     store,
     {
       execute: async () => {
         effects++;
-        await new Promise((r) => setTimeout(r, 120));
+        entered = true;
+        await financialRelease;
         released = true;
         return { status: "uncertain", receipt: "original", replay: false };
       },
@@ -539,12 +552,24 @@ test("actual Harness hard deadline awaits an entered financial mock and recovery
       calls: 0,
       phase: "research",
       reason: null,
-      hardMs: 80,
-      softMs: 60,
+      hardMs: 2000,
+      softMs: 1500,
       researchCalls: 16,
     });
     let owned = q.claim("coordinator", "owner")!;
-    await assert.rejects(agent.runJob(owned), /hard deadline/);
+    running = agent.runJob(owned);
+    // Attach a handler immediately; the causal latches below may fail first.
+    void running.catch(() => {});
+    await awaitCondition(() => entered, 1500, "financial mock must enter before its soft budget");
+    assert.equal(effects, 1);
+    assert.equal(released, false);
+    await awaitCondition(() => !!store.one(
+      "SELECT id FROM job_events WHERE job_id=? AND type='run_phase' AND json_extract(details,'$.stage')='hard_abort'",
+      queued.id,
+    ), 3000, "hard_abort phase must be observed while the financial mock remains in flight");
+    assert.equal(released, false);
+    releaseFinancial();
+    await assert.rejects(running, /hard deadline/);
     assert.equal(effects, 1);
     assert.equal(released, true);
     const followUp = store.get<any>("followUpOutcome:" + queued.id);
@@ -569,6 +594,8 @@ test("actual Harness hard deadline awaits an entered financial mock and recovery
       ),
     );
   } finally {
+    releaseFinancial();
+    await running?.catch(() => {});
     await agent.close();
     store.close();
     rmSync(dir, { recursive: true, force: true });

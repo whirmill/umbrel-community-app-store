@@ -1457,3 +1457,53 @@ metadata together. Primary owns checkpoint/update, actual installed browser/Pi
 acceptance and operational reconciliation. Preserve previous immutable tags,
 original financial receipts, OAuth and mandate; no financial tests/regtest or
 M3/M4 expansion is introduced by release preparation.
+
+### Post-041 CI test determinism correction (next source candidate)
+
+Immutable041 CI37961082345 failed148/149: the in-flight financial MOCK regression
+used hard80ms/soft60ms and assumed execution had entered by a120ms sleep. A75ms
+first provider chunk instead exhausted the research window before the mock entered,
+so the test exercised another valid path and missed the expected hard rejection.
+Only `src/test/resolution-plan.test.ts` changes: its persisted test budget now uses
+hard2000ms/soft1500ms, the first simulated provider chunk retains that75ms delay,
+and financial execution blocks on an explicit release latch. The test causally
+awaits mock entry (bounded1500ms), then persisted run_phase stage hard_abort
+(bounded3000ms) while asserting the mock is still blocked, before releasing it.
+Hard rejection, awaited mock completion, exactly one effect, unchanged submission
+receipt, original persisted start, truthful follow-up fallback, public tool receipt
+and no effect replay on recovery remain asserted. Finally always releases the mock
+and awaits the run before closing Harness/SQLite; no production budget/policy/tool
+or financial runtime changes. Primary-owned temporary ignored
+`dist/test/deadline-probe.test.js` was removed before the full suite.
+
+Verification logs: `/tmp/satssurge-042-testfix-node.log`,
+`/tmp/satssurge-042-testfix-typecheck.log`,
+`/tmp/satssurge-042-testfix-python.log`. Full Node149/build, typecheck and Python16
+are required at this stable checkpoint; immutable041 is not retagged or modified.
+No live/provider/Git/release operation was performed by this writer.
+Final stable result: Node149/149PASS (including75ms delayed first chunk), buildPASS,
+typecheckPASS, Python16/16PASS, diff-checkPASS. Native sessions76025 and50725 exited0.
+No task-owned test/server process remains; WRITER STOPPED.
+
+### 0.4.2 source version preparation — test timing correction, installed pending
+
+Package and both root lockfile version fields are0.4.2; target tag is
+`satssurge-autopilot-v0.4.2`. Immutable0.4.1 tag/source186b404 is preserved:
+CI37961082345 passed148/149, failed the pre-existing hard-deadline mock timing
+assertion and skipped publication; no0.4.1 image or GitHub release was created.
+Manifest/compose/README remain on accepted0.4.0 until new0.4.2 OCI verification.
+
+Test-only correction uses the actually entered financial-mock latch, observes
+persisted hard_abort before release, then proves original receipt/start and one
+recovered effect. Mock budgets2s/1.5s and delayed first provider chunk75ms are
+test fixtures only. No production backend/UI behavior changed. Final149Node,
+16Python,build/typecheck passed (native50725); primary reviewed the causal test
+diff. Source writer is stopped. Previous0.4.1 candidate UI proof remains separate
+from future installed0.4.2 acceptance, which is pending.
+
+Next tested-source Git/tag handoff, actual CI149/16 and anonymous index/both
+platform config/source/version/Cmd/all-layer verification; only then update
+catalog metadata together. Primary owns checkpoint/update and final installed
+browser/Pi/reconciliation. Preserve all immutable tags, original financial
+receipts/OAuth/mandate and existing operational state. No financial tests against
+live systems, regtest, M3/M4 expansion or release by version preparation.
