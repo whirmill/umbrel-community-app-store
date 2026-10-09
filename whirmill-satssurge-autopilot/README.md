@@ -184,3 +184,37 @@ advertised as cancellable. Terminal receipts determine completed state.
 browser fixture on 127.0.0.1:19538 (password `fixture-only`); it is excluded from
 production images and performs no financial operations. Installed acceptance and
 immutable image receipts are recorded in the implementation handoff.
+
+### Installed M2.1 acceptance — 2026-10-09
+
+Current installed release **0.3.1** is healthy on Umbrel amd64, pinned to OCI index
+`sha256:1f3ac8c0481fae8ae98625bb7bc47d5936a01afdbb87f510d8b7c20aa5483915`,
+source `719c20be7916440b2a9b6b8b565e9081a6c7e0f2`. [CI37900459290](https://github.com/whirmill/umbrel-community-app-store/actions/runs/37900459290)
+passed70Node24/15Python; both architecture manifests/configs and all22layers were
+verified by anonymous download and SHA256. The installed HTTP origin exposed
+randomUUID's secure-context restriction in0.3.0;0.3.1 uses getRandomValues IDs and
+retains durable retry identity. Neither immutable release was overwritten.
+
+Visible installed browser acceptance covered owner login/session/logout, actual
+concurrent coordinator/two analyst jobs with readonly node_state tools, terminal
+states/cancellation, SSE reconnect/refresh and restart with queued original IDs,
+long history, safe rendering, controls, keyboard focus/tool expansion and
+390/768/1440px reflow. Three test jobs completed once with21/26/18text updates and
+one tool call/result each. A20second slow SSE reader received428ordered events
+without duplicates; console errors were absent. An independently admitted queued
+owner test was preserved across update/restart and completed once.
+
+Fresh stopped/flock-protected threeDB checkpoints pre030/pre031 were verified
+remotely and privately on Mac; isolated restore migrated3→4. Original96ledger
+rows/33terminaljobs,85historyfiles, model/mandate/owner credential remained exact.
+OAuth remained connected and Sol/high unchanged. After zero active qualification
+work/financial pending, only the owned financial fence was released; all four
+host watcher timers and initial autonomy enabled were restored and read back.
+There were zero financial tool calls or operations for this acceptance, and no
+regtest. Private receipts/screenshots are outside Git.
+
+Residuals: VoiceOver was not exercised; bundle approximately199KB gzip. Two
+scheduled analyst jobs reached the existing bounded run deadline; they remain
+terminal with their original receipts and no automatic replay. No public reasoning
+summary was available in this Pi event projection; hidden thinking is excluded.
+Accounting remains partial and M3/M4 remain outside this release.

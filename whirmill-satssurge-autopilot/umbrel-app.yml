@@ -34,5 +34,6 @@ releaseNotes: >-
   Immutable amd64/arm64 images identify source
   719c20be7916440b2a9b6b8b565e9081a6c7e0f2; both platforms and all image layers
   passed anonymous registry download and digest verification.
-  Installation and live acceptance of this release remain pending.
+  Installed on Umbrel and owner-browser acceptance verified, including real Pi
+  streaming, concurrent jobs, restart/history recovery and restored autonomy.
   No channel lifecycle, Magma, Telegram or profitability qualification.
