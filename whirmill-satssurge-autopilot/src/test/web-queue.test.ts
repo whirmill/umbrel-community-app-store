@@ -29,7 +29,7 @@ test('web reinvites same receipt after ambiguous acknowledgement and accepts con
   assert.equal(get('message').value,'');assert.match(get('chat-status').textContent,/accettata/);
   get('message').value='Seconda richiesta';await ctx.web.submitMessage('chat');assert.notEqual(requests[2].requestId,requests[1].requestId);
 });
-test('browser uses origin-scoped session storage and never sends ambient cookies',async()=>{
+test('browser keeps owner bearer origin-scoped while allowing same-origin Umbrel proxy authentication',async()=>{
   const {ctx,get}=browser();const token='a'.repeat(64),requests:any[]=[];
   get('owner-password').value='private-fixture';
   ctx.fetch=async(path:string,options:any)=>{
@@ -39,7 +39,9 @@ test('browser uses origin-scoped session storage and never sends ambient cookies
   };
   await get('owner-form').onsubmit({preventDefault(){}});
   assert.equal(requests[1].options.headers.Authorization,'Bearer '+token);
-  assert.equal(requests.every(r=>r.options.credentials==='omit'),true);
+  assert.equal(requests.every(r=>r.options.credentials==='same-origin'),true);
+  assert.equal(requests.every(r=>r.path.startsWith('/api/')),true);
+  assert.equal(requests[0].options.headers.Authorization,'Bearer '); // Empty header is not owner authority.
   assert.equal(ctx.sessionStorage.getItem('satssurge.ownerSession'),null);
   assert.equal(get('owner-panel').hidden,false);
   assert.equal(get('owner-password').value,'');

@@ -3,7 +3,7 @@ let ownerSession=sessionStorage.getItem('satssurge.ownerSession')??'';
 async function api(path,body){
   const requestSession=ownerSession,headers={'Authorization':'Bearer '+requestSession};
   if(body){headers['Content-Type']='application/json';headers['X-CSRF-Token']=csrf;}
-  const r=await fetch('/api/'+path,{method:body?'POST':'GET',headers,credentials:'omit',...(body?{body:JSON.stringify(body)}:{})});
+  const r=await fetch('/api/'+path,{method:body?'POST':'GET',headers,credentials:'same-origin',...(body?{body:JSON.stringify(body)}:{})});
   const data=await r.json();
   if(r.status===401&&ownerSession===requestSession){ownerSession='';sessionStorage.removeItem('satssurge.ownerSession');$('owner-panel').hidden=false;}
   if(!r.ok)throw new Error(data.error??'Request failed');return data;
