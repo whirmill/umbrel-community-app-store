@@ -119,3 +119,16 @@ test('menu starting after earlier delivery rotates bot records actual new bot qu
   return {};
  });try{f.t.enqueue('before-menu','Reply');const run=f.t.loop();await entered.promise;f.s.set('telegramBotGeneration','replacement');f.s.set('telegramBinding',{generation:'new-binding',chatId:42,userId:42});held.resolve();await menuRejected.promise;await new Promise(r=>setImmediate(r));assert.ok(f.s.get<number>('telegramRateLimitUntil')!>Date.now()+119000);f.t.stop();await run;}finally{held.resolve();f.close();}
 });
+
+test('ordinary rejected 429 prevents unregistered menu setup in the same outbound iteration',{timeout:5000},async()=>{
+ const rejected=gate(),calls:string[]=[],f=fixture(async(method:string,_body:any,signal:AbortSignal)=>{
+  if(method==='getUpdates')return new Promise(resolve=>signal.addEventListener('abort',()=>resolve([]),{once:true}));
+  calls.push(method);if(method==='sendMessage'){rejected.resolve();throw Object.assign(Error('API rejection'),{rejected:true,retryAfter:120});}return {};
+ });try{f.t.enqueue('reply-before-menu','Reply');const run=f.t.loop();await rejected.promise;await new Promise(r=>setTimeout(r,60));assert.deepEqual(calls,['sendMessage']);assert.equal(f.s.one("SELECT status FROM telegram_outbox WHERE event_id='reply-before-menu'").status,'pending');assert.equal(f.s.get('telegramMenu:g:null'),undefined);f.t.stop();await run;}finally{f.close();}
+});
+for(const during of [1,2,3])test('shared cooldown beginning during menu call '+during+' fences subsequent calls and retries after expiry',async()=>{
+ const held=gate(),entered=gate(),calls:string[]=[],f=fixture(async(method:string)=>{calls.push(method);if(calls.length===during){entered.resolve();await held.promise;}return {username:'test_bot'};});
+ try{f.s.set('telegramCursor',55);const run=f.t.menu();await entered.promise;f.s.set('telegramRateLimitUntil',Date.now()+120000);held.resolve();await run;assert.equal(calls.length,during);assert.equal(f.s.get('telegramMenu:g:null'),undefined);assert.equal(f.s.get('telegramCursor'),55);
+ await f.t.menu();assert.equal(calls.length,during);f.s.set('telegramRateLimitUntil',Date.now()-1);await f.t.menu();assert.deepEqual(calls.slice(during),['setMyCommands','setMyCommands','setChatMenuButton','getMe']);assert.equal(f.s.get('telegramMenu:g:null'),true);assert.equal(f.s.get('telegramUsername'),'test_bot');await f.t.menu();assert.equal(calls.length,during+4);
+ }finally{held.resolve();f.close();}
+});
