@@ -68,7 +68,10 @@ export class Store {
       CREATE TABLE IF NOT EXISTS automatic_admissions(scope TEXT NOT NULL,generation INTEGER NOT NULL,job_id TEXT NOT NULL,at TEXT NOT NULL,PRIMARY KEY(scope,generation));
       CREATE TABLE IF NOT EXISTS ledger_annotations(ledger_id TEXT NOT NULL REFERENCES ledger(id),version INTEGER NOT NULL,sector TEXT NOT NULL,attribution TEXT NOT NULL,reason TEXT NOT NULL,PRIMARY KEY(ledger_id,version));
       CREATE TABLE IF NOT EXISTS expired_intervals(start TEXT NOT NULL,end TEXT NOT NULL,type TEXT NOT NULL,source TEXT NOT NULL,target TEXT NOT NULL,count INTEGER NOT NULL);
-      PRAGMA user_version=5;
+      CREATE TABLE IF NOT EXISTS owner_proposals(id TEXT PRIMARY KEY,created_at TEXT NOT NULL,content TEXT NOT NULL,content_digest TEXT NOT NULL,state_digest TEXT NOT NULL,status TEXT NOT NULL,expires_at TEXT,operation_id TEXT,intent_at TEXT,result TEXT,job_id TEXT);
+      CREATE TABLE IF NOT EXISTS telegram_updates(update_id INTEGER PRIMARY KEY,body TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending',error TEXT);
+      CREATE TABLE IF NOT EXISTS telegram_outbox(event_id TEXT PRIMARY KEY,created_at TEXT NOT NULL,kind TEXT NOT NULL,text TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending',attempts INTEGER NOT NULL DEFAULT 0,next_at TEXT,proposal_id TEXT,message_id INTEGER,error TEXT,generation TEXT);
+      PRAGMA user_version=6;
       COMMIT;`);
     if(!this.get('schema5AdmissionAdopted'))this.tx(()=>{
       for(const job of this.all("SELECT j.* FROM jobs j JOIN job_events e ON e.job_id=j.id AND e.type='accepted' WHERE json_extract(e.details,'$.origin')='scheduler' ORDER BY j.rowid")){
@@ -162,8 +165,8 @@ export class Store {
     if(integer(b.cumulativeMsat)>integer(MANDATE.totalMsat)||integer(b.dailyMsat)>integer(MANDATE.dailyMsat))throw new Error('Expense budget exhausted');
     if(integer(b.exploratoryMsat)>integer(MANDATE.exploratoryDailyMsat))throw new Error('Exploration budget exhausted');
   }
-  reserve(p:Proposal, f:Forecast, s:Snapshot, at=now()) {
-    return this.tx(()=>{
+  reserve(p:Proposal, f:Forecast, s:Snapshot, at=now(),onReserved?:(operation:string)=>void,previewOnly=false) {
+    const validateAndReserve=()=>{
       if(this.get('expectedIdentity') && s.identity!==this.get('expectedIdentity'))throw new Error('Node identity mismatch');
       this.assertDispatchReady(at);
       if(!Number.isFinite(Date.parse(s.at)) || Date.parse(at)-Date.parse(s.at)>60_000 || Date.parse(s.at)>Date.parse(at) || !s.synced) throw new Error('Stale/unsynchronized state');
@@ -211,13 +214,17 @@ export class Store {
         const last=this.all("SELECT d.at,d.proposal FROM decisions d WHERE json_extract(d.proposal,'$.kind')='fee_change' AND json_extract(d.proposal,'$.target')=? ORDER BY d.at DESC LIMIT 1",p.target)[0];
         if(last && Date.parse(at)-Date.parse(last.at)<48*3600_000) throw new Error('Fee observation window');
       }
+      // Read-only preview uses exactly the execution policy, without creating intent.
+      if(previewOnly)return {decision:'',operation:''};
       const decision=id(), operation=id();
       this.run('INSERT INTO decisions VALUES(?,?,?,?,?,?)',decision,at,json(p),json(f),json(MANDATE),'planned');
       this.run('INSERT INTO operations VALUES(?,?,?,?,?,?,?)',operation,decision,at,'reserved',null,null,json({snapshot:s}));
       this.run('INSERT INTO reservations VALUES(?,?,?,?,?,?,?,?,?)',operation,at,cap.toString(),p.amountSat,p.category,p.source,p.target,p.demandKey,1);
       if(p.category==='ordinary')this.run('INSERT INTO benefit_claims VALUES(?,?,?,?,?,?,?)',operation,p.source,p.target,at,new Date(Date.parse(at)+30*86400000).toISOString(),(integer(p.amountSat)*1000n).toString(),f.benefitMsat);
+      onReserved?.(operation);
       return {decision,operation};
-    });
+    };
+    return previewOnly?validateAndReserve():this.tx(validateAndReserve);
   }
   uncommittedDemand(source:string,target:string,rawDemand:string,at=now(),excludeOperation?:string) {
     let claimed=0n;
@@ -254,7 +261,7 @@ export class Store {
       decisions:this.all('SELECT * FROM decisions ORDER BY at DESC LIMIT 50').map(r=>({...r,proposal:JSON.parse(r.proposal),forecast:JSON.parse(r.forecast)})),
       evaluations:this.all('SELECT * FROM evaluations ORDER BY at DESC LIMIT 30'),evaluationWindows:this.all('SELECT * FROM evaluation_windows ORDER BY at DESC LIMIT 60').map(r=>({...r,result:JSON.parse(r.result)})),coverage:this.all('SELECT * FROM coverage ORDER BY end DESC LIMIT 20'),
       claims:this.all('SELECT * FROM claims ORDER BY at DESC LIMIT 25'), holds:this.all('SELECT * FROM channel_holds'),
-      projectionLimits:{operations:50,decisions:50,evaluations:30,evaluationWindows:60,coverage:20,claims:25,upstreamHistoryComplete:false},agent:this.get('agent')??{},importReport:this.get('importReport')??{}, roadmap:['M1 · fee/rebalance POC','M2 · validation / LNDg / Lightning Mate','M3 · channels / Magma (disabled)','M4 · outbound Discord webhook (not implemented)']};
+      projectionLimits:{operations:50,decisions:50,evaluations:30,evaluationWindows:60,coverage:20,claims:25,upstreamHistoryComplete:false},agent:this.get('agent')??{},importReport:this.get('importReport')??{}, roadmap:['M1 · fee/rebalance POC','M2 · Telegram daily interface','M3 · independence from complementary apps (future)','M4 · new channels / Robosats / Amboss / Magma (future); Discord not implemented']};
   }
   retain(at=now()) {
     const cutoff=new Date(Date.parse(at)-90*86400_000).toISOString();

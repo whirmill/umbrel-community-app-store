@@ -9,11 +9,11 @@ export class Executor {
   private dispatchGuard(operation:string,snapshot?:Snapshot) {
     try{if(snapshot)this.store.assertReservedDispatch(operation,snapshot);else this.store.assertDispatchReady();}catch(error){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});throw error;}
   }
-  async execute(p:Proposal) {
+  async execute(p:Proposal, approval?:{validate:(snapshot:Snapshot)=>void;reserved:(operation:string)=>void}) {
     if(this.executing)throw new Error('Executor busy');this.executing=true;
-    try{return await this.dispatch(p);}finally{this.executing=false;}
+    try{return await this.dispatch(p,approval);}finally{this.executing=false;}
   }
-  private async dispatch(p:Proposal) {
+  private async dispatch(p:Proposal, approval?:{validate:(snapshot:Snapshot)=>void;reserved:(operation:string)=>void}) {
     // Revalidation happens before the irreversible intent. Model-provided benefit is never used.
     p.demandKey=p.kind==='rebalance'?`${p.source}->${p.target}`:`fee:${p.target}`;
     const s=await this.node.snapshot();
@@ -25,7 +25,8 @@ export class Executor {
         throw new Error('External fee change: reconcile and replan');
       }
     }
-    const f=forecast(this.store,p,s),{decision,operation}=this.store.reserve(p,f,s);
+    approval?.validate(s);
+    const f=forecast(this.store,p,s),{decision,operation}=this.store.reserve(p,f,s,now(),approval?.reserved);
     this.store.set('fingerprint:'+decision,hash(json(p.evidenceIds.slice().sort())));
     this.store.run('UPDATE events SET pinned=1 WHERE id IN ('+p.evidenceIds.map(()=>'?').join(',')+')',...p.evidenceIds);
     try {

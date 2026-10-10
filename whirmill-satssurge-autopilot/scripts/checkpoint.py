@@ -40,7 +40,7 @@ def capture(source, target, final_guard=None, release=None):
                 'scope': 'Three databases with stopped application; pending state preserved, not replayed',
                 'recoveryScope': 'database checkpoint only',
                 'release': release or {'source': 'unrecorded', 'imageDigest': 'unrecorded'},
-                'fullInstallRecoveryRequires': ['owner.secret preserved separately with original permissions', 'mounted LND and provider credentials preserved separately', 'immutable release image and source manifest'],
+                'fullInstallRecoveryRequires': ['owner.secret preserved separately with original permissions', 'telegram.secret, if configured, preserved separately with mode 0600 (never exported in database checkpoint)', 'mounted LND and provider credentials preserved separately', 'immutable release image and source manifest'],
                 'rollbackPolicy': 'Never restore older financial receipts over new or uncertain effects; schema compatibility must be verified'}
     for name in FILES:
         path = source / name

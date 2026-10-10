@@ -1,6 +1,6 @@
 import {Research} from './research.js';
 import { Store } from "./store.js";
-export type Origin = "owner" | "scheduler" | "qualification" | "unknown";
+export type Origin = "owner" | "telegram" | "scheduler" | "qualification" | "unknown";
 export type Purpose = "economic" | "general" | "qualification" | "unknown";
 export function provenance(store: Store, id: string) {
   const row = store.one(

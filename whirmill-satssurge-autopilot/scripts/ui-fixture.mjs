@@ -1,3 +1,5 @@
+import {ApplicationControl} from "../dist/application-control.js";
+import {Telegram} from "../dist/telegram.js";
 import {Research} from '../dist/research.js';
 import { legacyHistory } from "../dist/legacy-history.js";
 import { historyEvents } from "../dist/ui-history.js";
@@ -18,6 +20,9 @@ const store = new Store(resolve(dir, "fixture.sqlite")),
   clients = new Set(),
   timers = new Set();
 store.set("bootstrapReady", true);
+store.set("automationProof", {ok:true,at:new Date().toISOString()});
+const fixtureControl=new ApplicationControl(store,queue);
+const fixtureTelegram=new Telegram(store,fixtureControl,dir,{call:async()=>({message_id:1})});
 store.set("snapshot", {
   at: new Date().toISOString(),
   synced: true,
@@ -128,6 +133,14 @@ if(process.env.FIXTURE_RESEARCH_REPAIR==='1'&&!store.get('researchRepairSeededV2
   store.set('researchRepairSeededV2',true);
 }
 if(process.env.FIXTURE_OPERATIONAL_BLOCKED==='1')store.set('blockers',['Blocco operativo sintetico: acquisizione autorevole non disponibile']);
+if(process.env.FIXTURE_TELEGRAM==='1') {
+  store.set('telegramConfigured',true);
+  store.set('telegramCandidate',{userId:424242,chatId:424242,username:'fixture_owner',expires:new Date(Date.now()+300000).toISOString()});
+  const job=fixtureControl.admit('fixture:manual-proposal','Proponimi una modifica fee da approvare','telegram');
+  const proposal={kind:'fee_change',category:'exploratory',source:'',target:store.get('snapshot').channels[0].id,amountSat:'0',maxFeeMsat:'0',decisionCapMsat:'0',newPpm:405,strategy:'fixture',demandKey:'fixture:fee',evidenceIds:[store.evidence('fixture','Local simulation')],problem:'fixture',evidence:'simulation',whyAct:'Proposta simulata da rivedere; nessun accesso al nodo',alternatives:'wait',verify:'48h',hypothesis:'simulation'};
+  fixtureControl.createProposal(proposal,job.id);
+  fixtureTelegram.enqueue('fixture:failed','Simulated notification');store.run("UPDATE telegram_outbox SET status='uncertain',error='Simulated uncertainty' WHERE event_id='fixture:failed'");
+}
 let session = "fixture-session";
 const later = (ms, fn) => {
   const t = setTimeout(() => {
@@ -251,6 +264,8 @@ const server = createServer(async (req, res) => {
       return send({
         ...store.stats(),
         uiFixture: true,
+        telegram: fixtureTelegram.status(),
+        proposals: fixtureControl.proposals(),
         csrf: "fixture-csrf",
         jobs: queue.list().map((j) => publicJob(store, j)),
         queue: queue.metrics(),
@@ -364,12 +379,19 @@ const server = createServer(async (req, res) => {
       });
     if (url.pathname === "/api/jobs/cancel")
       return send({ cancelled: queue.cancel(body.id) });
+    if (url.pathname === "/api/telegram/pairing") return send(fixtureTelegram.pairing());
+    if (url.pathname === "/api/telegram/config") { fixtureTelegram.configure(body.token); return send(fixtureTelegram.status()); }
+    if (url.pathname === "/api/telegram/revoke") return send(fixtureTelegram.revoke());
+    if (url.pathname === "/api/telegram/confirm") return send(fixtureTelegram.confirm(body.userId));
+    if (url.pathname === "/api/proposals/reject") return send({rejected:fixtureControl.reject(body.id)});
+    if (url.pathname === "/api/proposals/approve") return send({error:"Fixture is read-only; no executor"},400);
+    if (url.pathname === "/api/resume/summary") return send(fixtureControl.resumeSummary());
     if (url.pathname === "/api/pause") {
       store.set("enabled", false);
       return send({ paused: true });
     }
     if (url.pathname === "/api/resume") {
-      store.set("enabled", true);
+      fixtureControl.resume(body.code);
       for (const j of store.all("SELECT * FROM jobs WHERE state='queued'"))
         run(j);
       return send({ enabled: true });

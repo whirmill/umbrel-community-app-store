@@ -214,7 +214,7 @@ def maintenance(app):
     connection = sqlite3.connect(app / 'data/operational.sqlite', timeout=5)
     try:
         connection.execute('BEGIN IMMEDIATE')
-        if connection.execute('PRAGMA user_version').fetchone()[0] not in (3, 4):
+        if connection.execute('PRAGMA user_version').fetchone()[0] not in (3, 4, 5, 6):
             raise ValueError('Maintenance fencing requires qualified schema3/4 executor')
         row = connection.execute("SELECT value FROM meta WHERE key='maintenanceClaim'").fetchone()
         if row and json.loads(row[0]).get('owner') != 'lm-backfill':

@@ -1,3 +1,4 @@
+import {ApplicationControl} from "./application-control.js";
 import {Research} from './research.js';
 import { getSupportedThinkingLevels } from "./model-settings.js";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
@@ -647,10 +648,24 @@ export class Agent {
             );
           },
         });
+        const manualProposal = defineTool({
+          name: "create_manual_proposal",
+          description: "Create one immutable fee/rebalance proposal for owner review. Requires the job's explicit manual-proposal capability; never reserves or dispatches. Owner approves in web or Telegram with fresh validation.",
+          parameters: ProposalSchema,
+          replay: "safe",
+          executionMode: "sequential",
+          async execute(p, api) {
+            const run=limit(api.conversationId);
+            const stop=exhausted();if(stop)return stop;
+            if(qualification()||run.job.lane==='analyst'||self.store.get('jobCapability:'+run.job.id)!=='guarded_manual_proposal')throw Error('Manual proposal capability required');
+            if(!self.queue.get(run.job.id)?.submission_id)throw Error('Submission receipt not durable');
+            return result(new ApplicationControl(self.store,self.queue,self.executor).createProposal(p,run.job.id));
+          },
+        });
         const execute = defineTool({
           name: "execute_decision",
           description:
-            "One guarded fee/rebalance. Never replay uncertain calls; no shell or generic RPC.",
+            "One autonomous guarded fee/rebalance. Manual-review and read-only jobs cannot execute; use create_manual_proposal for review. Never replay uncertain calls; no shell or generic RPC.",
           parameters: ProposalSchema,
           replay: "unsafe",
           executionMode: "sequential",
@@ -663,7 +678,8 @@ export class Agent {
                 blocked: true,
                 reason: "read_only_qualification",
               });
-            if(self.store.get('jobCapability:'+run.job.id)!=='financial_guarded'||run.job.lane==='analyst')throw Error('Immutable read-only research capability');
+            const capability=self.store.get('jobCapability:'+run.job.id);
+            if(run.job.lane==='analyst'||capability!=='financial_guarded')throw Error('Immutable read-only research capability');
             if (!self.queue.get(run.job.id)?.submission_id)
               throw new Error("Submission receipt not durable");
             const effect=await self.executor.execute(p);
@@ -686,6 +702,7 @@ export class Agent {
             comparison,
             detail,
             proposals,
+            manualProposal,
             execute,
           ],
         });
@@ -939,6 +956,7 @@ export class Agent {
         (economic
           ? `Before any final answer call follow_up_outcome${slot === undefined ? "" : "_analyst_" + slot} once with outcome wait or no_wait and scope ${job.scope || "node"}. Current UTC is ${now()}; dueAt must be a future RFC3339 instant. Wait requires explicit dueAt/evidence/missing requirements; do not merely recommend waiting in prose. At research exhaustion this is the sole reserved operation before final synthesis. `
           : "") +
+        `Job capability: ${this.store.get('jobCapability:'+job.id)}. Plain Telegram chat is read-only. For guarded_manual_proposal requests use create_manual_proposal to create an owner-review proposal; no direct effects are authorized. ` +
         (slot === undefined
           ? "Only guarded fee/rebalance allowed. Prefer waiting to unsupported forecasts. Analyst outputs are suggestions only, revalidate them before acting."
           : "You are a read-only analyst. You cannot execute, reserve capital, change fees or delegate. Propose falsifiable drafts with evidence to the single coordinator.");

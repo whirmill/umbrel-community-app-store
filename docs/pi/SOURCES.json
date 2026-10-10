@@ -1,0 +1,1513 @@
+{
+  "schema": 1,
+  "version": "1.1.0",
+  "upstream_repo": "https://github.com/earendil-works/pi",
+  "upstream_commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+  "created_at": "2026-10-09T21:53:07.334006+00:00",
+  "packages": {
+    "@earendil-works/pi-ai": {
+      "version": "1.1.0",
+      "resolved": "https://registry.npmjs.org/@earendil-works/pi-ai/-/pi-ai-1.1.0.tgz",
+      "integrity": "sha512-1T7LAkc/5Bvc0v6w4vAGVdCrli0o/E0pEmYKTnixu95vSFArBjvbhS/G4ZwI0RUePgf0Imcu0VyqlM4EcXxqfw=="
+    },
+    "@earendil-works/pi-durable": {
+      "version": "1.1.0",
+      "resolved": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "integrity": "sha512-NtuB3RY24vQ+0/rWYpeHupyFWBfXuKq17to3VMYUYqfD/uuGnz6F6UTPBEm51VSxxA6LZwRcDwLX2LtRehnIgQ=="
+    },
+    "@earendil-works/chord": {
+      "version": "1.1.0",
+      "resolved": "https://registry.npmjs.org/@earendil-works/chord/-/chord-1.1.0.tgz",
+      "integrity": "sha512-gsHzKfyQ3t0ZIQ3cLBjJ5Vqy1TYnFyruHIV3g3BwmulCDYe5BW4yT9vaJk9QzN6YANILIO75uzuq+Gdxtzz1og=="
+    }
+  },
+  "sources": [
+    {
+      "path": "installed/pi-durable-1.1.0/dist/documents.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/documents.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 4677,
+      "sha256": "18af451f472a8556ae3366516ecd702aaf883aff1b166bb26925c59cf7bfd086"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/entries.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/entries.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1643,
+      "sha256": "58b65d70f685c59c6032bd090cb698ef9cefcdf8131ea990a77d741eee3f98ba"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/env/decode.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/env/decode.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1007,
+      "sha256": "9c3a510726839c380a025c57e69db919ff017bbe13547738592ef4a75ffc41b8"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/env/index.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/env/index.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 13114,
+      "sha256": "73c6a9a92f85acb752d17efbe61169c0b521b975cc8c077fc7337532e10fd4ef"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/env/line-scan.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/env/line-scan.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 585,
+      "sha256": "47b1eb0829bf27d3b84b44764b319a3d3916250bd2e1676ba68391761a27e104"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/env/node-watch.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/env/node-watch.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1627,
+      "sha256": "eadf4f450332f98ae8c321632d3d38e44180706417ff94f8eafa3ab8daaa514a"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/env/node.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/env/node.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3477,
+      "sha256": "ceafd64b9c320e7f62bd5e7af95ab9f9f2542882e074a6e406557ec5b7df95f8"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/errors.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/errors.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 708,
+      "sha256": "2e0bfb2425e0734229f427543e8417ca6255f53badd7a77b548322d2c893ab27"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/agent.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/agent.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2485,
+      "sha256": "cf3f674f24d2fa89a24191876bc60a8654dbbd96d9ca8677f4fb0d1274a908e8"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/compaction.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/compaction.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3116,
+      "sha256": "433fc00d65cec8d7f217b39ce8338c10971bdf6f313037e5f44a93567f957d40"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/context.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/context.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3863,
+      "sha256": "420caa4a78a09e3c455d93f9d748b74d875e2b0cba08718a53990911dd5dfd96"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/define.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/define.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1612,
+      "sha256": "5a2f695490a21d7163e044e56e0a5acae25bf1165890379541ebeb921b791ed5"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/events.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/events.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 4871,
+      "sha256": "d784b54ddd6ca8da6b0e3763fae7301ab4fb869768db8b6aaa8a3ce1036ee77d"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/generation.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/generation.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3041,
+      "sha256": "82e5e12586b4ef9ca01e2bb8e5e0331d2ced8cc754f64a0ac9601febfe17fc0d"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/harness.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/harness.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 565,
+      "sha256": "2e520c825a2ed9469a054d9ff124d90bdafff510fef55d348e4d1803ac06e545"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/inbox.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/inbox.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3245,
+      "sha256": "6c09095a34ae7d63dc24ce9d3dafebebd021f4df576446fd15e2b87ddb3add65"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/json.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/json.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 554,
+      "sha256": "db8d0de20b343d748dac42e28c1f65b7b79687fc4b0948f9d47e767f0e1f2554"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/live.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/live.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 5354,
+      "sha256": "6ce94d2feb6b85f09b9639a8323b40c1fbba9dc9dab1ae059d0a53470daa9adf"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/output.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/output.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3335,
+      "sha256": "9f0c77e8290792f5755701c8309c01fea7772cf0cbf6f11534ea92cc91b5699a"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/prompt.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/prompt.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1874,
+      "sha256": "3e2009b435e89a371998ba3485670d69fd79c1a7e7eb2a3b1b664eefb497292a"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/provider.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/provider.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 817,
+      "sha256": "bd014fdfc644a8c154386f6928a3c953c6265fc4b4a27481c13f7379bc50193a"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/registry.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/registry.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 466,
+      "sha256": "fd3dbc5115b61e52e7a30288e968476210cbb58f0df221ede2f074cee8f2cf1e"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/scheduler.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/scheduler.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 5759,
+      "sha256": "1bfd229390490c83b0607bd3b6c8090f669493b4bd53fffefd3832214ce55034"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/submissions.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/submissions.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2163,
+      "sha256": "b5a2e372a37a0506839ea6d9298be18699cb2802b7b4f0af426bba596d4b54b3"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/task-graph.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/task-graph.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2057,
+      "sha256": "e8f3a7d4bf83ca6ceb1476926da0a125a5eb7a201a1d1a954d72e048d3e3b10a"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/tool.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/tool.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1768,
+      "sha256": "2131ec7f5c9be34a4811f50295b30e1691616d80f7e476e78cfe6d38163011ca"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/types.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/types.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 31166,
+      "sha256": "df01cf73d080c3d280a065369025ab4d82a209832ba42754abd4c7ec9295bb9f"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/usage.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/usage.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1305,
+      "sha256": "ebf98452684dc5a452edd91d8db9bd22a4bbeb14f9bdadf745e67168be632ce4"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/util.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/util.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 654,
+      "sha256": "a3a8be836a479b447e443ccd0f3fb6e87516a19b9c25760ee2eb716965049b18"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/harness/view.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/harness/view.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2664,
+      "sha256": "7f6f6ee6b931558f8a0b2db3013fa14d354a5852909d5aceff12c7c4819bb4c0"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/ids.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/ids.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 376,
+      "sha256": "07aace3fdf987c43eb10c1a1e5ccb71b601b93f6bebaa600f7885163324523b6"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/index.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/index.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3933,
+      "sha256": "e816d8077a29e17c8d77677822181f2eb5396481e0447f2a47152add049eda4f"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/session/forks.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/session/forks.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 672,
+      "sha256": "b300dd4d266158c1e4ede1a31199be017a2c3548b1607c113e35503c1ab83c82"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/session/observation.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/session/observation.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1678,
+      "sha256": "642d01ae1682dbcb0a317c340e3a2119824d53bdaa1bdbbec29af2e85f85569c"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/session/session.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/session/session.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 6583,
+      "sha256": "7fb8d9324d01bcd22661e26cb1f38b775460b01e0e6979a554da559fdd7c4f96"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/session/transaction.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/session/transaction.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 8444,
+      "sha256": "2dff27dea13a5ef3e7e8ff3d38c8d9b77c72264e36d6aa41d63a4251ff7979ee"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/storage/jsonl/index.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/storage/jsonl/index.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 156,
+      "sha256": "7f0316e391d2926e55f55a4978e14226c940ad1ebd7e1d975f6832cdea91e030"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/storage/jsonl/node.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/storage/jsonl/node.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 448,
+      "sha256": "022075d3a3b94f02f1e8c7c932d83cf1b2a194e52d6fc4f1321575cd17471995"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/storage/jsonl/storage.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/storage/jsonl/storage.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 7007,
+      "sha256": "be301a148d96d17d10858bea6c9d70b3b4a0d58157775ac9c262e97dd03549b1"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/storage/memory.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/storage/memory.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3789,
+      "sha256": "b7492db7426c7382d71445eead875a559acc0f7e43a68a372781d9f2a2e59d62"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/storage/scan.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/storage/scan.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 921,
+      "sha256": "32157a3e1a4a1b10c9b83016168b2540792786d2a7cd54c83f19bd921b2cc026"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/storage/sqlite/cloudflare.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/storage/sqlite/cloudflare.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2485,
+      "sha256": "b7785f6701898a2a94425a5e9915fd27928d89189a7b426508cf4b14cc76a83e"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/storage/sqlite/database.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/storage/sqlite/database.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1931,
+      "sha256": "407cd085a5d9a513091420276036d94e73be92aac15a878b21e6c4808f569b52"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/storage/sqlite/index.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/storage/sqlite/index.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 293,
+      "sha256": "ea1088b663fac2d08c239b91819b840d8803a7b6ac7b8fec7704b336320e5ab8"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/storage/sqlite/migrations.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/storage/sqlite/migrations.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 610,
+      "sha256": "00cdf9149804f62303040560d826e9c2e16be2a541ddd9e5db98f495f8b3acbc"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/storage/sqlite/node.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/storage/sqlite/node.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2326,
+      "sha256": "3962eaddf40f81053bd344d07a9a207aa50c48288ab41e6aceecaf77c7c78c54"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/storage/sqlite/storage.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/storage/sqlite/storage.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3857,
+      "sha256": "d4cec9fa9b02a980f8345c5611bfd3d335c1fb11b8bf9dc6da88b0a3a9e24dc1"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/tasks.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/tasks.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 354,
+      "sha256": "6a4c552cb4d178a40bcd2e4e5ea2f481ec1b781550505e9400df794394e244b2"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/testing/assertions.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/testing/assertions.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 365,
+      "sha256": "869c029da9c1748978b190c0652eb50546a617b5c821d7ffbba8ca0527bdf8d5"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/testing/env-conformance.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/testing/env-conformance.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 437,
+      "sha256": "b59af08903f60159e9858d127d48e4809af08358ad761f70d344a17d477eedb5"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/testing/index.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/testing/index.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 918,
+      "sha256": "9de732f0f5a88978db9ade0a8b5a2b8400a7ce3c176224add02b316af2f205e4"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/testing/runner.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/testing/runner.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 971,
+      "sha256": "517b6be2cf8b47abae5a7fb24e1466d792995f4c1bffea5219168f3577a3e1c8"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/testing/storage-benchmark.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/testing/storage-benchmark.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1974,
+      "sha256": "5795c706bfcd51da78468bb0dd93c20bbac2bc48b40d73bed2771f8630462ed8"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/testing/storage-conformance.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/testing/storage-conformance.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 366,
+      "sha256": "72ea29bd81fe641f606c9f91099c22897d467f553962eca2ec1c2e38d3bad284"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/testing/types.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/testing/types.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1817,
+      "sha256": "0ee9125a05d87ca26f36e0d545716f5229f31ca5dff2d0816455fbdf25ab1af7"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/tools/bash.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/tools/bash.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2343,
+      "sha256": "6fceb62578ee0f8b6926dee00aa088aa2dd48fded0d2e71183ea6b44f1f5305b"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/tools/edit-diff.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/tools/edit-diff.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3935,
+      "sha256": "31351dd5617255d0cdaa7d95b961c93f8bd38d2c8e960effd92e56689226a469"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/tools/edit.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/tools/edit.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 583,
+      "sha256": "dfe805f9997a720153af8787c4bccbc821ff99216fe81646fd8c79e4e80bd37f"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/tools/env.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/tools/env.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 317,
+      "sha256": "0fc9ab53ff652a2a644aa5c7fa983e7b5f3a3309aee2612d2869bc72aa782888"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/tools/file-mutation-queue.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/tools/file-mutation-queue.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 624,
+      "sha256": "982711dec990a812cb8b480c6063ad575ac04c03877aec47574bd98c736cd956"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/tools/image.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/tools/image.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 557,
+      "sha256": "8ce9fa15a8ff52aad3aa1344e2f8f7de2847f7694f6a413361ec4731b566c4f3"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/tools/index.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/tools/index.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1586,
+      "sha256": "aa9492acb6f81ba98b35a5ee3fc533cbd811f6a615a8877501eeaf2eb536f8b9"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/tools/path-utils.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/tools/path-utils.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 369,
+      "sha256": "3092491776f930599357b7aab9430d69efc4ef8725723480ca34f634ad77a364"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/tools/read.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/tools/read.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 790,
+      "sha256": "e04e004fdaac89c5b74f5bcc375e41e21dc2ca9bcf54468d72dd7b76d9cabcdc"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/tools/write.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/tools/write.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 387,
+      "sha256": "7fc71ff50fe9549bc62b75102107f4bf599755fef9bf076508778b335d84b1c1"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/truncate.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/truncate.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2632,
+      "sha256": "045d312a29b7b0f4c69e7547201cf9d48cbf28bdba1e90e33c0f093d8be5b9bb"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/dist/types.d.ts",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "dist/types.d.ts",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 44397,
+      "sha256": "a46a6382a47117f016dcc1a46a475bb6f69f4e74afbdc511c72fa09233d1828b"
+    },
+    {
+      "path": "installed/pi-durable-1.1.0/package.json",
+      "url": "https://registry.npmjs.org/@earendil-works/pi-durable/-/pi-durable-1.1.0.tgz",
+      "package": "@earendil-works/pi-durable",
+      "version": "1.1.0",
+      "package_path": "package.json",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3436,
+      "sha256": "2fa2159d5a0ef8fa1cb1f09bc00806999d7cac445ac8f1ba960e00799d005b18"
+    },
+    {
+      "path": "upgrade-watch/durable-42a3497d-CHANGELOG.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/42a3497d03ad17e308a2299fa824727894f2c0ec/packages/durable/CHANGELOG.md",
+      "commit": "42a3497d03ad17e308a2299fa824727894f2c0ec",
+      "status": "upgrade-reference-only",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 13764,
+      "sha256": "1877acea5e5e50fa9a7ce7447d449d2e388dde7bb150453f24568dc073eb945d"
+    },
+    {
+      "path": "upstream/v1.1.0/LICENSE",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/LICENSE",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1069,
+      "sha256": "0457f5bcec3b3b211605dfb5d1a49042fd638f3686a410fe099c24a25af13c48"
+    },
+    {
+      "path": "upstream/v1.1.0/README.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/README.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 10627,
+      "sha256": "d4f05a91fe0de78d1b99d8b8d69c66e7522c493814cc4bd2ed344e4d60b10ce1"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/agent/README.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/agent/README.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 21127,
+      "sha256": "37da6831566eb0385a59da2ee055e7a7efe3e8e7a4b50aab8745ce43559197fe"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/ai/README.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/ai/README.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 101748,
+      "sha256": "0db3e0b0e5de96ffacd3453dbecf4f9d8298267d976003fc8671705a73761a5d"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/chord/README.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/chord/README.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 13070,
+      "sha256": "765e67d90e55a45ec8269f6aa7a9c38af6c8828e33df1ef87e75b89fdb08f7e1"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/README.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/README.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 4080,
+      "sha256": "fbc7abec7d0829ac8bc4b217e950794e1ba4d8d1b3e0850f970da318ad72e863"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/cli-integration.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/cli-integration.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 6104,
+      "sha256": "1596d0e7f1598b960d6e05cf6d44d762917348a92ee46e83e87cba9f69fb439a"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/cli.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/cli.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 16865,
+      "sha256": "33e1f4483d1b124eb45c910787b15b68b83c15d9ef0a0652d3310b3d78a6e6d6"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/codemode.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/codemode.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 13915,
+      "sha256": "40ac8e539d365599f47f4372d1eb61b918879625cc5541e5a841f48758538798"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/compaction.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/compaction.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 23951,
+      "sha256": "190b8c651148504613aea98b0637807c536ed0362948fda1bcd1ae137d75ff4a"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/configuration.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/configuration.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3239,
+      "sha256": "fc48d1ce7d885c5253222415fb7a4b46d75f80e6431eb924174657ff775099eb"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/containerization.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/containerization.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 7589,
+      "sha256": "e309fcb9a0a7592c0dba000ef8ee90f2d7ef1e01e6a1ac2f0cd9760dd63dee0c"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/custom-provider.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/custom-provider.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 10751,
+      "sha256": "5345ac346429a3862b46533ee810944b2c756079dcf5d3aad272ab579c58c129"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/environment-variables.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/environment-variables.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 5031,
+      "sha256": "dac9e3bda323132770ab8290198d7b43f37e9eba29ba6b99d8d1dec2e8f12b6e"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/extensions.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/extensions.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 20085,
+      "sha256": "bd2ed1f728173c1defc035e90c3894c308ae153fa08575c12b4a9988e11f8108"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/how-pi-works.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/how-pi-works.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3300,
+      "sha256": "7d43ab8e2b886cd1047dcee503588a1c828b92333dd4f177526b89e6db8aaa8b"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/index.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/index.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2507,
+      "sha256": "c107426e88eac570e9ecbea325cb45c2a6b778a324fd6e424bd032380a65614d"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/json.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/json.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 11106,
+      "sha256": "f103191816fdcf3627dfc98b89acad8a28eee737697130ddaeb2581131213543"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/keybindings.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/keybindings.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 10595,
+      "sha256": "537f1ec029db7885104861cf8197a310066a8b712376dab307b6b312215db33a"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/llama-cpp.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/llama-cpp.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 7335,
+      "sha256": "c2cfeb640f2e40e10863be1a2eb10b888327134bfeb9f50987c4b4de12bfc0d4"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/mcp.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/mcp.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 19715,
+      "sha256": "a635d721e58b0cbf43f7443a29fd43b8201b62602c62763c1f5fdb3910d7d938"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/message-types.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/message-types.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 7536,
+      "sha256": "b832893fb762f87fdbbfd694241d484592942823791f3e81a6c4d915421ff5db"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/models.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/models.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 12556,
+      "sha256": "9b11e5db77ce952d6830a074c7e4a0bf07e4e797a82f0b0898cb79c811bbfd33"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/packages.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/packages.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 6106,
+      "sha256": "5fe4a3009d7260fe1e2f54b64086fc3c8b4d678232bfa2dbc7e91fe588fc9ea5"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/prompt-templates.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/prompt-templates.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2490,
+      "sha256": "ad5113cce0d05ef0ac77b3c71f9ebe41ea68c072275f9273b9616e4924feda42"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/providers.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/providers.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 8585,
+      "sha256": "ee4df2a7c9dbd632744d31b4c0dcd35042efd45fc5dafa2a8d7e530225e52d39"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/quickstart.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/quickstart.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 4741,
+      "sha256": "10c69b394304f6e7d6409b6bde02b0165f5723ff4acfd49cfa8f7414f977266a"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/rpc-commands.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/rpc-commands.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 21482,
+      "sha256": "4deeee367852f4633ef594bc079f9e9fb14640a4e3ba8a69b7c89b6f54740838"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/rpc-extension-ui.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/rpc-extension-ui.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 6174,
+      "sha256": "3c6f2c6edfc8b1ace6642343727aef97a7e9234c85509850921b52d6ff09a48e"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/rpc.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/rpc.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 8897,
+      "sha256": "37a03d180115460a0a275022f4aeabef1e5345458df6a9b6e8a6de18474de720"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/sdk.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/sdk.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 10147,
+      "sha256": "d9034ccbf2219a58712d8dd4fcdf47e687d77131e71dd5d119d8a71e9bd2a2e8"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/security.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/security.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 6542,
+      "sha256": "3b1e40a8d28b17c9eb7e496a7ba88fbe04665e3e6ae02873a58b943e325ad504"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/session-format.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/session-format.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 15766,
+      "sha256": "4f8fc42179b332bcf71fe4c85cc95d914853ff7486d68742954a45316b512a4a"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/sessions.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/sessions.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 4692,
+      "sha256": "5ad5bda19caaa0794bb44f86c85c8e66be6f493c52bb5e6a4d127b58cd8c2c1e"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/settings.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/settings.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 13348,
+      "sha256": "40883e4a63d6aaeb58e659f1151d02c8c26982fc109658fa72fb35a94ea109d2"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/shell-aliases.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/shell-aliases.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3172,
+      "sha256": "ebb55456870455b4da91cfd054ae2ac9b3a417e6ff48a009587c33e68ecd7807"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/skills.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/skills.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 4793,
+      "sha256": "5b9805525b194474ef1fe5455a0917ef15ed7f710aa9bec2eee11879556469e5"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/slash-commands.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/slash-commands.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2649,
+      "sha256": "d7e1db36e9186ff146a6c27de31fe169671f52cb6f7b93e1bf8d7fe76209a79c"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/terminal-setup.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/terminal-setup.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 9093,
+      "sha256": "583381fb9dc466135a865ca406a3be299a7a8da2c9d810c5b73f401912a0a357"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/termux.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/termux.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3590,
+      "sha256": "1b0687157f2384385d07800ec23e6c225ef28fbf6648f55453cc7ce62f4c64ea"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/themes.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/themes.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 7995,
+      "sha256": "cb4645f4a77c73b12f8edee22c46f0ea9ad32ce32fa6be81ae81cb08b424c889"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/tmux.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/tmux.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1813,
+      "sha256": "9ec0abdbf74c57d51d4a93f308fb4aec4d8a3574a24cbfd9ba481d2e39f1273c"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/tui.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/tui.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 8808,
+      "sha256": "2d3d61b6b385dea968c76984f118e5862750caad6a0bc94d104f6b4dee185673"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/usage.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/usage.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 5268,
+      "sha256": "88f22eb38ff9cf980d4d5c6af2376d08d683db20073c57fa8b10e752fee322d6"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/virtual-models.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/virtual-models.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 8177,
+      "sha256": "5ab04dee3b3712b317522bb0784e28a3fef2e6b7fe1aeb1c1ca27778685a38f7"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/coding-agent/docs/windows.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/coding-agent/docs/windows.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3143,
+      "sha256": "6e05d30d8d4ade81f6c453b98538d98188cecbc1d4aa81750c6d690c486eeea1"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/CHANGELOG.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/CHANGELOG.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 8685,
+      "sha256": "a7662057456b67260e6dc5847c027d7d9c9fb0f9fa53fc2c929bbe038cf23397"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/README.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/README.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 36579,
+      "sha256": "3afb20db992fd1c159a56e1cfe264bec30a3067a668ded545ed290c5b2f6a159"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/docs/spec.md",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/docs/spec.md",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 246545,
+      "sha256": "9b96626653cd9686fc77393b7e4695b99ba5c8211bea6dfda274b1dd9fcfb846"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/00-conversation.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/00-conversation.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1069,
+      "sha256": "7002314bd29e0b2cb0a14f73ce43c821042a264036c44c58803381b361ce301d"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/01-documents.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/01-documents.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2092,
+      "sha256": "86ffb93ae58b78cd42356a5ee214fb480ef3caa215fc39dadba26412e901dc14"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/02-forks.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/02-forks.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2299,
+      "sha256": "7bfd2db1f631e12f30e7df9088b66ab1d3ba97a5fc53110b1e9cccc00f9430cb"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/03-owned-conversations.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/03-owned-conversations.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2863,
+      "sha256": "6f05da6859c61b67dd191b5e25096aec97b6636cd4a92f65c4e299f5abd84e1a"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/04-chord-state.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/04-chord-state.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1414,
+      "sha256": "fd9238fac58c70f2ebd5076a1d3fd48da348c918e66f3b51789ba1ddb9879c8d"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/05-watches.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/05-watches.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1518,
+      "sha256": "5f8c6432ac07db4cc87abcb4b2135500a614381ccbd6a6f513b7a3d3cd96e0fb"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/06-harness.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/06-harness.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2361,
+      "sha256": "f56426c4cd9dbfcd52bba8c55fa11460685b39e52178a3f690332be11f02275b"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/07-configuration.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/07-configuration.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3760,
+      "sha256": "e0eef67004a7a21595be80f3aa13d7512a5f1b31fdb526dc8e261e907d5b427f"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/08-harness-conversations.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/08-harness-conversations.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 1807,
+      "sha256": "b59a759ed29d52a57999386dc708f361958cd2e398f1fe54fdd2e7e5fe953bac"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/09-context.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/09-context.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 4947,
+      "sha256": "92c6fe038f28792203a030933c9f4f34db7ed95a4ed27f2ec80971f5098d624a"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/10-registry-reload.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/10-registry-reload.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2194,
+      "sha256": "da9b1de4df7ca1f2d1a828796433ef2277fe744f76b428fe6857adfe1adee2a9"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/11-extension-state.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/11-extension-state.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3139,
+      "sha256": "dc7a6720e0feb270b1d8295c6ced02e28e4098dc0fab8b337a69157b33af2117"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/12-tasks.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/12-tasks.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3053,
+      "sha256": "afbd090486dc00e50d5cad746f8936932554630bf363b12a9a06751670039700"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/13-recovery.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/13-recovery.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3935,
+      "sha256": "ac2e817079358524c28378550d584f600c44da91c0b2a78f3934e45a4e2a0a5f"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/14-chat.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/14-chat.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2047,
+      "sha256": "8bccbf7de748a4324ecbb5676c7b22760b514c8414b81f9561f68c897364c66b"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/15-system-prompt.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/15-system-prompt.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3679,
+      "sha256": "e5e4b8fdb7c80f4ac08cebd2f31de0a9b0a8aa215f7e0d03831406a5c7d37ed3"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/16-real-model.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/16-real-model.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2941,
+      "sha256": "47912feb8dbceabcafc7f58a1e7f668b624e9182ef611416178b6e330802c834"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/17-coding-tools.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/17-coding-tools.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 4520,
+      "sha256": "b777282b3685124d0874d6fc000dfb5f704afbbe75d71c187cb162f8cd93e64a"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/18-print.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/18-print.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 2707,
+      "sha256": "1caa792d42cb28b03b571969288e6cb9b7ef72cc2c5f408da5984c94acb98ae5"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/19-json.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/19-json.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 4513,
+      "sha256": "b9b029ac1d73e27fdc3a5df691567feb3a676f38df56e7281a64a4a517544644"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/20-inbox.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/20-inbox.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3249,
+      "sha256": "b009d173077eff4c4b6094281e344f78f9aa17863407f9c96a17a0f7a135820e"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/21-late-join.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/21-late-join.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3742,
+      "sha256": "e73795159c68966f323049d9d49d6aa01caa6ee7b84a6491ebd2b5c84dd59520"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/22-subagent-foreground.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/22-subagent-foreground.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 6569,
+      "sha256": "62910c370c1567718846ebf353cc507777fffb717466801bf1afea9c2cdbd91a"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/23-subagent-background.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/23-subagent-background.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 18946,
+      "sha256": "0bb50f1e6b50d1bea896bf10ead5774dd030e22eb56781a9888f9975850e3176"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/24-child-tasks.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/24-child-tasks.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 6203,
+      "sha256": "d5e461729a12893f2fac2d069684c6058f4edfff45a49df5f0521bd1618e3356"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/25-compaction.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/25-compaction.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 5862,
+      "sha256": "8b586ba3ea4b91646738fc57ca5af33e0486df19c023448919e8a12d45d1a7f0"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/26-coding-agent.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/26-coding-agent.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3618,
+      "sha256": "ca2d410c0afe3f7554a8be02d712f4d3bebb3f5f0de916052b22956c67d4e5b1"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/27-plan-mode.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/27-plan-mode.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 4785,
+      "sha256": "ef9431702f05842a42ebc6998705ca57bd25feae974fa172f46342babe9cf191"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/28-reviewer.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/28-reviewer.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 4294,
+      "sha256": "0f961d8b010117fa31ff1ce6f14368067dec5cc57cb176af42e40a542df5cf40"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/29-sandbox-per-conversation.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/29-sandbox-per-conversation.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3308,
+      "sha256": "e10e341139f2dc5e6ec595b671e416117742d32ad7b4746a1f215d591497ff4a"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/30-tool-override.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/30-tool-override.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 4100,
+      "sha256": "fb39fb76c4a19b046d34710143c73e5242c59c043b55279b54c2047986bf2cf1"
+    },
+    {
+      "path": "upstream/v1.1.0/packages/durable/test/examples/31-reload-and-restart.ts",
+      "url": "https://raw.githubusercontent.com/earendil-works/pi/abe508e1b89912adde45528136c3221eb69acdd7/packages/durable/test/examples/31-reload-and-restart.ts",
+      "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
+      "license": "MIT",
+      "retrieved_at": "2026-10-09T21:53:07.334006+00:00",
+      "bytes": 3909,
+      "sha256": "b509da99cc722bb57a88648d707a4ab855cb43d2d06df476bcf61d7b39534bca"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import {TelegramSettings} from "./components/TelegramSettings";
 import {ResearchSummary} from './components/ResearchSummary';
 import {AccountingSectors} from './components/AccountingSectors';
 import { OwnerAccess } from "./components/OwnerAccess";
@@ -804,10 +805,12 @@ export function App() {
     }
     setUnread(true);
   }, [latestFingerprint, tab, viewport]);
+  const [resumeConfirmation,setResumeConfirmation] = useState<any>();
   const mutate = async (path: string, body: unknown = {}) => {
     setBusy(true);
     setError("");
     try {
+      if(path === "resume") {setResumeConfirmation(await api("resume/summary",{}));return true;}
       await api(path, body);
       await refresh();
       return true;
@@ -1633,8 +1636,10 @@ export function App() {
                   </Panel>
                 </>
               )}
+              {resumeConfirmation && <section className="panel" role="dialog" aria-label="Conferma ripresa"><p>{resumeConfirmation.summary}</p><Button onClick={()=>void api("resume",{code:resumeConfirmation.code}).then(()=>{setResumeConfirmation(undefined);return refresh();}).catch((e:any)=>setError(e.message))}>Conferma ripresa</Button><Button onClick={()=>setResumeConfirmation(undefined)}>Annulla</Button></section>}
               {tab === "settings" && (
                 <>
+                  <TelegramSettings status={status.telegram} proposals={status.proposals??[]} api={api} refresh={refresh} />
                   <Panel
                     title="Sottoscrizione Codex"
                     sub="Accesso OAuth tramite ChatGPT. Nessuna chiave API e nessun ripiego a consumo."

@@ -46,12 +46,12 @@ export class Queue {
   event(key:string,type:string,details:unknown,at=now()){this.store.run('INSERT INTO job_events VALUES(?,?,?,?,?)',id(),key,at,type,json(scrub(details)));new UiEvents(this.store).append(key,'job',{...new Research(this.store).status(key),state:this.get(key)?.state,kind:this.get(key)?.kind,lane:this.get(key)?.lane,...provenance(this.store,key),type});}
   claim(lane:Job['lane'],owner:string,at=now()):Job|undefined {
     return this.store.tx(()=>{
-      if(this.store.get('enabled')!==true||!this.store.get('bootstrapReady'))return;
+      const blocked=this.store.get('enabled')!==true||!this.store.get('bootstrapReady');
       if(lane==='coordinator' && this.store.one("SELECT id FROM jobs WHERE lane='coordinator' AND state='running'"))return;
       const uncertain=lane==='coordinator'&&!!this.store.one(`SELECT id FROM operations WHERE state IN ${activeFinancial}`);
       if(lane==='analyst'&&this.store.one("SELECT count(*) n FROM jobs WHERE lane='analyst' AND state='running'").n>=2)return;
       // Priority ages: old maintenance jobs eventually outrank newly arrived chats.
-      const row=this.store.one(`SELECT * FROM jobs WHERE lane=? AND (state='queued' OR (state='waiting' AND wait_reason='restart_recovery')) ${uncertain?"AND kind='chat'":''}
+      const row=this.store.one(`SELECT * FROM jobs WHERE lane=? AND (state='queued' OR (state='waiting' AND wait_reason='restart_recovery')) ${uncertain?"AND kind='chat'":''} ${blocked?"AND (SELECT json_extract(value,'$') FROM meta WHERE key='jobCapability:'||jobs.id) IN ('read_only_chat','read_only_research','guarded_manual_proposal')":''}
         ORDER BY priority+CAST((julianday(?)-julianday(created_at))*1440/5 AS INTEGER) DESC,created_at,id LIMIT 1`,lane,at);
       if(!row)return;
       const token=id(),until=new Date(Date.parse(at)+60000).toISOString();
@@ -99,7 +99,7 @@ export class Queue {
       for(const row of this.store.all("SELECT * FROM jobs WHERE state='waiting'")) {
         if(uncertain&&row.lane==='coordinator'&&row.kind!=='chat')continue;
         if(row.wait_reason==='restart_recovery'&&row.submitted)continue; // durable runner must recover original submission, never resubmit
-        if(!this.store.get('enabled')||!this.store.get('bootstrapReady'))continue;
+        if((!this.store.get('enabled')||!this.store.get('bootstrapReady'))&&!['read_only_chat','read_only_research','guarded_manual_proposal'].includes(this.store.get<string>('jobCapability:'+row.id)??''))continue;
         if(row.wait_reason==='model_unavailable'&&Date.parse(row.updated_at)>Date.parse(at)-30*60000)continue;
         this.store.run("UPDATE jobs SET state='queued',wait_reason=NULL,updated_at=? WHERE id=?",at,row.id);this.event(row.id,'ready',{},at);
       }

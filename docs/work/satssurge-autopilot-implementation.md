@@ -1787,3 +1787,201 @@ provider acceptance, live migration acceptance or profitability.
 
 [GitHub release 0.4.4](https://github.com/whirmill/umbrel-community-app-store/releases/tag/satssurge-autopilot-v0.4.4) was published and read back as a final,
 non-prerelease release with the verified source, CI and immutable image receipt.
+
+### 0.4.4 installed acceptance — 2026-10-09
+
+User explicitly requested installation. Umbrel UI update completed with zero
+updates available. Installed immutable index/source match the published 0.4.4
+receipt above; package 0.4.4, container healthy, schema 5 and all three SQLite
+quick checks pass. Authenticated read-only health/status/history API passed;
+transient session revoked and unauthorized access verified. App login UI loads.
+
+Fresh stopped-executor checkpoint verified on host and Mac with isolated restores:
+`plan044-install/pre-044-20261009T1950Z`; actual manifest capturedAt is
+2026-10-09T19:48:30.878Z (directory name is not the capture timestamp). Original
+171 jobs/Pi receipts, 111 ledger rows, 85 history events, mandate, budget, model,
+owner secret and credentials/permissions preserved exactly. Migration adopted
+33 automatic admissions across 3 scopes without duplicate admissions. One new
+external LND forwarding-history fee of 400 msat occurred at 19:49:37.259Z, after
+the checkpoint, and was acquired once at 19:50:24.536Z; it created no app financial
+operation/reservation. Final ledger has 112 rows.
+
+Initial enabled=true, Sol/high and all four active/enabled timers restored;
+backfill service inactive as initially. Only the owned installation maintenance
+claim was removed atomically after fresh bootstrap/interlock/snapshot guards.
+All 14 sensitive capability flags remain OFF. Final readback: healthy, zero
+active jobs and zero pending financial operations. No financial test, replay or
+new qualification was performed. Task writer stopped, temporary browser tabs
+closed. Detailed private proof:
+`/Users/whirmill/.local/share/satssurge/plan044-install/final-proof.json`.
+UI proof: `plan044-install/umbrel-update-completed.jpg`. Recovery must reconcile
+newer effects and preserve additive receipts; schema-4 software cannot open
+schema-5 state and an older checkpoint must not overwrite current receipts.
+
+### Telegram-first implementation — local source verification, 2026-10-09
+
+User authorized implementation of the Telegram-first plan, without publication,
+deployment, live Telegram sends, credential reads or real financial tests. Source
+now has an app-owned long-poll adapter in the existing container, admitting into
+the original Pi Durable jobs/conversations and native `satssurge` registry.
+`create_manual_proposal` requires immutable explicit-review capability;
+`execute_decision` remains exclusive to existing autonomous guarded jobs.
+Coding-agent Telegram plugins use a different extension API and are not loaded.
+
+Schema 6 adds owner proposals, durable inbound updates and the bounded outbox;
+schema-5 jobs, ledger, mandate, Pi receipt markers and credential-history markers
+are preserved in migration fixtures. The original installed 0.4.4/schema-5 proof
+above remains historical and unchanged. Source/package version and release
+compose pins remain 0.4.4; no release or installed migration is implied.
+
+Owner web settings configure a private mode-0600 token, hash-only one-use pairing
+codes (five minutes/five attempts), final numeric-account confirmation and revoke.
+Binding generations isolate old inbox/outbox/history after re-pairing. Pause and
+resume share application controls; pause receipts commit atomically and resume
+requires explicit summary confirmation plus fresh interlock/snapshot guards.
+Read-only owner chat remains available while autonomy is paused. Proposal approval
+is atomically consumed across surfaces; identical content, expiry, endpoint state
+and the existing complete reserve policy are checked again after the fresh node
+snapshot. Operation correlation commits inside the original reserve transaction
+before writable RPC. A crashed consumed intent requires review, never automatic
+replay; existing uncertain effects keep their original reconciliation behavior.
+
+Ordinary operation results aggregate in a daily 09:00 Europe/Rome accounting
+digest with coverage/budget/blockers. Critical integrity, uncertain effects and
+agent authentication/quota blockers aggregate immediately; owner-requested replies
+bypass 22:00–08:00 quiet time. Delayed proposals revalidate before delivery, with
+expiry starting on confirmed delivery. API rejections honor retry_after/backoff
+and stop after five attempts; interrupted/timeout delivery is visibly uncertain
+and not automatically replayed. External delivery is not claimed exactly once.
+Bot outage does not stop the existing autonomous scheduler or reconciliation.
+
+Local validation: Node 24.19.0 build and 192 Node tests passed, including 19
+Telegram service tests and actual Pi Durable registry proposal/read-only isolation;
+16 Python host tests passed. Synthetic financial fixtures use mock NodeClient only.
+Browser acceptance remains a separate primary check. Run the existing isolated
+fixture with `FIXTURE_TELEGRAM=1`, `UI_FIXTURE_DIR=<private temporary directory>`,
+optional `UI_FIXTURE_PORT`, and `node scripts/ui-fixture.mjs` after build. It binds
+127.0.0.1, uses login `fixture-only`, exposes candidate/uncertain-outbox/proposal
+states, mocks transport and has no financial executor or polling/network loop.
+
+Current README roadmap makes Telegram the daily interface; complementary-app
+independence and channel/RoboSats/Amboss/Magma capabilities remain separate future
+work. Full recovery additionally preserves `telegram.secret` separately with
+0600 permissions; the token is never included in database exports.
+
+
+### Telegram security race review repairs — local verification, 2026-10-09
+
+The read-only security review found revocation races across awaited sends and
+approval snapshots, old callback authority after re-pairing, suppressed recurring
+incidents and a credential replacement window. The adapter now re-reads binding,
+bot credential generation and current outbox row status immediately before every
+individual send. An already dispatched message may complete; remaining batch rows
+cannot use the revoked identity or a new token with its old chat. Post-await
+command replies retain their originating generation and are discarded after an
+authority change.
+
+Proposal authority is stored with the immutable proposal and checked again at
+the reserve boundary after the node snapshot await. Confirming a different or
+repeated pairing revokes executing proposals without an operation and clears
+callback/resume receipts; dispatched operation receipts remain reconciliation-owned.
+Callbacks and resume proof carry their generation, so receiving a stale button
+after re-pairing cannot assign it new authority. Per-blocker incident episodes
+aggregate while active and create a new alert when a resolved blocker returns.
+
+Token rotation commits revocation and a new bot generation before installing the
+private file. An interrupted install remains disabled and unpaired across restart;
+old long-poll results cannot advance the replacement bot cursor. Six additional
+mock regressions cover each race, per-row cancellation, same-account re-pairing,
+individual recurring incidents and the failed credential installation boundary.
+Final local Node24 build/tests:192 passed; typecheck and16Python tests passed.
+No live token, credential, Telegram or financial effect was used. Primary browser
+acceptance is separate; the fixture remains local-only with mock transport and no
+executor. Package/version/compose remain unchanged.
+
+### Pi developer documentation and final Telegram acceptance — 2026-10-09
+
+Saved `docs/pi/README.md` and four curated guides, 150 version-pinned upstream/package sources, a SHA-256 provenance manifest and offline verifier. Root/application AGENTS.md and app README provide developer discovery. All source hashes match; 68 installed package/type files also match the lockfile-integrity-verified npm tarball. Public contract is Pi Durable 1.1.0; newer upstream APIs are explicitly separated.
+
+Final stable local acceptance: Node 24 build/tests 192/192, typecheck passed, Python 16/16. Independent security re-review closed all reported pairing/revocation/callback/incident/token-rotation findings; Telegram 19/19. Final web proposal cards include channel/route. Browser acceptance used isolated mock data: owner confirmation, previous-proposal revocation, rejection disabled both actions, uncertain delivery visible, 390px readable, zero console errors. Screenshot: `/Users/whirmill/.local/share/satssurge/telegram-implementation-ui.png`. Owned browser tab, fixture processes and temporary databases were released; port 19548 closed.
+
+No real Telegram credential, bot delivery, LND RPC, financial effect, publication or installed schema-6 migration was performed. A send already dispatched before revocation may complete; subsequent stale sends and transferred authority are blocked. Live qualification and release/install remain separate from this local acceptance.
+
+### 0.4.5 release preparation and publication handoff — 2026-10-10
+
+The user's subsequent “installala” authorizes publication of this implementation
+and its installation. Package plus both root lockfile versions are now `0.4.5`.
+Release preparation changes only version metadata, README and this existing
+handoff; implementation/docs and all original receipts are preserved. Store
+manifest/compose intentionally retain 0.4.4 until immutable image verification.
+
+Remote inspection: `main` and `codex/satssurge-research-repair` both point to
+`3ffffa429ca6ee6979304294f5cd8e3cf7b45020`;
+`satssurge-autopilot-v0.4.4` resolves to source
+`77a48c25d7891aa595293319c36ae2444091cdd6` and has a final GitHub release.
+No `satssurge-autopilot-v0.4.5` tag or GitHub release existed at inspection.
+Recheck before remote mutation. There is no npm publish: the package is private.
+
+Primary must schedule a typed git-operator lane to commit the task-owned code,
+new Pi documentation/AGENTS, package/lockfile and handoff, push the exact reviewed
+source SHA without force, then create/push the new immutable annotated
+`satssurge-autopilot-v0.4.5` tag at that SHA. Never move an existing tag. The
+source commit must precede the tag. No release-engineer Git mutation is performed.
+
+The existing `.github/workflows/satssurge-autopilot-image.yml` matches that tag,
+runs `npm ci --ignore-scripts && npm test` under Node 24 and
+`python3 -m unittest discover -s scripts/tests -v`, then publishes
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.4.5` on linux/amd64 and linux/arm64.
+Permissions are read-only contents for testing and contents-read/packages-write
+for publishing. No workflow change or dispatch is required.
+
+Remote verification commands, substituting the exact new source SHA/run ID:
+
+```sh
+gh run list --repo whirmill/umbrel-community-app-store --workflow satssurge-autopilot-image.yml --commit SOURCE_SHA --json databaseId,headSha,event,status,conclusion,url
+gh run watch RUN_ID --repo whirmill/umbrel-community-app-store --exit-status
+gh run view RUN_ID --repo whirmill/umbrel-community-app-store --json headSha,event,status,conclusion,jobs,url
+gh run view RUN_ID --repo whirmill/umbrel-community-app-store --log
+```
+
+Verify the OCI index digest, both platform manifests/configs and anonymous layer
+SHA-256/sizes; configs must identify SOURCE_SHA and packaged 0.4.5. Record the
+immutable receipt outside Git without credentials. Only then update compose to
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.4.5@sha256:VERIFIED_INDEX` and manifest
+version/releaseNotes together, and schedule the second git-operator metadata
+commit/push. A source tag need not include its later digest-bearing store commit.
+
+Create a release only after verifying the exact tag/source and image, using a
+reviewable body file containing the source SHA, CI URL, immutable digest, checks
+and recovery limits:
+
+```sh
+gh release create satssurge-autopilot-v0.4.5 --repo whirmill/umbrel-community-app-store --verify-tag --title 'SatsSurge Autopilot 0.4.5 — Telegram-first' --notes-file RELEASE_NOTES_FILE
+gh release view satssurge-autopilot-v0.4.5 --repo whirmill/umbrel-community-app-store --json tagName,targetCommitish,isDraft,isPrerelease,url,body
+```
+
+If an existing tag/image/release appears, reconcile its source and receipt before
+continuing; never overwrite versioned publication. If build/publish/verification
+fails, retain 0.4.4 store metadata and do not install the candidate. User authority
+now covers installation, but acceptance still requires stopped-executor three-DB
+checkpoint, secrets/permissions preservation, schema-6 receipt comparison, fresh
+bootstrap/interlock/snapshot guards and restoration of initial autonomy/timers.
+Schema-5 rollback cannot open schema 6. Preserve new/uncertain effects during
+recovery; an old checkpoint is not permission to erase or replay them.
+
+Candidate manifest notes (replace pending verification wording with exact receipt
+only after success):
+
+> Version 0.4.5 adds the paired owner's Telegram interface: durable chat, guarded
+> pause/resume, explicit proposal review, daily accounting digest and critical
+> blocker alerts. Web settings configure the private bot token and numeric-owner
+> pairing; Telegram stays disabled until configured. Additive schema 6 preserves
+> the original ledger, mandate, jobs, Pi submissions and financial receipts.
+> Local acceptance passed 192 Node and 16 Python tests, typecheck, security review
+> and isolated responsive browser checks; immutable CI/image and installed
+> migration receipts are recorded after verification. Stop the executor and
+> checkpoint all three databases before installation; preserve owner.secret,
+> telegram.secret when present and mounted credentials with original permissions.
+> Schema-5 software refuses schema 6; never overwrite newer or uncertain receipts
+> or replay payments/deliveries. The existing fee/rebalance mandate and partial
+> profitability accounting remain unchanged.

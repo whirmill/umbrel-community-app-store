@@ -1,3 +1,5 @@
+import {ApplicationControl} from "./application-control.js";
+import {Telegram} from "./telegram.js";
 import { modelSettings } from "./model-settings.js";
 import { legacyHistory } from "./legacy-history.js";
 import { publicJob, publicExchange, exchangeAnswerPage } from "./public-job.js";
@@ -35,6 +37,8 @@ const ownerDigest = createHash("sha256").update(owner).digest();
 const sessions = new OwnerSessions();
 const uiEvents = new UiEvents(store);
 const queue = new Queue(store);
+let control = new ApplicationControl(store, queue);
+const telegram = new Telegram(store, control, directory);
 queue.recoverAfterRestart();
 // Preserve pre-queue exchanges once. Durable jobs own all subsequent history.
 if (store.get("legacyChat") === undefined)
@@ -64,6 +68,8 @@ try {
   if (!/^[0-9a-f]{66}$/.test(expected)) throw new Error("Invalid node binding");
   store.set("expectedIdentity", expected);
   const executor = new Executor(store, node);
+  control = new ApplicationControl(store, queue, executor);
+  Object.assign(telegram, {control});
   collector = new Collector(
     store,
     node,
@@ -93,6 +99,7 @@ try {
     "LND credentials/configuration unavailable; provision dedicated restricted macaroons",
   ]);
 }
+void telegram.loop();
 const staticFiles: Record<string, [string, string]> = {
   "/": ["index.html", "text/html; charset=utf-8"],
   "/app.js": ["app.js", "text/javascript; charset=utf-8"],
@@ -264,6 +271,8 @@ const server = createServer(async (req, res) => {
       send({
         ...store.stats(),
         csrf,
+        telegram: telegram.status(),
+        proposals: control.proposals(),
         chat: (store.get<any[]>("chat") ?? [])
           .slice(-12)
           .map((c) => publicExchange(c, "chat")),
@@ -347,6 +356,8 @@ const server = createServer(async (req, res) => {
       send({ job: publicJob(store, job) });
       return;
     }
+    if (req.method === "GET" && url.pathname === "/api/telegram/status") { send(telegram.status()); return; }
+    if (req.method === "GET" && url.pathname === "/api/proposals") { send(control.proposals()); return; }
     if (req.method === "GET" && url.pathname === "/api/auth") {
       send(agent ? await agent.authStatus() : { connected: false, events: [] });
       return;
@@ -420,22 +431,15 @@ const server = createServer(async (req, res) => {
       send({ disconnected: true });
       return;
     }
-    if (url.pathname === "/api/pause") {
-      store.set("enabled", false);
-      send({
-        paused: true,
-        note: "Pending operations will still be reconciled",
-      });
-      return;
-    }
-    if (url.pathname === "/api/resume") {
-      if (!store.get("bootstrapReady"))
-        throw new Error("Resolve initialization blockers first");
-      store.set("enabled", true);
-      send({ enabled: true });
-      scheduler?.tick();
-      return;
-    }
+    if (url.pathname === "/api/telegram/config") { telegram.configure(body.token); send(telegram.status()); return; }
+    if (url.pathname === "/api/telegram/pairing") { send(telegram.pairing()); return; }
+    if (url.pathname === "/api/telegram/confirm") { send(telegram.confirm(body.userId)); return; }
+    if (url.pathname === "/api/telegram/revoke") { send(telegram.revoke()); return; }
+    if (url.pathname === "/api/proposals/approve") { send(await control.approve(body.id)); return; }
+    if (url.pathname === "/api/proposals/reject") { send({rejected:control.reject(body.id)}); return; }
+    if (url.pathname === "/api/pause") { send(control.pause()); return; }
+    if (url.pathname === "/api/resume/summary") { send(control.resumeSummary()); return; }
+    if (url.pathname === "/api/resume") { send(control.resume(body.code)); scheduler?.tick(); return; }
     if (!agent) throw new Error("Agent unavailable until LND provisioning");
     if (url.pathname === "/api/auth/start") {
       agent.login();
@@ -468,20 +472,7 @@ const server = createServer(async (req, res) => {
         throw new Error("Empty message");
       if (typeof body.requestId !== "string")
         throw new Error("A persistent request ID is required");
-      const job = queue.enqueue({
-        requestId: body.requestId,
-        kind: url.pathname === "/api/analyze" ? "analysis" : "chat",
-        origin: body.purpose === "qualification" ? "qualification" : "owner",
-        purpose:
-          body.purpose === "qualification"
-            ? "qualification"
-            : body.purpose === "economic" ||
-                (url.pathname === "/api/analyze" && body.purpose !== "general")
-              ? "economic"
-              : "general",
-        payload: { message: body.message },
-        scope: typeof body.scope === "string" ? body.scope.slice(0, 200) : "",
-      });
+      const job = control.admit(body.requestId,body.message,"owner",url.pathname === "/api/analyze",body.purpose === "qualification"?"qualification":body.purpose === "economic"?"economic":body.purpose === "general"?"general":undefined,typeof body.scope === "string"?body.scope.slice(0,200):"");
       send({ accepted: true, job }, 202);
       void scheduler?.pump();
       return;
@@ -501,6 +492,7 @@ async function shutdown() {
   if (closing) return;
   closing = true;
   scheduler?.stop();
+  telegram.stop();
   for (const timer of intervals) clearInterval(timer);
   if (streamRetry) clearTimeout(streamRetry);
   streamAbort.abort();

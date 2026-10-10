@@ -1,3 +1,4 @@
+import {ApplicationControl} from '../application-control.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,readFileSync,existsSync,rmSync} from 'node:fs';
@@ -108,4 +109,22 @@ test('actual fresh continuation analyst denies finance and preserves parent rece
     await f.agent.open();const claimed=f.queue.claim('analyst','test')!;assert.equal(claimed.id,next.id);const result=await f.agent.runJob(claimed,0);assert.match(result.answer,/terminal tool receipt/);
     assert.equal(existsSync(join(directory,'effects.jsonl')),false);assert.equal(f.queue.get(parent.id)!.submission_id,'synthetic-parent-submission');assert.notEqual(f.queue.get(next.id)!.submission_id,'synthetic-parent-submission');assert.notEqual(f.queue.get(next.id)!.conversation_id,'synthetic-parent-conversation');assert.equal(f.store.get('jobCapability:'+next.id),'read_only_research');
   }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
+});
+
+
+test('native PiDurable registry creates manual proposal only for explicit review job and rejects plain Telegram effects',{timeout:10000},async()=>{
+  for(const mode of ['manual','unsafe'] as const){
+    const directory=mkdtempSync(join(tmpdir(),'surge-pi-telegram-')),f=fixture(directory,mode);
+    try{
+      f.store.set('snapshot',{at:new Date().toISOString(),identity:'fixture',synced:true,confirmedSat:'500001',channels:[]});
+      await f.agent.open();
+      const control=new ApplicationControl(f.store,f.queue),job=control.admit('telegram-native',mode==='manual'?'proponimi un rebalance da approvare':'Send a rebalance immediately','telegram');
+      const result=await f.agent.runJob(f.queue.claim('coordinator','fixture')!);
+      assert.match(result.answer,/terminal tool receipt/);
+      assert.equal(f.store.all('SELECT * FROM owner_proposals').length,mode==='manual'?1:0);
+      assert.equal(existsSync(join(directory,'effects.jsonl')),false);
+      assert.ok(f.queue.get(job.id)?.submission_id);
+      assert.equal(f.store.all('SELECT * FROM operations').length,0);
+    }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
+  }
 });

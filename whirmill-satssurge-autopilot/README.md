@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current installed and accepted release is `0.4.3`, with dedicated owner login and visible session logout. Original autonomy and all four watcher timers are restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Current installed and accepted release is `0.4.4` (schema 5), with dedicated owner login and visible session logout. The Telegram-first source candidate is `0.4.5` (schema 6); immutable publication and installed acceptance are recorded separately below. Original autonomy and all four watcher timers are restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -74,21 +74,21 @@ Reconnect with durable event IDs/cursors, snapshot resynchronization, deduplicat
 
 Acceptance: visible browser checks on mobile/tablet/desktop, keyboard/screen-reader access, concurrent requests, long histories, streamed tool results, empty/failed/expired-auth states and accurate job transitions. Verify interrupted streams/reconnect/reload without missing or duplicate messages or effects, preserving conversation, OAuth, mandate and pending receipts through deployment. Use actual Pi read-only prompts for text/tool-event integration and gracefully handle providers without reasoning summaries. Release immutable amd64/arm64 images through the existing workflow; no financial send is required solely to test presentation.
 
-**M3 — Channel lifecycle and Magma.** After explicit capability enablement, support channel qualification, batched openings, cooperative closures, inbound purchase and outbound liquidity sales. Represent contract duration, routing promises, HODL invoices, pending obligations and capital reservations in the same durable accounting/queue. Qualify current official APIs; do not inherit unsupported legacy Lightning Mate seller paths. Include opening/closing/lease costs, inventory opportunity cost and realistic demand in net forecasts. A buyer order does not become earned revenue before settlement/reconciliation. Force closures and unplanned swaps are not implied capabilities.
+**M2.2 — Telegram as the daily owner interface.** Implemented in source; installation and live Telegram delivery are not qualified. The bot runs in the existing container using outbound `getUpdates` long polling; no inbound public endpoint is required. Web retains settings, budgets, permissions, detailed receipts and owner authentication. Configure the private token in web settings, generate a one-use five-minute code, send `/start CODE` in the bot's private chat, then confirm the identified numeric account in web. A single account is bound. Revocation invalidates binding, codes, buttons and pending proposals while existing effects keep their original reconciliation path. Discord is not implemented.
 
-Acceptance: every contract/funding step has durable intent and receipt, crash/timeout recovery cannot create duplicate channels or payments, reserve and outstanding obligations remain covered, and contract terms survive updates.
+Natural chat and `/status`, `/analyze`, `/pause`, `/resume`, `/proposals`, `/help` share the existing agent, jobs and history. Plain Telegram chat is read-only; an explicit request for a proposal to review allows typed fee/rebalance proposal creation. Existing permitted scheduled autonomy remains autonomous. Telegram cannot change the mandate, budgets or configuration. Resume requires an explicit summary button and fresh guards. Proposals show endpoints, amount, maximum cost and reason; approval is shared with web, atomically consumed, expires after five minutes and is invalidated by changed conditions. Immutable intent and operation correlation precede RPC dispatch; uncertainty never causes automatic financial replay.
 
-**M4 — Outbound webhook notifications, Discord first.** Replaces the Telegram bot milestone by user instruction on 2026-10-09. The responsive web app remains the sole owner interaction/control interface. Deliver notifications to a configured Discord webhook first, with a versioned generic webhook payload as a later extension. No Discord bot, inbound webhook, slash command, reply handler, remote action button or financial/control capability is included. Receiving or replying to a notification cannot create a job, change a policy, pause/resume the app or execute an operation; links only navigate to the authenticated web app.
+Durable inbound records commit before the polling offset advances. Stable outbox event IDs deduplicate capture of Telegram replies, operation outcomes and critical blockers. Notification outage leaves autonomy and deterministic reconciliation running. Ordinary results aggregate in the daily 09:00 Europe/Rome digest, with DST-aware day identity and recovery aggregation. Quiet time is 22:00–08:00 for unsolicited messages; critical blockers and owner-requested replies bypass it. Proposals delayed by quiet time require fresh validation before delivery, and their expiry starts on successful delivery. Rate-limit rejections retry with backoff, at most five attempts; timeout/interrupted sends remain visibly uncertain and are not automatically replayed. External delivery is not claimed exactly once. The adapter admits requests into the same Pi Durable 1.1.0 queue, conversations and native `satssurge` extension registry. `create_manual_proposal` is a guarded native tool; `execute_decision` remains autonomous-only. Coding-agent plugins such as pi-telegram/pi-chat target a different extension API and are not loaded into this Durable harness; no second agent session is created. Token stays in `telegram.secret` mode 0600, separate from SQLite and database exports; preserve it separately for full installation recovery.
 
-Notify significant completed operations, actionable failures, authentication/quota blockers, budget/reserve warnings and scheduled economic summaries. Allow owner-selected categories, severity, aggregation and quiet periods, with critical alerts handled explicitly. Send concise summaries and authenticated app links, not full chat, model reasoning, raw tool results, personal-payment details or credentials. Keep the webhook URL private server-side, redact it from logs and exports, and make configuration/test/disable available only through owner-authenticated settings. Network targets require validation against SSRF; a destination configured by the owner is not a URL the agent can rewrite.
+**M3 — Independence from complementary apps: future, separate release.** Current LNDg/Lightning Mate adapters and interlock remain unchanged. Qualify direct LND collection, safety gates, coverage and accounting before allowing installation without those complementary apps. This Telegram release does not remove existing prerequisites.
 
-Use a durable notification outbox with stable event IDs, bounded retry/backoff, rate-limit handling, delivery receipts and visible failed/uncertain delivery. Notification failures do not retry financial operations or stop deterministic reconciliation. Deduplicate event generation and aggregate bursts; do not promise exactly-once external delivery after an uncertain timeout. Generic webhook receivers can deduplicate by event ID; Discord retries need an explicit duplicate-risk policy. Acceptance: a mocked/test destination verifies payload redaction, category filters, quiet periods, crash recovery, rate limits and timeout behavior; owner-authorized live test verifies Discord delivery. Confirm there is no inbound control surface and a reply cannot reach the agent. No Telegram integration remains planned.
+**M4 — New channels and external liquidity: future, separate capabilities.** Channel qualification, batched openings, closures and contracts require separately reviewed authority and durable accounting. RoboSats, Amboss and Magma each require independent API, bond/contract, settlement, recovery and economics qualification. No channel, marketplace, swap, trading or lease action is enabled by this release. Include costs, obligations, reserves and inventory opportunity cost in forecasts; receipt of a buyer order does not establish earned revenue.
 
 **Ongoing across milestones — Reliability and deployment.** Retain ordinary detailed data 90 days; preserve accounting, decisions, corrections and linked evidence indefinitely. Verify consistent SQLite backups and restore/migration paths, software rollback without operation replay, schema/version gates, bounded retention and immutable amd64/arm64 releases. Expand mocked crash/concurrency tests and bounded real-node qualification within the mandate; no regtest. Monitor authentication, quota, collector freshness, queue age, interlocks and manual interventions.
 
 **Research backlog, outside currently enabled capabilities.** Preserve the historical RoboSats automation idea: compare net swap margins with routing/rebalance costs, investigate safe API/event integration, bonds, settlement and disputes, then propose a separately enabled capability if evidence justifies it. Do not launch trades, swaps or marketplace actions from this research backlog. Other liquidity mechanisms and topology changes remain alternatives to evaluate, not promised profitable operations.
 
-No M3/M4/research operation is implicitly authorized by an M1 agent chat or historical evidence.
+No future M3/M4/research operation is implicitly authorized by an M1 agent chat or historical evidence.
 
 
 ### M2 host diagnostic projection and acceptance
@@ -799,3 +799,41 @@ provider acceptance, live migration acceptance or profitability.
 
 [GitHub release 0.4.4](https://github.com/whirmill/umbrel-community-app-store/releases/tag/satssurge-autopilot-v0.4.4) was published and read back as a final,
 non-prerelease release with the verified source, CI and immutable image receipt.
+
+## Documentazione per sviluppatori
+
+Prima di modificare harness, tool o recovery, consultare [la guida Pi e Pi Durable](../docs/pi/README.md) e [le istruzioni per gli agenti](AGENTS.md). Le fonti locali sono fissate alla versione 1.1.0 e verificabili offline.
+
+### 0.4.5 Telegram-first publication preparation — 2026-10-10
+
+Package and lockfile versions are `0.4.5`; the intended immutable source tag is
+`satssurge-autopilot-v0.4.5`. The existing tag-triggered workflow tests on Node 24
+and Python before publishing amd64/arm64 to
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.4.5`. Distribution is through GHCR
+and the Umbrel store; the npm package remains private. Store manifest and compose
+retain verified 0.4.4 metadata until the new index, platform configs and layers
+are verified. No 0.4.5 image, source commit or CI receipt is claimed yet.
+
+Telegram becomes the paired owner's daily interface: durable inbound chat,
+read-only Pi requests, guarded pause/resume, explicit proposal review, a daily
+accounting digest and critical blocker alerts. Web settings remain the secure
+configuration and pairing surface. Telegram is disabled until the owner supplies
+a bot token and confirms the numeric account; neither installation nor a bot
+message expands the existing fee/rebalance mandate. Channel lifecycle and
+RoboSats/Amboss/Magma remain separate future capabilities.
+
+Additive schema 6 preserves existing jobs, conversations, Pi submissions, ledger,
+mandate, reservations and financial receipts. Before updating, stop the executor,
+verify a consistent checkpoint of all three databases, and separately preserve
+`owner.secret`, `telegram.secret` when present, mounted credentials and their
+original permissions. Older schema-5 software refuses schema 6. Keep the current
+immutable image if publication fails. After migration, recovery must preserve all
+new or uncertain financial and Telegram receipts; do not restore a pre-upgrade
+checkpoint over newer effects, replay payments or automatically resend uncertain
+Telegram deliveries. An already dispatched message may complete after revocation.
+
+The user has now authorized publication and installation. Local acceptance is
+192 Node tests, 16 Python tests, typecheck, independent security review and isolated
+responsive browser checks. Installed schema-6 migration, live bot pairing/delivery
+and provider acceptance still require separate readback; fixture proof does not
+establish those outcomes or profitability.
