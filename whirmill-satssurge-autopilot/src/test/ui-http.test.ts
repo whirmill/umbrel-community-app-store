@@ -237,8 +237,12 @@ test("actual HTTP auth, legacy projection, history pages and SSE replay use dura
         message: "x".repeat(17000),
       }),
     });
-    assert.equal(oversized.status, 413);
-    assert.equal(((await oversized.json()) as any).admissionRejected, true);
+    assert.equal(oversized.status, 410);
+    assert.match(((await oversized.json()) as any).error, /Telegram/);
+    const newChat=await fetch(base+"/api/chat",{method:"POST",headers:logoutHeaders,body:JSON.stringify({requestId:"new-web-chat",message:"hello"})});
+    assert.equal(newChat.status,410);
+    const receipt=await fetch(base+"/api/jobs/receipt?requestId=new-web-chat",{headers});
+    assert.equal(((await receipt.json()) as any).job,undefined);
     assert.equal(
       (
         await fetch(base + "/api/owner/logout", {

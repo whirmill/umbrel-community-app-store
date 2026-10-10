@@ -19,7 +19,7 @@ export function publicJob(store: Store, row: any) {
       answerBytes: Buffer.byteLength(result.answer),
     });
   }
-  return { ...job,...new Research(store).status(row.id), ...provenance(store, row.id) };
+  return { ...job,telegramTurn:store.get('telegramTurn:'+row.id)??null,...new Research(store).status(row.id), ...provenance(store, row.id) };
 }
 
 import { publicAnswer, scrub, hash, json } from "./domain.js";

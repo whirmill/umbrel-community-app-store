@@ -44,14 +44,19 @@ export class Queue {
   get(key:string):Job|undefined{return this.store.one('SELECT rowid history_id,* FROM jobs WHERE id=?',key);}
   list(limit=40){return this.store.all('SELECT rowid history_id,* FROM jobs ORDER BY rowid DESC LIMIT ?',Math.max(1,Math.min(100,limit)));}
   event(key:string,type:string,details:unknown,at=now()){this.store.run('INSERT INTO job_events VALUES(?,?,?,?,?)',id(),key,at,type,json(scrub(details)));new UiEvents(this.store).append(key,'job',{...new Research(this.store).status(key),state:this.get(key)?.state,kind:this.get(key)?.kind,lane:this.get(key)?.lane,...provenance(this.store,key),type});}
-  claim(lane:Job['lane'],owner:string,at=now()):Job|undefined {
+  claim(lane:Job['lane'],owner:string,at=now(),work:'all'|'chat'|'financial'='all'):Job|undefined {
     return this.store.tx(()=>{
       const blocked=this.store.get('enabled')!==true||!this.store.get('bootstrapReady');
-      if(lane==='coordinator' && this.store.one("SELECT id FROM jobs WHERE lane='coordinator' AND state='running'"))return;
+      const chatFilter="EXISTS(SELECT 1 FROM meta WHERE key='telegramTurn:'||jobs.id) AND (SELECT json_extract(value,'$') FROM meta WHERE key='jobCapability:'||jobs.id)='read_only_chat'";
+      const workFilter=work==='all'?'':work==='chat'?' AND ('+chatFilter+')':' AND NOT ('+chatFilter+')';
+      if(lane==='coordinator' && this.store.one("SELECT id FROM jobs WHERE lane='coordinator' AND state='running'"+workFilter))return;
       const uncertain=lane==='coordinator'&&!!this.store.one(`SELECT id FROM operations WHERE state IN ${activeFinancial}`);
       if(lane==='analyst'&&this.store.one("SELECT count(*) n FROM jobs WHERE lane='analyst' AND state='running'").n>=2)return;
       // Priority ages: old maintenance jobs eventually outrank newly arrived chats.
-      const row=this.store.one(`SELECT * FROM jobs WHERE lane=? AND (state='queued' OR (state='waiting' AND wait_reason='restart_recovery')) ${uncertain?"AND kind='chat'":''} ${blocked?"AND (SELECT json_extract(value,'$') FROM meta WHERE key='jobCapability:'||jobs.id) IN ('read_only_chat','read_only_research','guarded_manual_proposal')":''}
+      const telegramSerial=` AND (NOT EXISTS(SELECT 1 FROM meta t WHERE t.key='telegramTurn:'||jobs.id) OR (
+        NOT EXISTS(SELECT 1 FROM jobs busy JOIN meta bt ON bt.key='telegramTurn:'||busy.id JOIN meta mine ON mine.key='telegramTurn:'||jobs.id WHERE busy.state='running' AND busy.id<>jobs.id AND json_extract(bt.value,'$.generation')=json_extract(mine.value,'$.generation') AND json_extract(bt.value,'$.chatId')=json_extract(mine.value,'$.chatId'))
+        AND NOT EXISTS(SELECT 1 FROM jobs older JOIN meta ot ON ot.key='telegramTurn:'||older.id JOIN meta mine ON mine.key='telegramTurn:'||jobs.id WHERE older.state IN ('queued','waiting') AND older.rowid<jobs.rowid AND json_extract(ot.value,'$.generation')=json_extract(mine.value,'$.generation') AND json_extract(ot.value,'$.chatId')=json_extract(mine.value,'$.chatId'))))`;
+      const row=this.store.one(`SELECT * FROM jobs WHERE lane=? ${workFilter} ${telegramSerial} AND (state='queued' OR (state='waiting' AND wait_reason='restart_recovery')) ${uncertain?"AND kind='chat'":''} ${blocked?"AND (SELECT json_extract(value,'$') FROM meta WHERE key='jobCapability:'||jobs.id) IN ('read_only_chat','read_only_research','guarded_manual_proposal')":''}
         ORDER BY priority+CAST((julianday(?)-julianday(created_at))*1440/5 AS INTEGER) DESC,created_at,id LIMIT 1`,lane,at);
       if(!row)return;
       const token=id(),until=new Date(Date.parse(at)+60000).toISOString();
@@ -90,6 +95,22 @@ export class Queue {
       for(const row of this.store.all("SELECT * FROM jobs WHERE state='running'")) {
         this.store.run("UPDATE jobs SET state='waiting',coalesce_key=NULL,wait_reason='restart_recovery',updated_at=?,lease_owner=NULL,lease_until=NULL,run_token=NULL WHERE id=?",at,row.id);
         this.event(row.id,'restart_recovery',{submitted:!!row.submitted},at);
+      }
+    });
+  }
+  /** Project committed Telegram outcomes before provider gating; no native work,
+   * lease, budget, or replay is needed after a crash before finish. */
+  reconcileTelegramTerminals(at=now()) {
+    return this.store.tx(()=>{
+      for(const row of this.store.all("SELECT * FROM jobs WHERE state IN ('queued','waiting')")){
+        const turn=this.store.get<any>('telegramTurn:'+row.id),receipt=this.store.get<any>('telegramTerminal:'+row.id);
+        if(!turn?.closed||!receipt)continue;
+        const success=receipt.state==='completed'&&!!receipt.result;
+        if(!success&&!['failed','interrupted','cancelled'].includes(receipt.state))continue;
+        const state=success?'completed':receipt.state==='cancelled'?'cancelled':'failed';
+        const error=success?null:'Telegram turn '+receipt.state+'; terminal receipt retained, no automatic replay';
+        this.store.run("UPDATE jobs SET state=?,result=?,error=?,updated_at=?,finished_at=?,wait_reason=NULL,lease_owner=NULL,lease_until=NULL,run_token=NULL WHERE id=?",state,success?json(scrub(receipt.result)):null,error,at,at,row.id);
+        this.event(row.id,state,{terminalReceipt:true},at);
       }
     });
   }

@@ -774,7 +774,7 @@ export function App() {
         .filter((p) => p.type === "text")
         .map((p) => p.text)
         .join("\n");
-      await submit("chat", text);
+      setNotice("Invia la richiesta al coordinatore su Telegram.");
     },
   });
   const latestFingerprint = useMemo(
@@ -1089,31 +1089,7 @@ export function App() {
                                     <Zap size={30} />
                                   </span>
                                   <h2>Conosci meglio il tuo nodo.</h2>
-                                  <p>
-                                    Chiedi al coordinatore di leggere le
-                                    evidenze oppure avvia un’analisi in sola
-                                    lettura.
-                                  </p>
-                                  <Button
-                                    variant="outline"
-                                    onClick={() =>
-                                      setDraft(
-                                        "Quali evidenze sono disponibili sul mio nodo?",
-                                      )
-                                    }
-                                  >
-                                    Quali evidenze sono disponibili?
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    onClick={() =>
-                                      setDraft(
-                                        "Analizza la liquidità e le commissioni dei canali.",
-                                      )
-                                    }
-                                  >
-                                    Analizza i canali
-                                  </Button>
+                                  <p>Invia le domande al coordinatore su Telegram. La cronologia delle risposte resta disponibile qui.</p>
                                 </div>
                               )}
                               <VirtualMessages
@@ -1139,14 +1115,15 @@ export function App() {
                               </Button>
                             )}
                             <AgentComposer
+                              telegram={status.telegram}
                               draft={draft}
                               setDraft={setDraft}
                               busy={busy}
                               pending={!!pending}
                               auth={auth}
-                              onSubmit={() => submit(pending?.kind ?? "chat")}
-                              onAnalysis={() => submit("analysis")}
-                              onRecover={recover}
+                              onSubmit={() => {}}
+                              onAnalysis={() => {}}
+                              onRecover={() => {}}
                               onModelChange={(model, thinkingLevel) =>
                                 void mutate("model", { model, thinkingLevel })
                               }
@@ -1267,18 +1244,6 @@ export function App() {
                                     : j.kind}
                               </h3>
                               <Badge state={j.state} />
-                              {canCancel(j) && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    void mutate("jobs/cancel", { id: j.id })
-                                  }
-                                >
-                                  Annulla
-                                </Button>
-                              )}
                             </div>
                             <span className="job-date">
                               {j.created_at

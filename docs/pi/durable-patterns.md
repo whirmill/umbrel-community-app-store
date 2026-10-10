@@ -126,3 +126,23 @@ che un writer sia fermo.
 Gli esempi ufficiali in `upstream/v1.1.0/packages/durable/test/examples/`
 coprono recovery, stato di estensione, eventi, subagent, child task, plan mode e
 reload. Leggerli insieme ai tipi locali in `installed/pi-durable-1.1.0/`.
+
+## Turni applicativi e inbox (coordinatore Telegram)
+
+Un turno non equivale a un singolo run Pi. SatsSurge conserva tutte le submission
+steer ammesse prima della chiusura, incluse quelle che iniziano un run al confine
+finale senza tool, e aspetta il rilascio del contesto prima di accettare il turno
+successivo. Il ledger applicativo e la transazione di binding Pi sono distinti:
+`app.conversation_binding` consente di ritrovare la conversazione dopo un crash
+tra i due database. I futuri turni non vengono pre-inseriti in `pi.inbox`, così
+un abort del turno corrente non li ritira.
+
+Le ricevute Stop rimangono `stop_requested` durante la recovery waiting e sono
+ridispatchate sul target originale. Gli osservatori proiettano soltanto entry
+successive al baseline persistito del turno; non diventano outbox e non sono
+usati per riconciliare effetti finanziari. Per la sessione riutilizzata, usage
+cumulativo e delta per turno sono entrambi distinti dal budget del turno.
+
+Telegram terminal closure is one operational-store transaction with the accepted-Stop check. It commits the outcome, selected public final-entry ID, and owned submission IDs before returning to the scheduler. A closed turn cannot reopen or increment its version on recovery. Recovery reconciles every admitted correction in durable admission order, including native successful submissions whose app receipt was already settled: the latest successful correction supplies the final answer, while any required original/correction failure remains terminal. A confirmed queued withdrawal is exempt; an abort without its application result receipt remains unresolved and fails closed. Stop permits native identity lookup/readback, never creation of a missing correction.
+
+Committed Telegram terminal receipts include the bounded public scheduler result. Recovery projects that result before provider availability, native configuration, cumulative usage, or budget initialization; the scheduler also projects queued/waiting terminal receipts before its availability gate. Consequently cooldown/accounting failure cannot turn committed completion into failure or postpone a known interrupted outcome. Completion rereads the full durable admitted ledger at the final fence, including correction placement rejected before a native ID exists. Intentional late choices are not required submissions.

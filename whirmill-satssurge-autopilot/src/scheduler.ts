@@ -11,19 +11,25 @@ export interface JobRunner {
 }
 /** One process, one coordinator, up to two isolated read-only conversations. */
 export class Scheduler {
-  private pumping=false;private coordinator=false;private analysts=new Set<number>();
+  private pumping=false;private coordinator=false;private chat=false;private chatDispatching=false;private analysts=new Set<number>();
   private owner=id();private stopped=false;private heartbeats=new Map<string,ReturnType<typeof setInterval>>();
   private active=new Set<Promise<void>>();
   constructor(readonly queue:Queue,private runner:JobRunner){}
   async pump() {
     if(this.stopped||this.pumping)return;this.pumping=true;
     try {
-      this.queue.releaseWaiting();if(!await this.runner.available()||this.stopped)return;
+      this.queue.reconcileTelegramTerminals();this.queue.releaseWaiting();if(!await this.runner.available()||this.stopped)return;
       for(let slot=0;slot<2;slot++)if(!this.analysts.has(slot)){
         const job=this.queue.claim('analyst',this.owner);if(job){this.analysts.add(slot);this.start(job,slot);}
       }
-      if(!this.coordinator){const job=this.queue.claim('coordinator',this.owner);if(job){this.coordinator=true;this.start(job);}}
+      await this.dispatchTelegram();
+      if(!this.coordinator){const job=this.queue.claim('coordinator',this.owner,now(),'financial');if(job){this.coordinator=true;this.start(job);}}
     }finally{this.pumping=false;}
+  }
+  /** Telegram coordinator dispatches immediately; future turns stay durably admitted. */
+  async dispatchTelegram(){if(this.stopped||this.chat||this.chatDispatching)return;this.chatDispatching=true;
+    try{this.queue.reconcileTelegramTerminals();if(!await this.runner.available()||this.stopped)return;const job=this.queue.claim('coordinator',this.owner,now(),'chat');if(job){this.chat=true;this.start(job,2);}}
+    finally{this.chatDispatching=false;}
   }
   private start(job:Job,slot?:number){
     const task=this.launch(job,slot);this.active.add(task);
@@ -37,7 +43,7 @@ export class Scheduler {
     }catch(e){
       if(e instanceof ModelUnavailable)this.queue.wait(job.id,token,'model_unavailable');
       else {this.queue.finish(job.id,token,'failed',e instanceof Error?e.message:'Task failed');new Research(this.queue.store).continue(this.queue,this.queue.get(job.id)!);}
-    }finally{clearInterval(timer);this.heartbeats.delete(job.id);if(slot===undefined)this.coordinator=false;else this.analysts.delete(slot);void this.pump();}
+    }finally{clearInterval(timer);this.heartbeats.delete(job.id);if(slot===undefined)this.coordinator=false;else if(slot===2)this.chat=false;else this.analysts.delete(slot);void this.pump();}
   }
   private enqueueScheduled(input:Parameters<Queue['enqueue']>[0]) {
     try{return this.queue.enqueue(input);}
@@ -71,5 +77,5 @@ export class Scheduler {
     try{return await Promise.race([Promise.all([...this.active]).then(()=>true),new Promise<boolean>(r=>{timer=setTimeout(()=>r(false),timeoutMs);})]);}
     finally{if(timer)clearTimeout(timer);}
   }
-  status(){return {coordinatorRunning:this.coordinator,analystRunning:this.analysts.size,maxAnalysts:2,stopped:this.stopped,at:now()};}
+  status(){return {coordinatorRunning:this.coordinator,telegramRunning:this.chat,analystRunning:this.analysts.size,maxAnalysts:2,stopped:this.stopped,at:now()};}
 }

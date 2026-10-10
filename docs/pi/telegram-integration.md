@@ -104,3 +104,122 @@ Telegram indisponibile non ferma l'autopilot entro mandato o la riconciliazione.
 Mock e fixture isolati verificano il comportamento locale; non certificano la
 consegna a un bot reale né una migrazione installata sul nodo. Queste verifiche
 richiedono configurazione e qualificazione separate.
+
+## Coordinatore interattivo (2026-10-10)
+
+Telegram è l'unico ingresso conversazionale del proprietario. La web app conserva
+configurazione, associazione, modello, controlli finanziari e cronologia in sola
+lettura. Nuove richieste HTTP `chat/analyze` rispondono 410; il recupero di un ID
+preesistente continua a restituire la ricevuta originale. Nessuna cronologia o
+submission precedente viene eliminata.
+
+La chat libera sveglia immediatamente `Scheduler.dispatchTelegram`, senza
+attendere il ciclo di manutenzione. Il coordinatore Telegram usa gli strumenti
+read-only dello slot 2; il coordinatore finanziario e i due analisti restano
+indipendenti. La mailbox applicativa conserva soltanto i turni futuri e ne
+permette l'annullamento. Per una stessa generazione/chat, chat, analisi e bridge
+verso proposta sono serializzati in ordine d'ammissione, anche se hanno lane
+interne diverse. Le analisi automatiche non diventano turni Telegram.
+
+Una sessione read-only può conservare il contesto di chat nella stessa
+associazione/capability/slot; non viene promossa a capability finanziaria. Una
+richiesta esplicita di proposta crea un job separato `guarded_manual_proposal`.
+Le proposte sono ricevute commesse, approvate una sola volta con i controlli e la
+scadenza esistenti. La conversazione non rinnova mandato o budget.
+
+### Ricevute e confini
+
+Le ricevute additive nello schema 6 sono `telegramTurn`, `telegramCorrection`,
+`telegramStop`, `telegramBaseline`, `telegramUsageBaseline` e `telegramStream`.
+Conservano job/request/conversation/submission originali. Pi commette creazione
+conversazione e binding `app.conversation_binding` nella stessa transazione;
+una ripartenza tra commit Pi e binding applicativo ritrova quella conversazione.
+Il baseline pubblico è registrato prima della prima submission: snapshot e
+recovery di una sessione riutilizzata non inoltrano testo/tool/sintesi di turni
+precedenti. Usage della sessione è cumulativo; usage e deadline del turno restano
+separati. Una correzione non azzera il budget del turno.
+
+Un messaggio durante la risposta rimane `choice_pending` fino alla scelta
+esplicita **Correggi questa risposta** oppure **Nuova richiesta**. Le scelte
+scadono dopo cinque minuti e sono limitate a venti per associazione. Soltanto
+una correzione ammessa entra in `pi.inbox` con `whenBusy: steer`; tutti i turni
+futuri restano nello store applicativo. Pi può applicare uno steer dopo il round
+di tool oppure avviare un run successivo al confine della risposta finale. Il
+turno applicativo possiede tutte quelle submission fino al settlement. Sono
+ammesse ulteriori correzioni durante il run corretto. `placed` prova l'ingresso
+nel contesto, non che il modello abbia seguito il testo. **Ritira correzione**
+usa `Submission.abort`: `already_placed` è dichiarato esplicitamente e non
+cancella la risposta o un altro turno. Una correzione tardiva offre una nuova
+richiesta collegata, senza eseguirla automaticamente.
+
+Stop conserva target turn/generation/version e conferma prima la ricezione,
+poi l'assenza di task ordinari con `Conversation.abort` e `waitForIdle`. La
+ripartenza ridispatcha l'intento Stop conservato anche durante `waiting`. Stop
+vecchi/duplicati non si applicano al turno successivo. L'evento nativo Telegram
+`stopped_message_generation`, privo di sender, richiede la mappa durevole
+`draft_id → turn/generation/version` e la stessa chat privata associata. Stop
+non sospende l'autonomia e non interrompe la riconciliazione finanziaria.
+Topic ed edited message ricevono un rifiuto esplicito; non mutano l'input già
+ammesso.
+
+### Streaming e trasporto
+
+Polling e uscita hanno lifecycle indipendenti. Il proiettore riusa `UiEvents`,
+con coalescing a un aggiornamento al secondo e rinnovo dei draft entro venti
+secondi. `sendRichMessageDraft` mostra `<tg-thinking>` e offre Stop nativo;
+`sendMessageDraft` e messaggio modificabile sono fallback espliciti. Soltanto
+`reasoning_summary` con provenienza `responses.summary_text` è pubblico.
+Thinking grezzo, blocchi nascosti, argomenti/tool result e segreti non vengono
+inoltrati come attività. L'attività mostra soltanto il nome dello strumento.
+
+L'invio iniziale di un messaggio fallback registra `sending`; timeout o crash
+lo rendono `uncertain`, senza un nuovo invio automatico. I draft sono
+aggiornamenti temporanei, mentre il testo finale usa eventi outbox univoci e
+segmenti sotto 3500 unità UTF-16. HTML è escapato e supporta grassetto/code/
+intestazioni sicure. `retry_after` sospende l'uscita e ogni dispatch rilegge i
+fence dell'associazione e del bot. Le ricevute finali incerte mantengono la
+politica di non replay.
+
+Il catalogo comandi italiano sostituisce quello preesistente nel default e
+nella chat proprietario; `setChatMenuButton` viene riconciliato una volta per
+generazione. `getMe` conserva soltanto lo username pubblico per il link web.
+`callback_query.id` è conservato e `answerCallbackQuery` precede il lavoro;
+pulsanti di approfondimento, lacune, dettagli, cancellazione e proposta hanno
+azioni reali e mantengono l'associazione di origine.
+
+Fixture senza rete coprono entrambi i confini steer, due correzioni consecutive,
+recovery del secondo turno nella sessione, Stop prima del bind e dopo ACK,
+FIFO chat/analisi, dispatch immediato mentre il coordinatore finanziario è
+occupato, timeout fallback, draft/429, menu, testo esteso e isolamento di una
+operazione finanziaria incerta. Il risultato locale non certifica la resa di
+un client Telegram reale o l'installazione sul nodo.
+
+## Ricognizione plugin estesa (2026-10-10)
+
+La valutazione include anche plugin distinti da `badlogic/pi-telegram`:
+
+| Progetto fissato | Contratto osservato | Pattern utile / limite |
+|---|---|---|
+| [Qusic/pi-telegram](https://github.com/Qusic/pi-telegram/tree/4e197246f4ba2f623feed3db6e5bdf6f567c5798) | `src/index.ts` importa Coding Agent `ExtensionAPI` | `turn.ts` offre streaming/typing/abort/steer e `dispatch.ts` registra i comandi. `polling.ts` salva il cursore JSON prima del dispatch e mantiene pending/active in RAM: non sostituisce le ricevute crash-safe applicative. |
+| [pi-telegram-plus](https://github.com/jalyfeng/pi-telegram-plus/tree/cd284c2d1bcfb1a4d3d267de2e856325e3872ca9) | Coding Agent `>=0.76 <0.82` nel README/source | Menu, callback, renderer, topic e polling condiviso; API host distinta da Durable 1.1.0. |
+| [TelePi](https://github.com/benedict2310/TelePi/tree/02536f6ea24607c32b26edf3eeef8b660853f544) | Coding Agent SDK SessionManager 0.86.1 | Servizio, sessioni JSONL e handoff; non fornisce il ledger applicativo SatsSurge. |
+
+Questi progetti sono riferimenti UX/trasporto, non plugin caricabili direttamente
+nel registry Durable. Si conserva il lifecycle nativo Durable, l'outbox e la
+policy SatsSurge; eventuale adattamento di codice richiede verifica e conservazione
+delle rispettive licenze. Questa implementazione non incorpora codice esterno.
+La ricognizione è stata eseguita dalla lane di ricerca in sola lettura; i commit
+fissati rendono esplicita la versione valutata.
+
+Entrambi i metodi draft della Bot API 10.3 supportano `can_stop` e `keep_on_stop`:
+il fallback `sendMessageDraft` conserva quindi Stop nativo. Fonte:
+[Bot API changelog 10.3](https://core.telegram.org/bots/api#recent-changes).
+
+Una correzione già placed che termina per errore provider o Stop rende il turno
+applicativo failed/interrupted anche se la submission originale aveva già una
+risposta finale. Quel testo resta disponibile come risposta esplicitamente
+parziale. Soltanto il ritiro confermato di una correzione ancora queued preserva
+il completamento della risposta originale. Intento e risultato di ritiro sono
+ricevute distinte, così `already_placed` non diventa un ritiro riuscito durante
+una race. Un 429 di draft sospende anche l'outbox dello stesso ciclo: il gate
+globale è controllato all'ingresso di deliver e prima di ciascun dispatch.

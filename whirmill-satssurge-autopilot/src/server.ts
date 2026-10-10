@@ -81,6 +81,7 @@ try {
   await collector.collect();
   intervals.push(setInterval(() => void collector!.collect(), 60000));
   scheduler = new Scheduler(queue, agent);
+  telegram.setWake(()=>scheduler!.dispatchTelegram());
   intervals.push(
     setInterval(() => scheduler!.tick(), 60000),
     setInterval(() => void scheduler!.pump(), 1000),
@@ -394,6 +395,9 @@ const server = createServer(async (req, res) => {
       }
     }
     const body = JSON.parse(raw || "{}");
+    if((url.pathname==='/api/chat'||url.pathname==='/api/analyze')&&!store.one('SELECT id FROM jobs WHERE request_id=?',typeof body.requestId==='string'?body.requestId:'')){
+      send({error:'La conversazione con il coordinatore è disponibile su Telegram. La web app conserva impostazioni e ricevute.'},410);return;
+    }
     if (
       (url.pathname === "/api/chat" || url.pathname === "/api/analyze") &&
       typeof body.message === "string" &&
@@ -479,7 +483,7 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === "/api/jobs/cancel") {
       if (typeof body.id !== "string") throw new Error("Invalid job");
-      send({ cancelled: queue.cancel(body.id) });
+      send({error:'Gestisci i turni della conversazione su Telegram.'},410);
       return;
     }
     send({ error: "Not found" }, 404);

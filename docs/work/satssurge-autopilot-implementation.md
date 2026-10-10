@@ -1,10 +1,30 @@
 # SatsSurge Autopilot — implementation checkpoint
 
-## Next milestone — responsive web UI/UX, prioritized 2026-10-09
+## Current roadmap — updated 2026-10-10
 
-User requested M2.1 before M3/M4: React + TypeScript + Vite + shadcn/ui, polished responsive agent chat and authenticated streaming of text, available reasoning summaries, tool calls/results and durable job states. Preferred candidate assistant-ui with a custom Pi Durable adapter; AI Elements is the alternative. Full scope, official research links, reconnection/idempotency rules and browser acceptance are in the app README's ordered roadmap. Include fixes for the observed stale queued label and missing follow-latest chat scrolling. This is a roadmap update only: no frontend implementation, dependency installation, deployment or financial authority change. M3 channel/Magma and M4 outbound webhook notifications remain after M2.1.
+User approved a documentation-only update. The authoritative ordered roadmap and acceptance criteria are in `whirmill-satssurge-autopilot/README.md`. No new capability, dependency installation, deployment or financial authority is enabled by this update.
 
-2026-10-09 authoritative roadmap change: remove the Telegram bot and replace M4 with outbound-only webhook notifications, Discord first. The web UI is the sole owner control/chat surface. No Discord inbound commands, replies, bot or action handlers may reach the agent/executor. Plan a private configured webhook, filtered/aggregated notifications, durable outbox, bounded retries, delivery status and redacted payloads. Uncertain notification delivery is not proof of failure and never authorizes replay of a financial operation. Full acceptance and duplicate-risk semantics are in the README. Historical Telegram mentions below describe superseded plans, not current scope. No external webhook has been configured or notification sent by this documentation update.
+M1–M2.1 are installed and qualified; accounting coverage and profitability validation remain partial. M2.2's Telegram-first baseline 0.4.5 is published and installed, and the bot was subsequently paired. The recent session “Analizza Satssurge Autopilot” (01a1219f-9447-7fa1-84d1-8606490e17b5) records ongoing interactive evolution: persistent sessions, streaming, public provider thinking summaries, menu, buttons, targeted Stop and steering. Local verification is present, but review, new release and real Telegram acceptance of those functions are not complete. The original 0.4.5 installation receipt below remains unchanged and describes its then-unconfigured bot.
+
+Telegram is the sole owner conversation surface. Web retains configuration, authentication, diagnostics, immutable history and operational controls. The Umbrel web UI and Telegram remain separate; the Telegram Mini App has been removed from the roadmap. Notifications and interaction converge on the bot. The 2026-10-09 choice of Discord/generic outbound webhooks is superseded; there is no separate webhook notification milestone.
+
+| Milestone | Required outcome |
+|---|---|
+| M2.3 — Complete core stabilization | Finish and qualify Telegram, turn recovery, Stop, steering, delivery/notifications, diagnostics, accounting and autonomy; no lost messages, incorrect outcomes or repeated financial effects. |
+| M2.4 — Runtime improvement prompts | Detect evidenced app/bot runtime problems and send actionable development prompts via Telegram; the owner implements them. Include evidence, reproduction, scope, constraints and acceptance tests; deduplicate unchanged issues. No automatic code edits or deployment, and no renderer dependency. |
+| M3 — Native collection and unified historical data | Keep collecting the same required data types without LNDg/Lightning Mate, using Lightning Node/LND and native SatsSurge collectors/derivations. Reorganize existing data into a canonical internal model with original provenance and receipts preserved; migrate all consumers and prove parity before retiring the old sources. |
+| M4 — Agent-generated content and exports | Agent produces HTML for image/PDF output; Puppeteer only renders it. Agent-generated CSV, Excel (.xlsx) and other ready-made exports bypass the browser and are delivered directly to the original Telegram request. A detailed versioned DLS governs generated HTML; fixed templates are not required. App components/styles and reference examples are optional building blocks. |
+| M5 — Optional integrations | RoboSats, Amboss and Magma are nice to have, evaluated only after complete stabilization of the independent core. |
+
+Implementation order: stabilization → independent core → renderer → optional integrations. Channel lifecycle remains a separately qualified and explicitly enabled future capability, not a core prerequisite. No delivery date or profitability commitment is made.
+
+Runtime-improvement prompts are advisory: sanitize evidence, distinguish observed facts from hypotheses, preserve issue/delivery receipts, respect existing notification policies and avoid repeat alerts for unchanged issues. Long prompts can be sent as text attachments. Prompt delivery is not resolution proof and cannot change code, runtime permissions or financial state.
+
+Acceptance requirements: M3 inventories existing source fields/events/metrics and maps them to native collection, proactive event capture or internal derivation. Continue collecting successful forwards, failed-forward/HTLC attempts, channel/policy/liquidity state, rebalances and derived operational/economic data with explicit freshness/coverage and recovery. Missing required parity blocks completion; irrecoverable historical gaps remain explicit. Reorganize existing data into a canonical model, normalize units/times/identifiers, preserve originals/provenance/checksums/budgets/receipts and calculation versions, and reconcile overlaps without double counting or hiding conflicts. Migrate agent/UI/export/evaluation consumers to joint historical/native queries. Verify isolated backup migration, record preservation and parallel source-to-native semantic/count/amount parity before retiring old collectors, projections and prerequisites; qualify replacement safety controls with both apps absent. The agent authors content and exports; Puppeteer only converts generated HTML to images/PDF in an isolated browser with authorized data, no application credentials or arbitrary network/host-file access, and time/memory/concurrency/output-size limits. Handle long contents, failure receipts and temporary-file cleanup. Define the DLS from the app visual language with exact typography, semantic colors/contrast, spacing/grid, report components, charts/tables, Italian formatting, data provenance and image/PDF output profiles, pagination and overflow rules. Provide shared CSS tokens and bundled fonts/assets, reference examples and do/don't guidance; pass the DLS version/output profile to the agent and retain them in artifact receipts. Check conformance and rendered output on short/long reports for clipping, overlap, missing assets, legibility and pagination, with bounded regeneration for invalid output. CSV, Excel and other ready-made exports bypass Puppeteer; verify structure, values, encoding and safe handling of formula-like text. Validate all attachments in real Telegram clients for legibility, data fidelity, successful opening and correct request/destination; uncertain delivery must never replay financial effects.
+
+## Historical checkpoints and receipts
+
+The entries below retain their original dates and outcomes. Earlier milestone numbering, web-chat scope and Discord/webhook choices describe historical decisions; the current roadmap above takes precedence.
 
 ## Current continuation checkpoint — 2026-10-09 AI data access
 
@@ -2023,3 +2043,67 @@ the owner configures credentials and confirms the numeric account.
 non-prerelease, with exact source, CI and immutable image receipt. Metadata
 publication is the primary's separate git-operator handoff. Installed acceptance
 remains separate.
+
+### Installed Telegram 0.4.5 acceptance — 2026-10-10
+
+User authorized installation. Source/tag `3608a062ae09353059eba2dead54693032933c3b`, published store metadata `3b3ee7eb1ffa1b7cedc7914f3834f5c57c667ece`, immutable index `sha256:e43728b55948888acf927ea61fbfa3f347440c66399a2ad559c59f44971d6073`. Supported Umbrel dashboard update completed: healthy/package0.4.5/source correct/schema6, three DB quickcheck and FK checks pass.
+
+Fresh stopped-executor checkpoint captured 2026-10-10T04:13:14.329Z, verified on host/Mac with isolated restores. All 177 original jobs/Pi receipts, 119 ledger rows, 85 history files, Durable/OAuth table contents, credentials/permissions, mandate and budget preserved exactly. No additive ledger rows or financial qualification. Host backfill schema guard upgraded from exact source, old files backed up, nine fixtures pass.
+
+Restored enabled=true, Sol/high and all four active/enabled timers; backfill service inactive. Only the owned telegram-045-install claim released after fresh bootstrap/snapshot/interlock guards. All14 sensitive flags OFF; final zeroactive/pendingfinancial. Telegram stays unconfigured/unpaired with no token/proposals/updates/outbox.
+
+Primary authenticated browser acceptance: installed Settings shows Telegram disabled and empty token field, OAuth connected, model preserved, autonomy active; final connection In tempo reale, console errors/warnings absent. All temporary browser tabs and task processes released. Screenshot `/Users/whirmill/.local/share/satssurge/telegram045-install/telegram-settings-installed.png`; private host/Mac receipt `telegram045-install/final-proof.json`. Schema5 software refuses schema6; never overwrite newer or uncertain receipts with the checkpoint. User may now configure the bot token through Settings; no bot credential or delivery was tested.
+
+### Interactive Telegram turns — authorized 2026-10-10
+
+User authorized implementing the Astra-reviewed plan, publishing an immutable release, installing on Umbrel and real Telegram acceptance for streaming, public thinking, menu, buttons, Stop and steering. No incidental financial test effects. One source writer at a time. Preserve the paired bot token/binding, all original receipts, financial recovery and autonomy/timers.
+
+Accepted architecture: one logical coordinator, persistent conversational sessions separated from financial conversations; application turns own input/submission/run mappings and immutable capability/budget. Future turns remain solely in the application queue. Only active-turn corrections enter Pi inbox; show received vs placed vs late and handle final-boundary races. A late correction after application closure becomes an explicitly linked new turn. Stop targets turn+binding generation/version, waits for actual idle, preserves future queue and financial reconciliation. Existing waiting/failed/delivery-uncertain states remain. UiEvents powers throttled draft streaming and public provider summaries; stable final outbox, generation fences, fallback/rate limits and explicit research gaps. Polling and output are independent. Commands/menu configured idempotently; callbacks acknowledged; CTAs mapped to committed application actions. Analyst elasticity deferred until measurement.
+
+Acceptance: fake-provider/transport race tests for steering, duplicate/stale Stop, cancellation/placement, multi-DB crash recovery, revoked generations, rate limits, long output, invariant budget/capability and finance isolation; full Node/typecheck/Python required checks; independent review; immutable source/image proof; stopped-executor three-DB checkpoint and additive migration preservation; installed readback and Telegram UI proof.
+
+### Interactive coordinator implementation — 2026-10-10 (local)
+
+User scope updates carried into implementation: Telegram is the sole owner
+conversation surface; web keeps configuration, authentication, immutable history,
+financial controls and diagnostics. Idle Telegram chat dispatches immediately;
+future-turn mailbox exists only for busy delivery, cancellation and recovery.
+Release metadata is intentionally owned by the later release lane (planned
+0.5.0), and has not been changed by the implementation writer.
+
+Local implementation adds durable turn/correction/Stop receipts and read-only
+session reuse, additive meta data in schema 6, Pi-side atomic conversation binding,
+per-turn baseline/usage, explicit steer vs follow-up choice, targeted Stop with
+idle confirmation and restart recovery, native rich drafts with public-summary
+allowlist, safe formatted/segmented final delivery and uncertain fallback receipts,
+owner/default command menu, callback ACK and contextual actions. Chat, analysis
+and explicit proposal bridge serialize for one owner context while automatic
+financial/analyst work remains independent. No effects, deployment, real bot sends,
+Git mutations, version bumps or credential operations were performed by this lane.
+
+Deterministic fake-provider tests use the actual Agent/Pi Durable registry and
+SQLite. They cover final/tool-boundary steer, two consecutive corrections,
+second-turn recovery exclusion, per-turn usage, immediate read-only slot2 tool
+while financial coordinator held, Stop intent through waiting, claim-before-bind,
+future-turn preservation, FIFO across lanes, fallback accepted-timeout no replay,
+429/draft refresh, menu cleanup and native Stop mapping. Live Telegram rendering
+and installation acceptance remain owned by the primary after stable review.
+
+Local verification receipt (implementation lane): Node v26.10.0 satisfies the
+Node >=24 contract; full npm suite 205/205 passed before final contextual-CTA
+fixture; typecheck passed; Python script suite 16/16 passed; pinned documentation
+verification passed for 150 sources; git diff whitespace check passed. Final
+exact suite count and writer release are returned to the primary separately.
+Expanded plugin research (Qusic/pi-telegram, pi-telegram-plus, TelePi) is recorded
+in the curated Telegram guide with fixed upstream commits; no plugin/API/runtime
+migration or upstream code copy was introduced.
+
+### Correction terminal-recovery qualification (writer reassignment)
+
+Atomic turn terminal receipts now arbitrate completion against accepted Stop in the same Store transaction; successful closure persists selected final-entry ID/public answer and submission IDs before Scheduler.finish. Closed turns are immutable under bind/recovery/close. Ordered correction reconciliation includes settled successes, preserves original and correction failures, and rejects unproved native withdrawals without replay. Stop recovery resolves original/correction request identities before any possible submission and never creates missing work under Stop.
+
+Reopened operational and Pi stores qualify two settled corrections selecting the latest answer, native correction failure before/after failed app receipt, received Stop, closed interrupted Stop before Queue.finish, submit-before-bind identity under Stop, and confirmed/unproved queued-abort receipts. A controlled accounting await qualifies Stop after public answer selection but before terminal commit. Final local checks: npm test 220/220 pass (0 failed/cancelled/skipped); npm run typecheck exit 0; Python scripts tests 16/16 pass. No live financial or Telegram effects; version/release metadata unchanged by writer. Full npm log /tmp/satssurge-recovery-final-tests.log.
+
+### Final terminal-authority and active-crash reassignment
+
+Preserved release owner's package/lock version 0.5.0 and candidate README changes. Added final admission-ledger reread, authoritative bounded terminal-result replay before provider/accounting/budget work, and scheduler projection before model availability for queued/waiting outcomes. Added native fixtures for correction placement rejection before native commit, identical latest corrected result after reopened stores with unavailable provider/accounting, SIGKILL while correction actively generates with accepted Stop, and production scheduler terminal projection with availability false. Final checks: npm test 224/224 pass, 0 failed/cancelled/skipped (4082.27275 ms); typecheck exit 0; Python 16/16 pass; diff check passed. Log /tmp/satssurge-terminal-final-tests.log. Fake fixtures only; no Git/live/release metadata changes by this writer reassignment.
