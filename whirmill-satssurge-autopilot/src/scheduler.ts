@@ -7,6 +7,7 @@ import { id, now, hash } from './domain.js';
 export class ModelUnavailable extends Error {}
 export interface JobRunner {
   available():Promise<boolean>;
+  recoverTelegramStops?():Promise<void>;
   runJob(job:Job,analystSlot?:number):Promise<unknown>;
 }
 /** One process, one coordinator, up to two isolated read-only conversations. */
@@ -18,7 +19,7 @@ export class Scheduler {
   async pump() {
     if(this.stopped||this.pumping)return;this.pumping=true;
     try {
-      this.queue.reconcileTelegramTerminals();this.queue.releaseWaiting();if(!await this.runner.available()||this.stopped)return;
+      if(this.runner.recoverTelegramStops)await this.runner.recoverTelegramStops();this.queue.reconcileTelegramTerminals();this.queue.releaseWaiting();if(!await this.runner.available()||this.stopped)return;
       for(let slot=0;slot<2;slot++)if(!this.analysts.has(slot)){
         const job=this.queue.claim('analyst',this.owner);if(job){this.analysts.add(slot);this.start(job,slot);}
       }
@@ -28,7 +29,7 @@ export class Scheduler {
   }
   /** Telegram coordinator dispatches immediately; future turns stay durably admitted. */
   async dispatchTelegram(){if(this.stopped||this.chat||this.chatDispatching)return;this.chatDispatching=true;
-    try{this.queue.reconcileTelegramTerminals();if(!await this.runner.available()||this.stopped)return;const job=this.queue.claim('coordinator',this.owner,now(),'chat');if(job){this.chat=true;this.start(job,2);}}
+    try{if(this.runner.recoverTelegramStops)await this.runner.recoverTelegramStops();this.queue.reconcileTelegramTerminals();if(!await this.runner.available()||this.stopped)return;const job=this.queue.claim('coordinator',this.owner,now(),'chat');if(job){this.chat=true;this.start(job,2);}}
     finally{this.chatDispatching=false;}
   }
   private start(job:Job,slot?:number){

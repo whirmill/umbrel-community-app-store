@@ -1,3 +1,4 @@
+import { runtimeDetectorVersion } from './runtime-improvements.js';
 import {forecast} from './economics.js';
 import { randomBytes } from 'node:crypto';
 import { Store } from './store.js';
@@ -42,17 +43,18 @@ export class ApplicationControl {
         });
     }
     admit(requestId: string, message: string, source: 'owner' | 'telegram', analysis = false, purpose?: 'qualification' | 'economic' | 'general', scope = '') {
-        // Explicit review requests grant proposal creation, never direct execution. Telegram
-        // conversational requests default to analysis; existing scheduled autonomy is unchanged.
-        const review = /\b(approv|review|propos|propon|valut.*prima|conferm)/i.test(message);
-        return this.store.tx(() => {
-            const existing = this.store.one('SELECT id FROM jobs WHERE request_id=?', requestId);
-            const job = this.queue.enqueueWithinTransaction({ requestId, kind: analysis ? 'analysis' : 'chat', origin: purpose === 'qualification' ? 'qualification' : source, scope, purpose: purpose ?? (analysis ? 'economic' : 'general'), payload: { message } });
-            if (!existing)
-                this.store.set('jobCapability:' + job.id, purpose === 'qualification' ? 'read_only_qualification' : analysis ? 'read_only_research' : review ? 'guarded_manual_proposal' : source === 'telegram' ? 'read_only_chat' : 'financial_guarded');
-            return job;
-        });
+        return this.store.tx(() => this.admitWithinTransaction(requestId, message, source, analysis, purpose, scope));
     }
+    /** Caller owns Store.tx, so transport intake commits with capability/turn receipts. */
+    admitWithinTransaction(requestId: string, message: string, source: 'owner' | 'telegram', analysis = false, purpose?: 'qualification' | 'economic' | 'general', scope = '') {
+        const review = /\b(approv|review|propos|propon|valut.*prima|conferm)/i.test(message);
+        const existing = this.store.one('SELECT id FROM jobs WHERE request_id=?', requestId);
+        const job = this.queue.enqueueWithinTransaction({ requestId, kind: analysis ? 'analysis' : 'chat', origin: purpose === 'qualification' ? 'qualification' : source, scope, purpose: purpose ?? (analysis ? 'economic' : 'general'), payload: { message } });
+        if (!existing) this.store.set('jobRuntimeVersion:' + job.id, runtimeDetectorVersion);
+        if (!existing) this.store.set('jobCapability:' + job.id, purpose === 'qualification' ? 'read_only_qualification' : analysis ? 'read_only_research' : review ? 'guarded_manual_proposal' : source === 'telegram' ? 'read_only_chat' : 'financial_guarded');
+        return job;
+    }
+
     createProposal(p: Proposal, jobId: string, at = now()) {
         if (this.store.get('jobCapability:' + jobId) !== 'guarded_manual_proposal')
             throw Error('Manual proposal capability required');

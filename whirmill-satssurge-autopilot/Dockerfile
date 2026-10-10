@@ -2,6 +2,7 @@ FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca92
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --ignore-scripts
+COPY scripts/pi-scoped-stop-patch.* ./scripts/
 COPY tsconfig.json ./
 COPY src ./src
 COPY web ./web

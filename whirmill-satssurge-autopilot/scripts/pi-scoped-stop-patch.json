@@ -1,0 +1,90 @@
+{
+  "patch": "satssurge-scoped-stop-v1",
+  "version": "1.1.0",
+  "files": [
+    {
+      "file": "dist/harness/scheduler.js",
+      "original": "9d473431d18a0bf11e37b4e491213adc82d66b3698e45bdfeba155ba9a13b609",
+      "patched": "9564d7e9d8334266b59d79fac347eacdd079e80b66def7582486ca566f13a990",
+      "changes": [
+        [
+          "    #enabled = false;",
+          "    #enabled = false;\n    #cancelOnly = new Set();\n    #cancelRemoteUnknown = new Set();\n    #cancelPreparing = false;"
+        ],
+        [
+          "        this.#enabled = true;",
+          "        if (this.#cancelPreparing || this.#cancelOnly.size) throw new Error(\"Scoped cancellation still pending\");\n        this.#enabled = true;"
+        ],
+        [
+          "    // \u2500\u2500\u2500 Scheduling \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+          "    /** SatsSurge scoped-stop-v1: no resume, no run reservation, exact native ownership scope. */\n    async cancelConversationScoped(conversationId, context) {\n        if (this.#enabled || this.#closing)\n            throw new Error(\"Scoped cancellation requires a paused open scheduler\");\n        this.#cancelPreparing = true;\n        const scopeUnknown = new Set();\n        try {\n        const reached = await this.#session.commitWith(async (tx) => {\n            if (this.#enabled || this.#closing)\n                throw new Error(\"Scoped cancellation requires a paused open scheduler\");\n            const queued = await this.#loadScopes(true);\n            const scope = { conversation: conversationId };\n            const uncertainty = await scanAll(cursor => tx.scanEntries({ conversationId }, SCAN_PAGE_SIZE, cursor));\n            const prior = new Set(uncertainty.filter(e => e.kind === \"app.scoped_stop_remote_uncertainty\").map(e => e.data.taskId));\n            for (const id of prior) scopeUnknown.add(id);\n            const reached = [];\n            for (const record of this.#live.values()) {\n                if (record.background || this.#inScope(parentOf(record), scope) !== true)\n                    continue;\n                reached.push(record.id);\n                if (record.state.checkpoint?.phase === \"poll\") {\n                    this.#cancelRemoteUnknown.add(record.id);\n                    scopeUnknown.add(record.id);\n                    if (!prior.has(record.id))\n                        await tx.appendEntry(conversationId, { kind: \"app.scoped_stop_remote_uncertainty\", data: { taskId: record.id, state: \"unknown\", reason: \"provider_cancel_skipped\" } });\n                }\n                if (!record.abortRequested)\n                    tx.setTask({ ...record, abortRequested: true });\n            }\n            for (const id of queued)\n                if (this.#inScope({ conversation: id }, scope) === true)\n                    await this.#withdrawInputs(tx, id);\n            return reached;\n        }, context);\n        // Mark and withdrawal are committed before any target can be reserved.\n        for (const id of reached) if (this.#live.has(id)) this.#cancelOnly.add(id);\n        this.#kick();\n        // Direct scheduler wait never enables global scheduling.\n        await this.waitForIdle(conversationId, context);\n        return { patch: \"satssurge-scoped-stop-v1\", taskIds: reached,\n            remoteCancellationUnknown: [...scopeUnknown] };\n        } finally { this.#cancelPreparing = false; }\n    }\n    // \u2500\u2500\u2500 Scheduling \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+        ],
+        [
+          "if (this.#draining || !this.#enabled || this.#closing)",
+          "if (this.#draining || (!this.#enabled && !this.#cancelOnly.size) || this.#closing)"
+        ],
+        [
+          "while (this.#dirty && this.#enabled && !this.#closing)",
+          "while (this.#dirty && (this.#enabled || this.#cancelOnly.size) && !this.#closing)"
+        ],
+        [
+          "if (!this.#enabled || this.#closing)\n                    return;",
+          "if ((!this.#enabled && !this.#cancelOnly.size) || this.#closing)\n                    return;"
+        ],
+        [
+          "for (const record of [...this.#live.values()]) {\n                    if (this.#invocations",
+          "for (const record of [...this.#live.values()]) {\n                    if (!this.#enabled && (!this.#cancelOnly.has(record.id) || !record.abortRequested))\n                        continue;\n                    if (this.#invocations"
+        ],
+        [
+          "            models: this.#models,",
+          "            models: this.#cancelOnly.has(invocation.taskId) ? new Proxy(this.#models, {\n                get: (target, key) => key === \"cancelDeferred\" ? async () => {\n                    // No provider request is permitted in the offline recovery lane.\n                    this.#cancelRemoteUnknown.add(invocation.taskId);\n                    throw new Error(\"Remote deferred cancellation unknown: scoped recovery skipped provider request\");\n                } : typeof target[key] === \"function\" ? target[key].bind(target) : target[key],\n            }) : this.#models,"
+        ],
+        [
+          "    #observe(publication) {",
+          "    #observe(publication) {"
+        ],
+        [
+          "this.#live.delete(record.id);",
+          "this.#live.delete(record.id);\n                this.#cancelOnly.delete(record.id);"
+        ]
+      ]
+    },
+    {
+      "file": "dist/harness/harness.js",
+      "original": "aaf1d51ff782839bb50d8af928ee7b6eb3c8f4706e635516b8bef409d9f87789",
+      "patched": "9a394f7b788442ccd85d5b3d055a10c42d9ba6113b59931b1be3e7ba14901ff7",
+      "changes": [
+        [
+          "    abortTask(id, context) {",
+          "    cancelConversationScoped(id, context) {\n        this.#assertOpen();\n        return this.#tasks.cancelConversationScoped(id, context);\n    }\n    abortTask(id, context) {"
+        ]
+      ]
+    }
+  ],
+  "guards": [
+    {
+      "file": "dist/harness/generation.js",
+      "sha256": "8269dca4b099da6f9c07bce7de8ddaa8fef08a8cadc8aaaccda0bcf8f816c5b0"
+    },
+    {
+      "file": "dist/harness/tool.js",
+      "sha256": "d16e8af0d3096be3a62a82162368a2d0aeb10a9a4af3e0187a5c7bca4bc9075e"
+    },
+    {
+      "file": "dist/harness/registry.js",
+      "sha256": "9731cc15ae463c29021f460e3503d9adf9a4303e7d82859d7547c99c5f1311fe"
+    },
+    {
+      "file": "dist/harness/submissions.js",
+      "sha256": "1aa0780fee380912ba8123f0da003a087f7bee7a8b20b4157f99b60d42e68dd2"
+    },
+    {
+      "file": "dist/harness/inbox.js",
+      "sha256": "082751494dda99eeab21d74a2207912ad409055fa504d370089807d7c0421d85"
+    },
+    {
+      "file": "dist/harness/live.js",
+      "sha256": "f73f76259916a19a4d2417bc0dc611e6cd2ac458021ebc334c868f637028f87c"
+    }
+  ]
+}
