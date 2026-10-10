@@ -20,22 +20,35 @@ class Failure extends Error { constructor(readonly reason: FailureReason) { supe
 export interface RoboSatsInfo { network: 'mainnet'; makerFeePercent: number; takerFeePercent: number; bondPercent: number; buyOrders: number; sellOrders: number; minOrderSats: number; maxOrderSats: number }
 export interface RoboSatsOffer { id: number; type: 0 | 1; currency: number; premiumPercent: string; satoshisNow: number; bondPercent: string; expiresAt: string }
 export interface MagmaEstimate { satsPerUsd: string; expectedReceivingUsdPerUsd: string }
-export interface MagmaOffer { id: string; minSats: string; maxSats: string; totalSats: string; lockedSats: string; fixedFeeSats: string; variableFeeValue: string; ambossFeeValue: string; minBlockLength: number }
-export interface MagmaPage { offset: number; nextOffset: number | null; total: number; offers: MagmaOffer[]; feeUnitsQualified: false; sizeBoundsQualified: true }
+export interface MagmaOffer { id: string; totalSats: string; lockedSats: string; fixedFeeSats: string; variableFeeValue: string; ambossFeeValue: string; minBlockLength: number }
+export interface MagmaPage { offset: number; nextOffset: number | null; total: number; offers: MagmaOffer[]; feeUnitsQualified: false; sizeBoundsQualified: false }
+export interface MagmaOfferDetail extends MagmaOffer { minSats: string; maxSats: string; feeUnitsQualified: false; sizeBoundsQualified: true }
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function btcSize(v: unknown): string {
+  if (!v || typeof v !== 'object' || Array.isArray(v) || !object(v).satoshi) throw new Failure('unsupported');
+  return sats(at(v, 'satoshi', 'sats'));
+}
+function magmaSummary(v: unknown): MagmaOffer {
+  const o = object(v); if (typeof o.id !== 'string' || !UUID.test(o.id)) throw new Error('schema');
+  const totalSats = btcSize(o.total_amount), lockedSats = btcSize(o.locked_amount);
+  if (BigInt(lockedSats) > BigInt(totalSats)) throw new Error('schema');
+  return { id: o.id, totalSats, lockedSats, fixedFeeSats: sats(at(o, 'fees', 'fixed', 'sats')), variableFeeValue: sats(at(o, 'fees', 'variable', 'sats')), ambossFeeValue: sats(at(o, 'fees', 'amboss', 'sats')), minBlockLength: integer(at(o, 'promises', 'min_block_length')) };
+}
 const MAGMA = 'https://magma.amboss.tech/graphql';
 const SPACE = 'https://api.amboss.space/graphql';
 // Public clearnet only. A Tor/coordinator transport must be qualified separately.
 const ROBO = 'https://unsafe.templeofsats.org';
 const ESTIMATE = 'query M5Estimate { market { liquidity { liquidity_per_usd { sats usd } } } }';
 const HELLO = 'query M5Availability { getHello }';
-const OFFERS = `query M5Offers($limit: Float!, $offset: Float!) { market { offer { offers(page: {limit: $limit, offset: $offset}) { total list { id min_amount { satoshi { sats } } max_amount { satoshi { sats } } total_amount { satoshi { sats } } locked_amount { satoshi { sats } } fees { fixed { sats } variable { sats } amboss { sats } } promises { min_block_length } } } } } }`;
+const OFFERS = `query M5Offers($limit: Float!, $offset: Float!) { market { offer { offers(page: {limit: $limit, offset: $offset}) { total list { id total_amount { satoshi { sats } } locked_amount { satoshi { sats } } fees { fixed { sats } variable { sats } amboss { sats } } promises { min_block_length } } } } } }`;
+const OFFER = `query M5Offer($offerId: String!) { market { offer { get_offer(offer_id: $offerId) { id min_amount { satoshi { sats } } max_amount { satoshi { sats } } total_amount { satoshi { sats } } locked_amount { satoshi { sats } } fees { fixed { sats } variable { sats } amboss { sats } } promises { min_block_length } } } } }`;
 export class OptionalIntegrationReads {
   #config: Readonly<OptionalIntegrationConfig>; #fetch: typeof fetch;
   #credential: (() => string | undefined) | undefined; #next = new Map<Provider, number>();
   constructor(config: OptionalIntegrationConfig = OPTIONAL_INTEGRATIONS_DISABLED, options: { fetch?: typeof fetch; ambossCredential?: () => string | undefined } = {}) {
     this.#config = parseOptionalIntegrationConfig(config); this.#fetch = options.fetch ?? fetch; this.#credential = options.ambossCredential;
   }
-  async #read<T>(provider: Provider, enabled: boolean, url: string, query: string | undefined, project: (v: unknown) => T, options: { variables?: Record<string, number>; authenticated?: boolean; partial?: boolean } = {}): Promise<ReadResult<T>> {
+  async #read<T>(provider: Provider, enabled: boolean, url: string, query: string | undefined, project: (v: unknown) => T, options: { variables?: Record<string, number | string>; authenticated?: boolean; partial?: boolean } = {}): Promise<ReadResult<T>> {
     const fail = (reason: FailureReason): ReadResult<T> => ({ ok: false, provider, reason, financialEffects: false });
     if (!enabled) return fail('disabled');
     const now = performance.now(); if (now < (this.#next.get(provider) ?? 0)) return fail('cooldown');
@@ -103,20 +116,21 @@ export class OptionalIntegrationReads {
       const p = object(at(v, 'market', 'offer', 'offers')), total = integer(p.total);
       if (Array.isArray(p.list) && p.list.length > limit) throw new Failure('unsupported');
       if (!Array.isArray(p.list) || offset + p.list.length > total || (offset < total && p.list.length === 0)) throw new Error('schema');
-      const offers = p.list.map(raw => { const o = object(raw); if (typeof o.id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(o.id)) throw new Error('schema');
-        const btcBound = (field: string): string => {
-          const size = o[field];
-          if (!size || typeof size !== 'object' || Array.isArray(size) || !object(size).satoshi) throw new Failure('unsupported');
-          return sats(at(size, 'satoshi', 'sats'));
-        };
-        const minSats = btcBound('min_amount'), maxSats = btcBound('max_amount');
-        if (BigInt(minSats) > BigInt(maxSats)) throw new Error('schema');
-        const totalSats = sats(at(o, 'total_amount', 'satoshi', 'sats')), lockedSats = sats(at(o, 'locked_amount', 'satoshi', 'sats')); if (BigInt(lockedSats) > BigInt(totalSats)) throw new Error('schema');
-        return { id: o.id, minSats, maxSats, totalSats, lockedSats, fixedFeeSats: sats(at(o, 'fees', 'fixed', 'sats')), variableFeeValue: sats(at(o, 'fees', 'variable', 'sats')), ambossFeeValue: sats(at(o, 'fees', 'amboss', 'sats')), minBlockLength: integer(at(o, 'promises', 'min_block_length')) };
-      });
+      const offers = p.list.map(magmaSummary);
       if (new Set(offers.map(o => o.id)).size !== offers.length) throw new Error('schema');
-      return { offset, nextOffset: offset + offers.length < total ? offset + offers.length : null, total, offers, feeUnitsQualified: false, sizeBoundsQualified: true };
+      return { offset, nextOffset: offset + offers.length < total ? offset + offers.length : null, total, offers, feeUnitsQualified: false, sizeBoundsQualified: false };
     }, { variables: { offset, limit }, partial: true });
+  }
+  /** One explicitly selected detail read; no list lookup, fanout, join or retry. */
+  magmaOffer(offerId: string): Promise<ReadResult<MagmaOfferDetail>> {
+    if (typeof offerId !== 'string' || !UUID.test(offerId)) return Promise.resolve({ ok: false, provider: 'magma', reason: 'schema', financialEffects: false });
+    return this.#read('magma', this.#config.magma, MAGMA, OFFER, v => {
+      const o = object(at(v, 'market', 'offer', 'get_offer')), summary = magmaSummary(o);
+      if (summary.id !== offerId) throw new Error('schema');
+      const minSats = btcSize(o.min_amount), maxSats = btcSize(o.max_amount);
+      if (BigInt(minSats) > BigInt(maxSats)) throw new Error('schema');
+      return { ...summary, minSats, maxSats, feeUnitsQualified: false, sizeBoundsQualified: true };
+    }, { variables: { offerId }, partial: true });
   }
   unsupported(provider: Provider): ReadResult<never> { return { ok: false, provider, reason: 'unsupported', financialEffects: false }; }
 }

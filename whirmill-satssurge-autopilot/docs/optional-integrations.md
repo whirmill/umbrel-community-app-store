@@ -10,7 +10,8 @@ No new dependency, installed server route, installation or financial effect.
 
 `src/optional-integrations.ts` exports `OptionalIntegrationReads`,
 `OPTIONAL_INTEGRATIONS_DISABLED`, `parseOptionalIntegrationConfig`, typed
-`ReadResult` and projected market types. Empty config disables all providers;
+`ReadResult`, list summaries (`MagmaOffer`/`MagmaPage`) and BTC detail
+(`MagmaOfferDetail`). Empty config disables all providers;
 only own explicit boolean flags on plain or null-prototype config objects enable reads. Unknown config keys are rejected.
 Secrets are excluded from this schema. No caller-supplied URLs, GraphQL text or
 financial methods exist. `unsupported(provider)` returns an explicit failure for
@@ -96,37 +97,56 @@ key is absent elsewhere. No authenticated live read was performed.
 separate `https://magma.amboss.tech/graphql` endpoint and IP-wide 60requests/60s.
 The implemented public queries read `market.liquidity.liquidity_per_usd` and
 `market.offer.offers(page)`. Actual public schema rejected Int pagination variables;
-Float variables with integer validation are required. The current fixed query
-selects documented `min_amount` and `max_amount` through BTC `SizeValue.satoshi.sats`.
-The parser projects exact decimal-integer strings as `minSats` and `maxSats`, rejects
-invalid or inverted bounds, and returns `sizeBoundsQualified:true` for a successfully
-validated page. Missing BTC wrappers or other-asset-only bounds return `unsupported`;
-this is parser qualification, not live market or operational eligibility.
-Pages retain explicit `offset`, `nextOffset`, `total`, always partial coverage and
-observation time; `total` is the provider's matching count, not a completeness proof.
-Default page0 requests25 rows, with no truncation if the provider exceeds the limit.
-Newest-first offset pagination can shift during concurrent market updates;
-`nextOffset:null` proves only the returned page boundary, never an immutable
-complete market snapshot.
+Float variables with integer validation are required for list pagination.
+
+Current live metadata observed2026-10-10 distinguishes `MarketOfferList.list` items
+of type `SimpleMarketOffer` from `get_offer(offer_id: String!)` returning `MarketOffer`.
+The list type has total/locked amounts, fees and promises, but no `min_amount` or
+`max_amount`. Detail metadata has both bounds as non-null `SizeValue`; its nullable
+`satoshi` wrapper contains `SatoshiValue.sats` as a non-null String. Public metadata
+queries returned HTTP200. This establishes the observed schema shape, not actual
+current offers, capacity, costs, settlement or operational eligibility.
+
+`magmaOffers(offset = 0, limit = 25)` now performs one fixed public list read using
+only supported summary fields. It projects exact total/locked integer strings and
+fee values without min/max, returning `sizeBoundsQualified:false`. It never looks
+up details, fans out, joins results or retries. Pages retain explicit `offset`,
+`nextOffset`, `total`, always partial coverage and observation time; `total` is the
+provider's matching count, not a completeness proof. Oversized pages return
+`unsupported` without truncation. Duplicate IDs, malformed counts, inconsistent
+locked/total amounts and empty pages before the matching boundary fail closed.
+Newest-first offset pagination can shift during market updates; `nextOffset:null`
+proves only the returned page boundary, not an immutable complete snapshot.
+
+`magmaOffer(offerId)` validates a UUID before any HTTP call and performs one separate
+fixed public `get_offer(offer_id: $offerId)` read with a String variable. The returned
+ID must exactly match the requested ID. It reuses summary validation and projects
+BTC `minSats`/`maxSats` as exact decimal-integer strings; invalid or inverted bounds
+fail closed. Successful detail projections carry `sizeBoundsQualified:true` and
+partial coverage. That flag describes parsed BTC bounds only, not complete
+conditions, executable pricing, costs, profit or eligibility. Neither method
+invents list bounds or substitutes missing values. Missing BTC size wrappers and
+other-asset-only amounts return `unsupported`; invalid integer values return
+`schema`. Both methods share the existing singleton/provider throttle, deadline,
+stream bounds and disabled defaults. Detail is not newly registered in protected
+control, root routes or model tools by this change; ordered gates remain pending.
 
 Historical evidence from earlier2026-10-10 probes reported rejected size fields and
-92 rows for `limit:25`, resulting in `unsupported`. Those original proofs are
-preserved and do not describe the current query's field selection. The
-original single anonymous read using the reviewed client on2026-10-10,
-page0/limit25, took993ms and returned sanitized `http`; exact status was unknown
-in that original retained projection. Its proof remains unchanged.
+92 rows for `limit:25`, resulting in `unsupported`; original proofs remain unchanged.
+The original reviewed-client list query with min/max took993ms and returned
+sanitized `http`, with exact status unknown in that original projection. Two
+subsequent distinct diagnostics used that same query: HTTP400 with a JSON header
+class, then HTTP400 and two finite `unknown-field` categories for `min_amount` and
+`max_amount`. Those three qualification calls had zero retries and no raw
+body/message persistence or hashing. Later HTTP200 metadata explains that failure:
+the old list selection was invalid because the bounds belong to the detail type.
+It does not establish endpoint/authentication failure or absence of detail bounds.
 
-Two subsequent, separately authorized diagnostics used the same reviewed client
-and fixed query without retries: the second observed HTTP400 with a JSON header
-class; the third observed HTTP400 and two finite `unknown-field` categories for
-queried `min_amount` and `max_amount`. Three distinct qualification calls were
-performed in total, with zero retries. The final error body was consumed within
-the finite client bounds and projected only in memory; raw body/messages were not
-saved or hashed. Current offers remain live HOLD: the documented BTC-bound fields
-conflict with the actual anonymous public schema. No returned offer page or live
-BTC bounds were qualified. Independent documentation review confirmed the official
-endpoint and public query contract; this does not override the observed conflict
-or justify endpoint/auth fallback, activation or financial eligibility.
+The corrected list/detail queries are locally validated against that metadata;
+no actual offer list/detail request was made for this correction. Current data,
+pagination behavior and economics remain live-unqualified, with the historical
+oversized-page evidence retained. No endpoint/auth fallback, activation or
+financial effect is introduced.
 
 
 [Orders/offers](https://docs.amboss.tech/magma/orders-and-offers) documents offered
@@ -212,12 +232,21 @@ fixed read, not read-only permissions, analytics, trading or financial authority
 
 ## Verification and evidence scope
 
-The minimal BTC-bounds delta passed build and42 targeted API/protected-control
-tests. Its first correctly located full run passed389/390, with one pre-existing
-fragmented-stream timer assertion failure; that assertion passed the targeted
-rerun. The orchestrator subsequently reported independent read-only full390/390
-PASS. Original failure logs remain preserved: the later PASS does not establish
-absence of timing intermittency. Public probe and frozen-input receipts remain
-private outside Git; no live offer/authentication, installation or activation PASS
-is claimed. See `optional-integration-readiness.md` for the protected contract and
-pending root integration obligations.
+The current correction is limited to the public adapter, its tests and this
+contract document. Tests exercise separate list/detail selections, exact detail
+ID binding, invalid request IDs without HTTP, absent/invalid BTC wrappers and
+bounds, integer precision, shared throttle, no fanout/retry and partial coverage.
+Existing body/time/rate/error/pagination negatives remain covered. Local fixtures
+and mocks establish parser/transport behavior; metadata200 and historical invalid
+list-query400 are separate public observations. No new provider call, credential,
+root wiring, installation, activation or financial qualification occurred here.
+
+Earlier BTC-bounds work passed build and42 targeted tests. Its first correctly
+located full run passed389/390 with one pre-existing fragmented-stream timer
+assertion failure, followed by targeted PASS and an orchestrator-reported
+independent full390/390 PASS. Those historical logs remain preserved; subsequent
+PASS does not establish absence of timing intermittency. Current verification
+receipts and full-input fingerprints remain private outside Git. The protected
+control and wiring obligations in `optional-integration-readiness.md` remain
+unchanged; root owns their integration and reconciliation with this list/detail
+contract.

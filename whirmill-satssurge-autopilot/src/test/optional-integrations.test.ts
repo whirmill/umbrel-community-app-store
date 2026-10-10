@@ -7,10 +7,11 @@ function client(value: unknown, status = 200) { return new OptionalIntegrationRe
 function reason(result: ReadResult<unknown>) { assert.equal(result.ok, false); if (!result.ok) return result.reason; }
 const estimate = { data: { market: { liquidity: { liquidity_per_usd: { sats: '543260', usd: '501.09', secret: 'fixture-sensitive' } } } } };
 const offer = { id: '12345678-1234-1234-1234-123456789abc', min_amount: { satoshi: { sats: '100000' } }, max_amount: { satoshi: { sats: '500000' } }, total_amount: { satoshi: { sats: '9007199254740993000' } }, locked_amount: { satoshi: { sats: '0' } }, fees: { fixed: { sats: '100' }, variable: { sats: '1000' }, amboss: { sats: '200' } }, promises: { min_block_length: 4320 }, private_note: 'fixture-sensitive' };
+function detail(value: unknown) { return { data: { market: { offer: { get_offer: value } } } }; }
 function page(list: unknown[], total: number) { return { data: { market: { offer: { offers: { list, total } } } } }; }
 test('disabled defaults make no network or credential reads', async () => {
   let calls = 0; const c = new OptionalIntegrationReads(undefined, { fetch: async () => { calls++; throw new Error(); }, ambossCredential: () => { calls++; return 'fixture-key'; } });
-  for (const r of await Promise.all([c.roboSatsInfo(), c.roboSatsBook(), c.magmaEstimate(), c.magmaOffers(), c.ambossSpaceAvailability(true)])) assert.equal(reason(r), 'disabled');
+  for (const r of await Promise.all([c.roboSatsInfo(), c.roboSatsBook(), c.magmaEstimate(), c.magmaOffers(), c.magmaOffer(offer.id), c.ambossSpaceAvailability(true)])) assert.equal(reason(r), 'disabled');
   assert.equal(calls, 0);
 });
 test('config is strict, copied and immutable', () => {
@@ -57,7 +58,7 @@ test('Magma page preserves bigint strings, cursor and partial coverage; never qu
   const last = await client(page([offer], 2)).magmaOffers(1, 1); if (last.ok) assert.equal(last.value.nextOffset, null);
 });
 test('invalid pages, duplicate IDs, asset amounts and inconsistent bounds fail closed', async () => {
-  for (const p of [page([], 1), page([offer, offer], 2), page([offer], 0), page([{ ...offer, total_amount: { satoshi: null } }], 1), page([{ ...offer, locked_amount: { satoshi: { sats: '9007199254740993001' } } }], 1)]) assert.equal(reason(await client(p).magmaOffers()), 'schema');
+  for (const p of [page([], 1), page([offer, offer], 2), page([offer], 0), page([{ ...offer, locked_amount: { satoshi: { sats: '9007199254740993001' } } }], 1)]) assert.equal(reason(await client(p).magmaOffers()), 'schema');
   for (const [offset, limit] of [[-1, 1], [0, 51], [0.1, 1], [0, 0]]) assert.equal(reason(await client({}).magmaOffers(offset, limit)), 'schema');
 });
 test('RoboSats info accepts mainnet only and strips identifiers/notices', async () => {
@@ -163,33 +164,86 @@ test('monotonic deadline rejects a signal-honoring read that starves the abort t
 });
 
 
-test('Magma BTC offer bounds use the fixed anonymous query and preserve integer precision', async () => {
+test('Magma BTC detail uses the fixed anonymous query and preserves integer precision', async () => {
   const large = { ...offer, min_amount: { satoshi: { sats: '9007199254740993000' } }, max_amount: { satoshi: { sats: '9007199254740993001' } } };
   const c = new OptionalIntegrationReads(enabled, { ambossCredential: () => { throw new Error('must not read'); }, fetch: async (_url, init) => {
     assert.equal((init?.headers as Record<string, string>).Authorization, undefined);
     const body = JSON.parse(String(init?.body));
     assert.match(body.query, /min_amount \{ satoshi \{ sats \} \}/);
     assert.match(body.query, /max_amount \{ satoshi \{ sats \} \}/);
-    assert.deepEqual(body.variables, { offset: 0, limit: 25 });
-    return response(page([large], 200));
+    assert.match(body.query, /get_offer\(offer_id: \$offerId\)/);
+    assert.deepEqual(body.variables, { offerId: offer.id });
+    return response(detail(large));
   } });
-  const r = await c.magmaOffers(); assert.equal(r.ok, true);
+  const r = await c.magmaOffer(offer.id); assert.equal(r.ok, true);
   if (r.ok) {
-    assert.equal(r.coverage, 'partial'); assert.equal(r.value.total, 200); assert.equal(r.value.nextOffset, 1);
-    assert.equal(r.value.offers[0]?.minSats, '9007199254740993000'); assert.equal(r.value.offers[0]?.maxSats, '9007199254740993001');
+    assert.equal(r.coverage, 'partial');
+    assert.equal(r.value.minSats, '9007199254740993000'); assert.equal(r.value.maxSats, '9007199254740993001');
+    assert.equal(r.value.totalSats, '9007199254740993000'); assert.equal(r.value.lockedSats, '0');
     assert.equal(r.value.sizeBoundsQualified, true); assert.equal(r.value.feeUnitsQualified, false);
-    assert.equal(r.value.offers[0]?.variableFeeValue, '1000');
+    assert.equal(r.value.variableFeeValue, '1000');
   }
 });
 
 test('Magma bounds reject invalid or conflicting integers; absent BTC wrappers remain unsupported', async () => {
   for (const bad of [1, '-1', '1.5', '1e3', '', '1'.repeat(49), null]) {
-    assert.equal(reason(await client(page([{ ...offer, min_amount: { satoshi: { sats: bad } } }], 1)).magmaOffers()), 'schema');
-    assert.equal(reason(await client(page([{ ...offer, max_amount: { satoshi: { sats: bad } } }], 1)).magmaOffers()), 'schema');
+    assert.equal(reason(await client(detail({ ...offer, min_amount: { satoshi: { sats: bad } } })).magmaOffer(offer.id)), 'schema');
+    assert.equal(reason(await client(detail({ ...offer, max_amount: { satoshi: { sats: bad } } })).magmaOffer(offer.id)), 'schema');
   }
-  assert.equal(reason(await client(page([{ ...offer, min_amount: offer.max_amount, max_amount: offer.min_amount }], 1)).magmaOffers()), 'schema');
-  const equal = await client(page([{ ...offer, max_amount: offer.min_amount }], 1)).magmaOffers(); assert.equal(equal.ok, true);
+  assert.equal(reason(await client(detail({ ...offer, min_amount: offer.max_amount, max_amount: offer.min_amount })).magmaOffer(offer.id)), 'schema');
+  const equal = await client(detail({ ...offer, max_amount: offer.min_amount })).magmaOffer(offer.id); assert.equal(equal.ok, true);
   for (const bound of [undefined, null, { satoshi: null }, { asset: { amount: '100' } }]) {
-    for (const field of ['min_amount', 'max_amount']) assert.equal(reason(await client(page([{ ...offer, [field]: bound }], 1)).magmaOffers()), 'unsupported');
+    for (const field of ['min_amount', 'max_amount']) assert.equal(reason(await client(detail({ ...offer, [field]: bound })).magmaOffer(offer.id)), 'unsupported');
   }
+});
+
+
+test('Magma list selects only summary fields, ignores unqueried bounds and never fans out', async () => {
+  let calls = 0;
+  const c = new OptionalIntegrationReads(enabled, { fetch: async (_url, init) => {
+    calls++; const body = JSON.parse(String(init?.body));
+    assert.match(body.query, /^query M5Offers/); assert.doesNotMatch(body.query, /min_amount|max_amount|get_offer/);
+    assert.deepEqual(body.variables, { offset: 0, limit: 25 });
+    const { min_amount: _min, max_amount: _max, ...summary } = offer;
+    return response(page([summary], 200));
+  } });
+  const r = await c.magmaOffers(); assert.equal(calls, 1); assert.equal(r.ok, true);
+  if (r.ok) {
+    assert.equal(r.coverage, 'partial'); assert.equal(r.value.total, 200); assert.equal(r.value.nextOffset, 1);
+    assert.equal(r.value.sizeBoundsQualified, false); assert.equal(r.value.feeUnitsQualified, false);
+    assert.equal(r.value.offers[0]?.totalSats, '9007199254740993000');
+    assert.equal('minSats' in r.value.offers[0]!, false); assert.equal('maxSats' in r.value.offers[0]!, false);
+  }
+  const extras = await client(page([{ ...offer, min_amount: 'invalid ignored extra' }], 1)).magmaOffers(); assert.equal(extras.ok, true);
+  if (extras.ok) assert.equal('minSats' in extras.value.offers[0]!, false);
+});
+
+test('Magma detail rejects invalid request UUID before HTTP and mismatched response identity', async () => {
+  let calls = 0; const c = new OptionalIntegrationReads(enabled, { fetch: async () => { calls++; return response(detail(offer)); } });
+  for (const id of ['', 'not-uuid', offer.id + ' ', null, 1, '" } mutation {']) assert.equal(reason(await c.magmaOffer(id as string)), 'schema');
+  assert.equal(calls, 0);
+  assert.equal(reason(await client(detail({ ...offer, id: '87654321-1234-1234-1234-123456789abc' })).magmaOffer(offer.id)), 'schema');
+  assert.equal(reason(await client(page([offer], 1)).magmaOffer(offer.id)), 'schema');
+  assert.equal(reason(await client(detail(null)).magmaOffer(offer.id)), 'schema');
+});
+
+test('Magma list and detail share provider throttle; detail never retries GraphQL errors', async () => {
+  let calls = 0;
+  const c = new OptionalIntegrationReads(enabled, { fetch: async (_url, init) => { calls++; assert.match(JSON.parse(String(init?.body)).query, /^query M5Offer\(/); return response(detail(offer)); } });
+  const results = await Promise.all([c.magmaOffer(offer.id), c.magmaOffers()]); assert.equal(results[0].ok, true); assert.equal(reason(results[1]), 'cooldown'); assert.equal(calls, 1);
+  let failedCalls = 0; const bad = new OptionalIntegrationReads(enabled, { fetch: async () => { failedCalls++; return response({ ...detail(offer), errors: [{ message: 'fixture-sensitive' }] }); } });
+  const r = await bad.magmaOffer(offer.id); assert.equal(reason(r), 'schema'); assert.equal(failedCalls, 1); assert.doesNotMatch(JSON.stringify(r), /fixture-sensitive/);
+});
+
+test('Magma list and detail reject unsupported assets and inconsistent common amounts', async () => {
+  for (const field of ['total_amount', 'locked_amount']) {
+    for (const value of [null, { satoshi: null }, { asset: { full: '100' } }]) {
+      const o = { ...offer, [field]: value };
+      assert.equal(reason(await client(page([o], 1)).magmaOffers()), 'unsupported');
+      assert.equal(reason(await client(detail(o)).magmaOffer(offer.id)), 'unsupported');
+    }
+  }
+  const o = { ...offer, locked_amount: { satoshi: { sats: '9007199254740993001' } } };
+  assert.equal(reason(await client(detail(o)).magmaOffer(offer.id)), 'schema');
+  assert.doesNotMatch(JSON.stringify(await client(detail(offer)).magmaOffer(offer.id)), /fixture-sensitive/);
 });
