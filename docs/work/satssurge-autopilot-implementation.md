@@ -2137,3 +2137,65 @@ and this handoff are prepared for the primary's separate git-operator metadata
 commit/push; source tag must remain unchanged. GitHub release then requires creation
 and readback. Installed baseline remains0.4.5 pending checkpoint, install, receipt
 reconciliation and real Telegram acceptance; no live financial effect qualified here.
+
+
+### 0.5.1 Telegram UX source handoff
+
+Reviewed implementation changes only Telegram runtime and its interactive tests:
+five inline menu actions, visible command menu, callback expiry, plain Thinking
+indicator, rolling long preview and full final delivery. Local reviewer PASS:
+238 tests and typecheck. Release-owned package/root lock versions are0.5.1 with
+Pi1.1.0/dependencies preserved. Manifest/compose retain verified0.5.0 pending
+new immutable source/tag, Node24 CI and anonymous platform/all-layer proof.
+No financial authority/schema/roadmap changes. Installed acceptance remains
+separate; checkpoint and preserve newer/uncertain receipts without replay.
+
+
+### 0.5.2 feedback source handoff
+
+Local reviewerPASS239tests/typecheck. Includes0.5.1 menu/callback/Thinking/rolling
+preview fixes plus nonempty rich thinking placeholder: live Telegram rejected
+empty tg-thinking with400 RICH_MESSAGE_EMPTY but accepted nonempty content.
+Release-owned package/root lock now0.5.2 with Pi1.1.0/dependencies preserved.
+Store stays0.5.0;0.5.1 has no store promotion/release/install. Previous0.5.0 actual
+native Stop and semantic steering passed;0.5.2 new UX acceptance remains pending.
+Next primary git-operator creates immutable052source/tag; release lane verifies
+exactNode24CI and bothplatforms/allcompressedlayers before storemetadata.
+No schema/financial/roadmap changes; preserve all original/new uncertain receipts.
+
+
+### 0.5.2 final immutable publication handoff
+
+Source513e30c99437f75bc0c5cd7181d1bd47388361cc, signed immutable052tag;
+CI38029485714 build/publishSUCCESS,239Node24.21.0tests/Python16. Bothplatforms
+source/version/flock and all22 compressed layers anonymously verified:
+222,151,438 bytes. Image `ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.2@sha256:09006ac9f708218a77b3c84a54948592b98120117d45d1f8d6fc7df25a35e211`.
+Private image-052-receipt.json/ci-052-full.log and telegram052-install/release-proof.json
+provide publication/installer evidence. Store metadata prepared for primary
+git-operator commit/push; immutable source tags unchanged. GitHub release follows
+that push. Previous050actualnativeStop/semanticsteeringpassed;052newUX remains
+pending installed acceptance.051unpromoted. Checkpoint/preserve/reconcile original
+and newer receipts, restore original autonomy/timers, never replay effects.
+
+### 0.5.2 installed acceptance complete — 2026-10-10
+
+Supported Umbrel update completed: healthy exact 0.5.2 image/source, schema 6,
+stopped host/Mac checkpoints and isolated restores verified, original persistent
+records/credentials/OAuth/association/mandate/model preserved. Original autonomy
+and four timers restored; only the owned installation fence released.
+
+Native Telegram shows five inline menu buttons; owner-clicked Aiuto routed
+successfully. Nine commands are registered in default and owner Italian scopes.
+Native rich drafts retain the mode, display initial loading and advance the long
+preview. The complete 14,715-character final reached Telegram in five sent parts
+with the expected marker. No public reasoning summary was emitted by the provider
+in this final probe; public-summary handling is source-test qualification.
+Native Stop/semantic same-turn steering were actually verified with the owner on
+0.5.0 earlier in the session; the subsequent patches retain their core behavior.
+No financial send/replay was used for these tests. Original roadmap edits remain.
+
+Release: https://github.com/whirmill/umbrel-community-app-store/releases/tag/satssurge-autopilot-v0.5.2
+Source513e30c99437f75bc0c5cd7181d1bd47388361cc; immutable image09006ac9f708218a77b3c84a54948592b98120117d45d1f8d6fc7df25a35e211.
+CI239Node24.21.0/Python16; both architectures and all22 layers verified.
+Private installed/Telegram acceptance receipts are under telegram052-install in
+the local SatsSurge state folder; see the current README record for scope limits.

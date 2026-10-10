@@ -145,7 +145,8 @@ export class Telegram {
         code?: string;
         id?: string;
         version?: number;
-    }, generation = this.store.get('telegramBinding')?.generation ?? null) { const key = hash(eventId).slice(0, 32); this.store.set('telegramCallback:' + key, { ...value, generation }); return key; }
+        expires?: string;
+    }, generation = this.store.get('telegramBinding')?.generation ?? null) { const navigation=value.action==='navigate';const botGeneration=this.store.get('telegramBotGeneration')??null;const key = hash(navigation?JSON.stringify([eventId,generation,botGeneration]):eventId).slice(0, 32); this.store.set('telegramCallback:' + key, { ...value, generation,...(navigation?{chatId:this.store.get('telegramBinding')?.chatId,botGeneration,eventId}: {}) }); return key; }
     private admitAction(updateId: number, event: string, requestId: string, binding: any, at: string, answer: string,
         prepare: () => { message: string; analysis?: boolean; link: { priorTurn: string; correction?: string }; consume?: () => void }) {
         const job = this.store.tx(() => {
@@ -192,7 +193,7 @@ export class Telegram {
                     this.store.run("UPDATE telegram_updates SET status='ignored' WHERE update_id=?", row.update_id);
                     continue;
                 }
-                if (u.date && (u.date < Math.floor(Date.parse(binding.since) / 1000) || Date.parse(at) / 1000 - u.date > 300 || u.date > Date.parse(at) / 1000 + 60)) {
+                if (!u.callbackId && u.date && (u.date < Math.floor(Date.parse(binding.since) / 1000) || Date.parse(at) / 1000 - u.date > 300 || u.date > Date.parse(at) / 1000 + 60)) {
                     this.store.run("UPDATE telegram_updates SET status='ignored',error='Stale incoming command' WHERE update_id=?", row.update_id);
                     continue;
                 }
@@ -204,6 +205,15 @@ export class Telegram {
                     catch { }
                     if (!this.authorized(binding.generation, binding.chatId, callbackBot))
                         continue;
+                }
+                // Menu navigation enters the same command handlers after the callback
+                // spinner ACK. Its persisted correlation is fenced separately from
+                // financial confirmation callbacks and expires after fifteen minutes.
+                if(u.callback){
+                    const navigation=this.store.get('telegramCallback:'+u.callback);
+                    if(navigation?.action==='navigate'&&navigation.generation===binding.generation&&navigation.chatId===binding.chatId&&navigation.botGeneration===callbackBot&&navigation.expires>at&&['/status','/analyze','/proposals','/queue','/help'].includes(navigation.code)){
+                        u.text=navigation.code;u.callback='';
+                    }
                 }
                 let answer = '';
                 if (u.topic || u.edited) {
@@ -220,7 +230,7 @@ export class Telegram {
                 }
                 else if (u.callback) {
                     const value = this.store.get('telegramCallback:' + u.callback);
-                    if (!value || value.generation !== binding.generation)
+                    if (!value || value.generation !== binding.generation || value.action==='navigate')
                         answer = 'Pulsante scaduto o già utilizzato.';
                     else if (value.action === 'steer') {
                         const state = await this.turns().steer(value.id!, at);
@@ -310,6 +320,7 @@ export class Telegram {
                         this.enqueue('proposal:' + p.id, this.summary(p), 'proposal', p.id, at, u.generation);
                 }
                 else if (u.text === '/help' || u.text === '/menu') {
+                    if(u.text==='/menu')this.attachButtons(event,[['Stato','/status'],['Analizza','/analyze'],['Proposte','/proposals'],['Coda','/queue'],['Aiuto','/help']].map(([text,code])=>({text:text!,value:{action:'navigate',code,expires:new Date(Date.parse(at)+15*60000).toISOString()}})),binding.generation);
                     answer = '/status /analyze /pause /resume /proposals /stop /queue /menu /help. La chat consente analisi; chiedi esplicitamente una proposta da approvare. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.';
                 }
                 else {
@@ -617,7 +628,14 @@ export class Telegram {
                 if (tool)
                     text += '\n' + (tool.type === 'tool_call' ? 'Strumento in corso: ' : 'Strumento completato: ') + JSON.parse(tool.data).toolName;
             }
-            text = telegramText(text);
+            const clean=telegramClean(text);
+            if(clean.length>3500){
+                const marker='… Risposta in corso (continuazione)\n';
+                let tail='';
+                // Count UTF-16 transport units but keep whole Unicode code points.
+                for(const ch of [...clean].reverse()){if(marker.length+tail.length+ch.length>3500)break;tail=ch+tail;}
+                text=marker+tail;
+            }else text=clean;
             if (prior.at && Date.parse(at) - Date.parse(prior.at) < 1000)
                 continue;
             if (prior.text === text && prior.at && Date.parse(at) - Date.parse(prior.at) < 20000)
@@ -636,9 +654,9 @@ export class Telegram {
                     }
                 }
                 else if (!prior.plainDraft)
-                    await this.client().call('sendRichMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, rich_message: { html: text.startsWith('Thinking…') ? '<tg-thinking>' + telegramHtml(text.slice('Thinking…'.length).trim()) + '</tg-thinking>' : telegramHtml(text) }, can_stop: true, keep_on_stop: true }, this.abort.signal);
+                    await this.client().call('sendRichMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, rich_message: { html: text.startsWith('Thinking…') ? '<tg-thinking>' + telegramHtml(text.slice('Thinking…'.length).trim() || 'Sto elaborando…') + '</tg-thinking>' : telegramHtml(text) }, can_stop: true, keep_on_stop: true }, this.abort.signal);
                 else
-                    await this.client().call('sendMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, text: text === 'Thinking…' ? '' : text,can_stop:true,keep_on_stop:true }, this.abort.signal);
+                    await this.client().call('sendMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, text,can_stop:true,keep_on_stop:true }, this.abort.signal);
                 this.store.set(key, { ...prior, status: 'active', text, at, cursor: textRow?.id ?? prior.cursor });
             }
             catch (error) {

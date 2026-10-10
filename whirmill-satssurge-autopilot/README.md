@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current installed and accepted release is `0.4.5` (schema 6), with dedicated owner login and visible session logout. Immutable publication and installed acceptance of the Telegram-first baseline are recorded separately below. The bot was subsequently paired; the interactive Telegram 0.5.0 image is immutably published and verified, with installation and real Telegram acceptance still pending. Original autonomy and all four watcher timers are restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Current installed release is `0.5.2` (schema 6). Telegram is the owner conversation interface; web Settings retain configuration and read-only history. Installed acceptance verifies the inline menu, native loading/streaming, advancing long previews and complete final delivery. Native Stop and same-turn semantic steering were also verified with the owner during this release session. Original credentials, association, history, mandate, autonomy and all four watcher timers were preserved. Historical acceptance records below are superseded by the final installed record. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable in Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -982,3 +982,116 @@ of original autonomy/timers. Real Telegram streaming, correction and Stop checks
 remain pending; image proof does not establish those outcomes or profitability.
 Compatible-image rollback must preserve newer/uncertain financial and Telegram
 receipts; never restore an older checkpoint over newer effects or replay them.
+
+
+### 0.5.1 Telegram menu and streaming source candidate — 2026-10-10
+
+Package and both root lockfile versions are 0.5.1; Pi Durable, Pi AI and Chord
+remain 1.1.0. The new immutable source tag will be
+`satssurge-autopilot-v0.5.1`; the 0.5.0 source tag remains unchanged. Manifest
+and compose retain verified 0.5.0 until exact-source CI and anonymous image
+verification pass. No 0.5.1 source SHA, CI run or image digest is claimed yet.
+
+This patch adds the five-button inline `/menu` (Stato, Analizza, Proposte, Coda,
+Aiuto), restores callback expiry validation and makes the command menu visible
+in Telegram. Streaming displays a plain Thinking indicator and a rolling long
+preview; full final content remains delivered. Local review qualified 238 Node
+tests and typecheck; release CI must independently confirm the Node 24 suite
+and Python checks. Real installed Telegram client acceptance remains pending.
+
+Schema 6, durable turn identities, financial capabilities and the existing
+fee/rebalance mandate remain unchanged. Installation requires a stopped executor,
+a consistent checkpoint of all three databases, preservation of private secrets
+and mounted credentials, receipt reconciliation and original timer/autonomy
+restoration. Compatible-image rollback must preserve newer or uncertain receipts;
+never restore older databases over newer effects, replay payments or automatically
+resend uncertain deliveries. The approved roadmap remains unchanged.
+
+
+### 0.5.2 Telegram feedback source candidate — 2026-10-10
+
+Package and root lock versions are0.5.2; Pi Durable/Pi AI/Chord remain1.1.0.
+The intended new source tag is `satssurge-autopilot-v0.5.2`; previous immutable
+tags remain unchanged. Store metadata stays on verified0.5.0. Version0.5.1 was
+not installed or promoted to a GitHub release; its source/CI remain historical.
+No0.5.2 source SHA, CI run or image digest is claimed yet.
+
+This patch includes the five-button inline menu, visible command menu, callback
+expiry validation, plain Thinking indicator, rolling long preview and full final
+delivery. A real Telegram probe found empty `<tg-thinking></tg-thinking>` content
+returns400 RICH_MESSAGE_EMPTY, incorrectly causing permanent plain fallback;
+nonempty thinking content was accepted. The fix keeps the rich initial thinking
+placeholder nonempty, with regression coverage. Local review qualified239 Node
+tests and typecheck; exact-source Node24 CI and Python checks remain separate.
+
+The primary verified actual0.5.0 native Stop and semantic steering in Telegram,
+including same-job settled correction and the requested final marker. New0.5.2
+menu/loading/rolling-preview behavior still requires installed client acceptance.
+Schema6 and financial authority are unchanged. Before installation prove the
+executor stopped, checkpoint all three databases, preserve secrets/credentials,
+reconcile receipts and restore original autonomy/timers. Compatible rollback
+must retain newer/uncertain receipts; never restore older databases over newer
+effects or replay payments/uncertain deliveries. Approved roadmap unchanged.
+
+
+### 0.5.2 immutable image verified — new client UX pending
+
+Source `513e30c99437f75bc0c5cd7181d1bd47388361cc` is fixed by signed tag
+`satssurge-autopilot-v0.5.2` (tag object
+`dbe171a8360224b54d0be22001c8c720de0f7cad`).
+[CI 38029485714](https://github.com/whirmill/umbrel-community-app-store/actions/runs/38029485714)
+passed build and publication: 239 tests on Node24.21.0, zero failures, and
+16 Python tests. Verified immutable image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.2@sha256:09006ac9f708218a77b3c84a54948592b98120117d45d1f8d6fc7df25a35e211`.
+
+Anonymous downloads verified both linux/amd64 and linux/arm64 manifests/configs,
+source labels, application version0.5.2 and `flock --no-fork`. All22 unique
+compressed layers passed SHA-256/size checks (222,151,438 bytes).
+- amd64: `sha256:1b62c75dbc39aaa18d66d53a987dec04603fac4019dbd49257a887a98d5b674f`.
+- arm64: `sha256:4734f9d3f46a612285bb6f5ea73f94434edc6b63dba2b80421e5a54aec2cc238`.
+
+Verified at `2026-10-10T06:07:07.823074+00:00`. Private receipts:
+`/Users/whirmill/.local/share/satssurge/image-052-receipt.json` and
+`/Users/whirmill/.local/share/satssurge/ci-052-full.log`. Store metadata now pins
+this image; its separate commit must not move any immutable source tag. GitHub
+release creation/readback follows the metadata push. Version0.5.1 was unpromoted;
+previous source-candidate and pending-acceptance entries are historical.
+
+The primary recorded actual0.5.0 native Stop and semantic steering passing in
+Telegram, including a settled correction on the same job. The new0.5.2 menu,
+Thinking/loading and rolling-preview UX still requires installed client checks.
+Installation requires a stopped-executor three-database checkpoint, preserved
+secrets/credentials, receipt reconciliation and original autonomy/timer restoration.
+Compatible rollback must preserve newer/uncertain receipts without restoring
+older databases over newer effects or replaying financial/Telegram deliveries.
+Schema6/Pi1.1.0, financial authority and the approved roadmap remain unchanged.
+
+### 0.5.2 installed Telegram acceptance — 2026-10-10
+
+The supported Umbrel update completed with the exact published image/source,
+healthy container and schema 6. Stopped-executor checkpoints and isolated restore
+checks passed on host and Mac before updating. Original records, credentials,
+OAuth, Telegram association, model/mandate settings and timer/autonomy states were
+preserved; only the installation-owned fence was released.
+
+Real Telegram verification observed all five inline menu buttons and successful
+owner-clicked Aiuto navigation. Both default and owner Italian command scopes
+contain the nine registered commands. The installed app retained native rich
+streaming without fallback, showed its initial loading animation, advanced the
+long preview beyond 3,500 characters and delivered the complete 14,715-character
+answer in five confirmed final parts, including its requested final marker.
+The provider emitted no public reasoning summary during this final probe; this
+qualifies the loading placeholder, not a displayed reasoning summary. Public
+summary filtering remains covered by the targeted source tests.
+
+Native Stop and semantic steering were verified with the owner on 0.5.0 earlier
+in this same session: Stop confirmed idle and interruption; steering settled on
+the same turn and produced the requested three bullets and marker. The 0.5.1/0.5.2
+patches changed menu/preview/loading presentation, retaining those core controls.
+No live financial send or replay was performed for acceptance.
+
+Publication evidence is CI 38029485714 (239 Node24.21.0 tests, 16 Python tests),
+source `513e30c99437f75bc0c5cd7181d1bd47388361cc` and the immutable image above.
+Private detailed receipts are `telegram052-install/installed-052-proof.json` and
+`telegram052-install/telegram-uat-proof.json` under the local SatsSurge state folder.
+0.5.1 remains an unpromoted source tag; 0.5.0/0.5.1/0.5.2 tags remain immutable.
