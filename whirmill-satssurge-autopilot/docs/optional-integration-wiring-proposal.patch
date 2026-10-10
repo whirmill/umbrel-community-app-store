@@ -1,0 +1,152 @@
+--- a/whirmill-satssurge-autopilot/src/server.ts
++++ b/whirmill-satssurge-autopilot/src/server.ts
+@@ -20,9 +20,11 @@
+ import { OwnerSessions } from "./owner-auth.js";
+ import { importHistory } from "./importer.js";
+ import { now, json, publicAnswer, scrub } from "./domain.js";
++import { OptionalIntegrationControl } from './optional-integration-control.js';
+ const directory = resolve(process.env.DATA_DIR ?? "/data");
+ mkdirSync(directory, { recursive: true, mode: 0o700 });
+ const store = new Store(join(directory, "operational.sqlite"));
++const optionalIntegrations = new OptionalIntegrationControl(directory, { gates: () => store.optionalIntegrationGates() });
+ if (!store.get("installedAt")) store.set("installedAt", now());
+ const importDir = process.env.HISTORY_DIR ?? "/history";
+ if (existsSync(importDir)) importHistory(store, importDir);
+@@ -76,7 +78,7 @@
+     executor,
+     process.env.INTERLOCK_FILE ?? "/interlock/status.json",
+   );
+-  agent = new Agent(store, executor, directory, queue);
++  agent = new Agent(store, executor, directory, queue, undefined, optionalIntegrations);
+   await agent.open();
+   await collector.collect();
+   intervals.push(setInterval(() => void collector!.collect(), 60000));
+@@ -273,6 +275,7 @@
+         ...store.stats(),
+         csrf,
+         telegram: telegram.status(),
++        optionalIntegrations: optionalIntegrations.status(),
+         proposals: control.proposals(),
+         chat: (store.get<any[]>("chat") ?? [])
+           .slice(-12)
+@@ -394,7 +397,17 @@
+         return;
+       }
+     }
+-    const body = JSON.parse(raw || "{}");
++    let body: any;
++    try { body = JSON.parse(raw || "{}"); }
++    catch (e) { if (url.pathname.startsWith('/api/optional-integrations/')) { send({error:'Optional integration request rejected'},400); return; } throw e; }
++    if (url.pathname === '/api/optional-integrations/config' || url.pathname === '/api/optional-integrations/probe') {
++      const authorized = () => !closing && sessions.accepts(req.headers.authorization);
++      const answer = url.pathname.endsWith('/config')
++        ? optionalIntegrations.configure(body, authorized)
++        : await optionalIntegrations.probe(body?.probe, authorized);
++      send(answer, answer.ok ? 200 : answer.reason === 'unauthorized' ? 401 : answer.reason === 'storage_unavailable' ? 503 : 400);
++      return;
++    }
+     if((url.pathname==='/api/chat'||url.pathname==='/api/analyze')&&!store.one('SELECT id FROM jobs WHERE request_id=?',typeof body.requestId==='string'?body.requestId:'')){
+       send({error:'La conversazione con il coordinatore è disponibile su Telegram. La web app conserva impostazioni e ricevute.'},410);return;
+     }
+@@ -489,7 +502,7 @@
+     }
+     send({ error: "Not found" }, 404);
+   } catch (e) {
+-    send({ error: e instanceof Error ? e.message : "Request failed" }, 400);
++    send({ error: url.pathname.startsWith('/api/optional-integrations/') ? 'Optional integration request rejected' : e instanceof Error ? e.message : 'Request failed' }, 400);
+   }
+ });
+ server.listen(Number(process.env.PORT ?? 8080), "0.0.0.0");
+--- a/whirmill-satssurge-autopilot/src/store.ts
++++ b/whirmill-satssurge-autopilot/src/store.ts
+@@ -5,7 +5,10 @@
+ import { dirname } from 'node:path';
+ import { id, now, json, hash, integer, day, MANDATE, SCHEMA_VERSION, type Snapshot, type Proposal, type Forecast } from './domain.js';
+ 
++import { optionalRoadmapGates } from './optional-integration-gates.js';
++
+ export class Store {
++  optionalIntegrationGates() { return optionalRoadmapGates(this.get('optionalIntegrationGateReceipts')); }
+   readonly db: DatabaseSync;
+   constructor(path: string) {
+     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+--- a/whirmill-satssurge-autopilot/src/agent.ts
++++ b/whirmill-satssurge-autopilot/src/agent.ts
+@@ -71,6 +71,8 @@
+ });
+ function usageDelta(value:any,baseline:any):any{return typeof value==='number'?Math.max(0,value-(typeof baseline==='number'?baseline:0)):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,v])=>[key,usageDelta(v,baseline?.[key])])):value;}
+ class TerminalModelFailure extends Error { constructor(readonly failure:ProviderFailure){super('Model unavailable; original submission terminal, no automatic replay');} }
++import type { OptionalIntegrationControl } from './optional-integration-control.js';
++
+ export class Agent {
+   readonly credentials: Credentials;
+   readonly models;
+@@ -100,6 +102,7 @@
+     private directory: string,
+     private queue: Queue,
+     private providerBoundary?: ReturnType<typeof openaiProvider>,
++    private optionalIntegrationReads?: OptionalIntegrationControl,
+   ) {
+     this.views=new EvidenceViews(Date.now,900000,4*1024*1024,16*1024*1024,store);
+     this.cooldown = store.get<number>("modelUnavailableUntil") ?? 0;
+@@ -384,6 +387,28 @@
+           self.evidenceTimes.set(current()!.job.id, times.slice(-64));
+         }
+       };
++      const optionalRead = defineTool({
++        name: 'optional_integration_read' + label,
++        description: 'Opt-in public market research only. No account identity, credentials or financial operations. Partial/unsupported data never establishes eligibility or profit.',
++        parameters: Type.Object({probe: Type.Union(['robosats-info','robosats-book','magma-estimate','magma-offers','space-availability'].map(name => Type.Literal(name)))}),
++        replay: 'safe',
++        async execute(args, api) {
++          const run = limit(api.conversationId), stop = exhausted(); if (stop) return stop;
++          if (self.store.get('jobCapability:'+run.job.id) !== 'read_only_research' || !self.optionalIntegrationReads)
++            return result({ok:false,reason:'optional_research_capability_required',financialEffects:false});
++          const invocationTurn = new TelegramTurns(self.store,self.queue).get(run.job.id);
++          const authorized = () => {
++            const owned = self.queue.get(run.job.id), turn = new TelegramTurns(self.store,self.queue).get(run.job.id);
++            return current() === run && owned?.state === 'running' && owned.run_token === run.job.run_token
++              && owned.conversation_id === String(api.conversationId)
++              && self.store.get('jobCapability:'+run.job.id) === 'read_only_research'
++              && (!!turn === !!invocationTurn)
++              && (!turn || (!turn.closed && turn.state === 'running' && turn.generation === invocationTurn?.generation
++                && turn.version === invocationTurn?.version && new TelegramTurns(self.store,self.queue).authorized(turn)));
++          };
++          return result(await self.optionalIntegrationReads.probe(args.probe, authorized, true));
++        },
++      });
+       const state = defineTool({
+         name: "node_state" + label,
+         description:
+@@ -731,6 +756,7 @@
+             detail,
+             runtimeEvidence,
+             runtimeReport,
++            optionalRead,
+             proposals,
+             manualProposal,
+             execute,
+@@ -781,6 +807,7 @@
+             detail,
+             runtimeEvidence,
+             runtimeReport,
++            optionalRead,
+             propose,
+           ],
+         });
+--- a/whirmill-satssurge-autopilot/web/App.tsx
++++ b/whirmill-satssurge-autopilot/web/App.tsx
+@@ -1,4 +1,5 @@
+ import {TelegramSettings} from "./components/TelegramSettings";
++import {OptionalIntegrationSettings} from "./components/OptionalIntegrationSettings";
+ import {ResearchSummary} from './components/ResearchSummary';
+ import {AccountingSectors} from './components/AccountingSectors';
+ import { OwnerAccess } from "./components/OwnerAccess";
+@@ -1605,6 +1606,7 @@
+               {tab === "settings" && (
+                 <>
+                   <TelegramSettings status={status.telegram} proposals={status.proposals??[]} api={api} refresh={refresh} />
++                  <OptionalIntegrationSettings status={status.optionalIntegrations} api={api} refresh={refresh} />
+                   <Panel
+                     title="Sottoscrizione Codex"
+                     sub="Accesso OAuth tramite ChatGPT. Nessuna chiave API e nessun ripiego a consumo."
