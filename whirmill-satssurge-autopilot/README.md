@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current installed release is `0.5.2` (schema 6). Telegram is the owner conversation interface; web Settings retain configuration and read-only history. Installed acceptance verifies the inline menu, native loading/streaming, advancing long previews and complete final delivery. Native Stop and same-turn semantic steering were also verified with the owner during this release session. Original credentials, association, history, mandate, autonomy and all four watcher timers were preserved. Historical acceptance records below are superseded by the final installed record. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable in Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Current installed release is `0.5.2` (schema 6). The immutable `0.5.3` image is published and verified; its store metadata promotion, installation and live acceptance remain pending. Telegram is the owner conversation interface; web Settings retain configuration and read-only history. Installed acceptance verifies the inline menu, native loading/streaming, advancing long previews and complete final delivery. Native Stop and same-turn semantic steering were also verified with the owner during this release session. Original credentials, association, history, mandate, autonomy and all four watcher timers were preserved. Historical acceptance records below are superseded by the final installed record. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable in Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -1095,3 +1095,43 @@ source `513e30c99437f75bc0c5cd7181d1bd47388361cc` and the immutable image above.
 Private detailed receipts are `telegram052-install/installed-052-proof.json` and
 `telegram052-install/telegram-uat-proof.json` under the local SatsSurge state folder.
 0.5.1 remains an unpromoted source tag; 0.5.0/0.5.1/0.5.2 tags remain immutable.
+
+### 0.5.3 immutable image publication — 2026-10-10
+
+[PR71](https://github.com/whirmill/umbrel-community-app-store/pull/71) merged the
+reviewed core recovery, advisory prompts and provider-provenance fixes. Final
+independent review passed31 targeted tests and an accepted-correction identity
+probe with no remaining findings. Local Node24.19.0 acceptance passed291 Node
+and16 Python tests, typecheck and150 pinned Pi source checks.
+
+Tag `satssurge-autopilot-v0.5.3` (annotated object
+`ad1237268d2dee7db48ad6602fb8f7a897e693d8`) peels to image source
+`e5a75d48e61f5508fcca9929711c8451ad7c4aaf`, tree
+`f9743c9074b1a2e24cccdc2ad6815305ca308bb7`.
+[Tag CI38034422712](https://github.com/whirmill/umbrel-community-app-store/actions/runs/38034422712)
+passed build/publish,291 Node24.21.0 tests and16 Python tests. The scoped Pi
+backport was verified during tests and both Docker builds. Standalone typecheck
+and pinned-source verification are local acceptance, not separate CI steps.
+
+Published image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.3@sha256:c9ede55c7adeca5d675b429bf603bbd4a9c2465aec919b760fb44062bb588b7b`.
+Anonymous registry verification passed the index, amd64/arm64 manifests/configs,
+exact source revisions and all22 compressed layer SHA-256/size checks. The future
+store metadata commit is distinct from this immutable image source; it must not
+replace the image revision or move the tag. Private sanitized publication proof
+is `/tmp/core053-release-build-proof.json`, SHA256
+`650e6e1c4596c808aeaae2df38f6dc3f72db4823a455b592ce5e2330f18020a7`.
+
+This release preserves schema6, pinned Pi Durable1.1.0, original native IDs and
+the financial mandate. Advisory tools generate owner-readable development prompts;
+they cannot edit source, deploy, change permissions or authorize financial effects.
+Installed release remains0.5.2. New scoped Stop/recovery, advisory attachments and
+provider handling still require installation and real paired Telegram acceptance.
+M3–M5 remain incomplete; optional financial integrations remain disabled.
+
+Installation is held for review of Umbrel2.0's processed-compose contract and a
+complete privileged inventory of host writers. Preserve current OAuth tokens and
+original receipts, exclude every writer, stop the executor, checkpoint all three
+databases and verify isolated recovery before update. Software rollback requires
+schema compatibility and current/new/uncertain receipt preservation; never restore
+older databases or OAuth tokens over current state, or replay uncertain effects.

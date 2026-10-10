@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.2"
+version: "0.5.3"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -28,19 +28,22 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.2 adds the five-button inline menu, visible command menu, callback
-  expiry validation, Thinking feedback, rolling long previews and full final
-  delivery. Nonempty rich thinking fixes Telegram's RICH_MESSAGE_EMPTY rejection
-  of the initial empty placeholder. Existing Telegram durable turns, native Stop,
-  explicit correction choices and independent read-only coordinator remain intact.
-  CI 38029485714 passed 239 tests on Node 24.21.0 and 16 Python tests. Anonymous
-  amd64/arm64 manifest/config and all 22 compressed layer SHA-256/size checks passed
-  against source 513e30c99437f75bc0c5cd7181d1bd47388361cc. Pi Durable remains 1.1.0;
-  schema 6 and the existing financial mandate are unchanged. Actual 0.5.0 Stop and
-  semantic steering passed; new 0.5.2 client UX acceptance remains pending.
-  Before installation stop the executor, checkpoint all three databases and preserve
-  owner.secret, telegram.secret and mounted credentials with their permissions.
-  Rollback requires compatible software and preservation of newer or uncertain receipts;
-  never restore older databases over newer effects or replay payments/uncertain deliveries.
-  Schema-5 software refuses schema 6. Already dispatched messages may finish after
-  revocation. Profitability accounting remains partial.
+  Version 0.5.3 adds durable targeted Stop/restart recovery, advisory development
+  prompts with immutable Telegram text attachments and bounded occurrence receipts,
+  and native provider-failure classification, including accepted corrections.
+  Proven transient stream failures use a bounded cooldown; unverified failures
+  remain unknown. Advisory prompts cannot edit code, deploy or broaden authority.
+  CI 38034422712 passed 291 tests on Node 24.21.0 and 16 Python tests. Anonymous
+  amd64/arm64 manifests, configurations and all 22 compressed layer SHA-256/size
+  checks passed against image source e5a75d48e61f5508fcca9929711c8451ad7c4aaf.
+  Pi Durable remains pinned to 1.1.0 with the verified scoped Stop backport;
+  schema 6 and the existing financial mandate are unchanged. Installed release
+  remains 0.5.2; 0.5.3 installation and real paired Telegram acceptance are pending.
+  Before installation stop all application and host writers, checkpoint all three
+  databases and preserve original receipts, current OAuth tokens, owner.secret,
+  telegram.secret and mounted credentials with their permissions. No schema
+  migration is introduced. Qualify Umbrel's processed compose before installation.
+  Rollback requires schema-compatible software and preservation of newer or
+  uncertain receipts. Never restore older databases or OAuth tokens over current
+  state, or replay payments/uncertain deliveries. Schema-5 software refuses schema 6.
+  Already dispatched messages may finish after revocation. Accounting remains partial.
