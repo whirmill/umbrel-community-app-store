@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current installed release is `0.5.2` (schema 6). The immutable `0.5.3` image, store metadata PR72 and GitHub Release are published and verified; installation and live acceptance of its new changes remain pending. Source PR73, immutable `0.5.4` image, metadata PR74 and GitHub Release are published and verified. The targeted `0.5.5` menu cooldown source correction passed independent review and is prepared for publication; its CI/image/install gates remain pending. Planned installation skips `0.5.4`; actual same-client Telegram acceptance is still required. Telegram is the owner conversation interface; web Settings retain configuration and read-only history. Installed acceptance verifies the inline menu, native loading/streaming, advancing long previews and complete final delivery. Native Stop and same-turn semantic steering were also verified with the owner during this release session. Original credentials, association, history, mandate, autonomy and all four watcher timers were preserved. Historical acceptance records below are superseded by the final installed record. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable in Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Current installed release is `0.5.2` (schema 6). The immutable `0.5.3` image, store metadata PR72 and GitHub Release are published and verified; installation and live acceptance of its new changes remain pending. Source PR73, immutable `0.5.4` image, metadata PR74 and GitHub Release are published and verified. The targeted `0.5.5` correction passed independent review, source PR75/CI and immutable image publication/verification. Its catalog PR, GitHub Release, installation and actual same-client Telegram acceptance remain pending. Planned installation skips `0.5.4`; actual same-client Telegram acceptance is still required. Telegram is the owner conversation interface; web Settings retain configuration and read-only history. Installed acceptance verifies the inline menu, native loading/streaming, advancing long previews and complete final delivery. Native Stop and same-turn semantic steering were also verified with the owner during this release session. Original credentials, association, history, mandate, autonomy and all four watcher timers were preserved. Historical acceptance records below are superseded by the final installed record. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable in Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -1271,3 +1271,42 @@ three databases. Full writer exclusion is still false: indirect custom collector
 scheduling requires inspection. This is not a fence, stop, checkpoint or update.
 Actual target/image proof, full writer exclusion, stopped three-database checkpoints,
 current OAuth/receipt preservation and owner live acceptance remain pending.
+
+### 0.5.5 immutable image publication — 2026-10-10
+
+[PR75](https://github.com/whirmill/umbrel-community-app-store/pull/75) merged
+09:43:53Z after [CI38042315599](https://github.com/whirmill/umbrel-community-app-store/actions/runs/38042315599)
+passed331 Node24.21.0 tests and16 Python on head779d5d62. Image source is
+`039e21e1f96ac29c3dc403f667a9fa830a46d7fc`, tree
+`97a8a442338ec88a6e7548218dcbf67163aba433`, identical to the accepted source.
+Annotated tag `satssurge-autopilot-v0.5.5`, object
+`c3f4e3362c9a49c452d800fc502c5be09499dcff`, peels exactly to that image source.
+Prior053/054 publications remain immutable. Future055 metadata commits remain
+distinct from imageSource039e21; never move this tag or rebuild the version.
+
+[Tag CI38042563845](https://github.com/whirmill/umbrel-community-app-store/actions/runs/38042563845)
+passed331 Node24.21.0/16 Python and both-architecture build/publish. Verified image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.5@sha256:2f4910625bec558e70e90af5696c445233d521a58f3e40d307302292ddba20e9`.
+Anonymous index/manifests/config source revisions and all22 compressed layer
+SHA-256/size checks passed. Actual amd64/arm64 layers confirm package055/Pi1.1.0,
+two scoped-backport hashes and six guards. Both root lock versions055 are bound to
+immutable build source; the runtime image copies package.json only. Private0600
+proof `/tmp/core055-release-build-proof.json`, SHA256
+`318629e6c45d0df1d39b543bd5790a533ecf2b15fb049c96184a106a677a3be7`.
+
+Installed052/source513e/index09006/schema6 remains current. Same-client Telegram
+animation causality is unqualified; rotating policy remains experimental and
+M2.3/M2.4 remain open. Private05561 synthetic tests plus10 negative fixtures are
+not live acceptance. The owner-run09:33 inventory is complete without denied paths
+or problems, but full writer exclusion is false. The extra collector's standalone
+lock/report/experiment/daily-history paths were qualified without aliasing app3DB,
+history or diagnostics; future/manual writers still require fresh exclusion checks.
+Four app watchers and the extra collector timer were active, while observed inactive
+services were not stopped by this qualification. Registered-store resolution's
+reviewed read-only script is staged; its user-executed report is still pending.
+No fence, service stop, stopped checkpoint or update has been performed.
+
+A separate managed native-canonical worktree prepares isolated additive-schema7
+helpers with synthetic tests only; it is not wired into Store or live financial
+migration. M3 integration follows core live acceptance and parity qualification.
+M3–M5 remain incomplete and new financial integrations stay disabled.
