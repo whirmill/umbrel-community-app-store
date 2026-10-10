@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.4.4"
+version: "0.4.5"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -12,7 +12,8 @@ description: >-
   including history, 1,500 sats daily rebalance costs and 100 sats per attempt.
   Requires initial restricted LND credential provisioning and live automation
   interlock. The agent starts after OAuth login and successful reconciliation.
-  Channels, Magma and Telegram are future milestones, not enabled capabilities.
+  Optional paired-owner Telegram chat, guarded pause/resume, proposal review and
+  accounting notifications. Channels and Magma remain future milestones.
 developer: whirmill
 website: https://github.com/whirmill/umbrel-community-app-store
 repo: https://github.com/whirmill/umbrel-community-app-store
@@ -25,17 +26,18 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.4.4 repairs bounded research continuity, automatic scope admission,
-  economic qualification and exact sector/attribution accounting. Chat and
-  Activity retain measured progress, coverage gaps, blockers and next triggers
-  through refresh and SSE replay. CI 37978839715 passed 172 Node 24 and 16 Python
-  tests. Both amd64/arm64 images and all 22 layers passed anonymous SHA-256/size
-  verification against source 77a48c25d7891aa595293319c36ae2444091cdd6.
-  Additive schema 5 preserves original ledger, reservations, financial receipts,
-  conversations and submissions. Before installation, stop the executor and
-  checkpoint all three databases; preserve owner secret and mounted credentials
-  separately with original permissions. Schema-4 software refuses schema 5;
-  never restore older receipts over newer or uncertain effects or replay payments.
-  Installed acceptance remains separate. Shared/unassigned costs retain partial
-  accounting and unknown routing contribution; no profitability qualification
-  or expansion of the financial mandate.
+  Version 0.4.5 adds the paired owner's Telegram interface: durable chat,
+  guarded pause/resume, explicit proposal review, daily accounting digest and
+  critical blocker alerts. Web settings configure the private bot token and
+  numeric-owner pairing; Telegram stays disabled until configured.
+  CI 38022783273 passed 192 Node 24 and 16 Python tests. Both amd64/arm64 images
+  and all 22 layers passed anonymous SHA-256/size verification against source
+  3608a062ae09353059eba2dead54693032933c3b. Additive schema 6 preserves the original
+  ledger, mandate, jobs, Pi submissions and financial receipts. Stop the executor
+  and checkpoint all three databases before installation; preserve owner.secret,
+  telegram.secret when present and mounted credentials with original permissions.
+  Schema-5 software refuses schema 6; never overwrite newer or uncertain receipts
+  or replay payments or uncertain Telegram deliveries. An already dispatched
+  message may complete after revocation. Installed migration and live bot pairing
+  acceptance remain separate. The existing fee/rebalance mandate and partial
+  profitability accounting remain unchanged.

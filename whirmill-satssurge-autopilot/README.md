@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current installed and accepted release is `0.4.4` (schema 5), with dedicated owner login and visible session logout. The Telegram-first source candidate is `0.4.5` (schema 6); immutable publication and installed acceptance are recorded separately below. Original autonomy and all four watcher timers are restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Current installed and accepted release is `0.4.4` (schema 5), with dedicated owner login and visible session logout. The Telegram-first release is `0.4.5` (schema 6), with immutable publication verified; installed acceptance is recorded separately below. Original autonomy and all four watcher timers are restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -837,3 +837,41 @@ The user has now authorized publication and installation. Local acceptance is
 responsive browser checks. Installed schema-6 migration, live bot pairing/delivery
 and provider acceptance still require separate readback; fixture proof does not
 establish those outcomes or profitability.
+
+### 0.4.5 immutable publication verified — installed acceptance separate
+
+Source commit `3608a062ae09353059eba2dead54693032933c3b`, immutable signed source tag
+`satssurge-autopilot-v0.4.5` (tag object
+`8fbc7754a44b83f9f1735f25ee8e890ddfb184f4`) and [CI 38022783273](https://github.com/whirmill/umbrel-community-app-store/actions/runs/38022783273)
+were verified. Build and publish passed; CI recorded 192 Node 24 and 16 Python
+tests. Verified immutable OCI index:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.4.5@sha256:e43728b55948888acf927ea61fbfa3f347440c66399a2ad559c59f44971d6073`.
+
+Anonymous downloads verified SHA-256 and sizes for both linux/amd64 and linux/arm64
+platform manifests/configs and all 22 unique layers
+(222,120,344 compressed bytes). Both configs identify the
+exact source SHA, both application package layers contain version 0.4.5, and both
+commands retain `flock --no-fork`. Platform manifests: amd64
+`sha256:ce7e918bc7d770effc4d886775fa64b057225504172956e91a12a8620bc930dc`
+and arm64
+`sha256:7d06e780a14b9453f626fe0b1c2fbff3bad31a68e39326d3e4ac1bc47ce945eb`.
+Verification timestamp: `2026-10-10T04:09:38.345411+00:00`. Private full receipt:
+`/Users/whirmill/.local/share/satssurge/image-045-receipt.json`; CI log:
+`/Users/whirmill/.local/share/satssurge/ci-045-full.log`.
+
+Store compose now pins that immutable index; manifest advertises 0.4.5 and
+Telegram's configured-owner capabilities. These four metadata/documentation files
+require their own typed git-operator commit/push; the source tag remains unchanged.
+Installed 0.4.4/schema 5 remains the accepted baseline until explicit installed
+readback. Publication does not prove live schema-6 migration, bot pairing/delivery,
+provider acceptance or profitability. The user has authorized installation,
+subject to a fresh stopped-executor three-database checkpoint, private secret and
+credential preservation, receipt reconciliation and original autonomy/timer
+restoration. Never restore an older checkpoint over newer/uncertain effects;
+schema-5 software cannot open schema 6. Telegram starts disabled/unpaired until
+the owner configures credentials and confirms the numeric account.
+
+[GitHub release 0.4.5](https://github.com/whirmill/umbrel-community-app-store/releases/tag/satssurge-autopilot-v0.4.5) was created and read back as final,
+non-prerelease, with exact source, CI and immutable image receipt. Metadata
+publication is the primary's separate git-operator handoff. Installed acceptance
+remains separate.
