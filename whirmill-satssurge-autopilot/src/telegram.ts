@@ -4,7 +4,7 @@ import { TelegramTurns } from './telegram-turns.js';
 import { randomBytes } from 'node:crypto';
 import { writeFileSync, readFileSync, existsSync, chmodSync, renameSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { ApplicationControl } from './application-control.js';
+import { ApplicationControl, requestCapability } from './application-control.js';
 import { Store } from './store.js';
 import { hash, json, now, day, scrub } from './domain.js';
 export interface TelegramTransport {
@@ -189,7 +189,7 @@ export class Telegram {
                 const draft = stopped && this.store.get('telegramDraft:' + stopped.draft_id);
                 let text = String(u.message?.text ?? '');
                 const start = /^\/start\s+(\S+)\s*$/.exec(text);
-                const safe = { generation: this.store.get('telegramBinding')?.generation, update_id: u.update_id, chatId: m?.chat?.id, chatType: m?.chat?.type, userId: from?.id ?? (stopped&&m?.chat?.type==='private'&&m?.chat?.id===this.store.get('telegramBinding')?.chatId ? this.store.get('telegramBinding')?.userId : undefined), topic: m?.message_thread_id, edited: !!u.edited_message, stoppedDraft: stopped?.draft_id, callbackId: u.callback_query?.id, username: telegramText(String(from?.username ?? '')), text: start ? '/start' : telegramText(text), date: m?.date, codeDigest: start ? hash(start[1]!) : undefined, callback: String(u.callback_query?.data ?? '').slice(0, 64) };
+                const safe = { botGeneration:this.store.get('telegramBotGeneration')??null,generation: this.store.get('telegramBinding')?.generation, update_id: u.update_id, chatId: m?.chat?.id, chatType: m?.chat?.type, userId: from?.id ?? (stopped&&m?.chat?.type==='private'&&m?.chat?.id===this.store.get('telegramBinding')?.chatId ? this.store.get('telegramBinding')?.userId : undefined), topic: m?.message_thread_id, edited: !!u.edited_message, stoppedDraft: stopped?.draft_id, callbackId: u.callback_query?.id, username: telegramText(String(from?.username ?? '')), text: start ? '/start' : telegramText(text), date: m?.date, codeDigest: start ? hash(start[1]!) : undefined, callback: String(u.callback_query?.data ?? '').slice(0, 64) };
                 this.store.run('INSERT OR IGNORE INTO telegram_updates(update_id,body) VALUES(?,?)', u.update_id, json(safe));
                 cursor = Math.max(cursor, u.update_id + 1);
             }
@@ -227,10 +227,65 @@ export class Telegram {
         });
         void this.wake?.().catch(() => { }); return job;
     }
+    private delayedReadOnly(u:any):boolean {
+        if(u.callbackId||u.callback||u.stoppedDraft||u.codeDigest||u.edited||u.topic||typeof u.text!=='string')return false;
+        if(['/status','/help','/queue','/menu'].includes(u.text))return true;
+        return !!u.text.trim()&&!u.text.startsWith('/')&&requestCapability(u.text,'telegram')==='read_only_chat';
+    }
+    // Legacy bodies lack botGeneration: retained pairing generation is the proof.
+    // configure() revokes that binding and deletes the old input namespace first.
+    private currentIncoming(u:any,b:any,at:string):boolean {
+        const bot=this.store.get('telegramBotGeneration')??null;
+        return !!b&&u.chatType==='private'&&Number.isSafeInteger(u.userId)&&u.userId===u.chatId&&u.userId===b.userId&&u.chatId===b.chatId&&u.generation===b.generation&&(!('botGeneration' in u)||u.botGeneration===bot)&&Number.isSafeInteger(u.date)&&u.date>=Math.floor(Date.parse(b.since)/1000)&&u.date<=Date.parse(at)/1000+60;
+    }
+    /** Bounded additive recovery; original ignored rows and immutable receipts never change. */
+    private delayedRecovery(at:string) {
+        const b=this.store.get('telegramBinding'),bot=this.store.get('telegramBotGeneration')??null;if(!b)return [];
+        this.store.tx(()=>{
+            const previous=this.store.get<any>('telegramIngressRecoveryScan'),cursor=previous?.generation===b.generation&&previous.botGeneration===bot?previous.updateId:-1;
+            const candidates=this.store.all("SELECT * FROM telegram_updates WHERE status='ignored' AND error='Stale incoming command' AND update_id>? ORDER BY update_id LIMIT 20",cursor);
+            for(const row of candidates){
+                let u:any;try{u=JSON.parse(row.body);}catch{continue;}
+                if(!u||typeof u!=='object'||Array.isArray(u))continue;
+                const key='telegramIngressRecovery:'+row.update_id;
+                if(!this.store.get(key)&&this.delayedReadOnly(u)&&this.currentIncoming(u,b,at)){
+                    const original={updateId:row.update_id,body:row.body,status:row.status,error:row.error};
+                    if(!this.store.get('telegramIngressRecoveryOriginal:'+row.update_id))this.store.set('telegramIngressRecoveryOriginal:'+row.update_id,original);
+                    this.store.set(key,{state:'pending',generation:b.generation,botGeneration:bot,chatId:b.chatId,bodyHash:hash(row.body),requestId:'telegram:'+(bot??'initial')+':'+row.update_id,eventId:'update:'+row.update_id,at});
+                }
+            }
+            if(candidates.length)this.store.set('telegramIngressRecoveryScan',{generation:b.generation,botGeneration:bot,updateId:candidates.at(-1).update_id});
+        });
+        return this.store.all("SELECT key,value FROM meta WHERE key LIKE 'telegramIngressRecovery:%' AND json_extract(value,'$.state')='pending' ORDER BY key LIMIT 10").flatMap(record=>{
+            const recovery=JSON.parse(record.value),id=Number(record.key.slice('telegramIngressRecovery:'.length));
+            const row=this.store.one('SELECT * FROM telegram_updates WHERE update_id=?',id);
+            let valid=row?.status==='ignored'&&row.error==='Stale incoming command'&&typeof row.body==='string'&&hash(row.body)===recovery.bodyHash;
+            if(valid){try{const u=JSON.parse(row.body);valid=!!u&&typeof u==='object'&&!Array.isArray(u);}catch{valid=false;}}
+            if(!valid){this.store.set(record.key,{...recovery,state:'expired',outcome:'original_receipt_unavailable_or_changed'});return [];}
+            return [{...row,recoveryKey:record.key,recovery}];
+        });
+    }
+    private finishIncoming(row:any,error:string|null=null) {
+        if(row.recoveryKey){const current=this.store.get(row.recoveryKey);if(current?.state==='pending')this.store.set(row.recoveryKey,{...current,state:'done',outcome:error?'blocked':'admitted_or_answered',error});}
+        else this.store.run("UPDATE telegram_updates SET status='done',error=? WHERE update_id=?",error,row.update_id);
+    }
     async process(at = now()) {
-        for (const row of this.store.all("SELECT * FROM telegram_updates WHERE status='pending' ORDER BY update_id LIMIT 50")) {
+        const pending=this.store.all("SELECT * FROM telegram_updates WHERE status='pending' ORDER BY update_id LIMIT 50"),recovered=this.delayedRecovery(at);
+        for (const row of [...pending,...recovered]) {
             const u = JSON.parse(row.body), event = 'update:' + row.update_id;
             try {
+                if(row.recoveryKey){
+                    const b=this.store.get('telegramBinding'),bot=this.store.get('telegramBotGeneration')??null;
+                    const current=this.store.get(row.recoveryKey),originalInput=this.store.one('SELECT * FROM telegram_updates WHERE update_id=?',row.update_id);
+                    if(current?.state!=='pending')continue;
+                    if(originalInput?.status!=='ignored'||originalInput.error!=='Stale incoming command'||hash(originalInput.body)!==row.recovery.bodyHash||row.recovery.generation!==b?.generation||row.recovery.botGeneration!==bot||!this.currentIncoming(u,b,at)||!this.delayedReadOnly(u)){
+                        this.store.set(row.recoveryKey,{...row.recovery,state:'expired',outcome:'authority_or_original_receipt_changed'});continue;
+                    }
+                    const outbox=this.store.one('SELECT status FROM telegram_outbox WHERE event_id=?',event);
+                    if(outbox&&outbox.status!=='pending'){this.store.set(row.recoveryKey,{...row.recovery,state:'done',outcome:'existing_delivery_retained',deliveryStatus:outbox.status});continue;}
+                    const original=this.store.one('SELECT id FROM jobs WHERE request_id=?',row.recovery.requestId);
+                    if(original&&(this.store.get('jobTelegramGeneration:'+original.id)!==b.generation||this.store.get('jobCapability:'+original.id)!=='read_only_chat')){this.store.set(row.recoveryKey,{...row.recovery,state:'expired',outcome:'original_admission_authority_mismatch'});continue;}
+                }
                 if (u.chatType !== 'private' || !Number.isSafeInteger(u.userId) || u.userId !== u.chatId) {
                     this.store.run("UPDATE telegram_updates SET status='ignored' WHERE update_id=?", row.update_id);
                     continue;
@@ -247,15 +302,15 @@ export class Telegram {
                         this.store.set('telegramCandidate', { userId: u.userId, chatId: u.chatId, username: u.username, expires: p.expires });
                         this.store.set('telegramPairing', null);
                     });
-                    this.store.run("UPDATE telegram_updates SET status='done' WHERE update_id=?", row.update_id);
+                    this.finishIncoming(row);
                     continue;
                 }
                 const binding = this.store.get('telegramBinding');
-                if (!binding || binding.generation !== u.generation || binding.userId !== u.userId || binding.chatId !== u.chatId) {
+                if (!binding || binding.generation !== u.generation || binding.userId !== u.userId || binding.chatId !== u.chatId || ('botGeneration' in u&&u.botGeneration!==(this.store.get('telegramBotGeneration')??null))) {
                     this.store.run("UPDATE telegram_updates SET status='ignored' WHERE update_id=?", row.update_id);
                     continue;
                 }
-                if (!u.callbackId && u.date && (u.date < Math.floor(Date.parse(binding.since) / 1000) || Date.parse(at) / 1000 - u.date > 300 || u.date > Date.parse(at) / 1000 + 60)) {
+                if (!u.callbackId && u.date!==undefined && (!Number.isSafeInteger(u.date)||u.date < Math.floor(Date.parse(binding.since) / 1000) || (Date.parse(at) / 1000 - u.date > 300&&!this.delayedReadOnly(u)) || u.date > Date.parse(at) / 1000 + 60)) {
                     this.store.run("UPDATE telegram_updates SET status='ignored',error='Stale incoming command' WHERE update_id=?", row.update_id);
                     continue;
                 }
@@ -335,7 +390,7 @@ export class Telegram {
                         });
                     }
                     else if (value.action === 'resume') {
-                        this.store.run("UPDATE telegram_updates SET status='done' WHERE update_id=?", row.update_id);
+                        this.finishIncoming(row);
                         this.control.resume(value.code, at);
                         answer = 'Autonomia ripresa.';
                     }
@@ -365,11 +420,11 @@ export class Telegram {
                     this.attachButtons(event, pending.slice(0, 8).map(t => ({ text: 'Annulla ' + t!.jobId.slice(0, 8), value: { action: 'cancel', id: t!.jobId, version: t!.version } })), binding.generation);
                 }
                 else if (u.text === '/pause') {
-                    this.store.tx(() => { this.control.pause(true); this.enqueue(event, 'Autonomia sospesa. Gli effetti esistenti continuano la riconciliazione.', 'reply', undefined, at, u.generation); this.store.run("UPDATE telegram_updates SET status='done' WHERE update_id=?", row.update_id); });
+                    this.store.tx(() => { this.control.pause(true); this.enqueue(event, 'Autonomia sospesa. Gli effetti esistenti continuano la riconciliazione.', 'reply', undefined, at, u.generation); this.finishIncoming(row); });
                     continue;
                 }
                 else if (u.text === '/resume') {
-                    this.store.tx(() => { const summary = this.control.resumeSummary(at); this.callback(event, { action: 'resume', code: summary.code }); this.enqueue(event, summary.summary, 'reply', undefined, at, u.generation); this.store.run("UPDATE telegram_updates SET status='done' WHERE update_id=?", row.update_id); });
+                    this.store.tx(() => { const summary = this.control.resumeSummary(at); this.callback(event, { action: 'resume', code: summary.code }); this.enqueue(event, summary.summary, 'reply', undefined, at, u.generation); this.finishIncoming(row); });
                     continue;
                 }
                 else if (u.text === '/status') {
@@ -404,19 +459,19 @@ export class Telegram {
                             this.turns().attach(job, binding.generation, binding.chatId);
                             shouldWake = true; answer = 'Ti rispondo qui su Telegram.';
                         }
-                        this.enqueue(event, answer!, 'reply', undefined, at, u.generation);
-                        this.store.run("UPDATE telegram_updates SET status='done',error=NULL WHERE update_id=?", row.update_id);
+                        this.enqueue(event, (row.recoveryKey?'Richiesta precedente recuperata. ':'')+answer!, 'reply', undefined, at, u.generation);
+                        this.finishIncoming(row);
                     });
                     if (shouldWake) void this.wake?.().catch(() => { });
                 }
                 this.store.tx(() => {
                     if (answer)
-                        this.enqueue(event, answer, 'reply', undefined, at, u.generation);
-                    this.store.run("UPDATE telegram_updates SET status='done',error=NULL WHERE update_id=?", row.update_id);
+                        this.enqueue(event, (row.recoveryKey?'Richiesta precedente recuperata. ':'')+answer, 'reply', undefined, at, u.generation);
+                    this.finishIncoming(row);
                 });
             }
             catch {
-                this.store.tx(() => { this.enqueue(event, 'Richiesta bloccata o scaduta. Verifica lo stato nella web app e crea una nuova richiesta.', 'reply', undefined, at, u.generation); this.store.run("UPDATE telegram_updates SET status='done',error='Request blocked; inspect web receipt' WHERE update_id=?", row.update_id); });
+                this.store.tx(() => { this.enqueue(event, 'Richiesta bloccata o scaduta. Verifica lo stato nella web app e crea una nuova richiesta.', 'reply', undefined, at, u.generation); this.finishIncoming(row,'Request blocked; inspect web receipt'); });
             }
         }
     }

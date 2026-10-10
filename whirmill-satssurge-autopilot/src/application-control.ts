@@ -9,6 +9,10 @@ import { hash, json, now, scrub, type Proposal, type Snapshot } from './domain.j
 export function approvalState(s: Snapshot, p: Proposal) {
     return hash(json({ identity: s.identity, synced: s.synced, confirmedSat: s.confirmedSat, channels: s.channels.filter(c => [p.source, p.target].includes(c.id)).sort((a, b) => a.id.localeCompare(b.id)) }));
 }
+export function requestCapability(message:string,source:'owner'|'telegram',analysis=false,purpose?:'qualification'|'economic'|'general') {
+    const review=/\b(approv|review|propos|propon|valut.*prima|conferm)/i.test(message);
+    return purpose==='qualification'?'read_only_qualification':analysis?'read_only_research':review?'guarded_manual_proposal':source==='telegram'?'read_only_chat':'financial_guarded';
+}
 export class ApplicationControl {
     constructor(readonly store: Store, readonly queue: Queue, readonly executor?: Executor) { }
     pause(withinTransaction = false): {
@@ -47,11 +51,10 @@ export class ApplicationControl {
     }
     /** Caller owns Store.tx, so transport intake commits with capability/turn receipts. */
     admitWithinTransaction(requestId: string, message: string, source: 'owner' | 'telegram', analysis = false, purpose?: 'qualification' | 'economic' | 'general', scope = '') {
-        const review = /\b(approv|review|propos|propon|valut.*prima|conferm)/i.test(message);
         const existing = this.store.one('SELECT id FROM jobs WHERE request_id=?', requestId);
         const job = this.queue.enqueueWithinTransaction({ requestId, kind: analysis ? 'analysis' : 'chat', origin: purpose === 'qualification' ? 'qualification' : source, scope, purpose: purpose ?? (analysis ? 'economic' : 'general'), payload: { message } });
         if (!existing) this.store.set('jobRuntimeVersion:' + job.id, runtimeDetectorVersion);
-        if (!existing) this.store.set('jobCapability:' + job.id, purpose === 'qualification' ? 'read_only_qualification' : analysis ? 'read_only_research' : review ? 'guarded_manual_proposal' : source === 'telegram' ? 'read_only_chat' : 'financial_guarded');
+        if (!existing) this.store.set('jobCapability:' + job.id, requestCapability(message, source, analysis, purpose));
         return job;
     }
 
