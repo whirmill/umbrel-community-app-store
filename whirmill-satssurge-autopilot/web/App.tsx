@@ -1740,7 +1740,7 @@ export function App() {
         </main>
         <footer>
           SatsSurge Autopilot <span>·</span> Evidenze prima delle decisioni{" "}
-          <span>·</span> M2.1
+          <span>·</span> Telegram e web
         </footer>
       </div>
     </div>

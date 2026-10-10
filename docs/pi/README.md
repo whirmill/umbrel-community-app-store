@@ -16,6 +16,8 @@ Non serve una connessione Internet per consultare gli snapshot.
    associazione, autorizzazione, proposte, esecuzione, outbox e riavvio.
 4. [Aggiornamenti e verifica delle fonti](upgrades.md): confrontare contratti
    senza applicare per errore esempi di una versione diversa.
+5. [Complementi nativi e qualificazione](native-complements.md): matrice
+   KEEP/THIN ADAPTER/REPLACE/QUALIFY e prove isolate sulla versione 1.1.0.
 
 ## Documentazione ufficiale locale
 
