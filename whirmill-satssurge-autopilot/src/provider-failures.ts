@@ -33,3 +33,28 @@ export function availabilityBlocker(failure:unknown):string {
  if(f?.kind==='no_model'||f?.kind==='configuration_missing')return 'Modello agente non configurato o non disponibile';
  return 'Servizio modello agente non disponibile; causa non qualificata';
 }
+
+/** Consume only the closed receipt written after Agent's native Task/Entry proof.
+ * Binding to the original job/conversation/submission prevents a stale provider
+ * receipt from classifying another failure. Correction IDs require the caller's
+ * explicit accepted-turn ledger proof, never arbitrary same-conversation IDs.
+ * Provider/model text is never proof. */
+export function matchedNativeProviderFailure(value:unknown,job:{id:string;conversation_id:string|null;submission_id:string|null},acceptedCorrectionSubmissionIds:readonly string[]=[]):ProviderFailure|undefined {
+ if(!value||typeof value!=='object'||Array.isArray(value))return;
+ const allowed=['kind','code','source','jobId','conversationId','submissionId','taskId','entryId','at','cooldownMs','until','httpStatus'];
+ if(Object.keys(value).some(k=>!allowed.includes(k)))return;
+ const f=value as Partial<ProviderFailure>;
+ const nativeId=(v:unknown)=>typeof v==='string'&&/^[1-9]\d{0,15}$/.test(v)&&Number.isSafeInteger(Number(v));
+ if(f.source!=='native_entry'||f.jobId!==job.id||!nativeId(job.conversation_id)||!nativeId(job.submission_id)||f.conversationId!==job.conversation_id||(typeof f.submissionId!=='string'||!nativeId(f.submissionId)||(f.submissionId!==job.submission_id&&!acceptedCorrectionSubmissionIds.includes(f.submissionId)))||!nativeId(f.taskId)||!nativeId(f.entryId))return;
+ const codes:Partial<Record<ProviderFailureKind,ProviderFailureCode[]>>={
+  transient_stream:['stream_ended_before_terminal_event','stream_ended_without_stop_reason'],
+  transient_network:['connection_error','request_timeout'],
+  authentication:['http_401','http_403','invalid_api_key','token_expired'],
+  quota:['http_429','rate_limit_exceeded','insufficient_quota','subscription_sharing_usage_limit_exceeded'],
+ };
+ if(!f.kind||!f.code||!codes[f.kind]?.includes(f.code))return;
+ const expectedStatus=f.code==='http_401'?401:f.code==='http_403'?403:f.code==='http_429'?429:undefined;
+ if(f.httpStatus!==expectedStatus)return;
+ if(typeof f.at!=='string'||typeof f.until!=='string'||!/^\d{4}-\d\d-\d\dT.*Z$/.test(f.at)||!/^\d{4}-\d\d-\d\dT.*Z$/.test(f.until)||!Number.isFinite(Date.parse(f.at))||!Number.isFinite(Date.parse(f.until))||f.cooldownMs!==failureCooldownMs(f.kind)||Date.parse(f.until)!==Date.parse(f.at)+f.cooldownMs)return;
+ return f as ProviderFailure;
+}

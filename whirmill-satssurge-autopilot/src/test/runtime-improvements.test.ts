@@ -168,10 +168,10 @@ test('correlated native entry rejects invented receipts and raw payloads; derive
         const job = f.queue.enqueue({ requestId: 'failed-upstream', kind: 'chat', payload: { message: 'private user payload' } });
         f.store.run("UPDATE jobs SET state='failed',error=?,updated_at=? WHERE id=?", 'provider 503 password=private lnbc1personal', at, job.id);
         const outcome = f.runtime.reportEvidence('job', job.id, at) as any;
-        assert.equal(outcome.status, 'open'); assert.equal(outcome.financialExecution, false); assert.match(outcome.prompt, /da solo non giustifica/);
+        assert.equal(outcome.status, 'open'); assert.equal(outcome.financialExecution, false); assert.match(outcome.prompt, /prima di attribuire il problema al codice/);
         assert.ok(!JSON.stringify(outcome).includes('password=')); assert.ok(!JSON.stringify(outcome).includes('lnbc1personal')); assert.ok(!JSON.stringify(outcome).includes('private user payload'));
-        const o = f.runtime.issues()[0]!.revisions[0]!.observation; assert.equal(o.observedAt, at); assert.equal(o.timeBasis, 'source'); assert.equal(o.classification, 'upstream_transient');
-        f.telegram.capture(at); assert.equal(f.store.one("SELECT count(*) n FROM telegram_outbox WHERE event_id LIKE 'advisory:%'").n, 0);
+        const o = f.runtime.issues()[0]!.revisions[0]!.observation; assert.equal(o.observedAt, at); assert.equal(o.timeBasis, 'source'); assert.equal(o.classification, 'unknown');
+        f.telegram.capture(at); assert.equal(f.store.one("SELECT count(*) n FROM telegram_outbox WHERE event_id LIKE 'advisory:%'").n, 1);
     } finally { f.close(); }
 });
 

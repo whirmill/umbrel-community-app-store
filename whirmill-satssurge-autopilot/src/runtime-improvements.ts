@@ -1,3 +1,4 @@
+import { matchedNativeProviderFailure } from './provider-failures.js';
 import { readFileSync } from 'node:fs';
 import { Store } from './store.js';
 import { hash, json, now } from './domain.js';
@@ -176,9 +177,35 @@ export class RuntimeImprovements {
         if (typeof reference !== 'string' || reference.length > 64 || !this.candidates().some(c => c.source === source && c.reference === reference)) throw Error('No bounded current persisted evidence matches this reference');
         let observation: RuntimeObservation;
         if (source === 'job') {
-            const j = this.store.one("SELECT id,error,updated_at FROM jobs WHERE id=? AND state='failed'", reference);
+            const j = this.store.one("SELECT id,error,updated_at,conversation_id,submission_id FROM jobs WHERE id=? AND state='failed'", reference);
             const turn = this.store.get('telegramTurn:' + j.id);
-            observation = { component: 'agent', classification: classifyRuntimeFailure(j.error), facts: turn?.state === 'interrupted' ? ['job_failed','turn_interrupted'] : ['job_failed'], impact: 'partial_response', receipt: j.id, observedAt: j.updated_at, admissionVersion: this.store.get('jobRuntimeVersion:' + j.id) ?? 'unknown', affectedVersion: 'unknown' };
+            // A placed correction may own the failed native submission while the
+            // job retains its immutable initial submission ID. Accept only IDs in
+            // this original turn's committed order, with matching generation,
+            // conversation and admission version (closure increments it once).
+            const acceptedCorrections: string[] = [];
+            const turnBound = turn?.jobId === j.id && turn.conversationId === j.conversation_id &&
+                typeof turn.generation === 'string' && turn.generation.length > 0 &&
+                typeof turn.closed === 'boolean' && turn.capability === this.store.get('jobCapability:' + j.id) &&
+                turn.generation === this.store.get('jobTelegramGeneration:' + j.id) &&
+                Array.isArray(turn.submissions) && turn.submissions.includes(j.submission_id) &&
+                Number.isSafeInteger(turn.version) && turn.version >= 1 && Array.isArray(turn.correctionOrder);
+            if (turnBound && turn.correctionOrder.length <= 100) for (const id of turn.correctionOrder) {
+                if (typeof id !== 'string' || id.length > 160) continue;
+                const correction = this.store.get('telegramCorrection:' + id);
+                if (correction?.id === id && correction.jobId === j.id && correction.generation === turn.generation &&
+                    correction.version === turn.version - (turn.closed ? 1 : 0) &&
+                    ['placed','failed'].includes(correction.state) && correction.withdrawalRequested !== true &&
+                    correction.withdrawResult === undefined && typeof correction.submissionId === 'string' &&
+                    correction.submissionId !== j.submission_id && turn.submissions.includes(correction.submissionId))
+                    acceptedCorrections.push(correction.submissionId);
+            }
+            const provider = matchedNativeProviderFailure(this.store.get('providerFailure:' + j.id), j, acceptedCorrections);
+            // Generic terminal text can describe many failures. Only a matched native
+            // receipt qualifies a provider/auth diagnosis; missing proof stays unknown.
+            const classification: Classification = provider?.kind === 'transient_stream' || provider?.kind === 'transient_network' ? 'upstream_transient' :
+                provider?.kind === 'authentication' || provider?.kind === 'quota' ? 'authentication' : 'unknown';
+            observation = { component: 'agent', classification, facts: turn?.state === 'interrupted' ? ['job_failed','turn_interrupted'] : ['job_failed'], impact: 'partial_response', receipt: j.id, observedAt: j.updated_at, admissionVersion: this.store.get('jobRuntimeVersion:' + j.id) ?? 'unknown', affectedVersion: 'unknown' };
         } else if (source === 'outbox') {
             const r = this.store.one('SELECT event_id,status,created_at FROM telegram_outbox WHERE rowid=?', Number(reference.slice(4)));
             observation = { component: 'telegram', classification: 'unknown', facts: [r.status === 'failed' ? 'delivery_failed' : 'delivery_uncertain'], impact: 'notification_unavailable', receipt: reference, observedAt: r.created_at, admissionVersion: this.store.get('telegramOutboxVersion:' + r.event_id) ?? 'unknown', affectedVersion: 'unknown' };
