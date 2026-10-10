@@ -19,18 +19,27 @@ export function evidenceSource(store:Store,input:EvidenceQuery){
  const clauses:string[]=[],args:any[]=[];
  if(['manual_events','policy_events'].includes(q.section)){
    clauses.push("d.type=?");args.push(q.section==='manual_events'?'manual_operation':'manual_policy');
-   const endpoints=[q.source,q.target,q.channel].filter(Boolean).map(decimal);
+   const endpoints=[q.channel].filter(Boolean).map(decimal);
    if(endpoints.length){clauses.push(`(d.source IN (${endpoints.map(()=>'?')}) OR d.target IN (${endpoints.map(()=>'?')}) OR EXISTS (SELECT 1 FROM json_each(d.details,'$.affectedChannels') c WHERE c.value IN (${endpoints.map(()=>'?')})))`);args.push(...endpoints,...endpoints,...endpoints);}
  }
- for(const key of ['source' ,'target','channel'] as const)if(q[key]&&!['manual_events','policy_events'].includes(q.section)){
+ for(const key of ['source','target','channel'] as const)if(q[key]&&(!['manual_events','policy_events'].includes(q.section)||key!=='channel')){
    const expr=a[key];
    if(key==='channel'&&!expr&&a.source&&a.target){clauses.push(`(${a.source}=? OR ${a.target}=?)`);args.push(decimal(q[key]),decimal(q[key]));}
    else {if(!expr)throw Error('Unsupported '+key+' filter for '+q.section);clauses.push(expr+'=?');args.push(decimal(q[key]));}
  }
  if(q.start){clauses.push('julianday('+a.time+')>=julianday(?)');args.push(q.start);}
  if(q.end){clauses.push('julianday('+(q.section==='coverage'?'d.start':a.time)+')<julianday(?)');args.push(q.end);}
+ // A direction missing from a retained receipt cannot be interpreted as an empty matching set.
+ if(['manual_events','policy_events'].includes(q.section)&&(q.source||q.target)){
+   const unknown:string[]=[],unknownArgs:any[]=[q.section==='manual_events'?'manual_operation':'manual_policy'];
+   for(const key of ['source','target'] as const)if(q[key])unknown.push(`d.${key} IS NULL OR d.${key}=''`);
+   const base=["d.type=?"];
+   if(q.start){base.push('julianday(d.occurred_at)>=julianday(?)');unknownArgs.push(q.start);}
+   if(q.end){base.push('julianday(d.occurred_at)<julianday(?)');unknownArgs.push(q.end);}
+   if(store.one(`SELECT 1 FROM events d WHERE ${base.join(' AND ')} AND (${unknown.join(' OR ')}) LIMIT 1`,...unknownArgs))return {unavailableEvidence:{available:false,unsupportedFilter:true,rows:null,nextOffset:null,note:'Retained receipt direction is unknown; scoped completeness cannot be certified'}};
+ }
  const rows=store.all(`SELECT d.* FROM ${a.table}${a.join??''}${clauses.length?' WHERE '+clauses.join(' AND '):''} ORDER BY ${a.time},${q.section==='holds'?'d.channel_id':'d.id'} LIMIT 10001`,...args);
  const coverage=store.all("SELECT start,end,kind,complete,details FROM coverage WHERE kind='LND forwards' ORDER BY start,end");
- return {[q.section]:rows.slice(0,10000),adapterFiltered:true,sourceMetadata:{schema:1,source:q.section==='corridor_events'?'LND original events':'operational receipts',coverage},projectionLimits:{selected:rows.length,processed:Math.min(rows.length,10000),limit:10000,truncated:rows.length>10000,upstreamHistoryComplete:false}};
+ return {[q.section]:rows.slice(0,10000),adapterFiltered:true,sourceMetadata:{schema:1,filterSemantics:'directional-v2',...(['manual_events','policy_events'].includes(q.section)?{perRouteAllocationQualified:false,directionScopeNote:'Recorded receipt direction; affectedChannels may include other MPP endpoints. Full-event amounts do not certify allocation by route.'}:{}),source:q.section==='corridor_events'?'LND original events':'operational receipts',coverage},projectionLimits:{selected:rows.length,processed:Math.min(rows.length,10000),limit:10000,truncated:rows.length>10000,upstreamHistoryComplete:false}};
 }
 function decimal(v:string|undefined){if(!v)return '';const [h,t,o]=channelScid(v).split('x').map(BigInt);return ((h!<<40n)+(t!<<16n)+o!).toString();}

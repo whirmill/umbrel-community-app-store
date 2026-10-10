@@ -223,3 +223,58 @@ il completamento della risposta originale. Intento e risultato di ritiro sono
 ricevute distinte, così `already_placed` non diventa un ritiro riuscito durante
 una race. Un 429 di draft sospende anche l'outbox dello stesso ciclo: il gate
 globale è controllato all'ingresso di deliver e prima di ciascun dispatch.
+
+## Correzione trasporto M2.3 e prova client richiesta
+
+La policy rich candidata è `rotating`: ogni invio effettivo, inclusa la refresh
+invariata a 20 secondi, riserva un nuovo ID persistente. Il
+[Bot API rich draft](https://core.telegram.org/bots/api#sendrichmessagedraft)
+documenta sostituzione senza animazione per ID diversi; il contratto MTProto
+più generale descrive invece più draft. La correzione dell'animazione sul client
+Telegram macOS deve quindi essere verificata con una prova reale abbinata,
+senza affermare che i test mock certifichino la resa del client.
+
+Per il controllo, `POST /api/telegram/stream-policy` accetta soltanto
+`{"richDraftPolicy":"stable"}` oppure `{"richDraftPolicy":"rotating"}` attraverso
+la normale sessione owner, same-origin e CSRF. La policy corrente è nel readback
+`/api/telegram/status`. Cambiare policy durante un turno attivo o una dispatch
+restituisce 409. Non modifica token, binding, OAuth, input modello o mandato.
+La policy si applica ai turni successivi. Il controllo mantiene lo stesso ID;
+la candidata lo ruota. Thinking pubblico, Stop nativo e proiezione restano uguali.
+
+Un solo turno in primo piano per chat invia preview. La coalescenza è un secondo
+per peer, la refresh invariata resta a 20 secondi e `retry_after` è condiviso.
+Le dispatch normali e draft sono serializzate; le notifiche normali precedono
+la preview e ne invalidano la ricevuta locale anche quando la consegna è incerta.
+Con un turno attivo viene tentato al massimo un elemento outbox per ciclo.
+Ogni chiamata outbound è limitata a cinque secondi, incluso il body HTTP;
+il long polling conserva il timeout precedente. Timeout di una consegna normale
+resta incerto e non viene reinviato automaticamente. Una chiamata già partita
+potrebbe comunque arrivare dopo timeout: la ricevuta non prova cancellazione remota.
+
+Gli alias draft conservano job, generazione, versione, chat e generazione bot,
+ID, lunghezza/hash, tempi e outcome, senza una seconda copia del corpo o segreti.
+Sono registrati prima dell'invio, anche se l'esito sarà incerto. Il contatore
+monotono persistente non riusa ID dopo riavvio o eliminazione; esaurimento ID o
+100.000 alias blocca la preview con ricevuta `capacity_blocked`, non la risposta
+finale. Alias conservati 24 ore e cinque minuti coprono il ritardo massimo
+ordinario della coda update Telegram, oltre i 30 secondi della preview. Pruning
+al massimo una volta al minuto; gli alias legacy esatti restano riconoscibili.
+Stop su alias vecchio conserva la sua identità: turno chiuso/versione scaduta
+ha risposta esplicita; alias sconosciuto o scaduto non seleziona il turno attuale.
+Dopo ogni await si ricontrollano turno running, versione, Stop, chat e bot,
+senza riscrivere uno stream obsoleto né riaprire un turno terminale.
+
+Le viste nuove `manual_events`/`policy_events` qualificano `directional-v2` con `filterSemanticsVersion:2` in metadata e hash
+della versione:
+`source` e `target` sono uguaglianze direzionali combinate con AND; `channel`
+indica coinvolgimento di un endpoint o `affectedChannels`. Una direzione mancante
+rende la vista scoped non disponibile, mai zero inventato. I campi direzione
+della ricevuta non certificano attribuzione per rotta MPP: gli endpoint aggiuntivi
+restano in `affectedChannels` e gli importi dell'evento intero non sono ripartiti
+implicitamente tra rotte (`perRouteAllocationQualified:false`). Nei diagnostici il
+filtro canale usa identità canale qualificata o endpoint normalizzati, mai l'ID
+osservazione. Le righe prive dei campi necessari restano esplicitamente unsupported.
+Un cursore persistente precedente conserva immutabilmente righe e semantica della
+sua acquisizione; l'assenza del contratto è esposta come `legacy_unknown` senza
+mutare la ricevuta salvata. Riapertura esplicita produce una nuova vista con le nuove regole.

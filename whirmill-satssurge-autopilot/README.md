@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current installed release is `0.5.2` (schema 6). The immutable `0.5.3` image is published and verified; its store metadata promotion, installation and live acceptance remain pending. Telegram is the owner conversation interface; web Settings retain configuration and read-only history. Installed acceptance verifies the inline menu, native loading/streaming, advancing long previews and complete final delivery. Native Stop and same-turn semantic steering were also verified with the owner during this release session. Original credentials, association, history, mandate, autonomy and all four watcher timers were preserved. Historical acceptance records below are superseded by the final installed record. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable in Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Current installed release is `0.5.2` (schema 6). The immutable `0.5.3` image, store metadata PR72 and GitHub Release are published and verified; installation and live acceptance of its new changes remain pending. Source `0.5.4` is prepared after independent corrective review; it is not published or installed. Telegram is the owner conversation interface; web Settings retain configuration and read-only history. Installed acceptance verifies the inline menu, native loading/streaming, advancing long previews and complete final delivery. Native Stop and same-turn semantic steering were also verified with the owner during this release session. Original credentials, association, history, mandate, autonomy and all four watcher timers were preserved. Historical acceptance records below are superseded by the final installed record. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable in Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -1135,3 +1135,42 @@ original receipts, exclude every writer, stop the executor, checkpoint all three
 databases and verify isolated recovery before update. Software rollback requires
 schema compatibility and current/new/uncertain receipt preservation; never restore
 older databases or OAuth tokens over current state, or replay uncertain effects.
+
+### 0.5.4 corrective source preparation — 2026-10-10
+
+The accepted corrective source implements directional source/target AND filters,
+channel involvement and explicit missing-direction uncertainty, qualified diagnostic
+endpoint filters and `filterSemanticsVersion:2`. Original cursor receipts remain
+immutable. Telegram retains exact persistent native Stop aliases while supporting
+rotating/stable rich draft IDs through the existing owner/CSRF-protected idle-only
+control. Normal delivery takes priority, outbound requests have five-second bounds,
+closed turns cannot resurrect previews, and validated same-bot429 cooldown gates
+cover drafts, outbox, polling and menu registration. A stale old-bot menu response
+cannot throttle the replacement bot.
+
+Independent review cleared both late429 provenance P2 findings. Final31 targeted
+tests/compilation and the old-menu reproduction passed with no remaining findings;
+the reproduction left the replacement gate unset and performed zero operations.
+Earlier directional/transport qualification covered98 cases after its fixture
+correction. Reviewed104-input manifest SHA256:
+`02ca7e4d2058cc84383a4e3da8f7f78a4f5bbea8dab0a8416442b15dc9e58fc0`.
+The final version/docs acceptance runs the full327 Node tests,16 Python tests and
+typecheck on Node24.19.0; exact stable hashes/results are recorded in the private
+`/tmp/core054-source-acceptance-proof.json` and linked input manifest.
+
+The rotating policy remains experimental until actual paired acceptance on the
+same Telegram macOS12.10/build282987 client. Same-ID animation is a hypothesis;
+source tests do not prove the cause or correction of the observed client behavior.
+Installed runtime remains0.5.2/schema6, source513e30c and image09006ac9. Compose
+and Umbrel manifest retain verified0.5.3 until a new0.5.4 digest is verified.
+Pi Durable1.1.0, schema6, financial mandate and uncertain-effect reconciliation
+are unchanged. No new schema migration or financial capability is introduced.
+
+Private054 preparation passed60 synthetic installation tests and an independent
+8-boundary-case audit; this is not live installation proof. Actual target proof,
+privileged writer inventory, stopped three-database checkpoints and current
+OAuth/receipt-preserving recovery remain installation gates. Passive M3 HTLC
+observation08:12–08:22Z subscribed with HTTP200 and zero events; classification
+was unexercised and parity is unqualified. The next20-minute capture is active,
+without a result claim. M3–M5 implementation/live qualification remains incomplete;
+optional financial integrations stay disabled.

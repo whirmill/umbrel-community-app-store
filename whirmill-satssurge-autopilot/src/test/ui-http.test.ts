@@ -218,6 +218,13 @@ test("actual HTTP auth, legacy projection, history pages and SSE replay use dura
       "Content-Type": "application/json",
       "X-CSRF-Token": status.csrf,
     };
+    const policyUrl=base+'/api/telegram/stream-policy';
+    assert.equal((await fetch(policyUrl,{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({richDraftPolicy:'stable'})})).status,401);
+    assert.equal((await fetch(policyUrl,{method:'POST',headers:{...headers,Origin:base,'Content-Type':'application/json'},body:JSON.stringify({richDraftPolicy:'stable'})})).status,403);
+    assert.equal((await fetch(policyUrl,{method:'POST',headers:logoutHeaders,body:JSON.stringify({richDraftPolicy:'invalid'})})).status,400);
+    const beforePolicy=await (await fetch(base+'/api/telegram/status',{headers})).json() as any;
+    const policy=await fetch(policyUrl,{method:'POST',headers:logoutHeaders,body:JSON.stringify({richDraftPolicy:'stable'})});assert.equal(policy.status,200);
+    const afterPolicy=await policy.json() as any;assert.equal(afterPolicy.richDraftPolicy,'stable');assert.deepEqual(afterPolicy.owner,beforePolicy.owner);assert.equal(afterPolicy.configured,beforePolicy.configured);
     const original = (await (
       await fetch(base + "/api/jobs/receipt?requestId=http:0", { headers })
     ).json()) as any;
