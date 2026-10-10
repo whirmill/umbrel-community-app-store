@@ -146,3 +146,66 @@ cumulativo e delta per turno sono entrambi distinti dal budget del turno.
 Telegram terminal closure is one operational-store transaction with the accepted-Stop check. It commits the outcome, selected public final-entry ID, and owned submission IDs before returning to the scheduler. A closed turn cannot reopen or increment its version on recovery. Recovery reconciles every admitted correction in durable admission order, including native successful submissions whose app receipt was already settled: the latest successful correction supplies the final answer, while any required original/correction failure remains terminal. A confirmed queued withdrawal is exempt; an abort without its application result receipt remains unresolved and fails closed. Stop permits native identity lookup/readback, never creation of a missing correction.
 
 Committed Telegram terminal receipts include the bounded public scheduler result. Recovery projects that result before provider availability, native configuration, cumulative usage, or budget initialization; the scheduler also projects queued/waiting terminal receipts before its availability gate. Consequently cooldown/accounting failure cannot turn committed completion into failure or postpone a known interrupted outcome. Completion rereads the full durable admitted ledger at the final fence, including correction placement rejected before a native ID exists. Intentional late choices are not required submissions.
+
+## Recovered Stop offline: application patch v1
+
+Stock Pi Durable 1.1.0 `Conversation.abort()` and `waitForIdle()` enable the
+whole scheduler. They therefore cannot qualify an offline recovered Stop that
+must leave unrelated pending work, including existing abort marks, untouched.
+SatsSurge applies **`satssurge-scoped-stop-v1`**, a separate, pinned application
+patch. The npm package version, lockfile integrity, upstream snapshots and
+built-in generation/tool definitions remain the upstream 1.1.0 contract.
+
+`whirmill-satssurge-autopilot/scripts/pi-scoped-stop-patch.mjs` verifies the exact
+1.1.0 version, original or already-patched SHA-256 of scheduler/harness, and six
+unchanged native contract files before any write. Unsupported inputs fail the
+build. `build`, `test` (through build), and `typecheck` invoke it explicitly, so
+`npm ci --ignore-scripts` is supported. Docker copies both patch files before
+building; the resulting patched dependency is carried into the final image.
+Patch manifest SHA-256:
+`283b864ad348dc0bf979de7c1b6095b0a67e3b0d4585b65b0d9489302b0974d2`;
+script SHA-256:
+`8fc51a4418e9e073b64dcadd90f0c64ec9b8d910888823253ff1e53f30e81be8`.
+
+The additional `cancelConversationScoped` entry point requires an open paused
+scheduler. One native transaction marks the exact ordinary ownership scope and
+withdraws its queued inbox inputs before dispatch. Only that captured set of
+abort-marked tasks can be reserved while global scheduling stays paused. Native
+abort handlers run bottom-up, preserving their real task/submission outcomes;
+no registry substitution, filtered storage or invented terminal state is used.
+The scheduler's scoped idle wait does not call `resume`. Global resume is refused
+while scoped cancellation is preparing or still has live target work.
+
+Deferred provider cancellation is skipped in this offline lane. A bounded
+`app.scoped_stop_remote_uncertainty` entry commits the task identity and unknown
+remote status before native cancellation. The original generation abort handler
+still commits its native local outcome; remote execution is **unknown**, never
+reported stopped. This uncertainty survives a crash after native terminal state
+and before the application terminal receipt. It requires provider-side
+reconciliation when access returns; cancellation does not authorize replay.
+
+Agent recovery runs before availability and before budget/normal run admission,
+serialized across scheduler pump and immediate Telegram dispatch. It checks the
+existing binding, generation, turn version, capability, original request and
+submission/conversation IDs again after awaits. If app binding fields are absent,
+it resolves only the persisted conversation intent, immutable native binding
+entries and the original native request-ID receipt; exactly one matching proof
+may bind the existing operational job under the same fence. An admitted correction
+with no native receipt is withdrawn explicitly as `stop_before_native_submission`
+after scoped idle. Recovery creates/configures/submits
+nothing. Active runners retain their existing live path. Unknown bindings,
+stale ownership, an unsupported scheduler state, or a two-second native wait
+timeout leave Stop pending. Only genuine native scoped idle permits application
+closure. Future application turns remain queued outside the native inbox.
+
+Disposable native fixtures cover SIGKILL during an active correction, offline
+reopen, original submit-before-app-bind recovery, unrelated financial/analyst generations and a preexisting abort mark,
+stale versions, unknown bindings, a bounded application wait failure, deferred
+uncertainty, and a second SIGKILL after native idle before app closure. Their
+preservation baseline is taken after Harness.open recovery normalization. They
+check native tasks/submissions/transcript/documents and operational financial
+receipts, original IDs, queued future work, zero provider/effect calls and
+idempotent terminal readback. The wait failure uses an injected unresponsive
+scoped-wait boundary; it does not certify cancellation of an arbitrary hung
+extension abort handler. No real provider or financial action is qualified by
+these local tests.

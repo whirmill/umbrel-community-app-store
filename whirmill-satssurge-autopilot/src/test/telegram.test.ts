@@ -95,3 +95,10 @@ test('old long-poll result is discarded after token replacement and cannot advan
   await new Promise<void>(r=>setImmediate(r));f.t.stop();await polling;
   assert.equal(f.s.get('telegramCursor'),0);assert.equal(f.s.all('SELECT * FROM telegram_updates').length,0);assert.equal(f.s.get('enabled'),true);f.close();
 });
+
+test('critical availability labels require proven provider classification',async()=>{
+ const identities={source:'native_entry',jobId:'job',conversationId:'7',submissionId:'15',taskId:'21',entryId:'22'};
+ for(const [failure,expected] of [[undefined,/causa non qualificata/],[{kind:'provider_unknown',code:'unclassified'},/causa non qualificata/],[{...identities,kind:'transient_stream',code:'stream_ended_before_terminal_event'},/Risposta del provider interrotta/],[{...identities,kind:'authentication',code:'http_401'},/Autenticazione agente rifiutata/],[{...identities,kind:'quota',code:'http_429'},/Quota o limite richieste/]] as const){
+  const f=setup();try{await pair(f);f.s.set('agent',{status:'unavailable',failure});f.t.capture();const rows=f.s.all("SELECT text FROM telegram_outbox WHERE kind='critical'");const text=JSON.stringify(rows);assert.match(text,expected);if(!failure||!['authentication','quota'].includes(failure.kind))assert.doesNotMatch(text,/Autenticazione|Quota|relogin/);}finally{f.close();}
+ }
+});

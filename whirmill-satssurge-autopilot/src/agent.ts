@@ -1,3 +1,5 @@
+import {classifyNativeProviderError,failureCooldownMs,type ProviderFailure,type ProviderFailureKind} from './provider-failures.js';
+import { RuntimeImprovements } from './runtime-improvements.js';
 import {TelegramTurns, type Correction} from './telegram-turns.js';
 import {ApplicationControl} from "./application-control.js";
 import {Research} from './research.js';
@@ -21,7 +23,7 @@ import {
 } from "@earendil-works/pi-durable";
 import { openNodeSqliteDatabase } from "@earendil-works/pi-durable/storage/sqlite/node";
 import { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
-import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
+import { BACKGROUND_CONTEXT as context, withAbortSignal } from "@earendil-works/chord/context";
 import { createModels } from "@earendil-works/pi-ai/models";
 import { openaiProvider } from "@earendil-works/pi-ai/providers/openai";
 import { Type, type AuthPrompt, type AuthEvent } from "@earendil-works/pi-ai";
@@ -68,7 +70,7 @@ const ProposalSchema = Type.Object({
   hypothesis: Type.String(),
 });
 function usageDelta(value:any,baseline:any):any{return typeof value==='number'?Math.max(0,value-(typeof baseline==='number'?baseline:0)):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,v])=>[key,usageDelta(v,baseline?.[key])])):value;}
-class TerminalModelFailure extends Error {}
+class TerminalModelFailure extends Error { constructor(readonly failure:ProviderFailure){super('Model unavailable; original submission terminal, no automatic replay');} }
 export class Agent {
   readonly credentials: Credentials;
   readonly models;
@@ -636,6 +638,27 @@ export class Agent {
           });
         },
       });
+      const runtimeEvidence = defineTool({
+        name: 'runtime_improvement_evidence' + label,
+        description: 'List bounded existing runtime failure/coverage receipts for an advisory development prompt. Never reads raw logs or personal payment payloads; missing evidence is unknown.',
+        parameters: Type.Object({}, { additionalProperties: false }), replay: 'safe',
+        async execute(_args, api) {
+          limit(api.conversationId); const stop = exhausted(); if (stop) return stop;
+          return result({ evidence: new RuntimeImprovements(self.store).candidates(), advisoryOnly: true });
+        },
+      });
+      const runtimeReport = defineTool({
+        name: 'report_runtime_improvement' + label,
+        description: 'Persist an Italian advisory development prompt from a listed current evidence receipt. Facts, classification and app version are derived from storage. No code/runtime/permission changes or financial effects; pure upstream/auth failures are recorded without app-fix notification. Delivery does not resolve an issue. Never claim a confirmed app regression without a trusted verification receipt.',
+        parameters: Type.Object({
+          source: Type.Union(['job','outbox','collector','lndg','lightningMate'].map(s => Type.Literal(s))),
+          reference: Type.String({ minLength: 1, maxLength: 64 }),
+        }, { additionalProperties: false }), replay: 'safe', executionMode: 'sequential',
+        async execute(args, api) {
+          limit(api.conversationId); const stop = exhausted(); if (stop) return stop;
+          return result(new RuntimeImprovements(self.store).reportEvidence(args.source, args.reference));
+        },
+      });
       if (slot === undefined) {
         const proposals = defineTool({
           name: "analyst_results",
@@ -706,6 +729,8 @@ export class Agent {
             followUp,
             comparison,
             detail,
+            runtimeEvidence,
+            runtimeReport,
             proposals,
             manualProposal,
             execute,
@@ -754,6 +779,8 @@ export class Agent {
             followUp,
             comparison,
             detail,
+            runtimeEvidence,
+            runtimeReport,
             propose,
           ],
         });
@@ -876,7 +903,142 @@ export class Agent {
     await this.durable?.close();
     await this.credentials.close();
   }
+  private stopRecovery?:Promise<void>;
+  /** Offline cancellation uses existing identities only; provider availability is irrelevant. */
+  async recoverTelegramStops():Promise<void> {
+    if(this.stopRecovery)return this.stopRecovery;
+    const task=this.recoverStops();this.stopRecovery=task;
+    try{await task;}finally{if(this.stopRecovery===task)this.stopRecovery=undefined;}
+  }
+  private async recoverStops() {
+    if(!this.harness)return;
+    const turns=new TelegramTurns(this.store,this.queue);
+    for(const row of this.store.all("SELECT key,value FROM meta WHERE key LIKE 'telegramStop:%'")){
+      const stop=JSON.parse(row.value),turn=turns.get(stop.jobId),job=this.queue.get(stop.jobId);
+      if(turn?.closed&&job&&stop.state==='received'){await this.reconcileClosedScopedStop(turns,turn,job,stop);continue;}
+      if(!turn||!job||!['queued','waiting','running'].includes(job.state)||stop.state!=='received'||turn.closed||turn.state!=='stop_requested')continue;
+      // Active runner owns its live cancellation path; this lane owns only recovered work.
+      if(this.coordinator?.job.id===job.id||[...this.analysts.values()].some(a=>a.job.id===job.id))continue;
+      const valid=()=>{const t=turns.get(job.id),j=this.queue.get(job.id),r=this.store.get<any>(row.key);
+        return !!t&&!!j&&j.state===job.state&&r?.state==='received'&&r.jobId===job.id&&r.generation===stop.generation&&r.version===stop.version&&!t.closed&&t.state==='stop_requested'&&t.generation===stop.generation&&t.version===stop.version&&turns.authorized(t)&&t.capability===turn.capability&&t.conversationId===turn.conversationId&&j.conversation_id===job.conversation_id&&j.submission_id===job.submission_id&&j.run_token===job.run_token;};
+      if(!valid())continue;
+      if(!job.conversation_id||!turn.conversationId||!job.submission_id){
+        const intent=this.store.get<{bindingKey:string;requestId:string}>('conversationIntent:'+job.id);
+        if(!intent||intent.requestId!==job.request_id||!this.root)continue;
+        let proof:{conversationId:string;submissionId:string}|undefined;
+        try{proof=await this.harness.commit(async tx=>{
+          const candidates=new Set<number>();let cursor:any;
+          do{const page=await tx.scanEntries({conversationId:this.root!.id},100,cursor);
+            for(const entry of page.items){const data=entry.data as any;if(entry.kind==='app.conversation_binding'&&data?.bindingKey===intent.bindingKey&&Number.isSafeInteger(data.conversationId)&&data.conversationId>0)candidates.add(data.conversationId);}
+            cursor=page.next;
+          }while(cursor);
+          const matches=[];
+          for(const id of candidates){const sub=await tx.submissionByRequest(id as any,job.request_id);if(sub)matches.push({conversationId:String(id),submissionId:String(sub.id)});}
+          return matches.length===1?matches[0]:undefined;
+        },context);}catch{continue;}
+        if(!proof||!valid()||(job.conversation_id&&job.conversation_id!==proof.conversationId)||(turn.conversationId&&turn.conversationId!==proof.conversationId)||(job.submission_id&&job.submission_id!==proof.submissionId))continue;
+        this.store.tx(()=>{
+          if(!valid())return;
+          const bound=this.store.run('UPDATE jobs SET conversation_id=?,submission_id=?,submitted=1 WHERE id=? AND run_token IS ? AND conversation_id IS ? AND submission_id IS ?',proof.conversationId,proof.submissionId,job.id,job.run_token,job.conversation_id,job.submission_id);
+          if(bound.changes!==1)return;
+          job.conversation_id=proof.conversationId;job.submission_id=proof.submissionId;turn.conversationId=proof.conversationId;
+          if(!turn.submissions.includes(proof.submissionId))turn.submissions.push(proof.submissionId);turns.save(turn);
+        });
+      }
+      const conversationId=job.conversation_id;
+      if(!valid()||!conversationId||turn.conversationId!==conversationId||!job.submission_id)continue;
+      // Reused session must still belong exclusively to this generation's turn.
+      if(this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'").some(r=>{const t=JSON.parse(r.value);return t.jobId!==job.id&&t.conversationId===conversationId&&!t.closed;}))continue;
+      try{
+        const conversation=await this.harness.conversation(Number(conversationId) as any,context);
+        if(!conversation||!valid())continue;
+        const ids=new Set([job.submission_id,...turn.submissions]);
+        let known=true;
+        for(const correction of turns.orderedCorrections(job.id)){
+          if(!['admitted','placed','failed','settled'].includes(correction.state))continue;
+          if(correction.generation!==turn.generation||correction.version!==turn.version){known=false;break;}
+          const native=await this.harness.commit(tx=>tx.submissionByRequest(conversation.id,'telegram-steer:'+correction.id),context);
+          if(!valid()){known=false;break;}
+          if(native)ids.add(String(native.id));
+          else if(correction.submissionId){known=false;break;}
+        }
+        for(const id of ids){
+          const sub=await this.harness.submission(Number(id) as any,context),record=sub&&await sub.status(context);
+          if(!valid()||!record||String(record.conversationId)!==conversationId||(id===job.submission_id&&record.requestId!==job.request_id)){known=false;break;}
+        }
+        if(!known||!valid())continue;
+        const scoped=this.harness as typeof this.harness & {cancelConversationScoped(id:number,callContext:typeof context):Promise<{patch:string;taskIds:number[];remoteCancellationUnknown:number[]}>};
+        if(typeof scoped.cancelConversationScoped!=='function')throw Error('Pinned scoped cancellation patch unavailable');
+        const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2000);
+        let receipt;
+        try{receipt=await scoped.cancelConversationScoped(Number(conversationId),withAbortSignal(controller.signal,context));}finally{clearTimeout(timer);}
+        if(!valid()||receipt.patch!=='satssurge-scoped-stop-v1')continue;
+        for(const correction of turns.orderedCorrections(job.id)){
+          const native=await this.harness.commit(tx=>tx.submissionByRequest(conversation.id,'telegram-steer:'+correction.id),context);
+          if(!valid())break;
+          if(native){correction.submissionId=String(native.id);turns.submission(job.id,String(native.id));
+            if(native.status==='unanswered'){correction.state='failed';turns.saveCorrection(correction);}
+          }else if(['admitted','placed','failed'].includes(correction.state)&&!correction.submissionId){
+            correction.state='withdrawn';correction.withdrawResult='stop_before_native_submission';turns.saveCorrection(correction);
+          }
+        }
+        if(!valid())continue;
+        // Native idle precedes app terminal commit. A crash between them retries readback.
+        turns.finalizeScopedStop(turn,[...ids],receipt);
+      }catch{
+        // Unknown binding, unsupported scheduler state, or timeout leaves Stop pending.
+        if(valid())this.store.set('telegramStopRecovery:'+job.id,{state:'pending',reason:'native_scoped_idle_unconfirmed',at:now()});
+      }
+    }
+    this.queue.reconcileTelegramTerminals();
+  }
+  private async reconcileClosedScopedStop(turns:TelegramTurns,turn:NonNullable<ReturnType<TelegramTurns['get']>>,job:Job,stop:any) {
+    const terminal=this.store.get<any>('telegramTerminal:'+job.id),native=terminal?.nativeCancellation;
+    if(!this.harness||turn.state!=='interrupted'||turn.generation!==stop.generation||turn.version!==stop.version+1||turn.conversationId!==job.conversation_id||!job.conversation_id||!job.submission_id||terminal?.state!=='interrupted'||terminal.reason!=='owner_stop_native_idle'||native?.patch!=='satssurge-scoped-stop-v1'||!Array.isArray(native.taskIds)||!Array.isArray(native.remoteCancellationUnknown)||!native.remoteCancellationUnknown.every((id:unknown)=>Number.isSafeInteger(id))||!Array.isArray(terminal.submissionIds))return;
+    const ids=[...new Set([job.submission_id,...turn.submissions])].sort();
+    if(JSON.stringify([...new Set(terminal.submissionIds)].sort())!==JSON.stringify(ids))return;
+    const proof=terminal.stopProof;
+    if(proof&&(proof.jobId!==job.id||proof.generation!==turn.generation||proof.version!==stop.version||proof.conversationId!==job.conversation_id||JSON.stringify([...new Set(proof.submissionIds??[])].sort())!==JSON.stringify(ids)||JSON.stringify(proof.nativeCancellation)!==JSON.stringify(native)))return;
+    let nativeAborted=false;
+    try{
+      for(const id of ids){
+        const sub=await this.harness.submission(Number(id) as any,context),record=sub&&await sub.status(context);
+        if(!record||String(record.conversationId)!==job.conversation_id||!['done','unanswered'].includes(record.status)||(id===job.submission_id&&record.requestId!==job.request_id))return;
+        if(record.status==='unanswered'&&record.reason==='aborted')nativeAborted=true;
+      }
+      for(const id of native.taskIds){
+        if(!Number.isSafeInteger(id))return;
+        const task=await this.harness.getTask(id as any,context);
+        if(!task||String(task.conversationId)!==job.conversation_id||task.state.status!=='terminal'||!task.abortRequested)return;
+      }
+      // Historical receipts lack the explicit identity fence: require independent native abort evidence.
+      if(!proof&&!nativeAborted&&!native.taskIds.length)return;
+      turns.reconcileClosedScopedStop(turn,terminal,native,{submissionId:job.submission_id,requestId:job.request_id});
+    }catch{ /* Unknown original native proof remains pending; never abort a reused session. */ }
+  }
+  private async nativeProviderFailure(job:Job,conversation:Conversation,settled:{id:unknown;entry?:unknown;reason?:string;detail?:unknown}):Promise<ProviderFailure> {
+    const at=now(),base={jobId:job.id,conversationId:String(conversation.id),submissionId:String(settled.id),at};
+    let qualified:Pick<ProviderFailure,'kind'|'code'|'httpStatus'>={kind:settled.reason==='no_model'?'no_model':'provider_unknown',code:settled.reason==='no_model'?'no_model':'unclassified'};
+    let taskId:string|undefined,entryId:string|undefined;
+    if(settled.reason==='model_error'&&this.harness){
+      try{
+        let cursor:any;const candidates:any[]=[];
+        do{const page=await conversation.entries({minEntryId:Number(settled.entry) as any},100,cursor,context);
+          for(const entry of page.items){const message=entry.model?.[0];if(entry.kind==='pi.assistant'&&message?.role==='assistant'&&message.stopReason==='error'&&entry.byTaskId)candidates.push(entry);}
+          cursor=page.next;
+        }while(cursor);
+        for(const entry of candidates.sort((a,b)=>Number(a.id)-Number(b.id)).slice(0,1)){
+          const task=await this.harness.getTask(entry.byTaskId,context),message=entry.model[0];
+          if(task?.kind!=='pi.generation'||task.version!==1||String(task.conversationId)!==String(conversation.id)||task.state.status!=='terminal'||task.state.outcome.status!=='failed'||task.state.outcome.error.message!==message.errorMessage||settled.detail!==message.errorMessage)continue;
+          qualified=classifyNativeProviderError(message.errorMessage);taskId=String(task.id);entryId=String(entry.id);break;
+        }
+      }catch{ /* Missing native proof remains conservative. */ }
+    }
+    const cooldownMs=failureCooldownMs(qualified.kind);
+    return {...base,...qualified,source:entryId?'native_entry':'native_submission',...(taskId?{taskId,entryId}:{}),cooldownMs,until:new Date(Date.parse(at)+cooldownMs).toISOString()};
+  }
   async runJob(job: Job, slot?: number) {
+    await this.recoverTelegramStops();
     // A committed app outcome is authoritative even when the provider/accounting
     // boundary is unavailable after a crash before Queue.finish. No new budget or
     // native model activity belongs to replaying this bounded application receipt.
@@ -986,12 +1148,12 @@ export class Agent {
         (economic
           ? `Before any final answer call follow_up_outcome${slot === undefined ? "" : "_analyst_" + slot} once with outcome wait or no_wait and scope ${job.scope || "node"}. Current UTC is ${now()}; dueAt must be a future RFC3339 instant. Wait requires explicit dueAt/evidence/missing requirements; do not merely recommend waiting in prose. At research exhaustion this is the sole reserved operation before final synthesis. `
           : "") +
-        `Job capability: ${this.store.get('jobCapability:'+job.id)}. Plain Telegram chat is read-only. For guarded_manual_proposal requests use create_manual_proposal to create an owner-review proposal; no direct effects are authorized. ` +
+        `Job capability: ${this.store.get('jobCapability:'+job.id)}. Plain Telegram chat is read-only. Use runtime_improvement_evidence and report_runtime_improvement (slot-specific names in tool registry) for advisory development prompts supported by existing runtime receipts. Do not infer an app defect from transient provider/network/auth failures, do not supply raw errors/payment payloads, and never treat delivery as resolution.  For guarded_manual_proposal requests use create_manual_proposal to create an owner-review proposal; no direct effects are authorized. ` +
         (slot === undefined
           ? "Only guarded fee/rebalance allowed. Prefer waiting to unsupported forecasts. Analyst outputs are suggestions only, revalidate them before acting."
           : "You are a read-only analyst. You cannot execute, reserve capital, change fees or delegate. Propose falsifiable drafts with evidence to the single coordinator.");
       const instructions = turn&&!economic&&turn.capability==='read_only_chat'
-        ? `Rispondi in italiano, con sintesi breve e dettaglio proporzionato alla domanda. Sei il coordinatore SatsSurge in sola lettura. Per saluti o domande generali non occorre analisi economica. Per affermazioni sul nodo leggi dati freschi; la conversazione storica non concede autorità. Nessun pagamento, modifica, proposta o accesso a credenziali. Dichiara dati mancanti e copertura parziale. Budget di questo turno: ${json(budget.status())}.`
+        ? `Rispondi in italiano, con sintesi breve e dettaglio proporzionato alla domanda. Sei il coordinatore SatsSurge in sola lettura. Per saluti o domande generali non occorre analisi economica. Per affermazioni sul nodo leggi dati freschi; la conversazione storica non concede autorità. Nessun pagamento, modifica, proposta o accesso a credenziali. Dichiara dati mancanti e copertura parziale. Per segnalazioni di sviluppo usa runtime_improvement_evidence e report_runtime_improvement con i nomi dello slot: solo ricevute persistenti verificate, nessun difetto app presunto da guasti upstream o autenticazione; nessuna modifica/esecuzione, consegna non risolve. Budget di questo turno: ${json(budget.status())}.`
         : economicInstructions;
       const config = {
         model: { provider: "openai", modelId: model },
@@ -1224,9 +1386,7 @@ export class Agent {
         // Keep it failed, with its original IDs; other admitted jobs wait out the
         // cooldown. Do not leak the provider detail (it may contain credentials).
         if (["model_error", "no_model"].includes(settled.reason))
-          throw new TerminalModelFailure(
-            "Model unavailable; original submission terminal, no automatic replay",
-          );
+          throw new TerminalModelFailure(await this.nativeProviderFailure(job,conversation,settled));
         throw new Error(
           terminalCause === "hard_deadline"
             ? "Run interrupted at documented hard deadline; partial public text retained, no financial replay."
@@ -1321,13 +1481,16 @@ export class Agent {
       )
         budget.discardBeforeSubmission();
       if (e instanceof ModelUnavailable || e instanceof TerminalModelFailure) {
-        this.cooldown = Date.now() + 30 * 60000;
-        this.store.set("modelUnavailableUntil", this.cooldown);
-        this.store.set("agent", {
-          at: now(),
-          status: "unavailable",
-          until: new Date(this.cooldown).toISOString(),
-          note: "Model/auth/quota unavailable; deterministic collection/reconciliation remain active",
+        const at=now(),kind:ProviderFailureKind=!(model&&this.models.getModel('openai',model))?'configuration_missing':'availability_unknown';
+        const failure:ProviderFailure=e instanceof TerminalModelFailure?e.failure:{jobId:job.id,at,kind,code:kind==='configuration_missing'?'configuration_missing':'unclassified',source:'pre_submission',cooldownMs:failureCooldownMs(kind),until:new Date(Date.parse(at)+failureCooldownMs(kind)).toISOString()};
+        const heldBeforeSubmission=e instanceof ModelUnavailable&&this.cooldown>Date.now();
+        const requestedUntil=heldBeforeSubmission?this.cooldown:Date.parse(failure.until),inherited=heldBeforeSubmission||this.cooldown>requestedUntil;
+        const previous=this.store.get<any>('agent');
+        this.cooldown=Math.max(this.cooldown,requestedUntil);
+        this.store.tx(()=>{
+          if(e instanceof TerminalModelFailure)this.store.set('providerFailure:'+job.id,failure);
+          this.store.set('modelUnavailableUntil',this.cooldown);
+          this.store.set('agent',{at,status:'unavailable',until:new Date(this.cooldown).toISOString(),failure:inherited?(previous?.failure??{kind:'availability_unknown',code:'unclassified',source:'legacy_unknown'}):failure,note:'Model unavailable; deterministic collection/reconciliation remain active'});
         });
       }
       if(turn&&!(e instanceof ModelUnavailable&&!this.queue.get(job.id)?.submission_id))turns.finalize(job.id,'failed',{reason:terminalCause});

@@ -121,7 +121,12 @@ export class Queue {
         if(uncertain&&row.lane==='coordinator'&&row.kind!=='chat')continue;
         if(row.wait_reason==='restart_recovery'&&row.submitted)continue; // durable runner must recover original submission, never resubmit
         if((!this.store.get('enabled')||!this.store.get('bootstrapReady'))&&!['read_only_chat','read_only_research','guarded_manual_proposal'].includes(this.store.get<string>('jobCapability:'+row.id)??''))continue;
-        if(row.wait_reason==='model_unavailable'&&Date.parse(row.updated_at)>Date.parse(at)-30*60000)continue;
+        if(row.wait_reason==='model_unavailable'){
+          const until=this.store.get<unknown>('modelUnavailableUntil');
+          // Existing holds, including legacy holds without native provenance, retain their exact expiry.
+          const persisted=typeof until==='number'&&Number.isFinite(until)&&until>0;
+          if(persisted?Date.parse(at)<until:Date.parse(row.updated_at)>Date.parse(at)-30*60000)continue;
+        }
         this.store.run("UPDATE jobs SET state='queued',wait_reason=NULL,updated_at=? WHERE id=?",at,row.id);this.event(row.id,'ready',{},at);
       }
     });

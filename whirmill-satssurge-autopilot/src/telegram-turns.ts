@@ -13,6 +13,7 @@ export interface Turn {
     correctionOrder?: string[];
     closed: boolean;
 }
+export interface ScopedStopReceipt { patch:string;taskIds:number[];remoteCancellationUnknown:number[]; }
 export interface Correction {
     id: string;
     jobId: string;
@@ -83,7 +84,42 @@ export class TelegramTurns {
     } }
     admitCorrection(t:Turn,c:Correction) { this.store.tx(()=>{const current=this.get(t.jobId)!;current.correctionOrder??=[];if(!current.correctionOrder.includes(c.id))current.correctionOrder.push(c.id);this.save(current);this.saveCorrection(c);}); }
     orderedCorrections(jobId:string) { const t=this.get(jobId);return this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramCorrection:%'").map(r=>JSON.parse(r.value) as Correction).filter(c=>c.jobId===jobId).sort((a,b)=>{const rank=(c:Correction)=>{const order=t?.correctionOrder?.indexOf(c.id)??-1;return order>=0?order:Number(c.submissionId??Number.MAX_SAFE_INTEGER);};return rank(a)-rank(b)||a.id.localeCompare(b.id);}); }
-    finalize(jobId:string,state:Turn['state'],details:Record<string,unknown>={}) { return this.store.tx(()=>{const t=this.get(jobId);if(!t)return undefined;const existing=this.store.get('telegramTerminal:'+jobId);if(t.closed&&existing)return existing;const stopped=t.state==='stop_requested'||this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramStop:%'").some(r=>{const stop=JSON.parse(r.value);return stop.jobId===jobId&&stop.generation===t.generation&&['received','idle_confirmed'].includes(stop.state);});const outcome={...details,state:t.closed?t.state:stopped?'interrupted':state,at:now()};this.store.set('telegramTerminal:'+jobId,outcome);if(!t.closed){t.state=outcome.state as Turn['state'];t.closed=true;t.version++;this.save(t);}runners.get(this.store)?.delete(jobId);return outcome;}); }
+    finalize(jobId:string,state:Turn['state'],details:Record<string,unknown>={}) { return this.store.tx(()=>this.finalizeInTransaction(jobId,state,details)); }
+    private finalizeInTransaction(jobId:string,state:Turn['state'],details:Record<string,unknown>={}) {
+        const t=this.get(jobId);if(!t)return undefined;
+        const existing=this.store.get('telegramTerminal:'+jobId);if(t.closed&&existing)return existing;
+        const stopped=t.state==='stop_requested'||this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramStop:%'").some(r=>{const stop=JSON.parse(r.value);return stop.jobId===jobId&&stop.generation===t.generation&&['received','idle_confirmed'].includes(stop.state);});
+        const outcome={...details,state:t.closed?t.state:stopped?'interrupted':state,at:now()};
+        this.store.set('telegramTerminal:'+jobId,outcome);
+        if(!t.closed){t.state=outcome.state as Turn['state'];t.closed=true;t.version++;this.save(t);}
+        runners.get(this.store)?.delete(jobId);return outcome;
+    }
+    /** Native scoped idle and every accepted receipt become visible in one operational commit. */
+    finalizeScopedStop(expected:Turn,submissionIds:string[],native:ScopedStopReceipt) {
+        return this.store.tx(()=>{
+            const t=this.get(expected.jobId),job=this.queue.get(expected.jobId);
+            if(!t||!job||t.closed||t.state!=='stop_requested'||t.generation!==expected.generation||t.version!==expected.version||t.conversationId!==expected.conversationId||job.conversation_id!==expected.conversationId||!this.authorized(t))return undefined;
+            const stops=this.matchingStops(t.jobId,t.generation,t.version);
+            if(!stops.some(r=>r.value.state==='received'))return undefined;
+            const stopProof={jobId:t.jobId,generation:t.generation,version:t.version,conversationId:t.conversationId,submissionIds,nativeCancellation:native};
+            const outcome=this.finalizeInTransaction(t.jobId,'interrupted',{reason:'owner_stop_native_idle',submissionIds,nativeCancellation:native,stopProof,remoteCancellation:native.remoteCancellationUnknown.length?'unknown':'not_required'});
+            this.confirmScopedStops(stops,native);return outcome;
+        });
+    }
+    private matchingStops(jobId:string,generation:string,version:number) {
+        return this.store.all("SELECT key,value FROM meta WHERE key LIKE 'telegramStop:%'").map(row=>({key:row.key,value:JSON.parse(row.value)})).filter(r=>r.value.jobId===jobId&&r.value.generation===generation&&r.value.version===version&&['received','idle_confirmed'].includes(r.value.state));
+    }
+    private confirmScopedStops(stops:{key:string;value:any}[],native:ScopedStopReceipt) {
+        for(const stop of stops)if(stop.value.state==='received')this.store.set(stop.key,{...stop.value,state:'idle_confirmed',confirmedAt:now(),native,remoteCancellation:native.remoteCancellationUnknown.length?'unknown':'not_required'});
+    }
+    /** Caller has read back original native terminal identities; no current session cancellation belongs here. */
+    reconcileClosedScopedStop(expected:Turn,terminal:Record<string,any>,native:ScopedStopReceipt,original:{submissionId:string;requestId:string}) {
+        return this.store.tx(()=>{
+            const t=this.get(expected.jobId),job=this.queue.get(expected.jobId),current=this.store.get<any>('telegramTerminal:'+expected.jobId);
+            if(!t||!job||!t.closed||t.state!=='interrupted'||t.generation!==expected.generation||t.version!==expected.version||t.conversationId!==expected.conversationId||t.capability!==expected.capability||job.conversation_id!==expected.conversationId||job.submission_id!==original.submissionId||job.request_id!==original.requestId||JSON.stringify([...new Set([job.submission_id,...t.submissions])].sort())!==JSON.stringify([...new Set(terminal.submissionIds)].sort())||this.store.get('jobCapability:'+t.jobId)!==t.capability||JSON.stringify(current)!==JSON.stringify(terminal))return false;
+            const stops=this.matchingStops(t.jobId,t.generation,t.version-1);this.confirmScopedStops(stops,native);return stops.length>0;
+        });
+    }
     async withdraw(id: string) {
         const c = this.correction(id), t = c && this.get(c.jobId);
         if (!c || !t || !this.authorized(t))
@@ -118,8 +154,7 @@ export class TelegramTurns {
     } return receipt; }); }
     async dispatchStop(receiptId: string) { const key = 'telegramStop:' + receiptId, r = this.store.get(key), t = r && this.get(r.jobId); if (!r || r.state !== 'received' || !t)
         return; if (t.closed) {
-        if (t.version === r.version + 1)
-            this.store.set(key, { ...r, state: 'idle_confirmed', confirmedAt: now() });
+        // Closed turns need original native proof; Agent recovery performs that readback.
         return;
     } if (t.version !== r.version || !this.authorized(t))
         return; const runner = runners.get(this.store)?.get(t.jobId); if (!runner)
