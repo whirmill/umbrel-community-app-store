@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current installed and accepted release is `0.4.5` (schema 6), with dedicated owner login and visible session logout. Immutable publication and installed acceptance of the Telegram-first baseline are recorded separately below. The bot was subsequently paired; the interactive Telegram evolution is locally implemented and under review, with its new release and real Telegram acceptance still pending. Original autonomy and all four watcher timers are restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Current installed and accepted release is `0.4.5` (schema 6), with dedicated owner login and visible session logout. Immutable publication and installed acceptance of the Telegram-first baseline are recorded separately below. The bot was subsequently paired; the interactive Telegram 0.5.0 image is immutably published and verified, with installation and real Telegram acceptance still pending. Original autonomy and all four watcher timers are restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -48,7 +48,7 @@ Use `scripts/checkpoint.py` with the application proven stopped. Capture acquire
 
 ### Ordered roadmap — updated 2026-10-10
 
-This order is user-approved. M1 through M2.1 are installed and qualified; accounting coverage and economic validation remain partial. The next order is core stabilization → independence from complementary apps → rendering and attachments → optional integrations. The 2026-10-09 Discord/generic outbound-webhook plan is superseded: notifications and owner conversation belong to Telegram. Telegram is the sole owner conversation surface; web retains configuration, owner authentication, diagnostics, history and operational controls. The Umbrel web UI and Telegram remain separate interfaces; a Telegram Mini App is no longer planned. Historical web-chat acceptance remains dated evidence, not the current conversation design. The roadmap does not broaden financial authority or mutate the mandate. Dates below are observation windows, not promised delivery dates or profitability commitments.
+This order is user-approved. M1 through M2.1 are installed and qualified; accounting coverage and economic validation remain partial. The next order is core stabilization → advisory runtime-improvement prompts → independence from complementary apps → rendering and attachments → optional integrations. M2.4 qualifies only the plain-text attachment delivery needed for long development prompts and has no M4 renderer dependency. The 2026-10-09 Discord/generic outbound-webhook plan is superseded: notifications and owner conversation belong to Telegram. Telegram is the sole owner conversation surface; web retains configuration, owner authentication, diagnostics, history and operational controls. The Umbrel web UI and Telegram remain separate interfaces; a Telegram Mini App is no longer planned. Historical web-chat acceptance remains dated evidence, not the current conversation design. The roadmap does not broaden financial authority or mutate the mandate. Dates below are observation windows, not promised delivery dates or profitability commitments.
 
 **M1 — Foundation: deployed, qualified and autonomous; economic validation ongoing.** The M1 acceptance baseline was version 0.2.3; Pi Durable uses GPT-6.1 Sol/high with subscription OAuth. Private historical import/accounting, LND collector, guarded fee/rebalance executor, web chat, pause/resume, restricted credentials, persistent host interlock and immutable multiarchitecture images are in place. Current CI passed 58 Node / 14 Python tests, including simulated financial crash/recovery and real Pi Durable registry/storage behavior. Real authenticated AI runs succeeded; the first high run completed without a financial operation. This proves AI/read execution, not real-node financial recovery or profitability. Accounting coverage remains partial.
 
@@ -92,11 +92,17 @@ Acceptance: qualify prompts against representative runtime failures and improvem
 
 **M3 — Native data collection and unified historical model: future, after core stabilization.** Make Lightning Node/LND the sole required Umbrel companion application for the core while continuing to collect the same types of operational and economic data currently obtained through LNDg and Lightning Mate. Independence must preserve required data capabilities, not merely remove dependencies. Inventory the actual fields, event types, derived metrics, freshness, coverage and consumers of both adapters; map each to native LND collection, SatsSurge event capture/storage or internally calculated diagnostics and aggregates. Include successful forwards, failed-forward/HTLC attempts and their classification, channel/policy/liquidity state, agent and external rebalance attempts/outcomes/routes/costs, historical aggregates, reconciliation and safety controls. Preserve attempts versus settled payments and raw events versus derived aggregates; do not imply knowledge of external-tool intent when only an observed LND effect is available.
 
+The parity matrix must distinguish LND-observable events and outcomes, SatsSurge-owned request/attempt intent, source-specific external intent, and derived aggregates. Preserve imported external-tool request/status records with their original meaning. Native collection must retain all supported LND-observable attempts and outcomes and record SatsSurge intent directly; it must not relabel an observed payment as proof of another application's purpose. Preserve all acquired historical data and require semantic parity of capabilities actually used by consumers. Identify any required capability that still depends on unavailable external intent before cutover; an unknown label alone does not satisfy that capability.
+
 Collect and retain events proactively when LND cannot provide retrospective history, with durable cursors/checkpoints where supported, reconnect recovery, deduplication, timestamps and explicit gap detection. A required data type that is not yet reproducible is an unresolved M3 blocker, not an accepted reduction of functionality; never turn missing data into zero. Historical information that was never captured and cannot be recovered remains explicitly unknown rather than fabricated.
+
+For each data type, define its replay/backfill capability and coverage intervals, including unknown crash boundaries. Where a stream has no replay cursor, reconnect resumes observation but cannot certify the missing interval. Propagate insufficient coverage to dependent diagnostics, estimates and execution eligibility; affected decisions wait for sufficient evidence while collection and uncertain-operation reconciliation continue. Compare native and adapter results over matched windows and granularity, explaining differences without treating either adapter as a complete historical oracle.
 
 Reorganize existing collected data into a canonical SatsSurge model independent of the former source applications. Normalize supported formats, units, timestamps and channel/corridor identifiers; preserve original source identity/version, observation time, checksums, original records and financial receipt identifiers. Deduplicate only using qualified identities, reconcile overlapping observations and retain conflicts/ambiguous matches explicitly. Recompute derived views with recorded calculation versions and links to original evidence; never rewrite original economic claims, authority or accounting receipts. Adapt agent tools, UI, exports and evaluation consumers to this unified model so historical and newly collected native data remain queryable together, with lineage and coverage visible. LNDg/Lightning Mate remain historical provenance labels rather than required live sources.
 
 Acceptance: build a source-to-native parity matrix and qualify parallel collection against the existing adapters over a bounded observation window before retiring them. Verify semantic equivalence, counts/amounts, classification, freshness, retention and recovery for each required data type, including failures, rebalances and duplicate/reconnect cases. Exercise migration on consistent isolated backups, prove preservation of historical records/provenance/budgets/receipts and reconciled totals, and verify joint historical/native queries without double counting. Installation, bootstrap, collection, diagnostics, restart/recovery, reserve/budget guards and accounting must work with both apps absent. Retire old-source projections, watchers and prerequisites only after the new collectors, migrated consumers and replacement controls pass acceptance. Preserve uncertain-operation reconciliation; this documentation update does not change installed dependencies or data.
+
+Cutover requirements: replacement interlocks distinguish verified absence, verified installed-and-disabled state, and unknown/unreadable state. Missing configuration alone is not evidence of absence. Reinstallation, enabled competing automation or stale/unverifiable host evidence blocks new financial execution until requalified. Perform cutover under a durable financial-write fence, preserving reconciliation and taking a consistent checkpoint; switch canonical read/accounting projections without booking overlapping observations twice, with LND remaining authoritative for financial outcomes. Disable retired timers and backfill writers before removing the old applications, and verify that none can restart them or restore a stale projection.
 
 **M4 — Agent-generated content, exports and Telegram attachments: future, after core independence.** The agent produces the requested content and output artifacts. For images or PDF, it generates HTML; a headless-browser service, with Puppeteer as the initial candidate, only renders that HTML into the selected format. Agent-authored HTML follows a detailed, versioned Design Language System (DLS), derived from the Umbrel application visual language and extended for exported reports. The DLS is the primary generation contract; fixed document templates are not required. Application components/styles and reference examples remain optional reusable building blocks; the agent composes layouts to suit the request. Puppeteer does not author the content.
 
@@ -105,6 +111,8 @@ DLS specification: define exact semantic color tokens, contrast, typefaces and f
 The agent can also produce ready-to-deliver CSV, Excel (.xlsx) and other requested file formats. These exports bypass Puppeteer and are delivered directly as Telegram attachments. Keep content generation, optional HTML rendering and delivery as distinct stages, linked to the original request. Return artifacts to the paired owner's chat with filename, format and data timestamp/coverage where relevant.
 
 Acceptance: check generated HTML against the selected DLS/output profile and inspect rendered images/PDF for missing fonts/assets, clipped or overlapping content, unreadable contrast/text, broken tables/charts and incorrect pagination. Qualify representative short/long reports and Telegram readability; reject or regenerate invalid artifacts within bounded retries. Render agent-generated HTML with authorized data in an isolated browser, without access to application credentials, arbitrary network destinations or host files. Enforce time/memory/concurrency and output-size limits, safe content handling, long-content pagination, failure receipts and temporary-file cleanup. Check CSV/Excel structure, values, encoding and safe treatment of untrusted formula-like text; verify ready-made exports never enter the browser renderer. Real Telegram acceptance checks legibility and data fidelity of images/PDF, successful opening and correctness of CSV/Excel and other exports, and delivery to the intended request/chat. Uncertain attachment delivery must not replay financial effects or regenerate content as an implicit financial retry. Artifact generation grants no broader financial capability.
+
+Artifact traceability: bind each artifact receipt to the request, authorized data snapshot or evidence references, DLS/output-profile version where applicable, and exact output checksum. Delivery retries reuse the recorded artifact; regeneration creates a new linked revision.
 
 **M5 — Optional integrations: nice to have, only after complete stabilization of the independent core.** Evaluate RoboSats, Amboss and Magma separately, including API support, bonds/contracts, settlement, costs, recovery and economics before enabling operational capabilities. They are not core installation prerequisites. No marketplace, swap, trading or lease action is enabled by this roadmap update. Include obligations, reserves and inventory opportunity cost; a buyer order does not establish earned revenue.
 
@@ -941,3 +949,36 @@ original autonomy/timer restoration and real Telegram streaming/steering/Stop
 acceptance remain distinct gates. Existing fee/rebalance limits and partial
 profitability accounting are unchanged; future roadmap capabilities remain
 outside this release.
+
+
+### 0.5.0 immutable image verified — installed acceptance pending
+
+Source `d915faa4b74408d9c1fb2db649d34af17d29ba08` is fixed by signed tag
+`satssurge-autopilot-v0.5.0` (tag object
+`d812a2e6d757c4edddff93f2aff1dc1364e1c8ed`).
+[CI 38027580133](https://github.com/whirmill/umbrel-community-app-store/actions/runs/38027580133)
+completed build and publication successfully: 224 Node tests on Node 24.21.0,
+zero failures, and 16 Python tests. Verified immutable image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.0@sha256:0a262429947bec5bad8073ffdf029ecee54c1703051e9ff7525e28832d62aa95`.
+
+Anonymous downloads checked both linux/amd64 and linux/arm64 platform manifests
+and configs, exact source labels, embedded application version 0.5.0 and the
+`flock --no-fork` entrypoint. All 22 unique compressed layers passed SHA-256
+and size checks (222,145,995 bytes). Platform manifests:
+- amd64: `sha256:a17ef4002c2e55bd8b4504c9aa2fdd38b4e8ad935696d92c27fb1bf87764ea85`.
+- arm64: `sha256:44f693251fc26711670d9d86eefae310c8ca0fafc56849d2ea36a6a5a2e09250`.
+
+Verified at `2026-10-10T05:33:38.549625+00:00`; private receipt:
+`/Users/whirmill/.local/share/satssurge/image-050-receipt.json`. Full CI log:
+`/Users/whirmill/.local/share/satssurge/ci-050-full.log`. Store manifest and compose
+now describe this verified image; their separate metadata commit must not move
+the immutable source tag. GitHub release creation/readback follows metadata
+publication. The preceding source-candidate record is historical.
+
+The accepted installed baseline remains 0.4.5/schema 6 until fresh installed
+readback. Installation requires a stopped-executor three-database checkpoint,
+private secret/credential preservation, receipt reconciliation and restoration
+of original autonomy/timers. Real Telegram streaming, correction and Stop checks
+remain pending; image proof does not establish those outcomes or profitability.
+Compatible-image rollback must preserve newer/uncertain financial and Telegram
+receipts; never restore an older checkpoint over newer effects or replay them.

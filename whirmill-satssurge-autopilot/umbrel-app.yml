@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.4.5"
+version: "0.5.0"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -12,8 +12,10 @@ description: >-
   including history, 1,500 sats daily rebalance costs and 100 sats per attempt.
   Requires initial restricted LND credential provisioning and live automation
   interlock. The agent starts after OAuth login and successful reconciliation.
-  Optional paired-owner Telegram chat, guarded pause/resume, proposal review and
-  accounting notifications. Channels and Magma remain future milestones.
+  Paired-owner Telegram conversation with immediate read-only coordination,
+  rich streaming drafts, correction choices, targeted Stop, guarded pause/resume,
+  proposal review and accounting notifications. Web settings retain configuration
+  and read-only history. Channels and Magma remain future milestones.
 developer: whirmill
 website: https://github.com/whirmill/umbrel-community-app-store
 repo: https://github.com/whirmill/umbrel-community-app-store
@@ -26,18 +28,18 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.4.5 adds the paired owner's Telegram interface: durable chat,
-  guarded pause/resume, explicit proposal review, daily accounting digest and
-  critical blocker alerts. Web settings configure the private bot token and
-  numeric-owner pairing; Telegram stays disabled until configured.
-  CI 38022783273 passed 192 Node 24 and 16 Python tests. Both amd64/arm64 images
-  and all 22 layers passed anonymous SHA-256/size verification against source
-  3608a062ae09353059eba2dead54693032933c3b. Additive schema 6 preserves the original
-  ledger, mandate, jobs, Pi submissions and financial receipts. Stop the executor
-  and checkpoint all three databases before installation; preserve owner.secret,
-  telegram.secret when present and mounted credentials with original permissions.
-  Schema-5 software refuses schema 6; never overwrite newer or uncertain receipts
-  or replay payments or uncertain Telegram deliveries. An already dispatched
-  message may complete after revocation. Installed migration and live bot pairing
-  acceptance remain separate. The existing fee/rebalance mandate and partial
-  profitability accounting remain unchanged.
+  Version 0.5.0 makes Telegram the owner's conversational interface, with immediate
+  read-only coordination on slot 2, durable sessions and turn receipts, rich drafts,
+  public reasoning summaries, explicit correction/new-request choices, native Stop,
+  command menus and contextual actions. Financial coordination remains independent;
+  the existing fee/rebalance mandate and partial profitability accounting are unchanged.
+  CI 38027580133 passed 224 tests on Node 24.21.0 and 16 Python tests. Anonymous
+  amd64/arm64 manifest/config and all 22 compressed layer SHA-256/size checks passed
+  against source d915faa4b74408d9c1fb2db649d34af17d29ba08. Pi Durable remains 1.1.0;
+  additive schema 6 preserves original jobs, conversations, submissions and receipts.
+  Before installation stop the executor, checkpoint all three databases and preserve
+  owner.secret, telegram.secret and mounted credentials with their permissions.
+  Rollback requires compatible software and preservation of newer or uncertain receipts;
+  never restore older databases over newer effects or replay payments/uncertain deliveries.
+  Schema-5 software refuses schema 6. Already dispatched messages may finish after
+  revocation. Installed streaming, correction and Stop acceptance remain separate.
