@@ -435,6 +435,7 @@ const server = createServer(async (req, res) => {
       send({ disconnected: true });
       return;
     }
+    if (url.pathname === "/api/telegram/stream-policy") { try{send(telegram.streamPolicy(body.richDraftPolicy));}catch(e){send({error:e instanceof Error?e.message:"Stream policy rejected"},(e as any).statusCode??400);} return; }
     if (url.pathname === "/api/telegram/config") { telegram.configure(body.token); send(telegram.status()); return; }
     if (url.pathname === "/api/telegram/pairing") { send(telegram.pairing()); return; }
     if (url.pathname === "/api/telegram/confirm") { send(telegram.confirm(body.userId)); return; }

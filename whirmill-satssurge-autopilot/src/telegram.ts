@@ -30,6 +30,68 @@ export class Telegram {
     private outgoing?: Promise<void>;
     private incoming?: Promise<void>;
     private wake?: () => Promise<void>;
+    private dispatchTail:Promise<void>=Promise.resolve();
+    private dispatchPending=0;
+    private async dispatch<T>(work:()=>Promise<T>):Promise<T>{
+        const previous=this.dispatchTail;let release!:()=>void;
+        this.dispatchTail=new Promise<void>(r=>release=r);this.dispatchPending++;
+        await previous;
+        try{return await work();}finally{this.dispatchPending--;release();}
+    }
+    private async outboundCall(method:string,body:unknown){
+        const controller=new AbortController(),signal=AbortSignal.any([this.abort.signal,controller.signal]);
+        let timer:ReturnType<typeof setTimeout>|undefined;
+        try{return await Promise.race([this.client().call(method,body,signal),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('Telegram outbound deadline; delivery may be uncertain'));},5000);})]);}
+        finally{if(timer)clearTimeout(timer);}
+    }
+    private rejectedRetryAfter(error:unknown):number|undefined{
+        const value=(error as any)?.retryAfter;
+        return (error as any)?.rejected===true&&typeof value==='number'&&Number.isFinite(value)&&value>0?value:undefined;
+    }
+    private recordRateLimit(error:unknown,botGeneration:unknown):number|undefined{
+        const retry=this.rejectedRetryAfter(error);
+        if(retry===undefined||(this.store.get('telegramBotGeneration')??null)!==botGeneration)return undefined;
+        const deadline=Math.min(8640000000000000,Date.now()+retry*1000),prior=this.store.get<number>('telegramRateLimitUntil');
+        this.store.set('telegramRateLimitUntil',Math.max(deadline,typeof prior==='number'&&Number.isFinite(prior)?prior:0));
+        return retry;
+    }
+    private richDraftPolicy(): 'stable'|'rotating'{return this.store.get('telegramRichDraftPolicy')==='stable'?'stable':'rotating';}
+    streamPolicy(policy:unknown){
+        if(policy!=='stable'&&policy!=='rotating')throw Object.assign(Error('Unknown rich draft policy'),{statusCode:400});
+        if(this.dispatchPending||this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'").some(r=>{const t=JSON.parse(r.value);return !t.closed&&(['running','stop_requested','waiting'].includes(t.state)||this.control.queue.get(t.jobId)?.state==='running');}))throw Object.assign(Error('Stream policy cannot change during an active turn or dispatch'),{statusCode:409});
+        this.store.set('telegramRichDraftPolicy',policy);return this.status();
+    }
+    private draftAuthorized(turn:any,b:any,bot:unknown){
+        const current=this.turns().get(turn.jobId);
+        return !!current&&this.authorized(b.generation,b.chatId,bot)&&current.generation===turn.generation&&current.chatId===b.chatId&&current.version===turn.version&&!current.closed&&current.state==='running'&&this.control.queue.get(turn.jobId)?.state==='running';
+    }
+    private draftAlias(turn:any,b:any,bot:unknown,prior:any,text:string,at:string){
+        return this.store.tx(()=>{
+            let state=this.store.get<any>('telegramDraftAliasState');
+            if(!state||Date.parse(at)-(state.prunedAt??0)>=60000){
+                this.store.run("DELETE FROM meta WHERE key LIKE 'telegramDraft:%' AND json_extract(value,'$.expires')<=?",at);
+                const existing=this.store.all("SELECT key FROM meta WHERE key LIKE 'telegramDraft:%'").map(r=>Number(r.key.slice(14))).filter(Number.isSafeInteger);
+                state={next:existing.reduce((n,v)=>Math.max(n,v),state?.next??0),count:existing.length,prunedAt:Date.parse(at)};
+            }
+            const rotating=!prior.plainDraft&&this.richDraftPolicy()==='rotating';
+            let candidate=rotating||!prior.draftId?state.next+1:prior.draftId;
+            const previousAlias=this.store.get<any>('telegramDraft:'+candidate);
+            if(previousAlias&&(previousAlias.jobId!==turn.jobId||previousAlias.generation!==turn.generation||previousAlias.version!==turn.version))candidate=state.next+1;
+            if(!Number.isSafeInteger(candidate)||candidate<=0||candidate>2147483647)throw Error('Draft identifier capacity exhausted');
+            const existing=this.store.get<any>('telegramDraft:'+candidate);
+            if(existing&&(existing.jobId!==turn.jobId||existing.generation!==turn.generation||existing.version!==turn.version))throw Error('Draft identifier collision; dispatch refused');
+            if(!existing&&state.count>=100000)throw Error('Draft alias capacity exhausted; dispatch refused');
+            state.next=Math.max(state.next,candidate);if(!existing)state.count++;this.store.set('telegramDraftAliasState',state);
+            const alias={jobId:turn.jobId,generation:turn.generation,version:turn.version,chatId:b.chatId,botGeneration:bot,at,expires:new Date(Date.parse(at)+86700000).toISOString(),length:text.length,sha:hash(text),outcome:'dispatching'};
+            this.store.set('telegramDraft:'+candidate,alias);return {id:candidate,alias};
+        });
+    }
+    private invalidateDrafts(generation:string,chatId:number){
+        for(const row of this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'")){
+            const t=JSON.parse(row.value);if(t.generation!==generation||t.chatId!==chatId||t.closed)continue;
+            const key='telegramStream:'+t.jobId,prior=this.store.get<any>(key);if(prior&&!prior.fallback)this.store.set(key,{...prior,invalidated:true});
+        }
+    }
     setWake(wake: () => Promise<void>) { this.wake = wake; }
     private turns() { return new TelegramTurns(this.store, this.control.queue); }
     private authorized(generation: string, chatId: number, botGeneration: unknown) { const b = this.store.get('telegramBinding'); return b?.generation === generation && b.chatId === chatId && (this.store.get('telegramBotGeneration') ?? null) === botGeneration; }
@@ -86,7 +148,7 @@ export class Telegram {
                 }
             } };
     }
-    status() { const binding = this.store.get('telegramBinding'); return { username: this.store.get('telegramUsername') ?? null, configured: this.store.get('telegramTokenTransition') !== true && (this.store.get('telegramConfigured') === true || existsSync(this.tokenPath)), paired: !!binding, owner: binding ?? null, candidate: this.store.get('telegramCandidate') ?? null, pairingExpires: this.store.get('telegramPairing')?.expires ?? null, failures: this.store.all("SELECT event_id,status,attempts,error FROM telegram_outbox WHERE status IN ('failed','uncertain') ORDER BY created_at DESC LIMIT 20"), pending: this.store.one("SELECT count(*) n FROM telegram_outbox WHERE status='pending'").n, lastPoll: this.store.get('telegramLastPoll') ?? null, error: this.store.get('telegramError') ?? null, turns: this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'").map(r => JSON.parse(r.value)).filter(t => t.generation === binding?.generation).slice(-20) }; }
+    status() { const binding = this.store.get('telegramBinding'); return { richDraftPolicy:this.richDraftPolicy(),username: this.store.get('telegramUsername') ?? null, configured: this.store.get('telegramTokenTransition') !== true && (this.store.get('telegramConfigured') === true || existsSync(this.tokenPath)), paired: !!binding, owner: binding ?? null, candidate: this.store.get('telegramCandidate') ?? null, pairingExpires: this.store.get('telegramPairing')?.expires ?? null, failures: this.store.all("SELECT event_id,status,attempts,error FROM telegram_outbox WHERE status IN ('failed','uncertain') ORDER BY created_at DESC LIMIT 20"), pending: this.store.one("SELECT count(*) n FROM telegram_outbox WHERE status='pending'").n, lastPoll: this.store.get('telegramLastPoll') ?? null, error: this.store.get('telegramError') ?? null, turns: this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'").map(r => JSON.parse(r.value)).filter(t => t.generation === binding?.generation).slice(-20) }; }
     pairing(at = now()) {
         if (!this.status().configured)
             throw Error('Configure bot token first');
@@ -127,7 +189,7 @@ export class Telegram {
                 const draft = stopped && this.store.get('telegramDraft:' + stopped.draft_id);
                 let text = String(u.message?.text ?? '');
                 const start = /^\/start\s+(\S+)\s*$/.exec(text);
-                const safe = { generation: this.store.get('telegramBinding')?.generation, update_id: u.update_id, chatId: m?.chat?.id, chatType: m?.chat?.type, userId: from?.id ?? (draft?.generation === this.store.get('telegramBinding')?.generation ? this.store.get('telegramBinding')?.userId : undefined), topic: m?.message_thread_id, edited: !!u.edited_message, stoppedDraft: stopped?.draft_id, callbackId: u.callback_query?.id, username: telegramText(String(from?.username ?? '')), text: start ? '/start' : telegramText(text), date: m?.date, codeDigest: start ? hash(start[1]!) : undefined, callback: String(u.callback_query?.data ?? '').slice(0, 64) };
+                const safe = { generation: this.store.get('telegramBinding')?.generation, update_id: u.update_id, chatId: m?.chat?.id, chatType: m?.chat?.type, userId: from?.id ?? (stopped&&m?.chat?.type==='private'&&m?.chat?.id===this.store.get('telegramBinding')?.chatId ? this.store.get('telegramBinding')?.userId : undefined), topic: m?.message_thread_id, edited: !!u.edited_message, stoppedDraft: stopped?.draft_id, callbackId: u.callback_query?.id, username: telegramText(String(from?.username ?? '')), text: start ? '/start' : telegramText(text), date: m?.date, codeDigest: start ? hash(start[1]!) : undefined, callback: String(u.callback_query?.data ?? '').slice(0, 64) };
                 this.store.run('INSERT OR IGNORE INTO telegram_updates(update_id,body) VALUES(?,?)', u.update_id, json(safe));
                 cursor = Math.max(cursor, u.update_id + 1);
             }
@@ -221,12 +283,12 @@ export class Telegram {
                 }
                 else if (u.stoppedDraft) {
                     const mapped = this.store.get('telegramDraft:' + u.stoppedDraft);
-                    if (mapped?.generation === binding.generation) {
-                        await this.turns().stop(mapped.jobId, mapped.generation, mapped.version, event);
-                        this.enqueue(event, 'Stop ricevuto per questa risposta. Confermerò il rilascio del task.', 'reply', undefined, at, u.generation);
+                    if (mapped?.generation === binding.generation&&(!mapped.expires||mapped.expires>at)&&(!mapped.chatId||mapped.chatId===binding.chatId)&&(!('botGeneration' in mapped)||mapped.botGeneration===callbackBot)) {
+                        const receipt=await this.turns().stop(mapped.jobId, mapped.generation, mapped.version, event);
+                        this.enqueue(event, receipt.state==='received'?'Stop ricevuto per questa risposta. Confermerò il rilascio del task.':this.turns().get(mapped.jobId)?.state==='stop_requested'&&this.turns().get(mapped.jobId)?.version===mapped.version?'Stop già richiesto per questa risposta; attendo conferma di rilascio.':'Questa risposta è già chiusa o la sua versione è scaduta.', 'reply', undefined, at, u.generation);
                         void this.turns().dispatchStop(event).then(() => { if (this.store.get('telegramStop:' + event)?.state === 'idle_confirmed')
                             this.enqueue(event + ':stopped', 'Risposta interrotta; task rilasciato.', 'reply', undefined, now(), u.generation); }).catch(() => { });
-                    }
+                    }else answer='Draft sconosciuto o scaduto: nessuna risposta attiva è stata interrotta.';
                 }
                 else if (u.callback) {
                     const value = this.store.get('telegramCallback:' + u.callback);
@@ -440,7 +502,8 @@ export class Telegram {
             admitted++;
         }
     }
-    async deliver(at = now()) {
+    async deliver(at = now()) {return this.dispatch(()=>this.deliverUnlocked(at));}
+    private async deliverUnlocked(at:string) {
         if(Date.parse(at)<(this.store.get<number>('telegramRateLimitUntil')??0))return;
         const binding = this.store.get('telegramBinding');
         if (!binding)
@@ -486,6 +549,7 @@ export class Telegram {
             // A crash after this receipt is uncertain, not silently retried after restart.
             this.store.run("UPDATE telegram_outbox SET status='sending',attempts=attempts+1 WHERE event_id=?", r.event_id);
             new RuntimeImprovements(this.store).delivery(r.event_id, 'sending');
+            this.invalidateDrafts(binding.generation,binding.chatId);
             try {
                 let method = 'sendMessage', body: unknown = { chat_id: binding.chatId, text: telegramHtml(r.text), parse_mode: 'HTML', reply_markup: buttons };
                 if (artifact && artifact.content.length > 3500) {
@@ -493,10 +557,11 @@ export class Telegram {
                     form.set('document', new Blob([artifact.content], { type: 'text/plain;charset=utf-8' }), artifact.filename);
                     method = 'sendDocument'; body = form;
                 }
-                const message = await this.client().call(method, body, this.abort.signal);
+                const message = await this.outboundCall(method,body);
                 this.store.tx(() => {
                     this.store.run("UPDATE telegram_outbox SET status='sent',message_id=?,error=NULL WHERE event_id=?", message.message_id, r.event_id);
                     new RuntimeImprovements(this.store).delivery(r.event_id, 'sent', message.message_id);
+                    this.invalidateDrafts(binding.generation,binding.chatId);
                     if (r.proposal_id && this.store.get('telegramBinding')?.generation === binding.generation)
                         this.store.run("UPDATE owner_proposals SET expires_at=? WHERE id=? AND status='pending'", new Date(Date.parse(now()) + 300000).toISOString(), r.proposal_id);
                 });
@@ -504,16 +569,14 @@ export class Telegram {
             catch (error) {
                 if (r.proposal_id)
                     this.store.run('UPDATE owner_proposals SET expires_at=NULL WHERE id=?', r.proposal_id);
-                const attempts = r.attempts + 1, retry = (error as any).retryAfter, rejected = (error as any).rejected === true;
+                const attempts = r.attempts + 1, retry = this.rejectedRetryAfter(error), rejected = (error as any).rejected === true;
                 const changed = this.store.get('telegramBinding')?.generation !== binding.generation || (this.store.get('telegramBotGeneration') ?? null) !== botGeneration;
                 const status = changed ? 'uncertain' : attempts >= 5 ? 'failed' : rejected ? 'pending' : 'uncertain';
-                this.store.run('UPDATE telegram_outbox SET status=?,next_at=?,error=? WHERE event_id=?', status, new Date(Date.parse(at) + Math.max(Number(retry) || 0, 2 ** attempts) * 1000).toISOString(), rejected ? 'API rejection; bounded retry' : 'Delivery uncertain; inspect Telegram before manual retry', r.event_id);
+                this.store.run('UPDATE telegram_outbox SET status=?,next_at=?,error=? WHERE event_id=?', status, new Date(Math.min(8640000000000000,Date.parse(at) + Math.max(retry ?? 0, 2 ** attempts) * 1000)).toISOString(), rejected ? 'API rejection; bounded retry' : 'Delivery uncertain; inspect Telegram before manual retry', r.event_id);
                 new RuntimeImprovements(this.store).delivery(r.event_id, status);
-                if (Number(retry) > 0) {
-                    this.store.set('telegramRateLimitUntil', Date.now() + Number(retry) * 1000);
-                    break;
-                }
+                if (this.recordRateLimit(error,botGeneration)!==undefined) break;
             }
+            if(this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'").some(row=>{const t=JSON.parse(row.value);return !t.closed&&t.state==='running';}))break;
         }
     }
     recover() { this.store.run("UPDATE telegram_outbox SET status='uncertain',error='Interrupted send; delivery uncertain, no automatic replay' WHERE status='sending'"); this.control.recover(); for (const row of this.store.all("SELECT event_id,status FROM telegram_outbox WHERE event_id LIKE 'advisory:%'")) new RuntimeImprovements(this.store).delivery(row.event_id, row.status); }
@@ -525,13 +588,14 @@ export class Telegram {
         this.outgoing = this.outbound();
         this.incoming = this.processLoop();
         while (!this.abort.signal.aborted) {
+            const botGeneration = this.store.get('telegramBotGeneration')??null;
             try {
+                if(Date.now()<(this.store.get<number>('telegramRateLimitUntil')??0)){await this.wait(1000);continue;}
                 if (this.status().configured && (this.store.get('telegramBinding') || this.store.get('telegramPairing'))) {
-                    const botGeneration = this.store.get('telegramBotGeneration');
                     if (this.store.get('telegramLastPoll') && Date.now() - Date.parse(this.store.get<string>('telegramLastPoll') ?? '') > 7 * 86400000)
                         this.store.set('telegramCursor', 0);
                     const updates = await this.client().call('getUpdates', { offset: this.store.get('telegramCursor') ?? 0, timeout: 25, allowed_updates: ['message', 'edited_message', 'callback_query', 'stopped_message_generation'] }, this.abort.signal);
-                    if (botGeneration !== this.store.get('telegramBotGeneration'))
+                    if (botGeneration !== (this.store.get('telegramBotGeneration')??null))
                         continue;
                     this.ingest(updates);
                     this.store.set('telegramLastPoll', now());
@@ -541,10 +605,11 @@ export class Telegram {
                 else
                     await this.wait(1000);
             }
-            catch {
+            catch(error) {
                 if (!this.abort.signal.aborted) {
+                    const retry=this.recordRateLimit(error,botGeneration);
                     this.store.set('telegramError', 'Telegram non disponibile; web e scheduler autonomo continuano');
-                    await this.wait(5000);
+                    await this.wait(retry===undefined?5000:1000);
                 }
             }
         }
@@ -554,17 +619,19 @@ export class Telegram {
     }
     private async processLoop(){while(!this.abort.signal.aborted){try{await this.process();}catch{this.store.set('telegramError','Ingresso Telegram temporaneamente bloccato; aggiornamenti conservati');}await this.wait(100);}}
     private async outbound() { while (!this.abort.signal.aborted) {
+        let botGeneration=this.store.get('telegramBotGeneration')??null;
         try {
             if (this.status().paired && Date.now() >= (this.store.get<number>('telegramRateLimitUntil') ?? 0)) {
-                await this.menu();
-                await this.streamDrafts();
                 this.capture();
                 await this.deliver();
+                await this.streamDrafts();
+                // Earlier awaits may have changed the bot; menu dispatch owns its actual originating generation.
+                botGeneration=this.store.get('telegramBotGeneration')??null;
+                await this.menu();
             }
         }
         catch (error) {
-            if (Number((error as any).retryAfter) > 0)
-                this.store.set('telegramRateLimitUntil', Date.now() + Number((error as any).retryAfter) * 1000);
+            this.recordRateLimit(error,botGeneration);
             this.store.set('telegramError', 'Uscita Telegram temporaneamente non disponibile; ricevute conservate');
         }
         await this.wait(500);
@@ -579,33 +646,34 @@ export class Telegram {
         const commands = [['status', 'Stato e budget'], ['analyze', 'Analizza il nodo'], ['proposals', 'Proposte da approvare'], ['pause', 'Sospendi autonomia'], ['resume', 'Riprendi con conferma'], ['stop', 'Interrompi risposta attiva'], ['queue', 'Richieste future'], ['menu', 'Menu'], ['help', 'Aiuto']].map(([command, description]) => ({ command, description }));
         if (!this.authorized(b.generation, b.chatId, bot))
             return;
-        await this.client().call('setMyCommands', { commands }, this.abort.signal);
+        await this.outboundCall('setMyCommands', { commands });
         if (!this.authorized(b.generation, b.chatId, bot))
             return;
-        await this.client().call('setMyCommands', { commands, scope: { type: 'chat', chat_id: b.chatId }, language_code: 'it' }, this.abort.signal);
+        await this.outboundCall('setMyCommands', { commands, scope: { type: 'chat', chat_id: b.chatId }, language_code: 'it' });
         if (!this.authorized(b.generation, b.chatId, bot))
             return;
-        await this.client().call('setChatMenuButton', { chat_id: b.chatId, menu_button: { type: 'commands' } }, this.abort.signal);
+        await this.outboundCall('setChatMenuButton', { chat_id: b.chatId, menu_button: { type: 'commands' } });
         if (!this.authorized(b.generation, b.chatId, bot))
             return;
-        const identity = await this.client().call('getMe', {}, this.abort.signal);
+        const identity = await this.outboundCall('getMe', {});
         if (this.authorized(b.generation, b.chatId, bot)) {
             if (/^[a-zA-Z0-9_]{5,32}$/.test(identity?.username ?? ''))
                 this.store.set('telegramUsername', identity.username);
             this.store.set(key, true);
         }
     }
-    async streamDrafts(at = now()) {
+    async streamDrafts(at = now()) {return this.dispatch(()=>this.streamDraftsUnlocked(at));}
+    private async streamDraftsUnlocked(at:string) {
+        if(Math.max(Date.parse(at),Date.now())<(this.store.get<number>('telegramRateLimitUntil')??0))return;
         const b = this.store.get('telegramBinding');
         if (!b)
             return;
         const bot = this.store.get('telegramBotGeneration') ?? null;
-        for (const row of this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'")) {
-            const turn = JSON.parse(row.value);
-            if (turn.generation !== b.generation || turn.closed || turn.state !== 'running')
-                continue;
+        // One foreground draft per peer: Telegram clients do not consistently support simultaneous drafts.
+        const foreground=this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'").map(r=>JSON.parse(r.value)).filter(t=>t.generation===b.generation&&t.chatId===b.chatId&&!t.closed&&t.state==='running'&&this.control.queue.get(t.jobId)?.state==='running').sort((a,b)=>String(this.control.queue.get(a.jobId)?.created_at).localeCompare(String(this.control.queue.get(b.jobId)?.created_at))||a.jobId.localeCompare(b.jobId)).slice(0,1);
+        for (const turn of foreground) {
             const key = 'telegramStream:' + turn.jobId;
-            const prior = this.store.get(key) ?? { draftId: parseInt(hash(turn.jobId).slice(0, 7), 16) + 1, cursor: 0 };
+            const prior = this.store.get(key) ?? { cursor: 0 };
             if (prior.status === 'uncertain')
                 continue;
             if (prior.status === 'sending') {
@@ -638,37 +706,47 @@ export class Telegram {
             }else text=clean;
             if (prior.at && Date.parse(at) - Date.parse(prior.at) < 1000)
                 continue;
-            if (prior.text === text && prior.at && Date.parse(at) - Date.parse(prior.at) < 20000)
+            if (!prior.invalidated && prior.text === text && prior.at && Date.parse(at) - Date.parse(prior.at) < 20000)
                 continue;
-            if (!this.authorized(b.generation, b.chatId, bot) || this.turns().get(turn.jobId)?.closed)
+            if (!this.draftAuthorized(turn,b,bot)||Math.max(Date.parse(at),Date.now())<(this.store.get<number>('telegramRateLimitUntil')??0))
                 continue;
-            this.store.set('telegramDraft:' + prior.draftId, { jobId: turn.jobId, generation: turn.generation, version: turn.version });
+            let allocation:{id:number;alias:any}|undefined;
             try {
+                if(!prior.fallback){
+                    if(Date.parse(at)-(this.store.get<number>('telegramDraftLastDispatchAt')??0)<1000)continue;
+                    allocation=this.draftAlias(turn,b,bot,prior,text,at);prior.draftId=allocation.id;
+                    this.store.set('telegramDraftLastDispatchAt',Date.parse(at));
+                }
                 if (prior.fallback) {
                     if (prior.messageId)
-                        await this.client().call('editMessageText', { chat_id: b.chatId, message_id: prior.messageId, text }, this.abort.signal);
+                        await this.outboundCall('editMessageText', { chat_id: b.chatId, message_id: prior.messageId, text });
                     else {
                         this.store.set(key, { ...prior, status: 'sending' });
-                        const result = await this.client().call('sendMessage', { chat_id: b.chatId, text, reply_markup: this.buttons(key, [{ text: 'Stop', value: { action: 'stop', id: turn.jobId, version: turn.version } }], b.generation) }, this.abort.signal);
+                        const result = await this.outboundCall('sendMessage', { chat_id: b.chatId, text, reply_markup: this.buttons(key, [{ text: 'Stop', value: { action: 'stop', id: turn.jobId, version: turn.version } }], b.generation) });
                         prior.messageId = result.message_id;
                     }
                 }
                 else if (!prior.plainDraft)
-                    await this.client().call('sendRichMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, rich_message: { html: text.startsWith('Thinking…') ? '<tg-thinking>' + telegramHtml(text.slice('Thinking…'.length).trim() || 'Sto elaborando…') + '</tg-thinking>' : telegramHtml(text) }, can_stop: true, keep_on_stop: true }, this.abort.signal);
+                    await this.outboundCall('sendRichMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, rich_message: { html: text.startsWith('Thinking…') ? '<tg-thinking>' + telegramHtml(text.slice('Thinking…'.length).trim() || 'Sto elaborando…') + '</tg-thinking>' : telegramHtml(text) }, can_stop: true, keep_on_stop: true });
                 else
-                    await this.client().call('sendMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, text,can_stop:true,keep_on_stop:true }, this.abort.signal);
-                this.store.set(key, { ...prior, status: 'active', text, at, cursor: textRow?.id ?? prior.cursor });
+                    await this.outboundCall('sendMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, text,can_stop:true,keep_on_stop:true });
+                if(allocation)this.store.set('telegramDraft:'+allocation.id,{...allocation.alias,outcome:'accepted',completedAt:now()});
+                if(!this.draftAuthorized(turn,b,bot))continue;
+                this.store.set(key, { ...prior, invalidated:false,status: 'active', text, at, cursor: textRow?.id ?? prior.cursor });
             }
             catch (error) {
+                if(allocation)this.store.set('telegramDraft:'+allocation.id,{...allocation.alias,outcome:(error as any).rejected?'rejected':'uncertain',completedAt:now()});
+                // Bot quota outlives the originating turn; obsolete bot responses have no authority over its replacement.
+                const retry=this.recordRateLimit(error,bot);
+                if(!this.draftAuthorized(turn,b,bot))continue;
+                if(!allocation&&!prior.fallback){this.store.set(key,{...prior,status:'capacity_blocked',at,note:'Draft alias capacity unavailable; final delivery remains independent'});continue;}
                 if (prior.fallback && !prior.messageId && (error as any).rejected !== true) {
                     this.store.set(key, { ...prior, status: 'uncertain' });
                     this.enqueue(key + ':uncertain', 'Consegna del messaggio di avanzamento incerta: nessun reinvio automatico. La risposta finale conserva la propria ricevuta.', 'reply', undefined, at, b.generation);
                     continue;
                 }
-                const retry = Number((error as any).retryAfter);
-                if (retry) {
-                    this.store.set('telegramRateLimitUntil', Date.now() + retry * 1000);
-                    this.store.set(key, { ...prior, nextAt: new Date(Date.parse(at) + retry * 1000).toISOString() });
+                if (retry!==undefined) {
+                    this.store.set(key, { ...prior, nextAt: new Date(Math.min(8640000000000000,Date.parse(at) + retry * 1000)).toISOString() });
                 }
                 else if ((error as any).rejected && !prior.plainDraft) {
                     this.store.set(key, { ...prior, plainDraft: true });

@@ -111,6 +111,7 @@ export class EvidenceViews {
       // Preserve the legacy current-acquisition version contract when explicitly supplied.
       if(version)return {available:false,changed:true,reopen:true,rows:[],nextOffset:null,nextCall:{tool:'state_page',query:{...query,offset:0}},note:'Version without immutable cursor requires explicit reopen; no section completion is implied'};
       if (offset) throw Error("Continuation requires cursor or legacy version");
+      if(state.unavailableEvidence)return state.unavailableEvidence;
       const first = statePage(state, {
         ...q,
         channel:
@@ -142,17 +143,12 @@ export class EvidenceViews {
       let unsupported = 0;
       rows = state.adapterFiltered ? rows : rows.filter((r) => {
         if (query.channel && q.section !== "competition_alternatives") {
-          const channel = r.id ?? r.channelId ?? r.channel_id;
-          if (!channel) {
-            unsupported++;
-            return false;
-          }
-          try {
-            if (canonical(channel) !== query.channel) return false;
-          } catch {
-            unsupported++;
-            return false;
-          }
+          // Diagnostic record IDs identify observations, never Lightning channels.
+          const identity = r.channelId ?? r.channel_id ?? (q.section==='channels'||q.section==='competition'?r.id:undefined);
+          const endpoints = identity!==undefined?[identity]:q.section==='diagnostics'?[r.source,r.target].filter(v=>v!==undefined&&v!==null):[];
+          if(!endpoints.length||(identity===undefined&&q.section==='diagnostics'&&q.collection==='rebalances'&&(!r.source||!r.target))){unsupported++;return false;}
+          try { if(!endpoints.some(v=>canonical(v)===query.channel))return false; }
+          catch {unsupported++;return false;}
         }
         for (const name of ["source", "target"] as const)
           if (query[name]) {
@@ -187,6 +183,7 @@ export class EvidenceViews {
         ...first.metadata,
         ...state.sourceMetadata,
         scope: query,
+        filterSemanticsVersion:2,
         unsupportedRows: unsupported,
         viewComplete: true,
         captureComplete: (first.metadata as any)?.captureComplete ?? null,
@@ -215,7 +212,7 @@ export class EvidenceViews {
         query: key,
         rows,
         metadata,
-        version: hash(json({schema:1,query,rows,coverage:metadata.coverage,limits:metadata.projectionLimits,captureComplete:metadata.captureComplete,captureCounts:metadata.captureCounts,upstreamHistoryComplete:metadata.upstreamHistoryComplete})),
+        version: hash(json({schema:1,filterSemanticsVersion:2,query,rows,coverage:metadata.coverage,limits:metadata.projectionLimits,captureComplete:metadata.captureComplete,captureCounts:metadata.captureCounts,upstreamHistoryComplete:metadata.upstreamHistoryComplete})),
         capturedAt: new Date(this.clock()).toISOString(),
         bytes,
         expires: this.clock() + this.ttl,
@@ -232,6 +229,8 @@ export class EvidenceViews {
       capturedAt: v.capturedAt,
       expiresAt: new Date(v.expires).toISOString(),
       metadata: v.metadata,
+      filterSemanticsVersion:v.metadata.filterSemanticsVersion??null,
+      filterSemantics:v.metadata.filterSemanticsVersion===2?'qualified-v2':'legacy_unknown',
       total: v.rows.length,
       offset,
       rows: [],
