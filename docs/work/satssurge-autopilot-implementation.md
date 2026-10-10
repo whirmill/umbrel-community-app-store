@@ -2124,3 +2124,15 @@ and this handoff are prepared for the primary's separate git-operator metadata
 commit/push; source tag must remain unchanged. GitHub release then requires creation
 and readback. Installed baseline remains0.4.5 pending checkpoint, install, receipt
 reconciliation and real Telegram acceptance; no live financial effect qualified here.
+
+
+### 0.5.1 Telegram UX source handoff
+
+Reviewed implementation changes only Telegram runtime and its interactive tests:
+five inline menu actions, visible command menu, callback expiry, plain Thinking
+indicator, rolling long preview and full final delivery. Local reviewer PASS:
+238 tests and typecheck. Release-owned package/root lock versions are0.5.1 with
+Pi1.1.0/dependencies preserved. Manifest/compose retain verified0.5.0 pending
+new immutable source/tag, Node24 CI and anonymous platform/all-layer proof.
+No financial authority/schema/roadmap changes. Installed acceptance remains
+separate; checkpoint and preserve newer/uncertain receipts without replay.

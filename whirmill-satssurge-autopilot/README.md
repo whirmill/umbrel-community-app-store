@@ -982,3 +982,27 @@ of original autonomy/timers. Real Telegram streaming, correction and Stop checks
 remain pending; image proof does not establish those outcomes or profitability.
 Compatible-image rollback must preserve newer/uncertain financial and Telegram
 receipts; never restore an older checkpoint over newer effects or replay them.
+
+
+### 0.5.1 Telegram menu and streaming source candidate — 2026-10-10
+
+Package and both root lockfile versions are 0.5.1; Pi Durable, Pi AI and Chord
+remain 1.1.0. The new immutable source tag will be
+`satssurge-autopilot-v0.5.1`; the 0.5.0 source tag remains unchanged. Manifest
+and compose retain verified 0.5.0 until exact-source CI and anonymous image
+verification pass. No 0.5.1 source SHA, CI run or image digest is claimed yet.
+
+This patch adds the five-button inline `/menu` (Stato, Analizza, Proposte, Coda,
+Aiuto), restores callback expiry validation and makes the command menu visible
+in Telegram. Streaming displays a plain Thinking indicator and a rolling long
+preview; full final content remains delivered. Local review qualified 238 Node
+tests and typecheck; release CI must independently confirm the Node 24 suite
+and Python checks. Real installed Telegram client acceptance remains pending.
+
+Schema 6, durable turn identities, financial capabilities and the existing
+fee/rebalance mandate remain unchanged. Installation requires a stopped executor,
+a consistent checkpoint of all three databases, preservation of private secrets
+and mounted credentials, receipt reconciliation and original timer/autonomy
+restoration. Compatible-image rollback must preserve newer or uncertain receipts;
+never restore older databases over newer effects, replay payments or automatically
+resend uncertain deliveries. The approved roadmap remains unchanged.
