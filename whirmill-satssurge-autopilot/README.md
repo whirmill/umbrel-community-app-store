@@ -1310,3 +1310,26 @@ A separate managed native-canonical worktree prepares isolated additive-schema7
 helpers with synthetic tests only; it is not wired into Store or live financial
 migration. M3 integration follows core live acceptance and parity qualification.
 M3–M5 remain incomplete and new financial integrations stay disabled.
+
+
+### Core 0.5.6 publication checkpoint — 2026-10-10
+
+Delayed current-owner read-only Telegram messages and harmless commands now recover
+from their original ignored records after downtime. Consequential-command expiry,
+binding fences, original identities and sent/uncertain delivery outcomes remain
+protected. Independent review reproduced and closed recovery failure after a real
+SIGKILL followed by bot reconfiguration and same-owner confirmation; missing or
+invalid originals expire safely while new read-only requests remain admissible.
+
+Source `96eef99ab45cf129d2a5d6e72d25b6fc7a42ffdc`, immutable annotated tag
+`satssurge-autopilot-v0.5.6` and [CI 38056581314](https://github.com/whirmill/umbrel-community-app-store/actions/runs/38056581314)
+passed348 Node/16 Python tests. Both amd64/arm64 images, OCI revisions, all22
+compressed layers, package0.5.6 and Pi Durable1.1.0 were verified anonymously.
+Index: `ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.6@sha256:df22564e61ae0095597dd58f8ad3a81e43f787af31a50fcb7948d44347aa1c40`.
+
+Observed installed runtime remains0.5.2/schema6, running and healthy. Real owner
+Telegram update757676433 was delivered once as message917; the financial fence
+remains retained. Fresh current checkpoint, exact store resolution, installation,
+original delayed-request recovery, same-client streaming and advisory attachment
+readback remain acceptance gates. M2.3/M2.4 and M3-M5 remain open. No new
+financial integrations or channel lifecycle capabilities are enabled.

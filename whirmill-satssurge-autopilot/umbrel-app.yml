@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.5"
+version: "0.5.6"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -28,27 +28,19 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.5 closes the unregistered-menu cooldown defect in immutable 0.5.4.
-  Ordinary delivery and intermediate menu-registration 429 responses now gate
-  subsequent menu work against the exact bot/binding/chat context, with guarded
-  polling and idempotent expiry. This source correction does not establish the
-  cause or resolution of the registered-owner streaming animation. Rotating rich
-  drafts remain experimental until actual same-client Telegram macOS 12.10/build
-  282987 acceptance. M2.3/M2.4 are not yet complete.
-  CI 38042563845 passed 331 tests on Node 24.21.0 and 16 Python tests, then
-  published amd64/arm64. Anonymous index/manifests/config revisions and all 22
-  compressed layer SHA-256/size checks passed against image source
-  039e21e1f96ac29c3dc403f667a9fa830a46d7fc. Actual layers confirm package 0.5.5,
-  Pi Durable 1.1.0, both scoped backport hashes and six native guard hashes.
-  Both root lock versions are verified at immutable source, not runtime layers.
-  Schema 6, original receipts, financial mandate and uncertain reconciliation
-  remain unchanged. Installed runtime remains 0.5.2; installation/live acceptance
-  are pending. No new schema migration or financial capability is introduced.
-  Before update qualify registered-store resolution and full writer exclusion,
-  preserve current OAuth tokens/receipts/secrets/credential permissions, and take
-  stopped three-database checkpoints with isolated recovery verification. Read-only
-  inventories and synthetic installer tests are not stopped checkpoints.
-  Compatible rollback preserves current/new/uncertain receipts and tokens; never
-  restore older databases or tokens over later state or replay uncertain effects.
-  Schema-5 software refuses schema 6. M3-M5 and optional financial integrations
-  remain incomplete; accounting and historical coverage remain partial.
+  Version 0.5.6 recovers delayed owner read-only Telegram requests after downtime,
+  including status/help/menu/queue messages previously ignored by the expiry
+  limit. Consequential commands and stale ownership contexts retain their expiry
+  and safety checks. Recovery preserves original request/delivery identities;
+  missing or changed original records expire safely after a restart or re-pairing.
+  Telegram streaming, targeted Stop, correction choices and advisory development
+  prompts retain the earlier core fixes. Same-client streaming and long prompt
+  attachment acceptance remain required after installation.
+  CI 38056581314 passed 348 Node tests and 16 Python tests and published verified
+  amd64/arm64 images from 96eef99ab45cf129d2a5d6e72d25b6fc7a42ffdc.
+  Schema 6 and Pi Durable 1.1.0 remain unchanged. Preserve current OAuth tokens,
+  original receipts and uncertain-effect reconciliation through a fresh stopped
+  three-database checkpoint before update. Compatible software rollback preserves
+  current data; never replace newer receipts or tokens with earlier backups.
+  M2.3/M2.4 installed acceptance and M3-M5 remain incomplete. Optional financial
+  integrations remain disabled; accounting and historical coverage remain partial.
