@@ -2136,3 +2136,16 @@ Pi1.1.0/dependencies preserved. Manifest/compose retain verified0.5.0 pending
 new immutable source/tag, Node24 CI and anonymous platform/all-layer proof.
 No financial authority/schema/roadmap changes. Installed acceptance remains
 separate; checkpoint and preserve newer/uncertain receipts without replay.
+
+
+### 0.5.2 feedback source handoff
+
+Local reviewerPASS239tests/typecheck. Includes0.5.1 menu/callback/Thinking/rolling
+preview fixes plus nonempty rich thinking placeholder: live Telegram rejected
+empty tg-thinking with400 RICH_MESSAGE_EMPTY but accepted nonempty content.
+Release-owned package/root lock now0.5.2 with Pi1.1.0/dependencies preserved.
+Store stays0.5.0;0.5.1 has no store promotion/release/install. Previous0.5.0 actual
+native Stop and semantic steering passed;0.5.2 new UX acceptance remains pending.
+Next primary git-operator creates immutable052source/tag; release lane verifies
+exactNode24CI and bothplatforms/allcompressedlayers before storemetadata.
+No schema/financial/roadmap changes; preserve all original/new uncertain receipts.

@@ -590,7 +590,7 @@ export class Telegram {
                     }
                 }
                 else if (!prior.plainDraft)
-                    await this.client().call('sendRichMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, rich_message: { html: text.startsWith('Thinking…') ? '<tg-thinking>' + telegramHtml(text.slice('Thinking…'.length).trim()) + '</tg-thinking>' : telegramHtml(text) }, can_stop: true, keep_on_stop: true }, this.abort.signal);
+                    await this.client().call('sendRichMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, rich_message: { html: text.startsWith('Thinking…') ? '<tg-thinking>' + telegramHtml(text.slice('Thinking…'.length).trim() || 'Sto elaborando…') + '</tg-thinking>' : telegramHtml(text) }, can_stop: true, keep_on_stop: true }, this.abort.signal);
                 else
                     await this.client().call('sendMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, text,can_stop:true,keep_on_stop:true }, this.abort.signal);
                 this.store.set(key, { ...prior, status: 'active', text, at, cursor: textRow?.id ?? prior.cursor });

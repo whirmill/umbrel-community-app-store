@@ -1006,3 +1006,29 @@ and mounted credentials, receipt reconciliation and original timer/autonomy
 restoration. Compatible-image rollback must preserve newer or uncertain receipts;
 never restore older databases over newer effects, replay payments or automatically
 resend uncertain deliveries. The approved roadmap remains unchanged.
+
+
+### 0.5.2 Telegram feedback source candidate — 2026-10-10
+
+Package and root lock versions are0.5.2; Pi Durable/Pi AI/Chord remain1.1.0.
+The intended new source tag is `satssurge-autopilot-v0.5.2`; previous immutable
+tags remain unchanged. Store metadata stays on verified0.5.0. Version0.5.1 was
+not installed or promoted to a GitHub release; its source/CI remain historical.
+No0.5.2 source SHA, CI run or image digest is claimed yet.
+
+This patch includes the five-button inline menu, visible command menu, callback
+expiry validation, plain Thinking indicator, rolling long preview and full final
+delivery. A real Telegram probe found empty `<tg-thinking></tg-thinking>` content
+returns400 RICH_MESSAGE_EMPTY, incorrectly causing permanent plain fallback;
+nonempty thinking content was accepted. The fix keeps the rich initial thinking
+placeholder nonempty, with regression coverage. Local review qualified239 Node
+tests and typecheck; exact-source Node24 CI and Python checks remain separate.
+
+The primary verified actual0.5.0 native Stop and semantic steering in Telegram,
+including same-job settled correction and the requested final marker. New0.5.2
+menu/loading/rolling-preview behavior still requires installed client acceptance.
+Schema6 and financial authority are unchanged. Before installation prove the
+executor stopped, checkpoint all three databases, preserve secrets/credentials,
+reconcile receipts and restore original autonomy/timers. Compatible rollback
+must retain newer/uncertain receipts; never restore older databases over newer
+effects or replay payments/uncertain deliveries. Approved roadmap unchanged.
