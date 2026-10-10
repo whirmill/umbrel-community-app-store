@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.0"
+version: "0.5.2"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -28,18 +28,19 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.0 makes Telegram the owner's conversational interface, with immediate
-  read-only coordination on slot 2, durable sessions and turn receipts, rich drafts,
-  public reasoning summaries, explicit correction/new-request choices, native Stop,
-  command menus and contextual actions. Financial coordination remains independent;
-  the existing fee/rebalance mandate and partial profitability accounting are unchanged.
-  CI 38027580133 passed 224 tests on Node 24.21.0 and 16 Python tests. Anonymous
+  Version 0.5.2 adds the five-button inline menu, visible command menu, callback
+  expiry validation, Thinking feedback, rolling long previews and full final
+  delivery. Nonempty rich thinking fixes Telegram's RICH_MESSAGE_EMPTY rejection
+  of the initial empty placeholder. Existing Telegram durable turns, native Stop,
+  explicit correction choices and independent read-only coordinator remain intact.
+  CI 38029485714 passed 239 tests on Node 24.21.0 and 16 Python tests. Anonymous
   amd64/arm64 manifest/config and all 22 compressed layer SHA-256/size checks passed
-  against source d915faa4b74408d9c1fb2db649d34af17d29ba08. Pi Durable remains 1.1.0;
-  additive schema 6 preserves original jobs, conversations, submissions and receipts.
+  against source 513e30c99437f75bc0c5cd7181d1bd47388361cc. Pi Durable remains 1.1.0;
+  schema 6 and the existing financial mandate are unchanged. Actual 0.5.0 Stop and
+  semantic steering passed; new 0.5.2 client UX acceptance remains pending.
   Before installation stop the executor, checkpoint all three databases and preserve
   owner.secret, telegram.secret and mounted credentials with their permissions.
   Rollback requires compatible software and preservation of newer or uncertain receipts;
   never restore older databases over newer effects or replay payments/uncertain deliveries.
   Schema-5 software refuses schema 6. Already dispatched messages may finish after
-  revocation. Installed streaming, correction and Stop acceptance remain separate.
+  revocation. Profitability accounting remains partial.

@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current installed and accepted release is `0.4.5` (schema 6), with dedicated owner login and visible session logout. Immutable publication and installed acceptance of the Telegram-first baseline are recorded separately below. The bot was subsequently paired; the interactive Telegram 0.5.0 image is immutably published and verified, with installation and real Telegram acceptance still pending. Original autonomy and all four watcher timers are restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Current installed and accepted release is `0.4.5` (schema 6), with dedicated owner login and visible session logout. Immutable publication and installed acceptance of the Telegram-first baseline are recorded separately below. The bot was subsequently paired; the interactive Telegram 0.5.0 baseline passed actual native Stop and semantic steering. The 0.5.2 menu/loading-feedback patch is immutably published and verified, with its installation and client UX acceptance pending. Original autonomy and all four watcher timers are restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -1032,3 +1032,36 @@ executor stopped, checkpoint all three databases, preserve secrets/credentials,
 reconcile receipts and restore original autonomy/timers. Compatible rollback
 must retain newer/uncertain receipts; never restore older databases over newer
 effects or replay payments/uncertain deliveries. Approved roadmap unchanged.
+
+
+### 0.5.2 immutable image verified — new client UX pending
+
+Source `513e30c99437f75bc0c5cd7181d1bd47388361cc` is fixed by signed tag
+`satssurge-autopilot-v0.5.2` (tag object
+`dbe171a8360224b54d0be22001c8c720de0f7cad`).
+[CI 38029485714](https://github.com/whirmill/umbrel-community-app-store/actions/runs/38029485714)
+passed build and publication: 239 tests on Node24.21.0, zero failures, and
+16 Python tests. Verified immutable image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.2@sha256:09006ac9f708218a77b3c84a54948592b98120117d45d1f8d6fc7df25a35e211`.
+
+Anonymous downloads verified both linux/amd64 and linux/arm64 manifests/configs,
+source labels, application version0.5.2 and `flock --no-fork`. All22 unique
+compressed layers passed SHA-256/size checks (222,151,438 bytes).
+- amd64: `sha256:1b62c75dbc39aaa18d66d53a987dec04603fac4019dbd49257a887a98d5b674f`.
+- arm64: `sha256:4734f9d3f46a612285bb6f5ea73f94434edc6b63dba2b80421e5a54aec2cc238`.
+
+Verified at `2026-10-10T06:07:07.823074+00:00`. Private receipts:
+`/Users/whirmill/.local/share/satssurge/image-052-receipt.json` and
+`/Users/whirmill/.local/share/satssurge/ci-052-full.log`. Store metadata now pins
+this image; its separate commit must not move any immutable source tag. GitHub
+release creation/readback follows the metadata push. Version0.5.1 was unpromoted;
+previous source-candidate and pending-acceptance entries are historical.
+
+The primary recorded actual0.5.0 native Stop and semantic steering passing in
+Telegram, including a settled correction on the same job. The new0.5.2 menu,
+Thinking/loading and rolling-preview UX still requires installed client checks.
+Installation requires a stopped-executor three-database checkpoint, preserved
+secrets/credentials, receipt reconciliation and original autonomy/timer restoration.
+Compatible rollback must preserve newer/uncertain receipts without restoring
+older databases over newer effects or replaying financial/Telegram deliveries.
+Schema6/Pi1.1.0, financial authority and the approved roadmap remain unchanged.

@@ -2149,3 +2149,17 @@ native Stop and semantic steering passed;0.5.2 new UX acceptance remains pending
 Next primary git-operator creates immutable052source/tag; release lane verifies
 exactNode24CI and bothplatforms/allcompressedlayers before storemetadata.
 No schema/financial/roadmap changes; preserve all original/new uncertain receipts.
+
+
+### 0.5.2 final immutable publication handoff
+
+Source513e30c99437f75bc0c5cd7181d1bd47388361cc, signed immutable052tag;
+CI38029485714 build/publishSUCCESS,239Node24.21.0tests/Python16. Bothplatforms
+source/version/flock and all22 compressed layers anonymously verified:
+222,151,438 bytes. Image `ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.2@sha256:09006ac9f708218a77b3c84a54948592b98120117d45d1f8d6fc7df25a35e211`.
+Private image-052-receipt.json/ci-052-full.log and telegram052-install/release-proof.json
+provide publication/installer evidence. Store metadata prepared for primary
+git-operator commit/push; immutable source tags unchanged. GitHub release follows
+that push. Previous050actualnativeStop/semanticsteeringpassed;052newUX remains
+pending installed acceptance.051unpromoted. Checkpoint/preserve/reconcile original
+and newer receipts, restore original autonomy/timers, never replay effects.
