@@ -51,6 +51,6 @@ releaseNotes: >-
   Take a fresh stopped three-database checkpoint before update and preserve current
   OAuth tokens, original receipts and uncertain-effect reconciliation. Compatible
   software rollback preserves current data; never restore older receipts or tokens
-  over newer state. Immutable amd64/arm64 publication and installed acceptance are
-  still pending for 0.5.7. M2.3/M2.4 installed acceptance and M3-M5 remain incomplete;
+  over newer state. Immutable amd64/arm64 publication is complete; installed
+  acceptance remains pending for 0.5.7. M2.3/M2.4 and M3-M5 remain incomplete;
   optional financial integrations remain disabled.
