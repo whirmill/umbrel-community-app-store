@@ -2,20 +2,22 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.6"
+version: "0.5.7"
 tagline: An evidence-driven Lightning routing agent
 description: >-
-  Pi Durable agent for autonomous Lightning fee experiments and circular
-  rebalances, using a ChatGPT/Codex subscription. Private SQLite accounting,
-  historical evidence, durable intent tracking and deterministic budget controls.
-  Protects 500,000 on-chain sats. Mainnet POC: maximum 30,000 sats cumulative
-  including history, 1,500 sats daily rebalance costs and 100 sats per attempt.
-  Requires initial restricted LND credential provisioning and live automation
-  interlock. The agent starts after OAuth login and successful reconciliation.
-  Paired-owner Telegram conversation with immediate read-only coordination,
-  rich streaming drafts, correction choices, targeted Stop, guarded pause/resume,
-  proposal review and accounting notifications. Web settings retain configuration
-  and read-only history. Channels and Magma remain future milestones.
+  Pi Durable agent for Lightning fee experiments and circular rebalances, using
+  a ChatGPT/Codex subscription. Private SQLite accounting, historical evidence,
+  durable intent tracking and deterministic budget controls. Protects 500,000
+  on-chain sats. Mainnet POC: maximum 30,000 sats cumulative including history,
+  1,500 sats daily rebalance costs and 100 sats per attempt. Requires initial
+  restricted LND credential provisioning, live automation interlock and successful
+  reconciliation. Autonomy remains suspended until explicit qualification.
+  Paired-owner Telegram conversation with read-only coordination, streaming
+  drafts, correction choices, targeted Stop, guarded pause/resume, proposal review,
+  accounting notifications and explicit review of recoverable historical requests.
+  Web settings retain configuration and read-only history. Native LND collection
+  and unified history (M3), agent-generated HTML/DLS exports (M4), and optional
+  RoboSats/Amboss/Magma integrations (M5) remain future milestones.
 developer: whirmill
 website: https://github.com/whirmill/umbrel-community-app-store
 repo: https://github.com/whirmill/umbrel-community-app-store
@@ -28,19 +30,27 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.6 recovers delayed owner read-only Telegram requests after downtime,
-  including status/help/menu/queue messages previously ignored by the expiry
-  limit. Consequential commands and stale ownership contexts retain their expiry
-  and safety checks. Recovery preserves original request/delivery identities;
-  missing or changed original records expire safely after a restart or re-pairing.
-  Telegram streaming, targeted Stop, correction choices and advisory development
-  prompts retain the earlier core fixes. Same-client streaming and long prompt
-  attachment acceptance remain required after installation.
-  CI 38056581314 passed 348 Node tests and 16 Python tests and published verified
-  amd64/arm64 images from 96eef99ab45cf129d2a5d6e72d25b6fc7a42ffdc.
-  Schema 6 and Pi Durable 1.1.0 remain unchanged. Preserve current OAuth tokens,
-  original receipts and uncertain-effect reconciliation through a fresh stopped
-  three-database checkpoint before update. Compatible software rollback preserves
-  current data; never replace newer receipts or tokens with earlier backups.
-  M2.3/M2.4 installed acceptance and M3-M5 remain incomplete. Optional financial
-  integrations remain disabled; accounting and historical coverage remain partial.
+  Version 0.5.7 requires owner review through /recover before resuming historical
+  read-only Telegram requests. Expired or late correction choices mature into
+  separate review views in bounded batches; nested recovery validates every
+  ancestor hash and rejects missing, changed, cyclic or over-128-reference chains.
+  Original ingress, correction, request, job, conversation and submission receipts
+  remain preserved. Resume keeps the original request identity and new-request
+  constraint; it does not replay an expired steer or admit duplicate work.
+  Callback expiry accounts for the entire processing batch, including earlier ACK
+  waits and recursive recovery. Owner, bot, binding, generation and receipt checks
+  remain active after ACK. Existing consumed choices and native submissions retain
+  their original ownership. Uncertain delivery and financial effects are not replayed.
+  Diagnostic advisory prompts identify collector, LNDg or Lightning Mate origin
+  while preserving prior revisions and checksums. Pi Durable/Chord 1.1.0 native
+  equivalence fixtures and qualification documentation cover isolated native
+  behavior; application runtime adapters have not been removed or replaced.
+  Schema 6, Pi Durable 1.1.0, current mandate, budget limits, capability fences
+  and the single financial executor remain unchanged. Autonomy remains suspended
+  until explicit qualification. Accounting and historical coverage remain partial.
+  Take a fresh stopped three-database checkpoint before update and preserve current
+  OAuth tokens, original receipts and uncertain-effect reconciliation. Compatible
+  software rollback preserves current data; never restore older receipts or tokens
+  over newer state. Immutable amd64/arm64 publication and installed acceptance are
+  still pending for 0.5.7. M2.3/M2.4 installed acceptance and M3-M5 remain incomplete;
+  optional financial integrations remain disabled.

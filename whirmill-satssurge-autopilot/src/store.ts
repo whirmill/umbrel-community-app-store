@@ -261,7 +261,7 @@ export class Store {
       decisions:this.all('SELECT * FROM decisions ORDER BY at DESC LIMIT 50').map(r=>({...r,proposal:JSON.parse(r.proposal),forecast:JSON.parse(r.forecast)})),
       evaluations:this.all('SELECT * FROM evaluations ORDER BY at DESC LIMIT 30'),evaluationWindows:this.all('SELECT * FROM evaluation_windows ORDER BY at DESC LIMIT 60').map(r=>({...r,result:JSON.parse(r.result)})),coverage:this.all('SELECT * FROM coverage ORDER BY end DESC LIMIT 20'),
       claims:this.all('SELECT * FROM claims ORDER BY at DESC LIMIT 25'), holds:this.all('SELECT * FROM channel_holds'),
-      projectionLimits:{operations:50,decisions:50,evaluations:30,evaluationWindows:60,coverage:20,claims:25,upstreamHistoryComplete:false},agent:this.get('agent')??{},importReport:this.get('importReport')??{}, roadmap:['M1 · fee/rebalance POC','M2 · Telegram daily interface','M3 · independence from complementary apps (future)','M4 · new channels / Robosats / Amboss / Magma (future); Discord not implemented']};
+      projectionLimits:{operations:50,decisions:50,evaluations:30,evaluationWindows:60,coverage:20,claims:25,upstreamHistoryComplete:false},agent:this.get('agent')??{},importReport:this.get('importReport')??{}, roadmap:['M1–M2.1 · Fondamenti, diagnostica e interfaccia web','M2.2 · Conversazione quotidiana su Telegram','M2.3 · Stabilizzazione del core — in corso','M2.4 · Prompt consultivi sui problemi del runtime — da qualificare','M3 · Raccolta nativa e storico unificato — da qualificare','M4 · Documenti, immagini ed export — da qualificare','M5 · Integrazioni opzionali RoboSats, Amboss e Magma — da qualificare']};
   }
   retain(at=now()) {
     const cutoff=new Date(Date.parse(at)-90*86400_000).toISOString();

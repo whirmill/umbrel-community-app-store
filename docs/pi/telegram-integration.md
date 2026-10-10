@@ -278,3 +278,82 @@ osservazione. Le righe prive dei campi necessari restano esplicitamente unsuppor
 Un cursore persistente precedente conserva immutabilmente righe e semantica della
 sua acquisizione; l'assenza del contratto è esposta come `legacy_unknown` senza
 mutare la ricevuta salvata. Riapertura esplicita produce una nuova vista con le nuove regole.
+
+## Recupero esplicito degli ingressi storici
+
+I messaggi acquisiti oltre cinque minuti dalla data Telegram restano ricevute
+persistenti; chat read-only e comandi `/status`, `/help`, `/queue`, `/menu`
+richiedono ora revisione, senza eseguire automaticamente lavoro storico. Lo scan
+avanza di venti ricevute per ciclo, in ordine numerico di update ID. `/recover`
+mostra fino a otto richieste con data, estratto pubblico e pulsanti **Riprendi** e
+**Ignora**. I pulsanti scadono dopo cinque minuti; dopo l'ACK callback e dentro
+la transazione si rivalidano chat, owner, bot, associazione, hash del corpo e
+ricevuta originale. Ignora produce `dismissed / owner_dismissed`, mai completed.
+I comandi con effetti, le proposte, Stop, pairing e callback scaduti restano
+esclusi da questo recupero.
+
+La vista di recupero conserva update/request originali, data, body hash,
+associazione e bot; non modifica la riga ignored o l'archivio originale. Una
+ripresa esplicita usa il request ID originale e riottiene job/conversation/
+submission già commessi. Job esistenti vengono riconciliati dal scheduler senza
+nuova ammissione; queued/running/waiting restano non terminali. Completed,
+failed e cancelled sono esiti distinti; non sono dedotti dal testo simile di
+un'altra richiesta. Una ripresa durante una risposta attiva conserva la scelta
+Correggi/Nuova richiesta, senza inserire automaticamente uno steer.
+
+Un ACK ordinario sent/uncertain/sending/failed non certifica risposta modello
+completa e non viene ritentato per recuperare il lavoro. Vecchie viste `done`
+restano immutate: quando un percorso modello non ha un job o una scelta
+correlati, una vista separata `telegramIngressRecoveryReview` dichiara
+`legacy_model_completion_unknown / review_required` e conserva l'hash della
+vecchia ricevuta. I comandi diretti già risposti e le scelte/job correlati non
+sono riproposti. Una consegna finale incerta mantiene la policy di non replay.
+
+L'ammissione di una richiesta normale a chat libera non invia più un ACK
+permanente generico. Il draft Thinking pubblico esistente mostra l'attività
+mentre il job è running; un turno veloce può produrre soltanto la risposta
+finale. Richieste accodate e scelte sulla risposta attiva conservano conferme
+veritiere. Deduplicazione e recovery dipendono dalla ricevuta di ammissione,
+non dalla presenza di un ACK. Alias draft, Stop e ricevute incerte già commessi
+restano preservati.
+
+I nuovi prompt consultivi diagnostici identificano la fonte chiusa collector,
+LNDg o Lightning Mate anche nella riproduzione. Revisioni, artefatti e checksum
+precedenti restano immutati; le evidenze distinte mantengono la correlazione
+con la propria fonte.
+
+Una scelta `choice_pending` scaduta o `late`, senza submission né ammissione
+correlata, non prova completamento. La vista separata conserva anche l'hash della
+correction originale: **Riprendi** crea soltanto la richiesta futura con request
+ID originale, senza riutilizzare lo steer scaduto né cambiare la correction.
+Una scelta attiva non scaduta conserva esclusivamente il suo flusso di scelta;
+scelte consumed/admitted/placed/settled e submission native già presenti restano
+proprietà del turno originale. Prima della scelta, dopo l'await callback e prima
+dell'ammissione si ricontrolla che non siano comparsi job, submission o consumo
+correlati: nessuna seconda ammissione per chiudere una race.
+
+Le scelte legacy ancora `choice_pending` conservano un riferimento differito
+alla ricevuta originale: dopo la scadenza vengono rivalutate in gruppi di massimo
+venti per ciclo, anche dopo avanzamento del cursore e riavvio. Una scelta
+consumata o associata a una submission non riapre il lavoro. La vista di recupero
+non riscrive i byte della correzione originale. La scadenza callback usa il tempo
+trascorso dall'inizio dell'intero batch, inclusi gli ACK precedenti e il recupero
+ricorsivo; dopo l'ACK rimangono attivi i fence di binding e generazione bot.
+
+Anche le recovery correnti che, dopo Riprendi, diventano `choice_pending`
+conservano un anchor distinto con hash della ricevuta e della correzione. Dopo
+expiry o un passaggio applicativo verificato a `late`, vengono rivalutate al
+massimo venti per ciclo e tornano a una vista di revisione esplicita, senza
+ammissione automatica. La nuova vista conserva origine, hash e vincolo di nuova
+richiesta; le righe ignored, la ricevuta della scelta e i byte della correzione
+restano intatti. Consumo, submission nativa, ammissione correlata, cambio di
+associazione o bytes inattesi impediscono la riapertura. Un passaggio `late`
+può aggiornare l'anchor soltanto attraverso il normale handler steer, se il
+cambiamento è esattamente quello dello stato e i fence restano validi.
+
+Se l'origine è già una vista di recovery, la maturazione crea una chiave distinta
+legata all'hash di quella precisa origine; non riusa né sovrascrive la vista
+precedente. Le verifiche percorrono tutti gli hash degli antenati, anche dopo
+l'ACK, e rifiutano catene cicliche, mancanti, mutate o oltre 128 riferimenti.
+La ripresa conserva il vincolo di nuova richiesta e il request ID originale:
+catene ripetute non consumano la correzione né creano doppio lavoro.
