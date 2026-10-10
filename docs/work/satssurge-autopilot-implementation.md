@@ -2163,3 +2163,26 @@ git-operator commit/push; immutable source tags unchanged. GitHub release follow
 that push. Previous050actualnativeStop/semanticsteeringpassed;052newUX remains
 pending installed acceptance.051unpromoted. Checkpoint/preserve/reconcile original
 and newer receipts, restore original autonomy/timers, never replay effects.
+
+### 0.5.2 installed acceptance complete — 2026-10-10
+
+Supported Umbrel update completed: healthy exact 0.5.2 image/source, schema 6,
+stopped host/Mac checkpoints and isolated restores verified, original persistent
+records/credentials/OAuth/association/mandate/model preserved. Original autonomy
+and four timers restored; only the owned installation fence released.
+
+Native Telegram shows five inline menu buttons; owner-clicked Aiuto routed
+successfully. Nine commands are registered in default and owner Italian scopes.
+Native rich drafts retain the mode, display initial loading and advance the long
+preview. The complete 14,715-character final reached Telegram in five sent parts
+with the expected marker. No public reasoning summary was emitted by the provider
+in this final probe; public-summary handling is source-test qualification.
+Native Stop/semantic same-turn steering were actually verified with the owner on
+0.5.0 earlier in the session; the subsequent patches retain their core behavior.
+No financial send/replay was used for these tests. Original roadmap edits remain.
+
+Release: https://github.com/whirmill/umbrel-community-app-store/releases/tag/satssurge-autopilot-v0.5.2
+Source513e30c99437f75bc0c5cd7181d1bd47388361cc; immutable image09006ac9f708218a77b3c84a54948592b98120117d45d1f8d6fc7df25a35e211.
+CI239Node24.21.0/Python16; both architectures and all22 layers verified.
+Private installed/Telegram acceptance receipts are under telegram052-install in
+the local SatsSurge state folder; see the current README record for scope limits.

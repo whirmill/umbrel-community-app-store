@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current installed and accepted release is `0.4.5` (schema 6), with dedicated owner login and visible session logout. Immutable publication and installed acceptance of the Telegram-first baseline are recorded separately below. The bot was subsequently paired; the interactive Telegram 0.5.0 baseline passed actual native Stop and semantic steering. The 0.5.2 menu/loading-feedback patch is immutably published and verified, with its installation and client UX acceptance pending. Original autonomy and all four watcher timers are restored after reconciliation. Earlier acceptance records below remain historical. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable through the unified composer and Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Current installed release is `0.5.2` (schema 6). Telegram is the owner conversation interface; web Settings retain configuration and read-only history. Installed acceptance verifies the inline menu, native loading/streaming, advancing long previews and complete final delivery. Native Stop and same-turn semantic steering were also verified with the owner during this release session. Original credentials, association, history, mandate, autonomy and all four watcher timers were preserved. Historical acceptance records below are superseded by the final installed record. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable in Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -1065,3 +1065,33 @@ secrets/credentials, receipt reconciliation and original autonomy/timer restorat
 Compatible rollback must preserve newer/uncertain receipts without restoring
 older databases over newer effects or replaying financial/Telegram deliveries.
 Schema6/Pi1.1.0, financial authority and the approved roadmap remain unchanged.
+
+### 0.5.2 installed Telegram acceptance — 2026-10-10
+
+The supported Umbrel update completed with the exact published image/source,
+healthy container and schema 6. Stopped-executor checkpoints and isolated restore
+checks passed on host and Mac before updating. Original records, credentials,
+OAuth, Telegram association, model/mandate settings and timer/autonomy states were
+preserved; only the installation-owned fence was released.
+
+Real Telegram verification observed all five inline menu buttons and successful
+owner-clicked Aiuto navigation. Both default and owner Italian command scopes
+contain the nine registered commands. The installed app retained native rich
+streaming without fallback, showed its initial loading animation, advanced the
+long preview beyond 3,500 characters and delivered the complete 14,715-character
+answer in five confirmed final parts, including its requested final marker.
+The provider emitted no public reasoning summary during this final probe; this
+qualifies the loading placeholder, not a displayed reasoning summary. Public
+summary filtering remains covered by the targeted source tests.
+
+Native Stop and semantic steering were verified with the owner on 0.5.0 earlier
+in this same session: Stop confirmed idle and interruption; steering settled on
+the same turn and produced the requested three bullets and marker. The 0.5.1/0.5.2
+patches changed menu/preview/loading presentation, retaining those core controls.
+No live financial send or replay was performed for acceptance.
+
+Publication evidence is CI 38029485714 (239 Node24.21.0 tests, 16 Python tests),
+source `513e30c99437f75bc0c5cd7181d1bd47388361cc` and the immutable image above.
+Private detailed receipts are `telegram052-install/installed-052-proof.json` and
+`telegram052-install/telegram-uat-proof.json` under the local SatsSurge state folder.
+0.5.1 remains an unpromoted source tag; 0.5.0/0.5.1/0.5.2 tags remain immutable.
