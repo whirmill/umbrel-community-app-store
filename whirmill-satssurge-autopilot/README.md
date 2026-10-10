@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current installed release is `0.5.2` (schema 6). The immutable `0.5.3` image, store metadata PR72 and GitHub Release are published and verified; installation and live acceptance of its new changes remain pending. Source PR73 and the immutable `0.5.4` image are published and verified; its store metadata PR and GitHub Release remain pending. A newly confirmed menu-setup cooldown defect requires a targeted `0.5.5` follow-up; planned installation skips `0.5.4` and awaits an independently cleared final `0.5.5` candidate and actual same-client Telegram acceptance. Telegram is the owner conversation interface; web Settings retain configuration and read-only history. Installed acceptance verifies the inline menu, native loading/streaming, advancing long previews and complete final delivery. Native Stop and same-turn semantic steering were also verified with the owner during this release session. Original credentials, association, history, mandate, autonomy and all four watcher timers were preserved. Historical acceptance records below are superseded by the final installed record. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable in Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Current installed release is `0.5.2` (schema 6). The immutable `0.5.3` image, store metadata PR72 and GitHub Release are published and verified; installation and live acceptance of its new changes remain pending. Source PR73, immutable `0.5.4` image, metadata PR74 and GitHub Release are published and verified. The targeted `0.5.5` menu cooldown source correction passed independent review and is prepared for publication; its CI/image/install gates remain pending. Planned installation skips `0.5.4`; actual same-client Telegram acceptance is still required. Telegram is the owner conversation interface; web Settings retain configuration and read-only history. Installed acceptance verifies the inline menu, native loading/streaming, advancing long previews and complete final delivery. Native Stop and same-turn semantic steering were also verified with the owner during this release session. Original credentials, association, history, mandate, autonomy and all four watcher timers were preserved. Historical acceptance records below are superseded by the final installed record. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable in Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -1231,3 +1231,43 @@ not complete. Store metadata/release0.5.4 will record immutable history, while
 installation skips0.5.4 and awaits final independently cleared0.5.5. Private054
 preparation60 synthetic tests qualify that target only and need explicit055 target
 adaptation before any install. No host fence or installation has been performed.
+
+### 0.5.5 menu cooldown corrective source — 2026-10-10
+
+The targeted source correction closes the setup-menu P2 in immutable0.5.4:
+ordinary-send429 and intermediate menu-registration429 now stop further outbound
+menu work during the validated same-bot cooldown. Polling honors that gate; bot,
+binding and chat ownership remain exact and expiry/idempotency retain their guards.
+Independent review passed35 transport tests (native56731/completion1b8f58) and
+compilation56208/6800b7, plus ordinary429, menu calls1/2/3, polling429, expiry and
+ownership probes with zero operations and no remaining findings. Reviewed401-input
+manifest SHA256 `4154739573392b4cfd07d6c10f14083a719cfb3dc593d9e9f15bcd0a830f811e`.
+Final package/both root lockfile entries are0.5.5 with dependencies unchanged;
+source acceptance runs331 Node24.19.0 tests,16 Python tests and typecheck/Pi
+patch verification. Exact hashes/native execution receipts are in the private
+`/tmp/core055-source-acceptance-proof.json` and linked stable401-input manifest.
+Durable source/review evidence is under
+`/Users/whirmill/.local/share/satssurge/roadmap-goal-01a12452/core055-source-evidence`.
+
+0.5.4 metadata PR74 merged at `70bc9643c25d8d5926c28f4f0867f0c712e0fa08`
+after CI38041009131 passed327 Node24.21.0/16 Python tests. Its GitHub Release
+published09:22:20Z; exact body SHA256
+`70c0f44a409886939def20cd8d938d0276eb4642e1b5d0877d3b5aa328e38c47`.
+Image sourcecb9c9c67/tag054/index6e225aa1 remain immutable. Compose/manifest retain
+that verified0.5.4 until a new0.5.5 image is verified; planned installation skips054.
+
+Installed runtime remains0.5.2/source513e30c/index09006ac9/schema6. This source
+fix does not establish animation causality or actual Telegram acceptance; rotating
+policy remains experimental until the same macOS12.10/build282987 client UAT.
+M2.3/M2.4 are not closed. Pi Durable1.1.0, financial mandate and uncertain-effect
+reconciliation remain unchanged; no new schema/dependency/financial capability.
+
+Private055 preparation61 synthetic tests and10 independent negative fixtures
+passed without findings; proof SHA256
+`528690f3d77453c4bd8e610f22e4c7d70578f4092a049f427d678d08c6bbdbde`.
+The owner-executed read-only privileged inventory09:33:14.665122Z is complete,
+with no denied paths/problems and only the main application thread opening the
+three databases. Full writer exclusion is still false: indirect custom collector
+scheduling requires inspection. This is not a fence, stop, checkpoint or update.
+Actual target/image proof, full writer exclusion, stopped three-database checkpoints,
+current OAuth/receipt preservation and owner live acceptance remain pending.

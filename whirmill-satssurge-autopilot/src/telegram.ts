@@ -643,17 +643,18 @@ export class Telegram {
         const bot = this.store.get('telegramBotGeneration') ?? null, key = 'telegramMenu:' + b.generation + ':' + bot;
         if (this.store.get(key))
             return;
+        const dispatchAuthorized=()=>this.authorized(b.generation,b.chatId,bot)&&Date.now()>=(this.store.get<number>('telegramRateLimitUntil')??0);
         const commands = [['status', 'Stato e budget'], ['analyze', 'Analizza il nodo'], ['proposals', 'Proposte da approvare'], ['pause', 'Sospendi autonomia'], ['resume', 'Riprendi con conferma'], ['stop', 'Interrompi risposta attiva'], ['queue', 'Richieste future'], ['menu', 'Menu'], ['help', 'Aiuto']].map(([command, description]) => ({ command, description }));
-        if (!this.authorized(b.generation, b.chatId, bot))
+        if (!dispatchAuthorized())
             return;
         await this.outboundCall('setMyCommands', { commands });
-        if (!this.authorized(b.generation, b.chatId, bot))
+        if (!dispatchAuthorized())
             return;
         await this.outboundCall('setMyCommands', { commands, scope: { type: 'chat', chat_id: b.chatId }, language_code: 'it' });
-        if (!this.authorized(b.generation, b.chatId, bot))
+        if (!dispatchAuthorized())
             return;
         await this.outboundCall('setChatMenuButton', { chat_id: b.chatId, menu_button: { type: 'commands' } });
-        if (!this.authorized(b.generation, b.chatId, bot))
+        if (!dispatchAuthorized())
             return;
         const identity = await this.outboundCall('getMe', {});
         if (this.authorized(b.generation, b.chatId, bot)) {
