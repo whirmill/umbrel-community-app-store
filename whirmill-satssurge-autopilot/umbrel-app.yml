@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.3"
+version: "0.5.4"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for autonomous Lightning fee experiments and circular
@@ -28,22 +28,25 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.3 adds durable targeted Stop/restart recovery, advisory development
-  prompts with immutable Telegram text attachments and bounded occurrence receipts,
-  and native provider-failure classification, including accepted corrections.
-  Proven transient stream failures use a bounded cooldown; unverified failures
-  remain unknown. Advisory prompts cannot edit code, deploy or broaden authority.
-  CI 38034422712 passed 291 tests on Node 24.21.0 and 16 Python tests. Anonymous
-  amd64/arm64 manifests, configurations and all 22 compressed layer SHA-256/size
-  checks passed against image source e5a75d48e61f5508fcca9929711c8451ad7c4aaf.
-  Pi Durable remains pinned to 1.1.0 with the verified scoped Stop backport;
-  schema 6 and the existing financial mandate are unchanged. Installed release
-  remains 0.5.2; 0.5.3 installation and real paired Telegram acceptance are pending.
-  Before installation stop all application and host writers, checkpoint all three
-  databases and preserve original receipts, current OAuth tokens, owner.secret,
-  telegram.secret and mounted credentials with their permissions. No schema
-  migration is introduced. Qualify Umbrel's processed compose before installation.
-  Rollback requires schema-compatible software and preservation of newer or
-  uncertain receipts. Never restore older databases or OAuth tokens over current
-  state, or replay payments/uncertain deliveries. Schema-5 software refuses schema 6.
-  Already dispatched messages may finish after revocation. Accounting remains partial.
+  Version 0.5.4 repairs directional source/target and diagnostic channel filters,
+  with filter semantics version 2 and immutable prior cursor receipts. Telegram
+  adds exact persistent native Stop aliases, guarded rotating/stable rich drafts,
+  delivery priority, five-second outbound bounds, no closed-turn resurrection and
+  validated shared same-bot 429 gates across drafts, outbox, polling and menu.
+  Rotating drafts remain experimental until actual acceptance on the same Telegram
+  macOS 12.10/build 282987 client; animation causality is not established.
+  CI 38039875124 passed 327 tests on Node 24.21.0 and 16 Python tests, then
+  published amd64/arm64. Anonymous manifests/configurations and all 22 compressed
+  layer SHA-256/size checks passed against image source
+  cb9c9c67fc9831825cfdfdecbe60ffa430ef2442. Actual layers confirm package 0.5.4,
+  Pi Durable 1.1.0 and the scoped Stop backport plus all six native guard hashes.
+  Schema 6, original IDs, financial mandate and uncertain reconciliation are unchanged.
+  Installed runtime remains 0.5.2; 0.5.4 installation and paired Telegram acceptance
+  are pending. Private installation tests are synthetic, not live qualification.
+  Exclude all application/host writers, preserve current OAuth tokens, receipts,
+  secrets and credential permissions, and take stopped three-database checkpoints
+  with isolated recovery verification before updating. No schema migration is added.
+  Software rollback requires schema compatibility and current/new/uncertain receipt
+  preservation; never restore older databases or OAuth tokens over current state,
+  or replay uncertain payments/deliveries. Schema-5 software refuses schema 6.
+  Accounting remains partial; M3-M5 and optional financial integrations remain incomplete.

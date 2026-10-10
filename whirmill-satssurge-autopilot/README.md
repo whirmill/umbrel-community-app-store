@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current installed release is `0.5.2` (schema 6). The immutable `0.5.3` image, store metadata PR72 and GitHub Release are published and verified; installation and live acceptance of its new changes remain pending. Source `0.5.4` is prepared after independent corrective review; it is not published or installed. Telegram is the owner conversation interface; web Settings retain configuration and read-only history. Installed acceptance verifies the inline menu, native loading/streaming, advancing long previews and complete final delivery. Native Stop and same-turn semantic steering were also verified with the owner during this release session. Original credentials, association, history, mandate, autonomy and all four watcher timers were preserved. Historical acceptance records below are superseded by the final installed record. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable in Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
+Current installed release is `0.5.2` (schema 6). The immutable `0.5.3` image, store metadata PR72 and GitHub Release are published and verified; installation and live acceptance of its new changes remain pending. Source PR73 and the immutable `0.5.4` image are published and verified; its store metadata PR and GitHub Release remain pending. A newly confirmed menu-setup cooldown defect requires a targeted `0.5.5` follow-up; planned installation skips `0.5.4` and awaits an independently cleared final `0.5.5` candidate and actual same-client Telegram acceptance. Telegram is the owner conversation interface; web Settings retain configuration and read-only history. Installed acceptance verifies the inline menu, native loading/streaming, advancing long previews and complete final delivery. Native Stop and same-turn semantic steering were also verified with the owner during this release session. Original credentials, association, history, mandate, autonomy and all four watcher timers were preserved. Historical acceptance records below are superseded by the final installed record. Pi Durable 1.1.0 uses subscription-only ChatGPT OAuth. Model and supported reasoning effort are selectable in Settings, defaulting to GPT-6.1 Sol/high; submitted recovery retains its original configuration. No regtest, paid API fallback, unrestricted RPC, channel lifecycle or Magma transaction is exposed to the agent.
 
 ## Mandate v1
 
@@ -1174,3 +1174,60 @@ observation08:12–08:22Z subscribed with HTTP200 and zero events; classificatio
 was unexercised and parity is unqualified. The next20-minute capture is active,
 without a result claim. M3–M5 implementation/live qualification remains incomplete;
 optional financial integrations stay disabled.
+
+### 0.5.4 immutable image publication — 2026-10-10
+
+[PR73](https://github.com/whirmill/umbrel-community-app-store/pull/73) merged after
+[CI38039527187](https://github.com/whirmill/umbrel-community-app-store/actions/runs/38039527187)
+passed327 Node24.21.0 tests and16 Python tests on accepted head
+`6db80536a4fe413edd9d27919ff6508f4c86e212`. The complete merge tree equals the
+accepted source tree. Image source is `cb9c9c67fc9831825cfdfdecbe60ffa430ef2442`,
+tree `4b8fd3162043e69d76100f0c3d70f8c877bd7ba6`; annotated tag
+`satssurge-autopilot-v0.5.4`, object `ee1976831eca01e27f947e2f1911f54604922766`,
+peels exactly to that source. Future store metadata commits remain distinct from
+this immutable image revision; never move the tag or rebuild this version.
+
+[Tag CI38039875124](https://github.com/whirmill/umbrel-community-app-store/actions/runs/38039875124)
+passed build/publish,327 Node24.21.0 tests and16 Python tests. Published image:
+`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.4@sha256:6e225aa1723a27449e62e0550664e4444a740351a901a2a3833dba6100b7bc03`.
+Anonymous verification passed index/manifests/config revisions and all22
+compressed layer SHA-256/size checks. Actual layer contents on amd64 and arm64
+confirm package0.5.4, Pi Durable1.1.0, both scoped-backport hashes and six guard
+hashes. This is native Actions/registry proof, not a local Docker simulation.
+Private0600 build proof: `/tmp/core054-release-build-proof.json`, SHA256
+`442da1558bf0f932b30986db27681265c3e90268812a23f9a8a1decfdf2ab734`.
+Local standalone typecheck remains separate from CI's TypeScript build.
+
+Durable private source/review/PR73/327-test evidence is preserved under
+`/Users/whirmill/.local/share/satssurge/roadmap-goal-01a12452/core054-release-evidence`.
+Fresh read-only09:06:05Z evidence confirms installed0.5.2/schema6/source513e30c/
+index09006ac9 healthy, paired/enabled, no active jobs or pending financial work;
+this is not a stopped checkpoint or acceptance of the new image. Rotating-client
+animation causality and real same-client0.5.4 acceptance remain unqualified.
+
+Private054 preparation60 tests/independent8 boundary cases are synthetic. Actual
+target authorization, stopped checkpoints, complete privileged host-writer
+inventory and owner live acceptance remain pending. Preserve current OAuth tokens
+and original/new/uncertain receipts; never restore older financial databases or
+tokens over later state or replay uncertain effects. Schema6 and financial authority
+are unchanged. The second passive20-minute HTLC subscription ended with zero
+FORWARD events; RECEIVE1 and unknown1 were filtered, no payload retained, and
+classifier semantics remained unexercised. Subscription is not parity. M3–M5 and
+optional financial integrations remain incomplete.
+
+### 0.5.4 known setup-menu cooldown defect — follow-up0.5.5
+
+A bounded follow-up review of immutable0.5.4 reproduced a P2 when the bot menu
+is unregistered: after ordinary `sendMessage` rejects with429 and persists the
+shared cooldown, the same outbound iteration still calls `setMyCommands` twice,
+`setChatMenuButton` and `getMe` during that cooldown. The registered-menu companion
+calls only `sendMessage`; both probes perform zero operations. This setup-menu
+case does not explain the current registered-owner streaming incident.
+
+Reproduction6364d2, compilation95005 completed66c4b0, and84 static extracted
+source hashes remained unchanged; review resources were released. Published0.5.4
+source/tag/image remain immutable. A targeted0.5.5 correction is next; M2.3 is
+not complete. Store metadata/release0.5.4 will record immutable history, while
+installation skips0.5.4 and awaits final independently cleared0.5.5. Private054
+preparation60 synthetic tests qualify that target only and need explicit055 target
+adaptation before any install. No host fence or installation has been performed.
