@@ -242,3 +242,85 @@ hooks cannot fence the first update's old pre-update path; the mandatory launche
 therefore remains authoritative. No checkpoint is attempted on every SIGTERM.
 Local synthetic acceptance does not qualify a real host cutover, architecture
 image or installed financial recovery.
+
+### Separate admitted receipt publisher (one-time operator procedure)
+
+`docs/pi/scripts/legacy-offline-publish.py` is separate from the unchanged
+capture-only primitive. It never discovers/stops host writers, changes restart
+policies, installs services, starts/migrates the app, replays or contacts providers.
+Production remains HOLD until original host observations, persistent exclusion
+through handoff, actual legacy image/source and supported target catalogue/Compose
+pin have been independently reviewed. The review admits the **exact SHA-256 of
+the evidence packet** as an explicit argument. Hashing unreviewed claims is not
+admission. The private packet has this minimal shape (placeholders are not proof):
+
+```json
+{
+  "protocol": 1,
+  "legacy": {"source": "40 lowercase hex commit", "imageDigest": "sha256:64 lowercase hex"},
+  "target": {"source": "reviewed target commit", "imageDigest": "verified target platform digest", "destination": "reviewed target fingerprint"},
+  "observations": {
+    "legacy-image": {"file": "image-provenance-live.json", "sha256": "exact artifact hash"},
+    "target-image": {"file": "image-provenance-live.json", "sha256": "exact artifact hash"},
+    "app-exclusion": {"file": "host-exclusion-readback.json", "sha256": "exact artifact hash"},
+    "backfill-exclusion": {"file": "host-exclusion-readback.json", "sha256": "exact artifact hash"},
+    "writer-inventory": {"file": "host-exclusion-readback.json", "sha256": "exact artifact hash"},
+    "handoff-exclusion": {"file": "host-exclusion-readback.json", "sha256": "exact artifact hash"},
+    "catalogue-pin": {"file": "legacy-pin-operation.stdout", "sha256": "exact artifact hash"}
+  }
+}
+```
+
+All seven roles require actual original host artifacts. One artifact may support
+multiple roles, subject to independent review of its contents. The tool validates
+bytes, hashes and binding, not the truth of host facts. Review resolves original
+immutable legacy provenance, stopped/retired container and all restart paths,
+disabled backfill service/timer paths, complete writer inventory, exclusion
+through handoff and supported target pin. Do not include credentials or full
+environment dumps. Packet and artifact siblings must be owned mode 0600,
+single-link regular files in a private owned mode 0700 directory; artifact names
+are local basenames with no symlinks, traversal or external references.
+
+Use the same foreground read-only, network-none, no-init, UID/GID-1000 immutable
+platform invocation as capture, now with publisher stdin. Mount the reviewed
+unchanged capture script read-only at `/procedure/legacy-target-capture.py`, both
+earlier captures under `/earlier` (private; writable for SQLite SHM read marks),
+evidence read-only at `/evidence`, and a new private output parent at `/capture`.
+Production fixes target helpers to `/app` and requires actual Linux PID 1; no
+argument or environment overrides these. Publisher arguments:
+
+```sh
+--data /data --captures /earlier --evidence /evidence/packet.json \
+--admitted-evidence-sha256 "$INDEPENDENTLY_ADMITTED_PACKET_SHA256" \
+--output /capture/new-publish-attempt \
+--expected-fingerprint "$REVIEWED_TARGET_FINGERPRINT" \
+--release-source "$REVIEWED_TARGET_SOURCE_SHA" \
+--platform-digest "$VERIFIED_TARGET_PLATFORM_DIGEST" --deadline-seconds 120
+```
+
+Data, earlier captures, evidence and output must be disjoint. The same PID 1
+reacquires executor/admission/maintenance EX, verifies both earlier manifests,
+files, schemas and target identities, then uses unchanged target helpers for a
+fresh private capture/verify. Earlier and fresh entries/schemas must agree exactly.
+Stable lock and existing SHM inode/extent guards remain; original DB/WAL inode,
+extent and change timestamps must remain unchanged while fenced. Snapshot WAL
+must be empty; readonly SQLite may create empty WAL/SHM bookkeeping files.
+Evidence and earlier captures are reverified before publication.
+
+The receipt contains protocol 1, actual legacy `git:<source>@sha256:<image>`,
+target fingerprint, `offline-exclusive-v1`, externally admitted `app=stopped` /
+`lm-backfill=disabled`, exact fresh schemas/files and the admitted evidence SHA.
+A fsynced private staging file in data is atomically linked to
+`offline-cutover.json` without clobbering any existing path, including dangling
+symlinks. Successful publication removes only its own staging alias, fsyncs data
+and reads back the receipt while all fences remain held. Cooperative deadline
+and signal checks cover reporting and fenced finalization.
+
+A nonzero exit, signal, transport loss or missing independent exit/OOM readback
+means HOLD: a durable receipt or staging alias may exist. Retain all evidence and
+reconcile offline; never automatically remove or retry. A `published` stdout
+line alone is insufficient. Direct functions and tests authorize only synthetic
+fixtures. Test-only `SATSSURGE_FIXTURE_APP_ROOT=/app` selects immutable helpers for
+native fixtures and grants no production authority. Both target architectures
+require separate native qualification, including actual PID-1/UID/GID and late
+failure behavior, before production use.

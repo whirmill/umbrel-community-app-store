@@ -3,7 +3,7 @@ on:
   push:
     tags: ["satssurge-autopilot-v*"]
   pull_request:
-    paths: ["whirmill-satssurge-autopilot/**", ".github/workflows/satssurge-autopilot-image.yml"]
+    paths: ["whirmill-satssurge-autopilot/**", "docs/pi/scripts/**", ".github/workflows/satssurge-autopilot-image.yml"]
 permissions:
   contents: read
 jobs:
@@ -20,6 +20,11 @@ jobs:
       - name: Verify host diagnostic adapter
         working-directory: whirmill-satssurge-autopilot
         run: python3 -m unittest discover -s scripts/tests -v
+      - name: Verify one-time current-data cutover operators
+        run: |
+          operator_fixture_tmp="$(mktemp -d "$RUNNER_TEMP/satssurge-operators.XXXXXX")"
+          trap 'rm -rf "$operator_fixture_tmp"' EXIT
+          TMPDIR="$operator_fixture_tmp" python3 -m unittest discover -s docs/pi/scripts -p 'test_*.py' -v
   publish:
     if: startsWith(github.ref, 'refs/tags/')
     needs: build
