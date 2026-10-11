@@ -110,6 +110,7 @@ const staticFiles: Record<string, [string, string]> = {
   "/favicon.svg": ["favicon.svg", "image/svg+xml"],
   "/theme.js": ["theme.js", "text/javascript; charset=utf-8"],
 };
+let activeRequests = 0;
 const server = createServer(async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -124,17 +125,17 @@ const server = createServer(async (req, res) => {
     res.setHeader("Content-Type", "application/json");
     res.end(json(data));
   };
-  try {
-    if (closing) {
-      send(
-        {
-          error:
-            "Service shutting down; retry the same request ID after restart",
-        },
-        503,
-      );
-      return;
+  const rejectClosing = () => {
+    if (!closing) return false;
+    if (!res.destroyed && !res.writableEnded) {
+      res.setHeader("Connection", "close");
+      send({ error: "Service shutting down; retry the same request ID after restart" }, 503);
     }
+    return true;
+  };
+  activeRequests++;
+  try {
+    if (rejectClosing()) return;
     if (
       req.method === "GET" &&
       url.pathname.startsWith("/assets/") &&
@@ -186,6 +187,7 @@ const server = createServer(async (req, res) => {
           return;
         }
       }
+      if (rejectClosing()) return;
       const password = JSON.parse(raw).password;
       if (
         typeof password !== "string" ||
@@ -396,6 +398,7 @@ const server = createServer(async (req, res) => {
         return;
       }
     }
+    if (rejectClosing()) return;
     const body = JSON.parse(raw || "{}");
     if((url.pathname==='/api/chat'||url.pathname==='/api/analyze')&&!store.one('SELECT id FROM jobs WHERE request_id=?',typeof body.requestId==='string'?body.requestId:'')){
       send({error:'La conversazione con il coordinatore è disponibile su Telegram. La web app conserva impostazioni e ricevute.'},410);return;
@@ -461,8 +464,10 @@ const server = createServer(async (req, res) => {
       return;
     }
     if (url.pathname === "/api/model") {
+      const available = await agent.models.getAvailable("openai");
+      if (rejectClosing()) return;
       const settings = modelSettings(
-        await agent.models.getAvailable("openai"),
+        available,
         body.model,
         body.thinkingLevel,
         store.get<string>("thinkingLevel") ?? "high",
@@ -491,7 +496,10 @@ const server = createServer(async (req, res) => {
     }
     send({ error: "Not found" }, 404);
   } catch (e) {
-    send({ error: e instanceof Error ? e.message : "Request failed" }, 400);
+    if (!res.destroyed && !res.writableEnded)
+      send({ error: e instanceof Error ? e.message : "Request failed" }, 400);
+  } finally {
+    activeRequests--;
   }
 });
 server.listen(Number(process.env.PORT ?? 8080), "0.0.0.0");
@@ -503,7 +511,8 @@ async function shutdown() {
   for (const timer of intervals) clearInterval(timer);
   if (streamRetry) clearTimeout(streamRetry);
   streamAbort.abort();
-  server.close();
+  let httpClosed = false;
+  server.close(() => { httpClosed = true; });
   store.set("shutdown", {
     at: now(),
     state: "draining",
@@ -511,14 +520,17 @@ async function shutdown() {
   });
   const deadline = Date.now() + 25000;
   const drained = (await scheduler?.drain(25000)) ?? true;
-  while (collector?.busy && Date.now() < deadline)
+  while ((collector?.busy || !httpClosed || activeRequests > 0) && Date.now() < deadline)
     await new Promise((r) => setTimeout(r, 50));
+  const httpDrained = httpClosed && activeRequests === 0;
+  if (!httpDrained) server.closeAllConnections();
   store.set("shutdown", {
     at: now(),
     state:
-      drained && !collector?.busy ? "drained" : "restart_recovery_required",
+      drained && !collector?.busy && httpDrained ? "drained" : "restart_recovery_required",
+    httpDrained,
   });
-  if (drained && !collector?.busy) await agent?.close();
+  if (drained && !collector?.busy && httpDrained) await agent?.close();
   // SQLite FULL commits and durable operation receipts, not this exit status,
   // determine recovery. Never mark an uncertain financial operation failed.
   process.exit(0);

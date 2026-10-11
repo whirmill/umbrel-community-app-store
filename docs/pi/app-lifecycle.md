@@ -34,6 +34,17 @@ runtime receives 35 seconds for the existing drain, then is killed and reaped. T
 application drain is recovery guidance, not proof that HTTP/OAuth work is idle.
 The fence covers the actual process lifetime, including remaining open handles.
 
+Application shutdown is local to the app, not a general Umbreld coordination
+service. The HTTP listener stops accepting connections; pending request handlers
+are tracked through their actual settlement within the existing 25-second drain.
+Owner login and writes recheck shutdown after request-body reads, and model
+configuration rechecks after its asynchronous lookup. Work not yet dispatched
+receives503 and can be retried with its original identity after restart. Already
+dispatched effects keep their original receipts and reconciliation; a signal is
+not cancellation of a payment or remote provider operation. A timed-out HTTP
+handler records `httpDrained=false` / `restart_recovery_required`, never `drained`.
+No checkpoint is required on every signal or ordinary same-release restart.
+
 The public Node entrypoints reject direct startup before database creation.
 `server-app.ts` contains the internal application function without top-level
 initialization; the isolated HTTP test calls it explicitly as a fixture.
@@ -68,6 +79,16 @@ files, corrupt baseline, schema mismatch or unsupported phase cannot bootstrap.
 No path automatically restores an older database, OAuth state or receipts.
 
 ## First legacy cutover: HOLD until host qualification
+
+This is a one-time, controlled legacy transition, not a mandatory permanent
+Umbreld owner/catalogue/provider integration. Prefer the smallest independently
+qualified host procedure that establishes the facts below. Do not patch global
+Umbreld lifecycle operations merely to implement graceful app shutdown. The
+known external SQLite writer is host `lm_backfill.py`; diagnostics/interlock/
+competition write projections and the collector's separate history scope must
+not be mislabeled as writers of all three databases. M3 retires LM/LNDg and
+legacy helpers only after native collection and consumer semantic parity; a
+planned retirement is not evidence that today's timer is already disabled.
 
 An existing legacy dataset has no lifecycle marker and is rejected by default.
 The app cannot certify host writer shutdown, service enablement, ownership or
