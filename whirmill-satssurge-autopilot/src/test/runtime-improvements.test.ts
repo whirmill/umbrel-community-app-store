@@ -22,6 +22,83 @@ function fixture(call: (method: string, body: any) => Promise<any> = async () =>
     store.set('telegramConfigured', true);
     return { store, queue, telegram, runtime: new RuntimeImprovements(store), close() { telegram.stop(); store.close(); rmSync(dir, { recursive: true, force: true }); } };
 }
+function failedJob(f: ReturnType<typeof fixture>, requestId = 'scanner-failure', interrupted = true) {
+    const job = f.queue.enqueue({ requestId, kind: 'chat', payload: { message: 'Read-only isolated request' }, purpose: 'qualification' }, at);
+    f.store.set('jobCapability:' + job.id, 'read_only_chat'); f.store.set('jobTelegramGeneration:' + job.id, 'fixture');
+    const turns = new TelegramTurns(f.store, f.queue); turns.attach(job, 'fixture', 42);
+    const claimed = f.queue.claim('coordinator', 'isolated-scanner', at)!;
+    assert.equal(claimed.id, job.id); f.queue.finish(job.id, claimed.run_token!, 'failed', 'Unclassified native failure', at);
+    turns.finalize(job.id, interrupted ? 'interrupted' : 'failed'); return job;
+}
+const promptRequest = (update_id: number, text: string) => ({ update_id, message: { text, date: Date.parse(at) / 1000, from: { id: 42 }, chat: { id: 42, type: 'private' } } });
+
+test('real failed-job scanner prompt uses one document above 2000 characters and unchanged scans do not regenerate or resend', async () => {
+    const documents: { content: string; chat: unknown; type: string }[] = [];
+    const f = fixture(async (method, body) => {
+        if (method === 'sendDocument') { const doc = body.get('document') as Blob; documents.push({ content: await doc.text(), chat: body.get('chat_id'), type: doc.type }); }
+        return { message_id: 71 };
+    });
+    try {
+        failedJob(f, 'previous-sent-failure', false); f.telegram.capture(at); await f.telegram.deliver(at);
+        const previousEvent = f.runtime.issues()[0]!.revisions[0]!.delivery!.eventId, previousArtifact = f.store.get<RuntimeArtifact>('runtimeArtifact:' + previousEvent)!;
+        const previousBytes = f.store.one('SELECT value FROM meta WHERE key=?', 'runtimeArtifact:' + previousEvent).value;
+        const previousDelivery = f.runtime.issues()[0]!.revisions[0]!.delivery;
+        const job = failedJob(f); f.telegram.capture(at);
+        const issue = f.runtime.issues().find(i => i.revisions.at(-1)!.observation.receipt === job.id)!, revision = issue.revisions.at(-1)!;
+        assert.deepEqual(revision.observation.facts, ['job_failed', 'turn_interrupted']);
+        const event = revision.delivery!.eventId, artifact = f.store.get<RuntimeArtifact>('runtimeArtifact:' + event)!;
+        assert.ok(artifact.content.length > 2000 && artifact.content.length <= 3500);
+        assert.equal(artifact.checksum, hash(artifact.content)); assert.equal(artifact.requestLink, event); assert.equal(artifact.chatId, 42);
+        assert.match(f.store.one('SELECT text FROM telegram_outbox WHERE event_id=?', event).text, /file di testo allegato/);
+        await f.telegram.deliver(at);
+        assert.deepEqual(documents, [previousArtifact, artifact].map(a => ({ content: a.content, chat: '42', type: 'text/plain;charset=utf-8' })));
+        const originalArtifact = f.store.one('SELECT value FROM meta WHERE key=?', 'runtimeArtifact:' + event).value, originalIssues = f.runtime.issues();
+        f.telegram.capture(at); f.runtime.scan(at); await f.telegram.deliver(at);
+        assert.equal(documents.length, 2); assert.equal(f.store.one('SELECT value FROM meta WHERE key=?', 'runtimeArtifact:' + event).value, originalArtifact);
+        assert.equal(f.store.one('SELECT value FROM meta WHERE key=?', 'runtimeArtifact:' + previousEvent).value, previousBytes);
+        assert.deepEqual(f.runtime.issues()[0]!.revisions[0]!.delivery, previousDelivery);
+        assert.deepEqual(f.runtime.issues(), originalIssues); assert.equal(f.runtime.issues()[0]!.status, 'open');
+    } finally { f.close(); }
+});
+
+test('owner /prompt copies an already sent immutable scanner artifact; duplicate updates and scans preserve original delivery', async () => {
+    const bytes: string[] = []; const f = fixture(async (method, body) => { if (method === 'sendDocument') bytes.push(await (body.get('document') as Blob).text()); return { message_id: bytes.length + 70 }; });
+    try {
+        failedJob(f); f.telegram.capture(at); await f.telegram.deliver(at);
+        const originalIssues = f.runtime.issues(), issue = originalIssues[0]!, sourceEvent = issue.revisions[0]!.delivery!.eventId;
+        const original = f.store.get<RuntimeArtifact>('runtimeArtifact:' + sourceEvent)!, originalBytes = f.store.one('SELECT value FROM meta WHERE key=?', 'runtimeArtifact:' + sourceEvent).value;
+        const request = promptRequest(900, '/prompt ' + issue.id);
+        f.telegram.ingest([request]); await f.telegram.process(at);
+        const copy = f.store.get<RuntimeArtifact & { sourceRequestLink: string }>('runtimeArtifact:update:900')!;
+        assert.deepEqual(copy, { ...original, requestLink: 'update:900', sourceRequestLink: sourceEvent });
+        await f.telegram.deliver(at); assert.deepEqual(bytes, [original.content, original.content]);
+        assert.equal(f.store.one("SELECT status FROM telegram_outbox WHERE event_id='update:900'").status, 'sent');
+        f.telegram.ingest([request]); await f.telegram.process(at); f.telegram.capture(at); await f.telegram.deliver(at);
+        assert.equal(bytes.length, 2); assert.equal(f.store.one("SELECT attempts FROM telegram_outbox WHERE event_id='update:900'").attempts, 1);
+        assert.deepEqual(f.runtime.issues(), originalIssues); assert.equal(f.store.one('SELECT value FROM meta WHERE key=?', 'runtimeArtifact:' + sourceEvent).value, originalBytes);
+        f.telegram.ingest([promptRequest(901, '/prompt ' + issue.id + ' 1')]); await f.telegram.process(at); await f.telegram.deliver(at);
+        assert.equal(bytes.length, 3); assert.deepEqual(f.runtime.issues(), originalIssues); assert.equal(f.store.get<any>('runtimeArtifact:update:901').sourceRequestLink, sourceEvent);
+        assert.equal(f.store.all('SELECT * FROM operations').length, 0); assert.equal(f.store.all('SELECT * FROM owner_proposals').length, 0);
+    } finally { f.close(); }
+});
+
+test('owner /prompt rejects malformed, missing, corrupt or foreign artifacts without admission or evidence changes', async () => {
+    for (const failure of ['missing', 'checksum', 'destination', 'requestLink', 'revision']) {
+        const f = fixture(); try {
+            failedJob(f); f.telegram.capture(at); const issue = f.runtime.issues()[0]!, event = issue.revisions[0]!.delivery!.eventId;
+            const source = f.store.get<RuntimeArtifact>('runtimeArtifact:' + event)!;
+            if (failure === 'missing') f.store.run('DELETE FROM meta WHERE key=?', 'runtimeArtifact:' + event);
+            else f.store.set('runtimeArtifact:' + event, { ...source, ...(failure === 'checksum' ? { content: source.content + 'changed' } : failure === 'destination' ? { generation: 'foreign' } : failure === 'requestLink' ? { requestLink: 'other' } : { revision: 2 }) });
+            const before = f.runtime.issues();
+            for (const [i, text] of ['/prompt', '/prompt unknown', '/prompt ' + issue.id + ' 0', '/prompt ' + issue.id + ' 9007199254740992', '/prompt ' + issue.id + ' 999', '/prompt ' + issue.id + ' 1'].entries()) {
+                f.telegram.ingest([promptRequest(910 + i, text)]); await f.telegram.process(at);
+                assert.equal(f.store.get('runtimeArtifact:update:' + (910 + i)), undefined);
+                assert.match(f.store.one('SELECT text FROM telegram_outbox WHERE event_id=?', 'update:' + (910 + i)).text, /Prompt non disponibile/);
+            }
+            assert.deepEqual(f.runtime.issues(), before); assert.equal(f.store.all('SELECT * FROM jobs').length, 1);
+        } finally { f.close(); }
+    }
+});
 test('dedup aggregates new receipts; material impact/evidence linked revision; delivery does not resolve; verified reopen', () => {
     const f = fixture(); try {
         const first = f.runtime.observe(observation(), at)!;

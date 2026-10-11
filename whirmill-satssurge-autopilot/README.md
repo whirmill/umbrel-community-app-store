@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current live readback on2026-10-10 confirms `0.5.6` (schema6), healthy on Umbrel amd64, image source `96eef99ab45cf129d2a5d6e72d25b6fc7a42ffdc` and immutable index `df22564e61ae0095597dd58f8ad3a81e43f787af31a50fcb7948d44347aa1c40`. M2.3/M2.4 acceptance remains open: automatic historical Telegram replay produced obsolete duplicate answers and requires a reviewed new release. Autonomy is suspended under the persistent roadmap maintenance claim; new optional financial capabilities remain disabled. M3/M4 implementations are local qualification work; M3–M5 are incomplete. See the current [Goal checkpoint](../docs/work/satssurge-autopilot-implementation.md) for stable proofs and the next action.
+Current live readback on 2026-10-11 confirms `0.5.8` (schema 6), healthy and ready on Umbrel amd64, image source `b081f6b091bc59f5c6500d527f5da79151f16cd8` and immutable index `4b992bc55329527ebeeb635a556910d6fa4b43a0b3cd6b65cfefc258afd776cf`. The controlled legacy cutover preserved CURRENT databases, OAuth and financial receipts. Real Telegram acceptance found a delayed generic Stop targeting a later turn; 0.5.9 source corrects that targeting and adds explicit retrieval of immutable advisory prompts as text attachments. Review, publication, installation and renewed live acceptance of 0.5.9 remain pending. Autonomy remains suspended under the persistent roadmap maintenance claim; M2.3/M2.4 and M3–M5 remain incomplete. See the sole [implementation checkpoint](../docs/work/satssurge-autopilot-implementation.md).
 
 Historical release summary (superseded by current readback above):
 
@@ -1365,3 +1365,17 @@ host adapter proves writer exclusion, a verified three-database capture and exac
 source/destination correlation. No installed cutover or financial recovery PASS
 is claimed. The approved Ordered roadmap and M2.3/M2.4 acceptance remain open;
 M3–M5 and new financial capabilities remain pending.
+
+### Core 0.5.9 source preparation — Telegram acceptance corrections
+
+Generic `/stop` offers an exact-turn confirmation without cancelling immediately:
+Telegram server time cannot prove the intended turn after a client delivery delay.
+The callback targets only that job/version; native Stop remains immediate. Advisory prompts above 2000 characters are
+text documents. `/prompt ISSUE_ID [REVISION]` requests the exact registered
+artifact under a new owner-update receipt while preserving the original
+revision, checksum and delivery. Existing uncertain deliveries remain unchanged.
+
+Schema 6 and Pi Durable/Pi AI/Chord 1.1.0 remain fixed. This source preparation
+does not certify immutable publication, installation, real Stop/steering/recovery
+or attachment opening. The published catalogue stays pinned to 0.5.8 until
+the separate verified 0.5.9 image publication and catalogue update.
