@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.7"
+version: "0.5.8"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for Lightning fee experiments and circular rebalances, using
@@ -30,27 +30,26 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.7 requires owner review through /recover before resuming historical
-  read-only Telegram requests. Expired or late correction choices mature into
-  separate review views in bounded batches; nested recovery validates every
-  ancestor hash and rejects missing, changed, cyclic or over-128-reference chains.
-  Original ingress, correction, request, job, conversation and submission receipts
-  remain preserved. Resume keeps the original request identity and new-request
-  constraint; it does not replay an expired steer or admit duplicate work.
-  Callback expiry accounts for the entire processing batch, including earlier ACK
-  waits and recursive recovery. Owner, bot, binding, generation and receipt checks
-  remain active after ACK. Existing consumed choices and native submissions retain
-  their original ownership. Uncertain delivery and financial effects are not replayed.
-  Diagnostic advisory prompts identify collector, LNDg or Lightning Mate origin
-  while preserving prior revisions and checksums. Pi Durable/Chord 1.1.0 native
-  equivalence fixtures and qualification documentation cover isolated native
-  behavior; application runtime adapters have not been removed or replaced.
-  Schema 6, Pi Durable 1.1.0, current mandate, budget limits, capability fences
-  and the single financial executor remain unchanged. Autonomy remains suspended
-  until explicit qualification. Accounting and historical coverage remain partial.
-  Take a fresh stopped three-database checkpoint before update and preserve current
-  OAuth tokens, original receipts and uncertain-effect reconciliation. Compatible
-  software rollback preserves current data; never restore older receipts or tokens
-  over newer state. Immutable amd64/arm64 publication is complete; installed
-  acceptance remains pending for 0.5.7. M2.3/M2.4 and M3-M5 remain incomplete;
+  Version 0.5.8 adds a mandatory application-owned lifecycle launcher with
+  process-lifetime writer fences, consistent three-database checkpoints for
+  release transitions, storage-only migrations and fail-closed recovery.
+  SIGTERM and SIGINT stop admission and drain active HTTP handlers; incomplete
+  drain is recorded as recovery required, not successful quiescence. Ordinary
+  same-release restarts do not create another checkpoint. Interrupted migrations
+  reuse their original transition identity and immutable baseline without
+  restoring older financial receipts or OAuth state over newer data.
+  A first update from a legacy dataset requires a separately qualified offline
+  cutover: persistently exclude the known backfill writer, retire legacy restart
+  paths, capture all three current databases with the target runtime and verify
+  the effective immutable image pin before first startup. Hooks alone do not
+  certify host exclusion; an unqualified legacy dataset refuses bootstrap.
+  Telegram recovery still requires owner review through /recover and preserves
+  original request, correction, job, conversation and submission identities.
+  Uncertain delivery and financial effects are not automatically replayed.
+  Schema 6, Pi Durable/Pi AI/Chord 1.1.0, mandate, budget limits, reserve,
+  capability fences and the single financial executor remain unchanged.
+  Immutable amd64/arm64 publication and isolated native lifecycle qualification
+  are complete; installation and real web/Telegram acceptance remain pending.
+  Autonomy remains suspended until explicit qualification. Accounting and
+  historical coverage remain partial. M2.3/M2.4 and M3-M5 remain incomplete;
   optional financial integrations remain disabled.
