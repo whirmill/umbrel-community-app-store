@@ -3,12 +3,17 @@
 set -eu
 umask 077
 APP_DIR=${1:?Supply installed app data path}
-mkdir -p "$APP_DIR/scripts" "$HOME/.config/systemd/user"
-for file in diagnostics.py lm_backfill.py checkpoint.py; do
+MODE=${2:-install}
+case "$MODE" in install|--helpers-only) ;; *) exit 2 ;; esac
+mkdir -p "$APP_DIR/scripts"
+for file in diagnostics.py lm_backfill.py checkpoint.py maintenance_lock.py; do
   if ! cmp -s "$(dirname "$0")/$file" "$APP_DIR/scripts/$file"; then
     cp "$(dirname "$0")/$file" "$APP_DIR/scripts/$file"
   fi
 done
+# Offline helper deployment must not create/enable/start any unit.
+if [ "$MODE" = --helpers-only ]; then exit 0; fi
+mkdir -p "$HOME/.config/systemd/user"
 cat > "$HOME/.config/systemd/user/satssurge-autopilot-backfill.service" <<UNIT
 [Unit]
 Description=SatsSurge verified rebalance visibility in Lightning Mate

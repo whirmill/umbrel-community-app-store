@@ -19,6 +19,7 @@ import subprocess
 import urllib.request
 
 from diagnostics import atomic_json, running_version, utc
+from maintenance_lock import writer_lock
 
 UTC = dt.timezone.utc
 MAX_SAFE = 2**53 - 1
@@ -235,7 +236,7 @@ def maintenance(app):
 def execute(app, base, lnd, since, apply):
     private = app / 'diagnostics/backfill'
     private.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with (private / 'writer.lock').open('a') as lock:
+    with writer_lock(app / 'data'), (private / 'writer.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         checkpoint = private / 'checkpoint.json'
         prior = json.loads(checkpoint.read_text()) if checkpoint.exists() else {}

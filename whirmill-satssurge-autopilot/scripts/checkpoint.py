@@ -17,6 +17,7 @@ import sqlite3
 import subprocess
 
 from diagnostics import atomic_json, utc
+from maintenance_lock import acquire, lock_file
 
 FILES = ('operational.sqlite', 'durable.sqlite', 'oauth.sqlite')
 
@@ -30,6 +31,20 @@ def check(path):
         if connection.execute('PRAGMA foreign_key_check').fetchone() is not None:
             raise ValueError('Checkpoint foreign key failure')
         return connection.execute('PRAGMA user_version').fetchone()[0]
+    finally:
+        connection.close()
+
+
+def schema_identity(path):
+    """Bind DDL as well as user_version (Durable tracks its own schema table)."""
+    connection = sqlite3.connect('file:' + str(path) + '?mode=ro', uri=True)
+    try:
+        rows = connection.execute("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").fetchall()
+        durable = None
+        if any(row[1] == 'durable_schema' for row in rows):
+            durable = connection.execute('SELECT version FROM durable_schema WHERE singleton=1').fetchone()
+        return {'userVersion': check(path), 'ddlSha256': hashlib.sha256(json.dumps(rows, separators=(',', ':')).encode()).hexdigest(),
+                'durableVersion': durable[0] if durable else None}
     finally:
         connection.close()
 
@@ -58,10 +73,15 @@ def capture(source, target, final_guard=None, release=None):
         with output.open('rb') as stream:
             os.fsync(stream.fileno())
         manifest['files'][name] = {'sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
-                                   'schema': check(output), 'bytes': output.stat().st_size}
+                                   'schema': check(output), 'schemaIdentity': schema_identity(output), 'bytes': output.stat().st_size}
     if final_guard is not None:
         final_guard()
     atomic_json(target / 'manifest.json', manifest)
+    parent_fd = os.open(target.parent, os.O_RDONLY)
+    try:
+        os.fsync(parent_fd)
+    finally:
+        os.close(parent_fd)
     return manifest
 
 
@@ -74,6 +94,8 @@ def verify(directory):
         expected = manifest['files'][name]
         if path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest() != expected['sha256']:
             raise ValueError('Checkpoint checksum mismatch')
+        if expected.get('schemaIdentity') is not None and schema_identity(path) != expected['schemaIdentity']:
+            raise ValueError('Checkpoint DDL identity mismatch')
         if check(path) != expected['schema']:
             raise ValueError('Checkpoint schema mismatch')
     return manifest
@@ -101,10 +123,14 @@ def require_stopped():
 
 
 def capture_locked(source, target, guard=require_stopped, release=None):
-    with (source / 'executor.lock').open('a') as lock:
+    with lock_file(source, 'executor.lock') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        guard()
-        return capture(source, target, final_guard=guard, release=release)
+        with lock_file(source, 'maintenance-admission.lock') as admission:
+            acquire(admission, fcntl.LOCK_EX)
+            with lock_file(source, 'maintenance.lock') as maintenance:
+                acquire(maintenance, fcntl.LOCK_EX)
+                guard()
+                return capture(source, target, final_guard=guard, release=release)
 
 
 if __name__ == '__main__':

@@ -41,8 +41,8 @@ test('UTF8 payload limits reject before pending storage while uncertain submissi
 test('revocation invalidates copied bearer while other owner sessions remain valid',()=>{
  const s=new OwnerSessions(),a=s.issue(),b=s.issue();s.revoke('Bearer '+a);assert.equal(s.accepts('Bearer '+a),false);assert.equal(s.accepts('Bearer '+b),true);
 });
-test('SIGTERM drains a synthetic running scheduler job and entrypoint exec preserves the flock',async()=>{
- assert.match(readFileSync('Dockerfile','utf8'),/CMD \["flock","--no-fork","-n"/);
+test('SIGTERM drains a synthetic running scheduler job and image enters the mandatory lifecycle launcher',async()=>{
+ assert.match(readFileSync('Dockerfile','utf8'),/CMD \["python3","scripts\/app_launcher.py"\]/);
  const code=`import {Store} from './dist/store.js';import {Queue} from './dist/queue.js';import {Scheduler} from './dist/scheduler.js';const s=new Store(':memory:');s.set('enabled',true);s.set('bootstrapReady',true);const q=new Queue(s);q.enqueue({requestId:'drain',kind:'chat',payload:{message:'mock'}});let release;const scheduler=new Scheduler(q,{available:async()=>true,runJob:()=>new Promise(r=>{release=r;console.log('READY')})});process.once('SIGTERM',async()=>{setTimeout(()=>release({answer:'settled'}),30);const drained=await scheduler.drain(1000);console.log('DRAINED:'+drained+':'+q.list()[0].state);s.close();});await scheduler.pump();`;
  const child=spawn(process.execPath,['--input-type=module','-e',code],{stdio:['ignore','pipe','pipe']});let out='';
  const ready=new Promise<void>(r=>child.stdout.on('data',chunk=>{out+=String(chunk);if(out.includes('READY'))r();}));

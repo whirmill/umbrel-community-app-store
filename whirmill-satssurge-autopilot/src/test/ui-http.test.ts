@@ -64,7 +64,7 @@ test("actual HTTP auth, legacy projection, history pages and SSE replay use dura
   const cursor = events.cursor();
   store.close();
   writeFileSync(join(dir, "owner.secret"), "fixture-password", { mode: 0o600 });
-  const child = spawn(process.execPath, ["dist/server.js"], {
+  const child = spawn(process.execPath, ["--input-type=module", "-e", "import {startApplication} from './dist/server-app.js'; await startApplication();"], {
     env: {
       ...process.env,
       DATA_DIR: dir,
