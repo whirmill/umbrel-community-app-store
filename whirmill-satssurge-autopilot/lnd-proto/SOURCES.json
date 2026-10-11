@@ -1,0 +1,29 @@
+{
+  "repository": "https://github.com/lightningnetwork/lnd",
+  "tag": "v0.21.3-beta",
+  "commit": "572b561bf05f03dfe6135110970c4d858c3482dc",
+  "dependencies": {
+    "@grpc/grpc-js": "1.14.6",
+    "@grpc/proto-loader": "0.8.1"
+  },
+  "files": [
+    {
+      "path": "lightning.proto",
+      "url": "https://raw.githubusercontent.com/lightningnetwork/lnd/572b561bf05f03dfe6135110970c4d858c3482dc/lnrpc/lightning.proto",
+      "sha256": "9c0f9a8649312711bd849b82430bb5bcd17a3d85bb8c5627c3456214c2aa87b0",
+      "bytes": 175905
+    },
+    {
+      "path": "routerrpc/router.proto",
+      "url": "https://raw.githubusercontent.com/lightningnetwork/lnd/572b561bf05f03dfe6135110970c4d858c3482dc/lnrpc/routerrpc/router.proto",
+      "sha256": "d5e42b6d7307cb200c0989d4931b9180d4be2a42b681f0344223472477e1a65e",
+      "bytes": 37729
+    },
+    {
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/lightningnetwork/lnd/572b561bf05f03dfe6135110970c4d858c3482dc/LICENSE",
+      "sha256": "7ebd67c52a36357cb0c6c5e903ece047b195a6b8b04c6e7a8c820e01c884581c",
+      "bytes": 1100
+    }
+  ]
+}

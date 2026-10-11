@@ -54,14 +54,15 @@ if (store.get("legacyChat") === undefined)
   );
 let agent: Agent | undefined,
   collector: Collector | undefined,
-  scheduler: Scheduler | undefined;
+  scheduler: Scheduler | undefined,
+  node: Lnd | undefined;
 const intervals: ReturnType<typeof setInterval>[] = [];
 const streamAbort = new AbortController();
 let closing = false;
 let streamRetry: ReturnType<typeof setTimeout> | undefined;
 try {
-  const node = new Lnd(
-    process.env.LND_URL ?? "https://10.21.21.9:8080",
+  node = new Lnd(
+    process.env.LND_GRPC_TARGET ?? "10.21.21.9:10009",
     "/credentials/tls.cert",
     "/credentials/read.macaroon",
     "/credentials/write.macaroon",
@@ -282,6 +283,7 @@ const server = createServer(async (req, res) => {
           .slice(-12)
           .map((c) => publicExchange(c, "chat")),
         collector: store.get("collector") ?? {},
+        lndTransport: store.get("lndTransport") ?? null,
         queue: queue.metrics(),
         jobs: queue.list().map((job: any) => publicJob(store, job)),
         pool: scheduler?.status(),
@@ -531,6 +533,7 @@ async function shutdown() {
     httpDrained,
   });
   if (drained && !collector?.busy && httpDrained) await agent?.close();
+  node?.close();
   // SQLite FULL commits and durable operation receipts, not this exit status,
   // determine recovery. Never mark an uncertain financial operation failed.
   process.exit(0);

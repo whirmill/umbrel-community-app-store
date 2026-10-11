@@ -1,10 +1,10 @@
 {
   "name": "@whirmill/satssurge-autopilot",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=24.0.0 <25.0.0"
   },
   "scripts": {
     "build": "npm run patch:pi && tsc && tsc -p tsconfig.frontend.json && vite build",
@@ -21,6 +21,8 @@
     "@earendil-works/chord": "1.1.0",
     "@earendil-works/pi-ai": "1.1.0",
     "@earendil-works/pi-durable": "1.1.0",
+    "@grpc/grpc-js": "1.14.6",
+    "@grpc/proto-loader": "0.8.1",
     "@radix-ui/react-slot": "1.4.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",

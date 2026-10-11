@@ -2,7 +2,7 @@
 
 Questa raccolta documenta **il contratto usato da SatsSurge**, non una versione
 generica di Pi. Verificata il 2026-10-09: Pi Durable, Pi AI e Chord **1.1.0**;
-applicazione Node **24 o superiore**. La documentazione ufficiale è conservata
+applicazione Node **24.x** (candidate gRPC TLS; qualificazione locale su 24.21.0). La documentazione ufficiale è conservata
 localmente al commit `abe508e1b89912adde45528136c3221eb69acdd7` del tag `v1.1.0`.
 Non serve una connessione Internet per consultare gli snapshot.
 
