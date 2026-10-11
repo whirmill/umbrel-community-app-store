@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.8"
+version: "0.5.10"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for Lightning fee experiments and circular rebalances, using
@@ -30,26 +30,20 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.8 adds a mandatory application-owned lifecycle launcher with
-  process-lifetime writer fences, consistent three-database checkpoints for
-  release transitions, storage-only migrations and fail-closed recovery.
-  SIGTERM and SIGINT stop admission and drain active HTTP handlers; incomplete
-  drain is recorded as recovery required, not successful quiescence. Ordinary
-  same-release restarts do not create another checkpoint. Interrupted migrations
-  reuse their original transition identity and immutable baseline without
-  restoring older financial receipts or OAuth state over newer data.
-  A first update from a legacy dataset requires a separately qualified offline
-  cutover: persistently exclude the known backfill writer, retire legacy restart
-  paths, capture all three current databases with the target runtime and verify
-  the effective immutable image pin before first startup. Hooks alone do not
-  certify host exclusion; an unqualified legacy dataset refuses bootstrap.
-  Telegram recovery still requires owner review through /recover and preserves
-  original request, correction, job, conversation and submission identities.
-  Uncertain delivery and financial effects are not automatically replayed.
-  Schema 6, Pi Durable/Pi AI/Chord 1.1.0, mandate, budget limits, reserve,
-  capability fences and the single financial executor remain unchanged.
-  Immutable amd64/arm64 publication and isolated native lifecycle qualification
-  are complete; installation and real web/Telegram acceptance remain pending.
-  Autonomy remains suspended until explicit qualification. Accounting and
-  historical coverage remain partial. M2.3/M2.4 and M3-M5 remain incomplete;
-  optional financial integrations remain disabled.
+  Version 0.5.10 uses native LND gRPC over verified TLS with the existing
+  restricted credentials and no automatic RPC replay. Certificate diagnostics,
+  advance expiry warnings and safe public-certificate reload preserve active
+  calls. An optional passwordless user timer can copy LND's renewed public
+  certificate; it does not renew certificates or restart the node.
+  Generic Telegram /stop now offers confirmation for one exact turn, preventing
+  delayed commands from stopping a successor. Explicit Stop buttons remain
+  immediate. Long advisory prompts are attachments; /prompt ISSUE_ID REVISION
+  retrieves an existing immutable prompt without changing its evidence.
+  Application-owned lifecycle fences, current three-database checkpoints,
+  fail-closed migration/recovery and original uncertain receipts are preserved.
+  Schema 6 and Pi Durable/Pi AI/Chord 1.1.0 remain unchanged.
+  Immutable amd64/arm64 images and isolated native qualification are complete;
+  Umbrel installation and actual web/Telegram acceptance remain pending.
+  Autonomy remains suspended under the existing maintenance claim. Mandate,
+  budgets and reserve are unchanged. Coverage remains partial, M2.3/M2.4 and
+  M3-M5 remain incomplete, and optional financial integrations remain disabled.

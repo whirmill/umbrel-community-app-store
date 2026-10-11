@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current live readback on 2026-10-11 confirms `0.5.8` (schema 6), healthy and ready on Umbrel amd64, image source `b081f6b091bc59f5c6500d527f5da79151f16cd8` and immutable index `4b992bc55329527ebeeb635a556910d6fa4b43a0b3cd6b65cfefc258afd776cf`. The controlled legacy cutover preserved CURRENT databases, OAuth and financial receipts. The immutable 0.5.9 source/image remains a separate release artifact. The 0.5.10 source candidate adds native gRPC TLS and certificate reliability; source verification is separate from native image qualification, publication, installation and live acceptance, which remain pending. Autonomy remains suspended under the persistent roadmap maintenance claim; M2.3/M2.4 and M3–M5 remain incomplete. See the sole [implementation checkpoint](../docs/work/satssurge-autopilot-implementation.md).
+Current live readback on 2026-10-11 confirms `0.5.8` (schema 6), healthy on Umbrel amd64, image source `b081f6b091bc59f5c6500d527f5da79151f16cd8` and immutable index `4b992bc55329527ebeeb635a556910d6fa4b43a0b3cd6b65cfefc258afd776cf`. The controlled legacy cutover preserved CURRENT databases, OAuth and financial receipts. Version `0.5.10` is published from product source `131cf3084016edca12684f26294fc6ab51147bdd` at immutable index `fb0bfb68c51490ea99346c147b304a0f42820d4173d49d7bded8988ef348908a`, with independent source review and actual native amd64/arm64 qualification complete. The catalogue prepares that update; installation and genuine web/Telegram acceptance remain pending. The immutable 0.5.9 remains a separate, uninstalled release. Autonomy remains suspended under the persistent roadmap maintenance claim; M2.3/M2.4 and M3–M5 remain incomplete. See the sole [implementation checkpoint](../docs/work/satssurge-autopilot-implementation.md).
 
 Historical release summary (superseded by current readback above):
 
@@ -26,7 +26,7 @@ Only one process owns the app databases (`flock`). Dispatch and reconciliation s
 1. Install from the community store; provision from the Umbrel host as `umbrel`:
    `sh scripts/provision.sh /home/umbrel/umbrel/app-data/whirmill-satssurge-autopilot`
    This is one-time credential provisioning: it bakes two URI-restricted macaroons and copies the public TLS certificate. Existing installations must not rerun it for certificate renewal or the transport switch. The container never mounts the admin macaroon, seed or Docker socket.
-   For the 0.5.10 candidate, install the public-certificate copy watcher as `umbrel`: `sh scripts/install-lnd-cert-sync.sh`. This repeatable user service/timer needs no password, reads the fixed public LND certificate path, validates ownership/permissions and validity, and atomically replaces only `credentials/tls.cert`. It does not renew LND’s certificate or restart LND. Advance expiry alerts require the owner to arrange controlled LND renewal when needed. Existing interlock, diagnostics and backfill timer settings remain separate.
+   For 0.5.10, install the public-certificate copy watcher as `umbrel`: `sh scripts/install-lnd-cert-sync.sh`. This repeatable user service/timer needs no password, reads the fixed public LND certificate path, validates ownership/permissions and validity, and atomically replaces only `credentials/tls.cert`. It does not renew LND’s certificate or restart LND. Advance expiry alerts require the owner to arrange controlled LND renewal when needed. Existing interlock, diagnostics and backfill timer settings remain separate.
 2. Copy selected historical receipt JSON and narrative Markdown into the app's private `history/` directory. Required: `expenses.json`. `reconciliation-20261005.json` imports gross RoboSats premium separately from its already-booked fees. Personal payment details are excluded. Original documents remain unchanged; manifest checksums and dated claims are retained. Import is repeatable; conflicting ledger amounts stop initialization.
 3. Run `scripts/interlock.py <app-data-path>` every 30 seconds on the host. It reads current Lightning Mate config and LNDg switches, and observes Loop container absence. Missing/changed formats fail closed. When Lightning Mate settings.json is absent, only the reviewed exact settings module checksum establishes its default LSP-off state; upgrades require requalification. It never changes another application's settings. The application rejects gate data older than 90 seconds.
 4. Open port 5238 through Umbrel's authenticated proxy. Read `data/owner.secret` locally to sign in, then complete ChatGPT OAuth in the UI. Do not paste credentials into agent chat. Select an available subscription model. Autonomy starts immediately when auth, historical reconciliation, reserve, sync and interlocks pass. There is no mandatory shadow day.
@@ -1382,14 +1382,14 @@ or attachment opening. The published catalogue stays pinned to 0.5.8 until
 the separate verified 0.5.9 image publication and catalogue update.
 
 
-### Native LND gRPC TLS candidate 0.5.10
+### Native LND gRPC TLS release 0.5.10
 
 The runtime uses only native `lnrpc.Lightning` and `routerrpc.Router` calls over
 verified TLS. `LND_GRPC_TARGET` is a concrete DNS host or bracketed IPv6 address
 with a port, defaulting to `10.21.21.9:10009`; Umbrel compose supplies
-`${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_GRPC_PORT}`. The catalogue still
-pins the installed 0.5.8 image and metadata; its `LND_URL` setting remains for
-that older image. The 0.5.10 runtime has no REST fallback, plaintext connection,
+`${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_GRPC_PORT}`. The catalogue
+pins the qualified immutable 0.5.10 image; the `LND_URL` setting is retained
+for compatibility with the earlier installed image during the update. The 0.5.10 runtime has no REST fallback, plaintext connection,
 TLS authority override, admin credential or additional macaroon scope.
 
 LND REST and gRPC are generated from the same protobuf services. The pinned
@@ -1449,10 +1449,11 @@ copies public certificate bytes only, never macaroons, private keys or databases
 the directory mount observes atomic replacement. It never restarts LND, changes
 backfill masks or modifies credential generations, claims or financial controls.
 
-Local TLS/mock and host-copy fixtures are source-level proof only. Native image
-qualification must exercise the exact packaged dependencies/protos under both
-architectures with externally prepared synthetic certificates; production images
-do not include test-only OpenSSL or source fixtures. Actual read-only node
+Local TLS/mock and host-copy fixtures are source-level proof only. Actual native
+image qualification passed on amd64 and arm64: 23 gRPC/status cases, 173 Telegram
+cases and five public-certificate helper cases per architecture, using the exact
+packaged dependencies/protos and externally prepared synthetic certificates.
+Production images do not include test-only OpenSSL or source fixtures. Actual read-only node
 identity/credential qualification, UI/Telegram acceptance and controlled
 installation remain separate owner-controlled gates. No real payment or policy
 mutation is part of these tests.
