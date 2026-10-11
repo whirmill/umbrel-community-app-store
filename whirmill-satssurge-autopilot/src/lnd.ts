@@ -1,7 +1,13 @@
-import https from 'node:https';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import { X509Certificate, createHash } from 'node:crypto';
+import { isIP } from 'node:net';
+import { fileURLToPath } from 'node:url';
+import * as grpc from '@grpc/grpc-js';
+import { loadSync } from '@grpc/proto-loader';
 import { now, integer, type Channel, type Snapshot, type PaymentOutcome } from './domain.js';
 
+export type TransportFailure = 'certificate_missing'|'certificate_invalid'|'certificate_expired'|'certificate_not_yet_valid'|'endpoint_mismatch'|'authentication'|'permission_denied'|'deadline'|'cancelled'|'unavailable'|'resource_limit'|'rpc_failure';
+export type LndTransportStatus = {transport:'grpc-tls';inspectedAt:string;certificateDigest?:string;validFrom?:string;validTo?:string;warning:'healthy'|'expires_30d'|'expires_7d'|'expired'|'unavailable';failure?:TransportFailure;activeChannels:number;activeCalls:number};
 export interface NodeClient {
   snapshot():Promise<Snapshot>;
   forwards(start:number,end:number):Promise<any[]>;
@@ -11,37 +17,108 @@ export interface NodeClient {
   track(hash:string):Promise<PaymentOutcome | undefined>;
   updateFee(channel:Channel,ppm:number):Promise<void>;
   htlc(onEvent:(e:any)=>void,signal:AbortSignal):Promise<void>;
+  transportStatus?():LndTransportStatus;
+  beginCollection?():()=>void;
+  close?():void;
+}
+const protoRoot=fileURLToPath(new URL('../lnd-proto/',import.meta.url));
+// Compiled digests bind the vendored runtime schema to the existing lifecycle fingerprint.
+for(const [path,digest] of Object.entries({
+  'lightning.proto':'9c0f9a8649312711bd849b82430bb5bcd17a3d85bb8c5627c3456214c2aa87b0',
+  'routerrpc/router.proto':'d5e42b6d7307cb200c0989d4931b9180d4be2a42b681f0344223472477e1a65e',
+}))if(createHash('sha256').update(readFileSync(protoRoot+path)).digest('hex')!==digest)throw new Error('LND runtime schema integrity failure');
+export const lndPackage = grpc.loadPackageDefinition(loadSync([protoRoot+'lightning.proto',protoRoot+'routerrpc/router.proto'],{includeDirs:[protoRoot],keepCase:true,longs:String,enums:String,bytes:String,defaults:true,arrays:true,objects:true,oneofs:false})) as any;
+type ChannelLease={lightning:grpc.Client;router:grpc.Client;digest:string;validTo:number;active:number;retired:boolean};
+const MAX_MESSAGE=32*1024*1024;
+export function grpcTarget(target:string):{target:string;host:string} {
+  // Only a concrete TLS host:port. No URI resolvers, credentials, paths, or authority overrides.
+  const match=/^(\[[0-9a-fA-F:]+\]|[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?):([0-9]{1,5})$/.exec(target);
+  if(!match||Number(match[2])<1||Number(match[2])>65535)throw new Error('Invalid LND gRPC target');
+  const host=match[1]!.replace(/^\[|\]$/g,'');
+  if(host.includes(':')&&!isIP(host))throw new Error('Invalid LND gRPC target');
+  return {target,host};
+}
+class TransportError extends Error {constructor(readonly category:TransportFailure){super('LND gRPC '+category+'; outcome may be uncertain');}}
+function category(error:any):TransportFailure {
+  switch(error?.code){case grpc.status.UNAUTHENTICATED:return 'authentication';case grpc.status.PERMISSION_DENIED:return 'permission_denied';case grpc.status.DEADLINE_EXCEEDED:return 'deadline';case grpc.status.CANCELLED:return 'cancelled';case grpc.status.UNAVAILABLE:return 'unavailable';case grpc.status.RESOURCE_EXHAUSTED:return 'resource_limit';default:return 'rpc_failure';}
 }
 export class Lnd implements NodeClient {
-  private agent:https.Agent;
+  private channels:ChannelLease[]=[];
+  private current?:ChannelLease;
   private readToken:string;private writeToken:string;
-  constructor(private base:string, caFile:string, readFile:string,writeFile:string) {
-    const u=new URL(base);if(u.protocol!=='https:')throw new Error('LND requires TLS');
-    this.agent=new https.Agent({ca:readFileSync(caFile),keepAlive:true});
+  private endpoint:{target:string;host:string};
+  private closed=false;
+  private failureEpoch=0;
+  private status:LndTransportStatus={transport:'grpc-tls',inspectedAt:now(),warning:'unavailable',activeChannels:0,activeCalls:0};
+  constructor(target:string,private caFile:string,readFile:string,writeFile:string,private limits={unaryMs:20000,paymentMs:45000,htlcMs:300000,maxChannels:4,maxCalls:64,historyBytes:128*1024*1024,streamBytes:32*1024*1024}) {
+    this.endpoint=grpcTarget(target);
     this.readToken=readFileSync(readFile).toString('hex');this.writeToken=readFileSync(writeFile).toString('hex');
+    if(!this.readToken||!this.writeToken)throw new Error('LND restricted credentials unavailable');
+    // Certificate failure is operational state, allowing diagnostics and subsequent renewal recovery.
+    this.refresh();
   }
-  async call(path:string,body?:unknown,write=false,stream?:((row:any)=>void),signal?:AbortSignal):Promise<any> {
-    return new Promise((resolve,reject)=>{
-      const req=https.request(new URL(path,this.base),{agent:this.agent,method:body===undefined?'GET':'POST',headers:{'Grpc-Metadata-macaroon':write?this.writeToken:this.readToken,'Content-Type':'application/json'},signal},res=>{
-        let buf='';let bytes=0;let last:any;
-        if(res.statusCode!==200){res.resume();reject(new Error(`LND HTTP ${res.statusCode}`));return;}
-        res.setEncoding('utf8');res.on('data',(chunk:string)=>{
-          bytes+=Buffer.byteLength(chunk);if(!stream&&bytes>32*1024*1024){req.destroy(new Error('LND response size limit'));return;}
-          buf+=chunk;
-          if(stream){let nl;while((nl=buf.indexOf('\n'))>=0){const line=buf.slice(0,nl);buf=buf.slice(nl+1);if(line.trim())try{const row=JSON.parse(line);if(row.error)throw new Error('LND stream failure');last=row.result??row;stream(last);}catch(e){req.destroy(e as Error);}}}
-        });
-        res.on('error',reject);res.on('end',()=>{try{if(stream){if(buf.trim()){const row=JSON.parse(buf);if(row.error)throw new Error('LND stream failure');last=row.result??row;stream(last);}resolve(last);}else resolve(JSON.parse(buf));}catch(e){reject(e);}});
-      });
-      if(!signal)req.setTimeout(stream?45_000:20_000,()=>req.destroy(new Error('LND timeout; outcome may be uncertain')));
-      req.on('error',reject);if(body!==undefined)req.write(JSON.stringify(body));req.end();
+  private refresh() {
+    if(this.closed)return;
+    let failure:TransportFailure|undefined;let ca:Buffer|undefined;let cert:X509Certificate|undefined;let digest:string|undefined;
+    try {
+      if(statSync(this.caFile).size>65536)throw new TransportError('certificate_invalid');
+      ca=readFileSync(this.caFile);const pem=ca.toString('ascii');if(pem.split('-----BEGIN CERTIFICATE-----').length!==2||pem.includes('PRIVATE KEY'))throw new TransportError('certificate_invalid');cert=new X509Certificate(ca);digest=createHash('sha256').update(cert.raw).digest('hex');
+      const from=Date.parse(cert.validFrom),to=Date.parse(cert.validTo),at=Date.now();
+      this.status={...this.status,inspectedAt:now(),certificateDigest:digest,validFrom:new Date(from).toISOString(),validTo:new Date(to).toISOString(),warning:to<=at?'expired':to-at<=7*86400000?'expires_7d':to-at<=30*86400000?'expires_30d':'healthy',failure:this.status.failure&&['authentication','permission_denied','deadline','cancelled','unavailable','resource_limit','rpc_failure'].includes(this.status.failure)?this.status.failure:undefined};
+      if(from>at)throw new TransportError('certificate_not_yet_valid');
+      if(to<=at)throw new TransportError('certificate_expired');
+      if(!(isIP(this.endpoint.host)?cert.checkIP(this.endpoint.host):cert.checkHost(this.endpoint.host)))throw new TransportError('endpoint_mismatch');
+      if(this.current?.digest===digest)return;
+      this.reap();
+      if(this.channels.length>=this.limits.maxChannels&&this.current?.active!==0)throw new TransportError('resource_limit');
+      const credentials=grpc.credentials.createSsl(ca);
+      const options={'grpc.enable_retries':0,'grpc.max_receive_message_length':MAX_MESSAGE,'grpc.max_send_message_length':MAX_MESSAGE};
+      const next:ChannelLease={lightning:new lndPackage.lnrpc.Lightning(this.endpoint.target,credentials,options),router:new lndPackage.routerrpc.Router(this.endpoint.target,credentials,options),digest,validTo:to,active:0,retired:false};
+      if(this.current)this.current.retired=true;
+      this.channels.push(next);this.current=next;this.reap();
+    } catch(e:any) {failure=e instanceof TransportError?e.category:e?.code==='ENOENT'?'certificate_missing':'certificate_invalid';}
+    if(failure)this.status={...this.status,inspectedAt:now(),failure,warning:failure==='certificate_expired'?'expired':'unavailable'};
+  }
+  private reap(){this.channels=this.channels.filter(c=>{if(c.retired&&c.active===0){c.lightning.close();c.router.close();return false;}return true;});}
+  transportStatus():LndTransportStatus {this.refresh();return {...this.status,activeChannels:this.channels.length,activeCalls:this.channels.reduce((n,c)=>n+c.active,0)};}
+  private lease():ChannelLease {
+    if(this.closed)throw new TransportError('cancelled');this.refresh();
+    if(!this.current||this.current.validTo<=Date.now())throw this.fail(new TransportError(this.status.failure??'certificate_expired'));
+    if(this.channels.reduce((n,c)=>n+c.active,0)>=this.limits.maxCalls)throw this.fail(new TransportError('resource_limit'));
+    this.current.active++;return this.current;
+  }
+  private release(c:ChannelLease){c.active--;this.reap();}
+  private metadata(write:boolean){const metadata=new grpc.Metadata();metadata.set('macaroon',write?this.writeToken:this.readToken);return metadata;}
+  private success(){if(this.status.warning!=='unavailable'&&this.status.warning!=='expired')this.status={...this.status,failure:undefined};}
+  beginCollection(){const epoch=this.failureEpoch;return ()=>{if(epoch===this.failureEpoch)this.success();};}
+  private fail(error:any){this.failureEpoch++;const failure=error instanceof TransportError?error.category:category(error);this.status={...this.status,failure};return new TransportError(failure);}
+  private async unary(service:'lightning'|'router',method:string,request:any,write=false):Promise<any> {
+    const c=this.lease();return new Promise((resolve,reject)=>{
+      try {(c[service] as any)[method](request,this.metadata(write),{deadline:Date.now()+this.limits.unaryMs,waitForReady:false},(error:any,result:any)=>{this.release(c);if(error)reject(this.fail(error));else resolve(result);});}
+      catch(e){this.release(c);reject(this.fail(e));}
     });
   }
+  private async stream(method:string,request:any,write:boolean,onEvent?:((e:any)=>void),signal?:AbortSignal):Promise<any> {
+    const c=this.lease();return new Promise((resolve,reject)=>{
+      let call:grpc.ClientReadableStream<any>|undefined;let last:any;let settled=false;let rows=0;let bytes=0;
+      const finish=(error?:any)=>{if(settled)return;settled=true;signal?.removeEventListener('abort',abort);this.release(c);if(error)reject(this.fail(error));else resolve(last);};
+      const abort=()=>{call?.cancel();finish(new TransportError('cancelled'));};
+      try {
+        if(signal?.aborted){abort();return;}
+        call=(c.router as any)[method](request,this.metadata(write),{deadline:Date.now()+(onEvent?this.limits.htlcMs:this.limits.paymentMs),waitForReady:false});
+        signal?.addEventListener('abort',abort,{once:true});
+        call!.on('data',row=>{if(settled)return;try {rows++;bytes+=Buffer.byteLength(JSON.stringify(row));if(rows>100000||(!onEvent&&bytes>this.limits.streamBytes))throw new TransportError('resource_limit');last=row;onEvent?.(row);}catch(e){call?.cancel();finish(e);}});
+        call!.on('error',(error:grpc.ServiceError)=>{if(onEvent&&error.code===grpc.status.DEADLINE_EXCEEDED)finish();else finish(error);});call!.on('end',()=>finish());
+      }catch(e){finish(e);}
+    });
+  }
+  close(){this.closed=true;for(const c of this.channels)c.retired=true;this.reap();}
   async snapshot():Promise<Snapshot> {
-    const [info,wallet,list]=await Promise.all([this.call('/v1/getinfo'),this.call('/v1/balance/blockchain'),this.call('/v1/channels?peer_alias_lookup=true')]);
-    if(!Array.isArray(list.channels) || typeof info.identity_pubkey!=='string' || wallet.confirmed_balance===undefined)throw new Error('Incompatible LND snapshot schema');
+    const [info,wallet,list]=await Promise.all([this.unary('lightning','getInfo',{}),this.unary('lightning','walletBalance',{}),this.unary('lightning','listChannels',{peer_alias_lookup:true})]);
+    if(!Array.isArray(list.channels) || !/^([0-9a-f]{66})$/.test(info.identity_pubkey) || wallet.confirmed_balance===undefined)throw new Error('Incompatible LND snapshot schema');
     const channels:Channel[]=[];
     for(const c of list.channels??[]) {
-      const edge=await this.call('/v1/graph/edge/'+c.chan_id);
+      const edge=await this.unary('lightning','getChanInfo',{chan_id:String(c.chan_id)});
       const p=edge.node1_pub===info.identity_pubkey?edge.node1_policy:edge.node2_policy;
       if(!p)throw new Error('Missing local graph policy');
       channels.push({id:String(c.chan_id),point:c.channel_point,peer:c.remote_pubkey,alias:c.peer_alias||c.remote_pubkey.slice(0,12),active:c.active===true,capacitySat:String(c.capacity),localSat:String(c.local_balance),remoteSat:String(c.remote_balance),reserveSat:String(c.local_constraints?.chan_reserve_sat??0),pendingSat:(c.pending_htlcs??[]).reduce((n:bigint,h:any)=>n+integer(h.amount),0n).toString(),baseMsat:String(p.fee_base_msat),ppm:Number(p.fee_rate_milli_msat),cltv:Number(p.time_lock_delta),minMsat:String(p.min_htlc),maxMsat:String(p.max_htlc_msat)});
@@ -49,26 +126,26 @@ export class Lnd implements NodeClient {
     return {at:now(),identity:info.identity_pubkey,synced:info.synced_to_chain===true&&info.synced_to_graph===true,confirmedSat:String(wallet.confirmed_balance),channels};
   }
   async forwards(start:number,end:number) {
-    let offset=0;const rows:any[]=[];
+    let offset=0;let bytes=0;const rows:any[]=[];
     for(let pages=0;pages<10000;pages++) {
-      const p=await this.call('/v1/switch',{start_time:String(start),end_time:String(end),index_offset:offset,num_max_events:1000});
-      if(!Array.isArray(p.forwarding_events))throw new Error('Invalid forward page');rows.push(...p.forwarding_events);
+      const p=await this.unary('lightning','forwardingHistory',{start_time:String(start),end_time:String(end),index_offset:offset,num_max_events:1000});
+      if(!Array.isArray(p.forwarding_events))throw new Error('Invalid forward page');bytes+=Buffer.byteLength(JSON.stringify(p.forwarding_events));if(bytes>this.limits.historyBytes)throw this.fail(new TransportError('resource_limit'));rows.push(...p.forwarding_events);
       if(p.forwarding_events.length<1000)return rows;
       const next=Number(p.last_offset_index);if(!Number.isSafeInteger(next)||next<=offset)throw new Error('Forward pagination stalled');offset=next;
     }throw new Error('Forward pagination limit; incomplete');
   }
   async payments() {
-    let offset='0';const out:any[]=[];
+    let offset='0';let bytes=0;const out:any[]=[];
     for(let i=0;i<1000;i++){
-      const p=await this.call('/v1/payments?include_incomplete=true&max_payments=1000&index_offset='+offset);
-      if(!Array.isArray(p.payments))throw new Error('Invalid payments page');out.push(...p.payments);
+      const p=await this.unary('lightning','listPayments',{include_incomplete:true,max_payments:'1000',index_offset:offset});
+      if(!Array.isArray(p.payments))throw new Error('Invalid payments page');bytes+=Buffer.byteLength(JSON.stringify(p.payments));if(bytes>this.limits.historyBytes)throw this.fail(new TransportError('resource_limit'));out.push(...p.payments);
       if(p.payments.length<1000)return out;
       const next=String(p.last_index_offset);if(integer(next)<=integer(offset))throw new Error('Payment pagination stalled');offset=next;
     }throw new Error('Payments incomplete');
   }
   async invoice(amountSat:string,memo:string) {
-    const r=await this.call('/v1/invoices',{value:amountSat,memo,expiry:'300'},true);
-    if(!r.r_hash || !r.payment_request)throw new Error('Invalid self invoice');
+    const r=await this.unary('lightning','addInvoice',{value:amountSat,memo,expiry:'300'},true);
+    if(typeof r.r_hash!=='string' || !/^[A-Za-z0-9+/]{43}=$/.test(r.r_hash) || !r.payment_request)throw new Error('Invalid self invoice');
     return {hash:Buffer.from(r.r_hash,'base64').toString('hex'),request:r.payment_request};
   }
   private outcome(p:any):PaymentOutcome {
@@ -78,18 +155,18 @@ export class Lnd implements NodeClient {
     return {status:p.status,feeMsat:String(p.fee_msat??0),amountSat:String(p.value_sat??0),source:endpointsValid?route?.hops?.[0]?.chan_id:undefined,target:endpointsValid?route?.hops?.at(-1)?.chan_id:undefined,index:p.payment_index?String(p.payment_index):undefined};
   }
   async send(request:string,source:string,lastPeer:string,capMsat:string) {
-    const r=await this.call('/v2/router/send',{payment_request:request,outgoing_chan_ids:[source],last_hop_pubkey:Buffer.from(lastPeer,'hex').toString('base64'),fee_limit_msat:capMsat,timeout_seconds:30,max_parts:8,allow_self_payment:true,no_inflight_updates:true},true,()=>{});
+    const r=await this.stream('sendPaymentV2',{payment_request:request,outgoing_chan_ids:[source],last_hop_pubkey:Buffer.from(lastPeer,'hex'),fee_limit_msat:capMsat,timeout_seconds:30,max_parts:8,allow_self_payment:true,no_inflight_updates:true},true);
     if(!r || !['SUCCEEDED','FAILED','IN_FLIGHT'].includes(r.status))throw new Error('No authoritative terminal payment response');return this.outcome(r);
   }
   async track(hash:string) {
-    // TrackPaymentV2 is streaming. A 404 after an uncertain send is not proof of failure.
-    const r=await this.call('/v2/router/track/'+encodeURIComponent(Buffer.from(hash,'hex').toString('base64'))+'?no_inflight_updates=true',undefined,false,()=>{});
+    // NOT_FOUND after an uncertain send remains unknown; never replay SendPaymentV2.
+    const r=await this.stream('trackPaymentV2',{payment_hash:Buffer.from(hash,'hex'),no_inflight_updates:true},false);
     return r?this.outcome(r):undefined;
   }
   async updateFee(c:Channel,ppm:number) {
     const [tx,index]=c.point.split(':');
-    const r=await this.call('/v1/chanpolicy',{chan_point:{funding_txid_str:tx,output_index:Number(index)},base_fee_msat:c.baseMsat,fee_rate:ppm/1_000_000,time_lock_delta:c.cltv,min_htlc_msat:c.minMsat,min_htlc_msat_specified:true,max_htlc_msat:c.maxMsat},true);
+    const r=await this.unary('lightning','updateChannelPolicy',{chan_point:{funding_txid_str:tx,output_index:Number(index)},base_fee_msat:c.baseMsat,fee_rate:ppm/1_000_000,time_lock_delta:c.cltv,min_htlc_msat:c.minMsat,min_htlc_msat_specified:true,max_htlc_msat:c.maxMsat},true);
     if(r.failed_updates?.length)throw new Error('LND rejected channel policy');
   }
-  async htlc(onEvent:(e:any)=>void,signal:AbortSignal) {await this.call('/v2/router/htlcevents',undefined,false,onEvent,signal);}
+  async htlc(onEvent:(e:any)=>void,signal:AbortSignal) {await this.stream('subscribeHtlcEvents',{},false,onEvent,signal);}
 }

@@ -1339,6 +1339,12 @@ export function App() {
                       label="Snapshot completo del nodo"
                     />
                   </Panel>
+                  <Panel title="Connessione LND" sub="gRPC con TLS verificato; stato dell’ultimo controllo del collector.">
+                    <p>Trasporto: {status.lndTransport?.transport ?? "Non disponibile"}. Stato: {status.lndTransport?.failure ?? status.lndTransport?.warning ?? "Non disponibile"}.</p>
+                    <p>Validità certificato: {status.lndTransport?.validFrom ?? "Non disponibile"} — {status.lndTransport?.validTo ?? "Non disponibile"}.</p>
+                    <p>Ispezione: {status.lndTransport?.inspectedAt ?? "Non disponibile"}.</p>
+                    <Json value={status.lndTransport} label="Dettagli pubblici TLS" />
+                  </Panel>
                   <div className="two-columns">
                     <Panel
                       title="Diagnostica delle rotte"

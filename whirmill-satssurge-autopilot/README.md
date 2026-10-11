@@ -1,6 +1,6 @@
 # SatsSurge Autopilot
 
-Current live readback on 2026-10-11 confirms `0.5.8` (schema 6), healthy and ready on Umbrel amd64, image source `b081f6b091bc59f5c6500d527f5da79151f16cd8` and immutable index `4b992bc55329527ebeeb635a556910d6fa4b43a0b3cd6b65cfefc258afd776cf`. The controlled legacy cutover preserved CURRENT databases, OAuth and financial receipts. Real Telegram acceptance found a delayed generic Stop targeting a later turn; 0.5.9 source corrects that targeting and adds explicit retrieval of immutable advisory prompts as text attachments. Review, publication, installation and renewed live acceptance of 0.5.9 remain pending. Autonomy remains suspended under the persistent roadmap maintenance claim; M2.3/M2.4 and M3–M5 remain incomplete. See the sole [implementation checkpoint](../docs/work/satssurge-autopilot-implementation.md).
+Current live readback on 2026-10-11 confirms `0.5.8` (schema 6), healthy and ready on Umbrel amd64, image source `b081f6b091bc59f5c6500d527f5da79151f16cd8` and immutable index `4b992bc55329527ebeeb635a556910d6fa4b43a0b3cd6b65cfefc258afd776cf`. The controlled legacy cutover preserved CURRENT databases, OAuth and financial receipts. The immutable 0.5.9 source/image remains a separate release artifact. The 0.5.10 source candidate adds native gRPC TLS and certificate reliability; source verification is separate from native image qualification, publication, installation and live acceptance, which remain pending. Autonomy remains suspended under the persistent roadmap maintenance claim; M2.3/M2.4 and M3–M5 remain incomplete. See the sole [implementation checkpoint](../docs/work/satssurge-autopilot-implementation.md).
 
 Historical release summary (superseded by current readback above):
 
@@ -25,7 +25,8 @@ Only one process owns the app databases (`flock`). Dispatch and reconciliation s
 
 1. Install from the community store; provision from the Umbrel host as `umbrel`:
    `sh scripts/provision.sh /home/umbrel/umbrel/app-data/whirmill-satssurge-autopilot`
-   This bakes two URI-restricted macaroons and copies the public TLS certificate. The container never mounts the admin macaroon, seed or Docker socket.
+   This is one-time credential provisioning: it bakes two URI-restricted macaroons and copies the public TLS certificate. Existing installations must not rerun it for certificate renewal or the transport switch. The container never mounts the admin macaroon, seed or Docker socket.
+   For the 0.5.10 candidate, install the public-certificate copy watcher as `umbrel`: `sh scripts/install-lnd-cert-sync.sh`. This repeatable user service/timer needs no password, reads the fixed public LND certificate path, validates ownership/permissions and validity, and atomically replaces only `credentials/tls.cert`. It does not renew LND’s certificate or restart LND. Advance expiry alerts require the owner to arrange controlled LND renewal when needed. Existing interlock, diagnostics and backfill timer settings remain separate.
 2. Copy selected historical receipt JSON and narrative Markdown into the app's private `history/` directory. Required: `expenses.json`. `reconciliation-20261005.json` imports gross RoboSats premium separately from its already-booked fees. Personal payment details are excluded. Original documents remain unchanged; manifest checksums and dated claims are retained. Import is repeatable; conflicting ledger amounts stop initialization.
 3. Run `scripts/interlock.py <app-data-path>` every 30 seconds on the host. It reads current Lightning Mate config and LNDg switches, and observes Loop container absence. Missing/changed formats fail closed. When Lightning Mate settings.json is absent, only the reviewed exact settings module checksum establishes its default LSP-off state; upgrades require requalification. It never changes another application's settings. The application rejects gate data older than 90 seconds.
 4. Open port 5238 through Umbrel's authenticated proxy. Read `data/owner.secret` locally to sign in, then complete ChatGPT OAuth in the UI. Do not paste credentials into agent chat. Select an available subscription model. Autonomy starts immediately when auth, historical reconciliation, reserve, sync and interlocks pass. There is no mandatory shadow day.
@@ -1379,3 +1380,79 @@ Schema 6 and Pi Durable/Pi AI/Chord 1.1.0 remain fixed. This source preparation
 does not certify immutable publication, installation, real Stop/steering/recovery
 or attachment opening. The published catalogue stays pinned to 0.5.8 until
 the separate verified 0.5.9 image publication and catalogue update.
+
+
+### Native LND gRPC TLS candidate 0.5.10
+
+The runtime uses only native `lnrpc.Lightning` and `routerrpc.Router` calls over
+verified TLS. `LND_GRPC_TARGET` is a concrete DNS host or bracketed IPv6 address
+with a port, defaulting to `10.21.21.9:10009`; Umbrel compose supplies
+`${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_GRPC_PORT}`. The catalogue still
+pins the installed 0.5.8 image and metadata; its `LND_URL` setting remains for
+that older image. The 0.5.10 runtime has no REST fallback, plaintext connection,
+TLS authority override, admin credential or additional macaroon scope.
+
+LND REST and gRPC are generated from the same protobuf services. The pinned
+upstream source exposes the roadmap-required LND methods through both transports;
+no required REST-exclusive LND RPC was found. Third-party HTTP APIs remain
+separate integration contracts. Source reference:
+[Lightning proto](https://github.com/lightningnetwork/lnd/blob/572b561bf05f03dfe6135110970c4d858c3482dc/lnrpc/lightning.proto)
+and [Router proto](https://github.com/lightningnetwork/lnd/blob/572b561bf05f03dfe6135110970c4d858c3482dc/lnrpc/routerrpc/router.proto).
+The vendored two-file import closure and MIT license are recorded in
+`lnd-proto/SOURCES.json`. Compiled expected SHA-256 values are checked before
+loading the runtime schema, binding it to the existing lifecycle fingerprint.
+Dependencies are exact `@grpc/grpc-js@1.14.6` and `@grpc/proto-loader@0.8.1`;
+Pi AI, Durable and Chord remain exactly 1.1.0 and schema 6 is unchanged.
+
+The qualified runtime line is Node 24.x; Docker pins 24.21.0. Local tests on
+Node 26.11.1 found grpc-js IP ServerName rejection. Node 26 support is therefore
+not claimed, and package engines constrain Node to 24.x. No workaround weakens
+certificate or endpoint verification.
+
+`GetInfo`, balances, channels, channel policies, forwarding history and payments
+use the read macaroon. `TrackPaymentV2` and bounded HTLC read subscriptions also
+use the read macaroon. `AddInvoice`, `SendPaymentV2` and `UpdateChannelPolicy`
+use the existing write macaroon exclusively. Decimal uint64 strings, base64
+bytes, enum names, falsey defaults and oneof payloads preserve the current
+NodeClient-facing REST projections and collector event hashes. No protobuf
+virtual discriminator is added. `SendPaymentV2` and `TrackPaymentV2` consume
+real server streams; transport timeout, cancellation or missing tracking data
+remain uncertain. gRPC RPC retries are disabled. Reconciliation tracks the
+original payment hash and does not resubmit a payment.
+
+Unary calls have a 20-second deadline; payment streams 45 seconds. HTLC read
+segments last at most five minutes with explicit incomplete coverage boundaries
+and the existing reconnect gap. Messages are bounded to 32 MiB, payment-stream
+aggregate responses to 32 MiB, paginated histories to 128 MiB, concurrent calls
+to 64 and retained channel generations to four. History byte/page limits fail
+closed rather than claiming complete coverage. The best-effort HTLC stream is
+not historical completeness proof.
+
+The collector persists sanitized transport status before waiting on
+reconciliation and after settlement, even when collection fails. It preserves
+the last valid snapshot and blocks new AI action on failed collection or an
+active transport failure. Public diagnostics include inspection time,
+certificate digest/validity, warning stage and a closed failure category; raw
+service errors, subjects, SANs, targets and credentials are not projected.
+Thirty-day and seven-day expiry warnings respect Telegram quiet hours;
+expired certificates and transport/authentication failures are critical.
+Notifications use the existing generation-bound persistent outbox, deduplicate
+active episodes across restart and suppress identical flapping recurrences for
+ten minutes. Existing rate limits and uncertain-delivery/no-replay handling
+remain in force.
+
+Renewed valid public certificates create fresh gRPC channels for new calls.
+Active unary and payment calls finish on their original channels without replay;
+retired channels close after owned calls finish. Invalid replacements retain the
+previous usable channel while diagnostics report the failure. The host watcher
+copies public certificate bytes only, never macaroons, private keys or databases;
+the directory mount observes atomic replacement. It never restarts LND, changes
+backfill masks or modifies credential generations, claims or financial controls.
+
+Local TLS/mock and host-copy fixtures are source-level proof only. Native image
+qualification must exercise the exact packaged dependencies/protos under both
+architectures with externally prepared synthetic certificates; production images
+do not include test-only OpenSSL or source fixtures. Actual read-only node
+identity/credential qualification, UI/Telegram acceptance and controlled
+installation remain separate owner-controlled gates. No real payment or policy
+mutation is part of these tests.

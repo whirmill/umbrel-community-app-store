@@ -5,6 +5,7 @@ RUN npm ci --ignore-scripts
 COPY scripts/pi-scoped-stop-patch.* ./scripts/
 COPY tsconfig.json ./
 COPY src ./src
+COPY lnd-proto ./lnd-proto
 COPY web ./web
 COPY vite.config.ts tsconfig.frontend.json components.json ./
 RUN npm run build && npm prune --omit=dev --ignore-scripts
@@ -14,6 +15,7 @@ WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY package*.json ./
+COPY --from=build /app/lnd-proto ./lnd-proto
 COPY scripts/*.py ./scripts/
 COPY --from=build /app/public ./public
 USER 1000:1000

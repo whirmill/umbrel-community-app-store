@@ -21,7 +21,9 @@ export class Collector {
   constructor(private store:Store,private node:NodeClient,private executor:Executor,private gateFile:string){}
   async collect() {
     if(this.busy)return;this.busy=true;
+    const recovered=this.node.beginCollection?.();
     try {
+      this.persistTransport();
       this.store.set('automationProof',checkInterlocks({lightningMate:this.gateFile,lndg:''}));
       await this.executor.reconcile();
       const s=await this.node.snapshot();if(s.identity!==this.store.get('expectedIdentity'))throw new Error('Node identity mismatch');const previous=this.store.get<Snapshot>('snapshot');
@@ -71,21 +73,32 @@ export class Collector {
         }
         this.store.run('INSERT OR REPLACE INTO coverage VALUES(?,?,?,?,?,?)','forwards',start,end,'LND forwards',1,json({pagesComplete:true,events:forwards.length}));
       });
+      recovered?.();
       evaluate(this.store,end);this.store.retain();
-      const blockers:string[]=[];if(this.store.get('integrityBlocker'))blockers.push(this.store.get<string>('integrityBlocker')!);
+      const blockers:string[]=[];this.persistTransport();if(this.store.get('lndTransport')?.failure)blockers.push('Native LND TLS transport requires attention');if(this.store.get('integrityBlocker'))blockers.push(this.store.get<string>('integrityBlocker')!);
       if(this.store.get('importReport')?.problems?.length)blockers.push('Historical import discrepancies unresolved');
       if(!s.synced)blockers.push('LND not synchronized');
       if(!this.store.get('historicalLedgerImported'))blockers.push('Historical ledger not imported');
       if(this.store.get('automationProof')?.ok!==true)blockers.push('Live automation interlock unavailable');
       if(integer(s.confirmedSat)<500000n)blockers.push('Protected reserve below 500,000 sat');
       this.store.set('bootstrapReady',!blockers.length);this.store.set('blockers',blockers);this.store.set('collector',{at:now(),ok:true});
-    }catch{this.store.set('bootstrapReady',false);this.store.set('collector',{at:now(),ok:false,error:'Collection/reconciliation failed; no new AI action'});}finally{this.busy=false;}
+    }catch{this.store.set('bootstrapReady',false);this.store.set('collector',{at:now(),ok:false,error:'Collection/reconciliation failed; no new AI action'});}finally{this.persistTransport();this.busy=false;}
+  }
+  private persistTransport(){
+    if(!this.node.transportStatus)return;
+    const transport=this.node.transportStatus();
+    this.store.tx(()=>{
+      this.store.set('lndTransport',transport);
+      // Read-stream failure must close admission immediately, between collection cycles.
+      // A healthy status alone never reopens it; only full collect recovery may do so.
+      if(transport.failure)this.store.set('bootstrapReady',false);
+    });
   }
   async stream(signal:AbortSignal){
     const start=now();try{await this.node.htlc(e=>{
       if(!e.timestamp_ns)return;
       const at=new Date(Number(BigInt(e.timestamp_ns)/1000000n)).toISOString();
       this.store.event({id:'htlc:'+hash(json(e)),at,type:e.link_fail_event?'htlc_rejected':'htlc_event',source:String(e.incoming_channel_id??''),target:String(e.outgoing_channel_id??''),amountMsat:String(e.link_fail_event?.info?.outgoing_amt_msat??e.forward_event?.info?.outgoing_amt_msat??'0'),feeMsat:'0',details:{source:'LND SubscribeHtlcEvents',failure:e.link_fail_event?.failure_detail??null,wireFailure:e.link_fail_event?.wire_failure??null}});
-    },signal);}finally{this.store.run('INSERT INTO coverage VALUES(?,?,?,?,?,?)',hash(start),start,now(),'HTLC stream',0,json({note:'Live segment; gaps/reconnect boundaries retained, no historical failure completeness asserted'}));}
+    },signal);}finally{this.persistTransport();this.store.run('INSERT INTO coverage VALUES(?,?,?,?,?,?)',hash(start),start,now(),'HTLC stream',0,json({note:'Live segment; gaps/reconnect boundaries retained, no historical failure completeness asserted'}));}
   }
 }

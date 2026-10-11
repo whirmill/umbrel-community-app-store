@@ -641,6 +641,7 @@ export class Telegram {
         }
         for (const o of this.store.all("SELECT id,state FROM operations WHERE at>=? AND state IN ('SUCCEEDED','FAILED','uncertain','in_flight')", this.store.get('telegramBinding').since))
             this.enqueue('operation:' + o.id + ':' + o.state, `Operation ${o.id}: ${o.state}. Dettagli nella web app.`, o.state === 'uncertain' ? 'critical' : 'ordinary', undefined, at);
+        this.captureLndTransport(at);
         const blockers = [this.store.get('integrityBlocker'), this.store.get('agent')?.status === 'unavailable' ? availabilityBlocker(this.store.get('agent')?.failure) : null, this.store.one("SELECT id FROM operations WHERE state='uncertain'") ? 'Esito finanziario incerto; richiesta riconciliazione, nessun replay' : null, ...(this.store.get<any[]>('blockers') ?? [])].filter(Boolean).map(telegramText);
         this.store.tx(() => {
             const generation = this.store.get('telegramBinding').generation;
@@ -676,6 +677,27 @@ export class Telegram {
                     this.store.run("UPDATE telegram_outbox SET status='aggregated' WHERE kind='ordinary' AND status='pending' AND created_at<=?", at);
                 });
         }
+    }
+    private captureLndTransport(at:string) {
+        const binding=this.store.get('telegramBinding');const transport=this.store.get('lndTransport');
+        if(!binding||!transport)return;
+        const state=transport.failure??transport.warning;
+        if(!state||state==='healthy'){this.store.set('telegramLndTransportEpisode',null);return;}
+        const identity=hash(json([binding.generation,transport.certificateDigest??null,state]));
+        const prior=this.store.get('telegramLndTransportEpisode');
+        if(prior?.identity===identity)return;
+        // Bound recurring/flapping episodes, without delaying a new certificate or warning stage.
+        const recent=this.store.get<Record<string,string>>('telegramLndTransportRecent')??{};
+        if(recent[identity]&&Date.parse(at)-Date.parse(recent[identity]!)<600000)return;
+        // One episode across restarts; re-pairing and renewed certificates get their own receipt.
+        const episode=randomBytes(12).toString('hex');
+        this.store.tx(()=>{
+            this.enqueue('lnd-transport:'+binding.generation+':'+identity+':'+episode,
+                `LND gRPC TLS: ${state}. Certificato valido da ${transport.validFrom??'non disponibile'} fino a ${transport.validTo??'non disponibile'}. Ispezione ${transport.inspectedAt}. Controlla la diagnostica web; nessun pagamento viene ritentato.`,
+                transport.failure||transport.warning==='expired'?'critical':'operational',undefined,at,binding.generation);
+            this.store.set('telegramLndTransportEpisode',{identity,episode,at});
+            this.store.set('telegramLndTransportRecent',Object.fromEntries([...Object.entries(recent).filter(([key])=>key!==identity),[identity,at]].slice(-32)));
+        });
     }
     private captureImprovements(at: string) {
         const runtime = new RuntimeImprovements(this.store); runtime.scan(at);
