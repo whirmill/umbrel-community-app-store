@@ -1339,3 +1339,29 @@ remains retained. Fresh current checkpoint, exact store resolution, installation
 original delayed-request recovery, same-client streaming and advisory attachment
 readback remain acceptance gates. M2.3/M2.4 and M3-M5 remain open. No new
 financial integrations or channel lifecycle capabilities are enabled.
+
+
+### Core 0.5.8 source preparation — application lifecycle
+
+Version 0.5.8 prepares the mandatory pre-bootstrap launcher described in
+[Application lifecycle](../docs/pi/app-lifecycle.md). Application startup and
+history import acquire the executor, admission and maintenance fences before
+opening storage. Updates capture and verify all three databases, migrate in an
+isolated storage-only process and retain a transition receipt; ordinary restarts
+recover without another checkpoint. Release identity binds the actual package,
+compiled code, pinned Pi/Chord and Python helper bytes. Legitimate backfill writers
+participate in the same maintenance protocol. The launcher forwards termination
+and retains the fences until its child exits; unsupported direct entrypoints fail
+before database creation.
+
+Package and both root lockfile versions are 0.5.8. Pi Durable, Pi AI and Chord
+remain pinned to 1.1.0; operational schema 6, OAuth, original receipts and the
+existing financial mandate are preserved. This source preparation does not
+publish an image or change the Umbrel manifest/Compose pins. Exact-source review,
+release CI and immutable amd64/arm64 image verification remain publication gates.
+Native architecture qualification and the first legacy bridge are not yet
+qualified: an unmarked legacy dataset stays HOLD until an independently reviewed
+host adapter proves writer exclusion, a verified three-database capture and exact
+source/destination correlation. No installed cutover or financial recovery PASS
+is claimed. The approved Ordered roadmap and M2.3/M2.4 acceptance remain open;
+M3–M5 and new financial capabilities remain pending.

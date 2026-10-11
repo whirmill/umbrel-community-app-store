@@ -19,6 +19,9 @@ Non serve una connessione Internet per consultare gli snapshot.
 5. [Complementi nativi e qualificazione](native-complements.md): matrice
    KEEP/THIN ADAPTER/REPLACE/QUALIFY e prove isolate sulla versione 1.1.0.
 
+6. [Lifecycle applicativo](app-lifecycle.md): gate di bootstrap, checkpoint,
+   protocollo writer e primo cutover legacy.
+
 ## Documentazione ufficiale locale
 
 | Argomento | Fonte fissata a v1.1.0 |
