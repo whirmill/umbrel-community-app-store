@@ -126,6 +126,117 @@ source binary, known writer inventory, actual disabled paths and destination
 image correlation must be independently reviewed before publication. The app
 then serializes transition retries itself.
 
+### Minimal target-runtime capture tool (capture only)
+
+`docs/pi/scripts/legacy-target-capture.py` is an external, one-time operator
+procedure, not an installed app helper or a host coordinator. It **does not**
+publish `offline-cutover.json` or `lifecycle.json`, restore, migrate, start the
+app, write database rows, contact providers, or certify that host writers are
+disabled. Two isolated captures alone are not production/offline-host authority.
+The original legacy binary/source identity and all host exclusion evidence must
+be established independently; `--release-source` describes the **target image's**
+reviewed source, not the old running binary.
+
+Run the tool through stdin with the exact published platform image's `python3 -`
+as **actual namespace PID 1**, UID and GID 1000. Do not use `--init`, a shell
+entrypoint, `docker exec`, a background capture child, or a host Python capture.
+The production entrypoint checks real Linux/PID/real and effective UID/GID before
+any data/output modification. Supply the independently reviewed target source
+SHA, expected product fingerprint and independently verified published platform
+digest explicitly; neither runtime fingerprint self-discovery nor a mutable tag
+is approval. The tool compares the expected fingerprint using the unchanged
+`/app/scripts/app_launcher.py` implementation. A digest/source string inside the
+container cannot independently prove Docker image provenance.
+
+The same PID 1 acquires stable `executor.lock`, `maintenance-admission.lock`,
+then `maintenance.lock`, all EX, and synchronously uses the image's unchanged
+`checkpoint.capture`, `checkpoint.verify` and `app_launcher.schemas` for all
+three databases. All fences remain held through both captures, verification,
+source schema readback and summary/failure diagnostics. The two NEW private
+subdirectories (`capture-1`, `capture-2`) must have identical `manifest.files`
+and original schema identities. This comparison uses actual target-runtime
+checkpoint bytes, not an invented host/target-runtime equality rule, and gives
+the parent the exact file/schema entries required by the unchanged launcher's
+repeated-capture comparison. The summary still says `hostQualification=HOLD`.
+
+All three source files must already exist. Symlinked ancestors, nonregular or
+hardlinked DB/WAL/SHM/lock files, either existing receipt (even a dangling
+symlink), and existing/overlapping output paths are rejected. Use absolute paths
+without traversal or SQLite URI metacharacters. The output must be outside the
+data tree, under an operator-owned, non-publicly-writable existing parent; the
+new output and checkpoint directories are mode 0700. Stable lock inodes and
+existing DB/WAL/SHM are never explicitly unlinked, replaced or reset. Empty or
+truncated existing SHM is rejected before SQLite access: admit only whole 32KiB
+SQLite index blocks, then compare original inode/extent after every operation.
+An unexpected inode/extent change is HOLD, not permission to reset or restore it.
+Ordinary read-only SQLite may update SHM read marks (cache/locking bookkeeping,
+not financial/OAuth rows); SHM bytes are not claimed immutable. The stdout summary
+contains only bounded release identifiers, file hashes/sizes and schema identities,
+never rows, DDL text, OAuth contents or tokens. The private database snapshots are
+NOT sanitized: they necessarily contain original rows and OAuth state and require
+confidential handling. Separate owner/bot credential files are not copied or read.
+Partial capture directories/database copies and failed evidence remain for offline
+review; the unchanged atomic helper may remove an unpublished manifest temporary.
+Never reuse an existing output directory or delete it to mask a failed attempt.
+The cooperative protocol does not defend against hostile root or same-UID actors
+that deliberately ignore fences or replace paths.
+
+Lock acquisition is at most 15 seconds per lock, within a cooperative total
+operation budget (`--deadline-seconds`, default 120, maximum 300). SIGTERM,
+SIGINT and the timer latch cancellation without raising or tearing down capture
+failure diagnostics. Explicit checks reject a latch during/after summary output.
+Successful production finalization occurs while all fences are still held: after
+SQLite and reporting settle, TERM/INT/ALRM switch to Python's raising interrupt
+handler, the timer stops, and a final check observes latches from the complete
+switch. Delivered late signals then cause nonzero process exit, not an ignored
+latch plus exit 0. An emitted summary alone is insufficient. These final raising
+interrupts may terminate without an additional HOLD summary; no SQLite work
+remains. Python delivery and capture checks are cooperative:
+SQLite/C work, blocked output, filesystem calls or uninterruptible kernel I/O
+can delay handling past the deadline. No timeout is proof of termination. There
+is no foreign child to tear down: PID 1 owns both SQLite work and the fence;
+SIGKILL ends that same process/fence together. Loss or death of the host Docker
+client can instead leave the backend running **with the fence held**. Independently
+inspect the fresh owned container's exact identity/state, stop it if needed and
+prove its absence/removal before proceeding; caller death or timeout is never
+release proof.
+
+Native qualification recipe, **isolated synthetic data only**, for a separately
+authorized operator (not production cutover): create a fresh private fixture
+containing all three real SQLite databases with synthetic receipt/Durable IDs,
+WAL state and schema versions, plus a separate empty private output parent,
+owned by UID/GID 1000. Verify the platform digest, architecture, image provenance
+and expected fingerprint independently first. A foreground invocation has this
+shape (no shell wrapper, no `--init`, no Docker socket or credential mounts):
+
+```sh
+docker run --name "$FRESH_OWNED_NAME" --network none --read-only \
+  --user 1000:1000 --cap-drop ALL --security-opt no-new-privileges \
+  --mount "type=bind,src=$ISOLATED_FIXTURE,dst=/data" \
+  --mount "type=bind,src=$PRIVATE_OUTPUT_PARENT,dst=/capture" \
+  --entrypoint python3 -i "$VERIFIED_IMAGE_AT_PLATFORM_DIGEST" - \
+  --data /data --output /capture/new-attempt \
+  --expected-fingerprint "$INDEPENDENT_EXPECTED_FINGERPRINT" \
+  --release-source "$REVIEWED_TARGET_SOURCE_SHA" \
+  --platform-digest "$VERIFIED_PLATFORM_DIGEST" --deadline-seconds 120 \
+  < docs/pi/scripts/legacy-target-capture.py
+```
+
+Here `-i` is **Docker's stdin flag**, before the image; Python receives `-`.
+Record actual client exit 0 **and** the independently inspected exact container
+PID-1 command, UID/GID, image identity, architecture, container exit 0 and
+`OOMKilled=false`. Retain manifests and verify original synthetic IDs/DDL,
+identical repeated hashes, unchanged DB/WAL bytes and SHM inode/extent. Qualify
+contention, deadline, SIGTERM/SIGINT (also after serialization), and transport
+loss/owned stop/removal independently on the target. Preserve every failure and
+partial output. Prove fresh owned container removal/absence before another step;
+do not use `--rm` to discard inspectable exit/OOM evidence. Native success is
+still not host qualification, receipt publication, installation or financial
+activation. Production remains HOLD until persistent known-writer exclusion,
+retirement/removal of original legacy container/restart paths, and an effective
+supported catalogue/Compose target-image pin have separately been proved. The
+parent owns trusted receipt publication under the qualified offline fence.
+
 Umbrel hooks are optional bounded orchestration/diagnostics. A new release's
 hooks cannot fence the first update's old pre-update path; the mandatory launcher
 therefore remains authoritative. No checkpoint is attempted on every SIGTERM.
