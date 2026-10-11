@@ -357,3 +357,22 @@ precedente. Le verifiche percorrono tutti gli hash degli antenati, anche dopo
 l'ACK, e rifiutano catene cicliche, mancanti, mutate o oltre 128 riferimenti.
 La ripresa conserva il vincolo di nuova richiesta e il request ID originale:
 catene ripetute non consumano la correzione né creano doppio lavoro.
+
+## Stop generico e recupero dei prompt consultivi (0.5.9)
+
+Un comando `/stop` può essere consegnato dopo la fine della risposta visibile
+al momento dell'invio. Il target corrente deve avere `started_at` verificabile
+e strettamente precedente all'inizio del secondo della data Telegram originale.
+Date mancanti, non valide o ambigue nello stesso secondo non creano una ricevuta
+Stop: la risposta spiega il limite e offre un callback con job/generazione/versione
+esatti. Stop nativo e callback conservano la loro correlazione persistente.
+
+I prompt consultivi oltre 2000 caratteri usano un allegato `.txt`; la soglia
+è condivisa fra ammissione e invio. `/prompt ISSUE_ID [REVISIONE]` permette al
+proprietario associato di richiedere una copia di una revisione già registrata.
+Il comando verifica identità, associazione, contenuto e checksum dell'artefatto
+originale e crea una consegna distinta correlata all'update, con
+`sourceRequestLink`. Non cambia revisione, evidenza o ricevuta precedente, né
+ritenta una consegna incerta automaticamente. Un update duplicato conserva
+la sua ricevuta. Il recupero non autorizza modifica del runtime o effetti
+finanziari. La consegna e apertura nel client reale restano prove separate.

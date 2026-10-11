@@ -10,6 +10,7 @@ import { hash, json, now, day, scrub } from './domain.js';
 export interface TelegramTransport {
     call(method: string, body: unknown, signal?: AbortSignal): Promise<any>;
 }
+const RUNTIME_ADVISORY_INLINE_LIMIT = 2000;
 export function telegramText(text: string) { return telegramClean(text).slice(0, 3500); }
 export function telegramClean(text: string) { return String(scrub(text)).replace(/\b\d{6,12}:[A-Za-z0-9_-]{20,}\b/g, '[REDACTED]').replace(/\blnbc[a-z0-9]+\b/gi, '[REDACTED]'); }
 export function telegramHtml(text: string) { return telegramClean(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/^#{1,6} (.+)$/gm, '<b>$1</b>'); }
@@ -402,7 +403,9 @@ export class Telegram {
                     this.store.run("UPDATE telegram_updates SET status='ignored' WHERE update_id=?", row.update_id);
                     continue;
                 }
-                if (!u.callbackId && u.date!==undefined && (!Number.isSafeInteger(u.date)||u.date < Math.floor(Date.parse(binding.since) / 1000) || (Date.parse(at) / 1000 - u.date > 300&&!row.recoveryKey) || u.date > Date.parse(at) / 1000 + 60)) {
+                // Malformed generic Stop dates need an explicit ambiguous-target reply.
+                // Other commands and genuinely stale Stop messages retain the ingress fence.
+                if (!u.callbackId && u.date!==undefined && (u.text !== '/stop' || Number.isSafeInteger(u.date) && u.date > 0) && (!Number.isSafeInteger(u.date)||u.date < Math.floor(Date.parse(binding.since) / 1000) || (Date.parse(at) / 1000 - u.date > 300&&!row.recoveryKey) || u.date > Date.parse(at) / 1000 + 60)) {
                     this.store.run("UPDATE telegram_updates SET status='ignored',error='Stale incoming command' WHERE update_id=?", row.update_id);
                     continue;
                 }
@@ -521,10 +524,20 @@ export class Telegram {
                 else if (u.text === '/stop') {
                     const active = this.turns().active(binding.generation);
                     if (active) {
-                        await this.turns().stop(active.jobId, binding.generation, active.version, event);
-                        answer = 'Stop ricevuto per la risposta attiva. Attendo il rilascio del task.';
-                        void this.turns().dispatchStop(event).then(() => { if (this.store.get('telegramStop:' + event)?.state === 'idle_confirmed')
-                            this.enqueue(event + ':stopped', 'Risposta interrotta; task rilasciato.', 'reply', undefined, now(), u.generation); }).catch(() => { });
+                        const startedAt = this.control.queue.get(active.jobId)?.started_at;
+                        const started = typeof startedAt === 'string' ? Date.parse(startedAt) : NaN;
+                        // Telegram dates have one-second precision: a same-second start
+                        // cannot prove this was the response the owner intended to stop.
+                        if (!Number.isSafeInteger(u.date) || u.date <= 0 || !Number.isSafeInteger(u.date * 1000) || !Number.isFinite(started) || started <= 0 || started >= u.date * 1000) {
+                            answer = 'Non posso collegare /stop con certezza alla risposta attiva: il messaggio può essere arrivato in ritardo o la data di avvio non è verificabile. Nessuna risposta è stata interrotta. Usa Stop nella risposta oppure il pulsante per interrompere questa risposta specifica.';
+                            this.attachButtons(event, [{ text: 'Interrompi questa risposta', value: { action: 'stop', id: active.jobId, version: active.version } }], binding.generation);
+                        } else {
+                            const receipt = await this.turns().stop(active.jobId, binding.generation, active.version, event);
+                            answer = receipt.state === 'received' ? 'Stop ricevuto per la risposta attiva. Attendo il rilascio del task.' : 'Questa risposta è già chiusa; nessun altro turno è stato fermato.';
+                            if (receipt.state === 'received')
+                                void this.turns().dispatchStop(event).then(() => { if (this.store.get('telegramStop:' + event)?.state === 'idle_confirmed')
+                                    this.enqueue(event + ':stopped', 'Risposta interrotta; task rilasciato.', 'reply', undefined, now(), u.generation); }).catch(() => { });
+                        }
                     }
                     else
                         answer = 'Nessuna risposta attiva da interrompere.';
@@ -535,6 +548,31 @@ export class Telegram {
                     this.attachButtons(event, pending.slice(0, 8).map(t => ({ text: 'Annulla ' + t!.jobId.slice(0, 8), value: { action: 'cancel', id: t!.jobId, version: t!.version } })), binding.generation);
                 }
                 else if (u.text === '/recover') { answer=this.recoveryBacklog(event,binding,at); }
+                else if (/^\/prompt(?:\s|$)/.test(u.text)) {
+                    const match = /^\/prompt ([a-f0-9]{16})(?: ([1-9][0-9]*))?$/.exec(u.text);
+                    const issue = match && new RuntimeImprovements(this.store).issues().find(i => i.id === match[1]);
+                    const number = match?.[2] === undefined ? issue?.revisions.at(-1)?.number : Number(match[2]);
+                    const revision = Number.isSafeInteger(number) && issue?.revisions.find(r => r.number === number);
+                    const sourceEvent = revision && revision.delivery?.eventId;
+                    const source = sourceEvent && this.store.get<RuntimeArtifact>('runtimeArtifact:' + sourceEvent);
+                    if (!issue || !revision || !source || sourceEvent !== `advisory:${issue.id}:${revision.number}` ||
+                        source.issueId !== issue.id || source.revision !== revision.number || source.requestLink !== sourceEvent ||
+                        source.generation !== binding.generation || source.chatId !== binding.chatId || revision.delivery?.generation !== binding.generation || revision.delivery?.chatId !== binding.chatId ||
+                        typeof source.content !== 'string' || hash(source.content) !== source.checksum || source.checksum !== revision.delivery?.checksum ||
+                        source.content !== telegramClean(revision.prompt) || source.filename !== `satssurge-${issue.id}-r${revision.number}.txt`) {
+                        answer = 'Prompt non disponibile o identità non valida. Usa /prompt ISSUE_ID [REVISIONE] con l’ID e la revisione della segnalazione ricevuta.';
+                    } else {
+                        // Explicit delivery-only copy: never revise the original advisory,
+                        // regenerate evidence or replay a previous uncertain delivery.
+                        const artifact: RuntimeArtifact & { sourceRequestLink: string } = { ...source, requestLink: event, sourceRequestLink: sourceEvent };
+                        this.store.tx(() => {
+                            if (!this.store.get('runtimeArtifact:' + event)) this.store.set('runtimeArtifact:' + event, artifact);
+                            this.enqueue(event, source.content.length <= RUNTIME_ADVISORY_INLINE_LIMIT ? source.content : `Prompt consultivo ${issue.id}, revisione ${revision.number}. Copia richiesta dal proprietario; checksum ${source.checksum}.`, 'reply', undefined, at, binding.generation);
+                            this.finishIncoming(row);
+                        });
+                        continue;
+                    }
+                }
                 else if (u.text === '/pause') {
                     this.store.tx(() => { this.control.pause(true); this.enqueue(event, 'Autonomia sospesa. Gli effetti esistenti continuano la riconciliazione.', 'reply', undefined, at, u.generation); this.finishIncoming(row); });
                     continue;
@@ -554,7 +592,7 @@ export class Telegram {
                 }
                 else if (u.text === '/help' || u.text === '/menu') {
                     if(u.text==='/menu')this.attachButtons(event,[['Stato','/status'],['Analizza','/analyze'],['Proposte','/proposals'],['Coda','/queue'],['Recupera','/recover'],['Aiuto','/help']].map(([text,code])=>({text:text!,value:{action:'navigate',code,expires:new Date(Date.parse(at)+15*60000).toISOString()}})),binding.generation);
-                    answer = '/status /analyze /pause /resume /proposals /stop /queue /recover /menu /help. La chat consente analisi; chiedi esplicitamente una proposta da approvare. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.';
+                    answer = '/status /analyze /pause /resume /proposals /stop /queue /recover /prompt ISSUE_ID [REVISIONE] /menu /help. /prompt recupera una copia del prompt consultivo già registrato. La chat consente analisi; chiedi esplicitamente una proposta da approvare. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.';
                 }
                 else {
                     const message = u.text.startsWith('/analyze') ? u.text.slice(8).trim() || 'Analizza economia del nodo e blocchi attuali' : u.text;
@@ -668,7 +706,7 @@ export class Telegram {
                 target.revisions[target.revisions.length - 1] = revision;
                 this.store.set('runtimeImprovements', issues);
                 const critical = revision.observation.classification === 'app_defect' && revision.observation.impact === 'runtime_blocked' && revision.observation.facts.includes('regression_confirmed');
-                this.enqueue(eventId, content.length <= 3500 ? content : `Segnalazione consultiva ${issue.id}, revisione ${revision.number}. Prompt di sviluppo nel file di testo allegato; consegna non significa risoluzione.`, critical ? 'critical' : 'advisory', undefined, at, binding.generation);
+                this.enqueue(eventId, content.length <= RUNTIME_ADVISORY_INLINE_LIMIT ? content : `Segnalazione consultiva ${issue.id}, revisione ${revision.number}. Prompt di sviluppo nel file di testo allegato; consegna non significa risoluzione.`, critical ? 'critical' : 'advisory', undefined, at, binding.generation);
             });
             admitted++;
         }
@@ -723,7 +761,7 @@ export class Telegram {
             this.invalidateDrafts(binding.generation,binding.chatId);
             try {
                 let method = 'sendMessage', body: unknown = { chat_id: binding.chatId, text: telegramHtml(r.text), parse_mode: 'HTML', reply_markup: buttons };
-                if (artifact && artifact.content.length > 3500) {
+                if (artifact && artifact.content.length > RUNTIME_ADVISORY_INLINE_LIMIT) {
                     const form = new FormData(); form.set('chat_id', String(binding.chatId)); form.set('caption', telegramClean(r.text));
                     form.set('document', new Blob([artifact.content], { type: 'text/plain;charset=utf-8' }), artifact.filename);
                     method = 'sendDocument'; body = form;
@@ -812,10 +850,10 @@ export class Telegram {
         if (!b)
             return;
         const bot = this.store.get('telegramBotGeneration') ?? null, key = 'telegramMenu:' + b.generation + ':' + bot;
-        if (this.store.get(key)&&this.store.get(key+':recoveryReviewV1'))
+        if (this.store.get(key)&&this.store.get(key+':recoveryReviewV1')&&this.store.get(key+':promptRetrievalV1'))
             return;
         const dispatchAuthorized=()=>this.authorized(b.generation,b.chatId,bot)&&Date.now()>=(this.store.get<number>('telegramRateLimitUntil')??0);
-        const commands = [['status', 'Stato e budget'], ['analyze', 'Analizza il nodo'], ['proposals', 'Proposte da approvare'], ['pause', 'Sospendi autonomia'], ['resume', 'Riprendi con conferma'], ['stop', 'Interrompi risposta attiva'], ['queue', 'Richieste future'], ['recover', 'Richieste precedenti'], ['menu', 'Menu'], ['help', 'Aiuto']].map(([command, description]) => ({ command, description }));
+        const commands = [['status', 'Stato e budget'], ['analyze', 'Analizza il nodo'], ['proposals', 'Proposte da approvare'], ['pause', 'Sospendi autonomia'], ['resume', 'Riprendi con conferma'], ['stop', 'Interrompi risposta attiva'], ['queue', 'Richieste future'], ['recover', 'Richieste precedenti'], ['prompt', 'Recupera prompt consultivo per ID'], ['menu', 'Menu'], ['help', 'Aiuto']].map(([command, description]) => ({ command, description }));
         if (!dispatchAuthorized())
             return;
         await this.outboundCall('setMyCommands', { commands });
@@ -831,7 +869,7 @@ export class Telegram {
         if (this.authorized(b.generation, b.chatId, bot)) {
             if (/^[a-zA-Z0-9_]{5,32}$/.test(identity?.username ?? ''))
                 this.store.set('telegramUsername', identity.username);
-            this.store.set(key, true);this.store.set(key+':recoveryReviewV1',true);
+            this.store.set(key, true);this.store.set(key+':recoveryReviewV1',true);this.store.set(key+':promptRetrievalV1',true);
         }
     }
     async streamDrafts(at = now()) {return this.dispatch(()=>this.streamDraftsUnlocked(at));}
