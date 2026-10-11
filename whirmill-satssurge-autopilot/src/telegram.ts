@@ -403,7 +403,7 @@ export class Telegram {
                     this.store.run("UPDATE telegram_updates SET status='ignored' WHERE update_id=?", row.update_id);
                     continue;
                 }
-                // Malformed generic Stop dates need an explicit ambiguous-target reply.
+                // Malformed generic Stop dates may offer an exact-turn confirmation.
                 // Other commands and genuinely stale Stop messages retain the ingress fence.
                 if (!u.callbackId && u.date!==undefined && (u.text !== '/stop' || Number.isSafeInteger(u.date) && u.date > 0) && (!Number.isSafeInteger(u.date)||u.date < Math.floor(Date.parse(binding.since) / 1000) || (Date.parse(at) / 1000 - u.date > 300&&!row.recoveryKey) || u.date > Date.parse(at) / 1000 + 60)) {
                     this.store.run("UPDATE telegram_updates SET status='ignored',error='Stale incoming command' WHERE update_id=?", row.update_id);
@@ -524,20 +524,11 @@ export class Telegram {
                 else if (u.text === '/stop') {
                     const active = this.turns().active(binding.generation);
                     if (active) {
-                        const startedAt = this.control.queue.get(active.jobId)?.started_at;
-                        const started = typeof startedAt === 'string' ? Date.parse(startedAt) : NaN;
-                        // Telegram dates have one-second precision: a same-second start
-                        // cannot prove this was the response the owner intended to stop.
-                        if (!Number.isSafeInteger(u.date) || u.date <= 0 || !Number.isSafeInteger(u.date * 1000) || !Number.isFinite(started) || started <= 0 || started >= u.date * 1000) {
-                            answer = 'Non posso collegare /stop con certezza alla risposta attiva: il messaggio può essere arrivato in ritardo o la data di avvio non è verificabile. Nessuna risposta è stata interrotta. Usa Stop nella risposta oppure il pulsante per interrompere questa risposta specifica.';
-                            this.attachButtons(event, [{ text: 'Interrompi questa risposta', value: { action: 'stop', id: active.jobId, version: active.version } }], binding.generation);
-                        } else {
-                            const receipt = await this.turns().stop(active.jobId, binding.generation, active.version, event);
-                            answer = receipt.state === 'received' ? 'Stop ricevuto per la risposta attiva. Attendo il rilascio del task.' : 'Questa risposta è già chiusa; nessun altro turno è stato fermato.';
-                            if (receipt.state === 'received')
-                                void this.turns().dispatchStop(event).then(() => { if (this.store.get('telegramStop:' + event)?.state === 'idle_confirmed')
-                                    this.enqueue(event + ':stopped', 'Risposta interrotta; task rilasciato.', 'reply', undefined, now(), u.generation); }).catch(() => { });
-                        }
+                        // A generic command carries no turn identity. Telegram's date
+                        // records server receipt and can follow a client-side delay.
+                        // Only the owner's exact job/version callback may request Stop.
+                        answer = 'Non posso collegare /stop con certezza alla risposta che intendevi interrompere. Nessuna risposta è stata interrotta. Usa Stop nella risposta oppure scegli il pulsante per confermare l’interruzione di questa risposta specifica.';
+                        this.attachButtons(event, [{ text: 'Interrompi questa risposta', value: { action: 'stop', id: active.jobId, version: active.version } }], binding.generation);
                     }
                     else
                         answer = 'Nessuna risposta attiva da interrompere.';

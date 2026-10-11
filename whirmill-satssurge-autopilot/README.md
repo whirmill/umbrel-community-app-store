@@ -1368,9 +1368,9 @@ M3–M5 and new financial capabilities remain pending.
 
 ### Core 0.5.9 source preparation — Telegram acceptance corrections
 
-Generic `/stop` uses the original Telegram message timestamp and a verified
-turn start to reject delayed or ambiguous targeting; callback and native Stop
-keep their exact turn identity. Advisory prompts above 2000 characters are
+Generic `/stop` offers an exact-turn confirmation without cancelling immediately:
+Telegram server time cannot prove the intended turn after a client delivery delay.
+The callback targets only that job/version; native Stop remains immediate. Advisory prompts above 2000 characters are
 text documents. `/prompt ISSUE_ID [REVISION]` requests the exact registered
 artifact under a new owner-update receipt while preserving the original
 revision, checksum and delivery. Existing uncertain deliveries remain unchanged.

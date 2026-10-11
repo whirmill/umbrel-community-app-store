@@ -361,11 +361,12 @@ catene ripetute non consumano la correzione né creano doppio lavoro.
 ## Stop generico e recupero dei prompt consultivi (0.5.9)
 
 Un comando `/stop` può essere consegnato dopo la fine della risposta visibile
-al momento dell'invio. Il target corrente deve avere `started_at` verificabile
-e strettamente precedente all'inizio del secondo della data Telegram originale.
-Date mancanti, non valide o ambigue nello stesso secondo non creano una ricevuta
-Stop: la risposta spiega il limite e offre un callback con job/generazione/versione
-esatti. Stop nativo e callback conservano la loro correlazione persistente.
+al momento dell'invio. La data Telegram indica l'accettazione sul server e non
+prova il turno previsto prima di un ritardo nel client. Il comando generico non
+interrompe immediatamente: spiega il limite e offre un callback con job,
+generazione e versione esatti. La conferma interrompe soltanto quel turno; se
+è già chiuso non seleziona un successore. Stop nativo e callback già mirati
+restano immediati. I fence di ingresso per comandi scaduti restano attivi.
 
 I prompt consultivi oltre 2000 caratteri usano un allegato `.txt`; la soglia
 è condivisa fra ammissione e invio. `/prompt ISSUE_ID [REVISIONE]` permette al

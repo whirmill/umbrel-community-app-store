@@ -27,13 +27,16 @@ function fixture() {
 const command = (id: number, date: unknown = sent) => ({ update_id: id, message: { text: '/stop', date, from: { id: 42 }, chat: { id: 42, type: 'private' } } });
 const settled = () => new Promise<void>(resolve => setImmediate(resolve));
 
-test('delayed generic Stop preserves completed original, later active turn, future turn and incoming bytes', async () => {
+for (const [label, telegramDate] of [
+    ['delayed generic Stop predates the successor', sent],
+    ['client-held generic Stop has server acceptance date after the successor started', sent + 3]
+] as const) test(label + ' and preserves all original turn receipts', async () => {
     const f = fixture(); try {
         const old = f.open('original', sent - 20);
         f.queue.finish(old.job.id, old.claimed.run_token!, 'completed', { answer: 'Original answer' }, iso(sent + 1)); f.turns.finalize(old.job.id, 'completed');
         const current = f.open('later', sent + 2), future = new ApplicationControl(f.store, f.queue).admit('future', 'Future request', 'telegram'); f.turns.attach(future, 'g', 42);
         const before = [f.queue.get(old.job.id), f.turns.get(old.job.id), f.queue.get(current.job.id), f.turns.get(current.job.id), f.queue.get(future.id), f.turns.get(future.id)];
-        f.telegram.ingest([command(1)]); const body = f.store.one('SELECT body FROM telegram_updates WHERE update_id=1').body;
+        f.telegram.ingest([command(1, telegramDate)]); const body = f.store.one('SELECT body FROM telegram_updates WHERE update_id=1').body;
         await f.telegram.process(iso(sent + 3)); await settled();
         assert.deepEqual([f.queue.get(old.job.id), f.turns.get(old.job.id), f.queue.get(current.job.id), f.turns.get(current.job.id), f.queue.get(future.id), f.turns.get(future.id)], before);
         assert.deepEqual(f.stopped, []); assert.equal(f.store.get('telegramStop:update:1'), undefined);
@@ -45,15 +48,47 @@ test('delayed generic Stop preserves completed original, later active turn, futu
     } finally { f.close(); }
 });
 
-test('timely generic Stop releases only the exact original and duplicate update cannot stop its successor', async () => {
+test('timely generic Stop requires exact confirmation; duplicate command and callback cannot stop its successor', async () => {
     const f = fixture(); try {
         const original = f.open('original', sent - 2);
+        const before = [f.queue.get(original.job.id), f.turns.get(original.job.id)] as const;
         f.telegram.ingest([command(2)]); await f.telegram.process(iso(sent + 3)); await settled();
+        assert.deepEqual(f.stopped, []); assert.equal(f.store.get('telegramStop:update:2'), undefined);
+        assert.deepEqual([f.queue.get(original.job.id), f.turns.get(original.job.id)], before);
+        const callback = f.store.get<any>('telegramButtons:update:2').inline_keyboard[0][0].callback_data;
+        assert.deepEqual(f.store.get<any>('telegramCallback:' + callback), { action: 'stop', id: original.job.id, version: before[1]!.version, generation: 'g' });
+        const confirm = { update_id: 7, callback_query: { id: 'confirmed-original', data: callback, from: { id: 42 }, message: { chat: { id: 42, type: 'private' } } } };
+        f.telegram.ingest([confirm]); await f.telegram.process(iso(sent + 3)); await settled();
         assert.deepEqual(f.stopped, [original.job.id]); assert.equal(f.turns.get(original.job.id)!.state, 'interrupted');
-        const receipt = f.store.get<any>('telegramStop:update:2'); assert.equal(receipt.jobId, original.job.id); assert.equal(receipt.state, 'idle_confirmed');
+        const receipt = f.store.get<any>('telegramStop:update:7'); assert.equal(receipt.jobId, original.job.id); assert.equal(receipt.state, 'idle_confirmed');
         const next = f.open('successor', sent + 4);
-        f.telegram.ingest([command(2)]); await f.telegram.process(iso(sent + 5)); await settled();
-        assert.deepEqual(f.stopped, [original.job.id]); assert.deepEqual(f.store.get('telegramStop:update:2'), receipt); assert.equal(f.turns.get(next.job.id)!.state, 'running');
+        f.telegram.ingest([command(2), confirm]); await f.telegram.process(iso(sent + 5)); await settled();
+        assert.deepEqual(f.stopped, [original.job.id]); assert.deepEqual(f.store.get('telegramStop:update:7'), receipt); assert.equal(f.turns.get(next.job.id)!.state, 'running');
+        assert.equal(f.store.get<any>('telegramButtons:update:2').inline_keyboard[0][0].callback_data, callback);
+    } finally { f.close(); }
+});
+
+test('confirmation for a completed original turn cannot stop the current successor', async () => {
+    const f = fixture(); try {
+        const original = f.open('completed-original', sent - 2);
+        f.telegram.ingest([command(8)]); await f.telegram.process(iso(sent + 3));
+        const callback = f.store.get<any>('telegramButtons:update:8').inline_keyboard[0][0].callback_data;
+        f.queue.finish(original.job.id, original.claimed.run_token!, 'completed', { answer: 'Completed naturally' }, iso(sent + 4)); f.turns.finalize(original.job.id, 'completed');
+        const next = f.open('current-successor', sent + 5), before = [f.queue.get(next.job.id), f.turns.get(next.job.id)];
+        f.telegram.ingest([{ update_id: 9, callback_query: { id: 'late-confirmation', data: callback, from: { id: 42 }, message: { chat: { id: 42, type: 'private' } } } }]);
+        await f.telegram.process(iso(sent + 6)); await settled();
+        assert.deepEqual(f.stopped, []); assert.deepEqual([f.queue.get(next.job.id), f.turns.get(next.job.id)], before);
+        assert.equal(f.store.get<any>('telegramStop:update:9').jobId, original.job.id); assert.equal(f.store.get<any>('telegramStop:update:9').state, 'stale');
+        assert.match(f.store.one("SELECT text FROM telegram_outbox WHERE event_id='update:9'").text, /già chiusa; nessun altro turno/);
+    } finally { f.close(); }
+});
+
+test('generic Stop with no active turn answers without Stop receipt or admission', async () => {
+    const f = fixture(); try {
+        f.telegram.ingest([command(10)]); await f.telegram.process(iso(sent + 3)); await settled();
+        assert.equal(f.store.get('telegramStop:update:10'), undefined); assert.equal(f.store.get('telegramButtons:update:10'), undefined);
+        assert.match(f.store.one("SELECT text FROM telegram_outbox WHERE event_id='update:10'").text, /Nessuna risposta attiva/);
+        assert.deepEqual(f.stopped, []); assert.equal(f.store.all('SELECT * FROM jobs').length, 0);
     } finally { f.close(); }
 });
 
