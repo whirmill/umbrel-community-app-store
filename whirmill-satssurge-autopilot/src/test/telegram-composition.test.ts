@@ -6,12 +6,22 @@ import { tmpdir } from 'node:os';
 import { Store } from '../store.js';
 import { Queue } from '../queue.js';
 import { ApplicationControl } from '../application-control.js';
-import { Telegram, telegramClean, telegramHtml, telegramParts } from '../telegram.js';
+import { Telegram, telegramClean, telegramRichHtml, telegramParts } from '../telegram.js';
 import { TelegramTurns } from '../telegram-turns.js';
 import { UiEvents } from '../ui-events.js';
 import { hash } from '../domain.js';
 
 const at = new Date().toISOString();
+async function scannerAdvisory(method: string, body: any, store: Store) {
+    const document = method === 'sendDocument' && body instanceof FormData ? body.get('document') as File : undefined;
+    if (!document || !/^satssurge-[a-f0-9]{16}-r\d+\.txt$/.test(document.name)) return false;
+    // Only an independently correlated immutable advisory may be excluded from
+    // response replay accounting, regardless of the current quiet-hours window.
+    const artifact = store.all("SELECT value FROM meta WHERE key LIKE 'runtimeArtifact:advisory:%'").map(row => JSON.parse(row.value)).find(a => a.filename === document.name);
+    assert.ok(artifact); assert.equal(hash(await document.text()), artifact.checksum); assert.equal(body.get('chat_id'), String(artifact.chatId));
+    return true;
+}
+
 function fixture(call: (method: string, body: any) => Promise<any> = async () => ({ message_id: 71 }), path = ':memory:') {
     const directory = mkdtempSync(join(tmpdir(), 'telegram-composition-')), store = new Store(path), queue = new Queue(store);
     const control = new ApplicationControl(store, queue), telegram = new Telegram(store, control, directory, { call }), turns = new TelegramTurns(store, queue);
@@ -81,7 +91,7 @@ test('bounded complete response becomes one rich message with safe HTML and exac
         const rows = f.store.all('SELECT * FROM telegram_outbox WHERE event_id LIKE ?', event + '%');
         assert.equal(rows.length, 1); assert.equal(rows[0].text, telegramClean(answer));
         await f.telegram.deliver(at); const sent = calls.filter(c => c.method === 'sendRichMessage');
-        assert.equal(sent.length, 1); assert.deepEqual(sent[0].body.rich_message, { html: telegramHtml(answer) });
+        assert.equal(sent.length, 1); assert.deepEqual(sent[0].body.rich_message, { html: telegramRichHtml(answer) });
         assert.ok(!('allow_paid_broadcast' in sent[0].body)); assert.ok(!('media' in sent[0].body.rich_message));
         assert.match(sent[0].body.rich_message.html, /&lt;img/); assert.doesNotMatch(sent[0].body.rich_message.html, /<img/);
         assert.equal(f.store.one('SELECT status,message_id FROM telegram_outbox WHERE event_id=?', event).status, 'sent');
@@ -116,9 +126,10 @@ for (const apiCode of [400,404]) test('known rich API ' + apiCode + ' uses exact
 });
 
 for (const failure of ['unknown', 'server500', 'missing_ack', 'missing_code', 'malformed_code', 'unproven_code']) test('persistent rich ' + failure + ' remains uncertain without retry or channel fallback', async () => {
-    const calls: string[] = [], f = fixture(async method => {
+    const calls: string[] = [], f = fixture(async (method, body) => {
         if (method === 'sendRichMessage') { calls.push(method); if (failure === 'server500') throw Object.assign(Error('server failure'), { rejected: true, apiCode: 500 }); if (failure === 'unknown') throw Error('accepted then disconnected'); if (failure.endsWith('_code')) throw Object.assign(Error('unproved denial'), { rejected: true, ...(failure === 'malformed_code' ? { apiCode: '400' } : failure === 'unproven_code' ? { apiCode: 499 } : {}) }); return {}; }
-        if (method === 'sendDocument') calls.push(method); return { message_id: 73 };
+        if (method === 'sendDocument' && !await scannerAdvisory(method, body, f.store)) calls.push(method);
+        return { message_id: 73 };
     });
     try {
         const job = f.complete('Una risposta completa.'), event = 'answer:' + job.id; f.telegram.capture(at); await f.telegram.deliver(at);
@@ -228,7 +239,7 @@ test('interrupted sending rich intent survives Store reopen as uncertain and doe
         composition = f.store.one('SELECT value FROM meta WHERE key=?', 'telegramRichFinal:' + event).value;
     } finally { f.close(); }
     const store = new Store(path), queue = new Queue(store); let calls = 0;
-    const telegram = new Telegram(store, new ApplicationControl(store, queue), directory, { call: async () => { calls++; return { message_id: 80 }; } });
+    const telegram = new Telegram(store, new ApplicationControl(store, queue), directory, { call: async (method, body) => { if (!await scannerAdvisory(method, body, store)) calls++; return { message_id: 80 }; } });
     try {
         telegram.recover(); assert.equal(store.one('SELECT status FROM telegram_outbox WHERE event_id=?', event).status, 'uncertain'); assert.equal(store.get('telegramRichFinalFallback:' + event), undefined);
         const before = store.one('SELECT * FROM telegram_outbox WHERE event_id=?', event); telegram.capture(at); await telegram.deliver(at);

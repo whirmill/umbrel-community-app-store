@@ -379,7 +379,7 @@ ritenta una consegna incerta automaticamente. Un update duplicato conserva
 la sua ricevuta. Il recupero non autorizza modifica del runtime o effetti
 finanziari. La consegna e apertura nel client reale restano prove separate.
 
-## Composizione candidata 0.5.11 — 2026-10-12
+## Composizione 0.5.11 — checkpoint storico 2026-10-12
 
 Il checkpoint reale 0.5.10 su Telegram Web conserva il testo finale completo,
 ma mostra parole tagliate ai confini dei cinque messaggi e anteprime sovrapposte.
@@ -405,8 +405,9 @@ del testo pubblico e aggiunge grassetto, code e intestazioni sicure. Nessun HTML
 grezzo, file remoto, media, paid broadcast o capacità nuova proviene dal modello.
 
 Un nuovo finale entra come un unico intento outbox se il testo è entro 32768
-unità UTF-16 e l'HTML codificato entro 65536 byte UTF-8. Sono limiti applicativi,
-non una dichiarazione della capacità massima Telegram. Oltre quei limiti si usa
+unità UTF-16 e l'HTML codificato entro 65536 byte UTF-8. Sono limiti applicativi. La documentazione ufficiale corrente descrive anche
+limiti rich di caratteri, blocchi e profondità, verificati nella candidata 0.5.12
+sotto; la precedente descrizione senza limiti rich documentati è superata. Oltre quei limiti si usa
 la segmentazione legacy, preservando la concatenazione esatta del testo pubblico:
 prima confini di paragrafo, poi spazi; i normali grafemi Unicode restano interi.
 Un token o grafema eccezionale più grande di un intero segmento richiede uno split
@@ -426,3 +427,63 @@ di tentativi precedenti. I soli rifiuti rich ritentabili sono 400/401/403/404/42
 un cambio di identità conserva uno stato e un errore di consegna incerta. La resa rich,
 la scomparsa dell'anteprima e l'apertura del fallback sul client reale richiedono
 qualificazione separata dopo review, pubblicazione e installazione.
+
+
+## Layout rich e menu candidati 0.5.12 — 2026-10-12
+
+La reale 0.5.11 conserva identità stable e contenuto canonico, ma il client
+Telegram Web presenta il finale C in un solo paragrafo, senza intestazioni o
+liste. Il nuovo renderer rich produce tag blocco documentati: `h1`–`h6`, `p`,
+`br`, `ul`/`ol`/`li`, `pre`/`code`. Interpreta soltanto intestazioni Markdown,
+liste piatte, paragrafi, code fence con tre backtick e bold/code inline. Le
+righe interne al paragrafo usano `br`; gli ordinali espliciti restano numerici.
+Il testo dentro code/pre è opaco e sempre escapato. HTML, link Markdown,
+immagini e markup non riconosciuto del modello restano testo; non generano
+attributi arbitrari, media, Mini App o capacità applicative. Questo formatter
+limitato non è un parser Markdown completo. Il testo canonico esatto resta
+nell'outbox/job e nell'eventuale documento, anche quando i marcatori Markdown
+sono interpretati per la presentazione. La funzione inline legacy
+`telegramHtml` e i percorsi `sendMessage`/`sendMessageDraft` non cambiano.
+
+La [Bot API corrente](https://core.telegram.org/bots/api#rich-messages)
+documenta 32768 caratteri UTF-8, 500 blocchi inclusi quelli annidati e gli
+item di lista, e 16 livelli annidati. Le soglie applicative rimangono 32768
+unità UTF-16 e 65536 byte di HTML UTF-8; ora si verificano anche blocchi e
+profondità. Ogni lista conta contenitore, item e paragrafo annidato. La grammatica
+esclusivamente generata ha al massimo quattro livelli. Un finale fuori soglia
+usa segmenti legacy con concatenazione canonica esatta; una preview fuori soglia
+locale seleziona il draft plain esistente prima di inviare rich. Il thinking
+rimane un blocco non vuoto, limitato alle sintesi pubbliche allowlisted e ai
+nomi degli strumenti, con escape e line break espliciti. I fence alias/job/
+versione/generazione e la scelta stable/rotating rimangono quelli esistenti.
+
+Ogni nuovo intento rich include `format: rich-blocks-v1`, conteggio blocchi,
+profondità e numero di byte del renderer. Un intento 0.5.11 senza `format`
+conserva validazione e serializzazione esatte tramite `telegramHtml`; nessun
+metadata viene retrofittato. Un formato ignoto o un checksum/conteggio/destinazione
+incoerente fallisce prima del dispatch. Le ricevute sent, uncertain e multipart
+storiche rimangono immutate; il nuovo formato non autorizza replay. Il fallback
+400/404 nel tentativo successivo conserva format/checksum/byte/destinazione;
+timeout, rete, 5xx o codici non provati rimangono incerti anche al quinto
+tentativo. Il rate gate 429 e i fence owner/bot restano autorevoli.
+
+La [precedenza ufficiale dei comandi](https://core.telegram.org/bots/api#determining-list-of-commands)
+privilegia lo scope chat senza lingua rispetto agli scope all-private/global.
+L'osservazione 0.5.11 ha mostrato undici comandi global/Italian e trenta comandi
+storici all-private, ma nessuno scope owner default. Il testo dei comandi
+storici non prova un writer Pi o Hermes attivo: origine e ownership restano
+non determinate. La migrazione scrive soltanto gli undici comandi nello scope
+della chat owner default e Italian; non elimina né modifica scope global,
+all-private o di altre chat/lingue. Il menu a pulsanti commands resta invariato.
+
+Il marker durevole `ownerChatDefaultV1:<chatId>` dipende dalle generazioni owner
+ed effettivo bot; i vecchi marker non saltano l'upgrade. Chiamate concorrenti
+sono serializzate. Ogni ACK setter deve essere `true`, l'identità deve avere
+uno username valido, e dopo ogni await vengono riletti owner/chat/bot/rate fence.
+Solo tutti gli ACK validi ammettono il marker finale atomico. Revoke, rebound,
+ACK mancante o cooldown interrompono il resto senza completare la migrazione;
+una nuova chiamata ripete soltanto la registrazione idempotente autorizzata.
+
+Queste sono prove di sorgente e trasporti finti. Layout, scomparsa dell'anteprima,
+menu effettivo e apertura del fallback sul client reale richiedono review,
+pubblicazione, qualificazione nativa, installazione e nuova accettazione UI.

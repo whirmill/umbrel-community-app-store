@@ -145,7 +145,7 @@ test('transient provider and auth diagnoses request evidence, not an app fix; ac
 });
 test('immutable long attachment uses exact recorded bytes/checksum through rejection retry and destination receipt', async () => {
     const bytes: string[] = []; let calls = 0;
-    const f = fixture(async (method, body) => { if (method !== 'sendDocument') return { message_id: 2 }; calls++; assert.ok(body instanceof FormData); assert.equal(body.get('chat_id'), '42'); bytes.push(await (body.get('document') as Blob).text()); if (calls === 1) throw Object.assign(Error('rejected'), { rejected: true }); return { message_id: 7 }; });
+    const f = fixture(async (method, body) => { if (method !== 'sendDocument') return { message_id: 2 }; calls++; assert.ok(body instanceof FormData); assert.equal(body.get('chat_id'), '42'); bytes.push(await (body.get('document') as Blob).text()); if (calls === 1) throw Object.assign(Error('rejected'), { rejected: true, apiCode: 400 }); return { message_id: 7 }; });
     try {
         f.runtime.observe(longObservation(), at); f.telegram.capture(at);
         const revision = f.runtime.issues()[0]!.revisions[0]!, event = revision.delivery!.eventId;
@@ -167,7 +167,7 @@ test('accepted timeout and crash remain uncertain without automatic replay or re
     } finally { f.close(); }
 });
 test('advisory quiet hours and proven critical impact; rate limit and bounded attempts', async () => {
-    let calls = 0; const f = fixture(async method => { if (method === 'sendDocument') { calls++; throw Object.assign(Error('rejected'), { rejected: true, retryAfter: 1 }); } return { message_id: 2 }; });
+    let calls = 0; const f = fixture(async method => { if (method === 'sendDocument') { calls++; throw Object.assign(Error('rejected'), { rejected: true, apiCode: 429, retryAfter: 1 }); } return { message_id: 2 }; });
     try {
         f.runtime.observe(longObservation(), at); f.telegram.capture(at); await f.telegram.deliver('2026-10-10T21:00:00Z'); assert.equal(calls, 0);
         f.runtime.observe(longObservation({ classification: 'app_defect', impact: 'runtime_blocked' }), at); f.telegram.capture(at);
