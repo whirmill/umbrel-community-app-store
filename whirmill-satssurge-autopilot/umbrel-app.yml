@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.10"
+version: "0.5.11"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for Lightning fee experiments and circular rebalances, using
@@ -30,20 +30,19 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.10 uses native LND gRPC over verified TLS with the existing
-  restricted credentials and no automatic RPC replay. Certificate diagnostics,
-  advance expiry warnings and safe public-certificate reload preserve active
-  calls. An optional passwordless user timer can copy LND's renewed public
-  certificate; it does not renew certificates or restart the node.
-  Generic Telegram /stop now offers confirmation for one exact turn, preventing
-  delayed commands from stopping a successor. Explicit Stop buttons remain
-  immediate. Long advisory prompts are attachments; /prompt ISSUE_ID REVISION
-  retrieves an existing immutable prompt without changing its evidence.
-  Application-owned lifecycle fences, current three-database checkpoints,
-  fail-closed migration/recovery and original uncertain receipts are preserved.
-  Schema 6 and Pi Durable/Pi AI/Chord 1.1.0 remain unchanged.
+  Version 0.5.11 corrects Telegram response composition: a stable preview by
+  default, a coherent partial prefix for long answers, and one bounded rich
+  final response. Oversize legacy replies preserve Unicode and natural text
+  boundaries. Explicit owner stream preferences and historical delivery
+  receipts are retained. Only a proven rich API rejection selects an exact
+  text attachment on a later bounded attempt; uncertain delivery is not replayed.
+  Exact-target Stop, owner/bot fences and shared rate limits remain intact.
+  Native LND gRPC with verified TLS, certificate diagnostics and the optional
+  public-certificate copy timer remain unchanged. The timer does not renew
+  certificates or restart the node. Application-owned lifecycle, current
+  three-database checkpoints, schema 6 and Pi Durable/Pi AI/Chord 1.1.0 remain.
   Immutable amd64/arm64 images and isolated native qualification are complete;
-  Umbrel installation and actual web/Telegram acceptance remain pending.
+  0.5.11 Umbrel installation and actual Telegram Web acceptance remain pending.
   Autonomy remains suspended under the existing maintenance claim. Mandate,
   budgets and reserve are unchanged. Coverage remains partial, M2.3/M2.4 and
   M3-M5 remain incomplete, and optional financial integrations remain disabled.
