@@ -1,4 +1,5 @@
 import { integer, hash, json, type Proposal, type Snapshot, type Forecast } from './domain.js';
+import {prepareCanonicalEconomicScope} from './canonical-consumers.js';
 import { Store } from './store.js';
 
 /** Calculated by trusted code, never accepted as an LLM supplied number. */
@@ -23,6 +24,8 @@ export function forecast(store:Store, p:Proposal, s:Snapshot):Forecast {
   const coverageComplete=!!store.one("SELECT id FROM coverage WHERE kind='LND forwards' AND complete=1 AND start<=? AND end>=?",start,s.at);
   const inputAvailability=!store.one("SELECT count FROM expired_intervals WHERE start<? AND end>=? AND (type='snapshot' OR (type='external_forward' AND source=? AND target=?))",s.at,start,p.source,p.target);
   const reasons=[...(!coverageComplete?['authoritative_coverage_unavailable']:[]),...(!inputAvailability?['relevant_inputs_expired']:[]),...(hours<48?['measured_hours_insufficient']:[]),...(days.size<2?['measured_days_insufficient']:[]),...(rows.length<10?['samples_insufficient']:[])];
+  const canonicalScope=store.get('economicEvidenceMode')==='canonical_originals'?prepareCanonicalEconomicScope(store,{source:p.source,target:p.target,start,end:s.at}):null;
+  if(canonicalScope&&!canonicalScope.eligible)reasons.push(...canonicalScope.reasons);
   const eligible=reasons.length===0;
   const volume=rows.reduce<bigint>((a,r)=>a+integer(r.amount_msat),0n);
   const volume7=rows.filter(r=>r.occurred_at>=cut7).reduce<bigint>((a,r)=>a+integer(r.amount_msat),0n);

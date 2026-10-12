@@ -8,10 +8,21 @@ import {
 } from "./agent-state.js";
 export interface EvidenceQuery extends StatePageQuery {
   cursor?: string;
+  sourceCursor?: string;
   source?: string;
   target?: string;
   start?: string;
   end?: string;
+}
+/** Measure the published tool wrapper too: JSON text escaping and run budget consume real bytes. */
+export function boundedEvidenceEnvelope(input:any,runBudget:unknown,label=''){
+ const page={...input,rows:Array.isArray(input.rows)?[...input.rows]:input.rows};
+ if(page.nextCall)page.nextCall={...page.nextCall,tool:'state_page'+label};
+ const wrap=()=>({content:[{type:'text' as const,text:json(scrub({...page,runBudget}))}]});
+ if(Buffer.byteLength(json(wrap()))>STATE_PAGE_BYTES)delete page.summary;
+ while(Buffer.byteLength(json(wrap()))>STATE_PAGE_BYTES&&page.rows?.length>1){page.rows.pop();page.nextOffset=page.offset+page.rows.length;page.nextCall={tool:'state_page'+label,query:{...page.metadata.scope,cursor:page.cursor,offset:page.nextOffset}};}
+ if(Buffer.byteLength(json(wrap()))>STATE_PAGE_BYTES)throw Error('Evidence envelope exceeds byte limit; narrow source detail');
+ return {page,result:wrap()};
 }
 type View = {
   owner: string;
@@ -185,7 +196,7 @@ export class EvidenceViews {
         scope: query,
         filterSemanticsVersion:2,
         unsupportedRows: unsupported,
-        viewComplete: true,
+        viewComplete: state.projectionLimits?.truncated!==true,
         captureComplete: (first.metadata as any)?.captureComplete ?? null,
         captureCounts: (first.metadata as any)?.captureCounts ?? null,
         upstreamHistoryComplete:
@@ -247,10 +258,12 @@ export class EvidenceViews {
     }
     if (!page.rows.length && offset < v.rows.length)
       throw Error("Record exceeds bounded envelope; narrow source detail");
-    page.nextCall=page.nextOffset===null?null:{tool:'state_page',query:{...JSON.parse(v.query),cursor:token,offset:page.nextOffset}};
+    page.nextCall=page.nextOffset===null?(v.metadata.sourceNext?{tool:'state_page',query:{...JSON.parse(v.query),cursor:undefined,version:undefined,sourceCursor:v.metadata.sourceNext,offset:0}}:null):{tool:'state_page',query:{...JSON.parse(v.query),cursor:token,offset:page.nextOffset}};
     if (offset === 0) page.summary = {...this.summarize(v.rows),schema:1,source:v.metadata.source??canonicalQuery.provider??canonicalQuery.section,granularity:canonicalQuery.collection==='failureRollups'?'attempt buckets':canonicalQuery.collection==='failures'?'HTLC attempts':'original records',scope:JSON.parse(v.query),interval:{start:canonicalQuery.start??null,end:canonicalQuery.end??null},selected:v.rows.length,processed:v.rows.length,truncated:v.metadata.projectionLimits?.truncated??false,coverage:v.metadata.coverage??null,sourceRefs:v.rows.slice(0,20).map(r=>r.id??r.evidence_id??null),note:'Whole retained view; diagnostic copies are separate from authoritative LND originals. Failed or missed fees do not establish distinct recoverable demand.'};
     if (Buffer.byteLength(json(page)) > STATE_PAGE_BYTES - 1024)
       delete page.summary;
+    while(Buffer.byteLength(json(page))>STATE_PAGE_BYTES&&page.rows.length>1){page.rows.pop();page.nextOffset=offset+page.rows.length;page.nextCall={tool:'state_page',query:{...JSON.parse(v.query),cursor:token,offset:page.nextOffset}};}
+    if(Buffer.byteLength(json(page))>STATE_PAGE_BYTES)throw Error('Evidence page exceeds byte limit; narrow source detail');
     return page;
   }
   private summarize(rows: any[]) {

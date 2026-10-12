@@ -21,6 +21,17 @@ export interface NodeClient {
   beginCollection?():()=>void;
   close?():void;
 }
+/** Closed, read-credential-only acquisition capability. No target, credentials or generic RPC method. */
+export interface NativeReadLimits {deadlineMs:number;bodyBytes:number;frameBytes:number;streamBytes:number;frames:number;idleMs:number}
+export interface NativeLndRead {
+ getInfo(signal:AbortSignal,limits:NativeReadLimits):Promise<unknown>;
+ forwardingHistory(request:{start_time:string;end_time:string;index_offset:number;num_max_events:number},signal:AbortSignal,limits:NativeReadLimits):Promise<unknown>;
+ listPayments(request:{creation_date_start:string;creation_date_end:string;index_offset:string;max_payments:string;reversed:true;include_incomplete:true;omit_hops:false},signal:AbortSignal,limits:NativeReadLimits):Promise<unknown>;
+ listChannels(signal:AbortSignal,limits:NativeReadLimits):Promise<unknown>;
+ getChanInfo(channelId:string,signal:AbortSignal,limits:NativeReadLimits):Promise<unknown>;
+ subscribeHtlcEvents(onFrame:(row:unknown)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits):Promise<void>;
+ subscribeChannelGraph(onFrame:(row:unknown)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits):Promise<void>;
+}
 const protoRoot=fileURLToPath(new URL('../lnd-proto/',import.meta.url));
 // Compiled digests bind the vendored runtime schema to the existing lifecycle fingerprint.
 for(const [path,digest] of Object.entries({
@@ -39,6 +50,7 @@ export function grpcTarget(target:string):{target:string;host:string} {
   return {target,host};
 }
 class TransportError extends Error {constructor(readonly category:TransportFailure){super('LND gRPC '+category+'; outcome may be uncertain');}}
+class NativeReadBoundaryError extends Error {constructor(readonly code:'idle_timeout'|'time_budget'){super('LND native read '+code);}}
 function category(error:any):TransportFailure {
   switch(error?.code){case grpc.status.UNAUTHENTICATED:return 'authentication';case grpc.status.PERMISSION_DENIED:return 'permission_denied';case grpc.status.DEADLINE_EXCEEDED:return 'deadline';case grpc.status.CANCELLED:return 'cancelled';case grpc.status.UNAVAILABLE:return 'unavailable';case grpc.status.RESOURCE_EXHAUSTED:return 'resource_limit';default:return 'rpc_failure';}
 }
@@ -48,6 +60,7 @@ export class Lnd implements NodeClient {
   private readToken:string;private writeToken:string;
   private endpoint:{target:string;host:string};
   private closed=false;
+  private activeCancellations=new Set<()=>void>();
   private failureEpoch=0;
   private status:LndTransportStatus={transport:'grpc-tls',inspectedAt:now(),warning:'unavailable',activeChannels:0,activeCalls:0};
   constructor(target:string,private caFile:string,readFile:string,writeFile:string,private limits={unaryMs:20000,paymentMs:45000,htlcMs:300000,maxChannels:4,maxCalls:64,historyBytes:128*1024*1024,streamBytes:32*1024*1024}) {
@@ -92,10 +105,55 @@ export class Lnd implements NodeClient {
   private success(){if(this.status.warning!=='unavailable'&&this.status.warning!=='expired')this.status={...this.status,failure:undefined};}
   beginCollection(){const epoch=this.failureEpoch;return ()=>{if(epoch===this.failureEpoch)this.success();};}
   private fail(error:any){this.failureEpoch++;const failure=error instanceof TransportError?error.category:category(error);this.status={...this.status,failure};return new TransportError(failure);}
-  private async unary(service:'lightning'|'router',method:string,request:any,write=false):Promise<any> {
+  private async unary(service:'lightning'|'router',method:string,request:any,write=false,signal?:AbortSignal,limits?:NativeReadLimits):Promise<any> {
     const c=this.lease();return new Promise((resolve,reject)=>{
-      try {(c[service] as any)[method](request,this.metadata(write),{deadline:Date.now()+this.limits.unaryMs,waitForReady:false},(error:any,result:any)=>{this.release(c);if(error)reject(this.fail(error));else resolve(result);});}
-      catch(e){this.release(c);reject(this.fail(e));}
+      let call:grpc.ClientUnaryCall|undefined,settled=false;
+      const finish=(error?:unknown,result?:unknown)=>{if(settled)return;settled=true;signal?.removeEventListener('abort',abort);this.activeCancellations.delete(abort);this.release(c);if(error)reject(this.fail(error));else resolve(result);};
+      const abort=()=>{call?.cancel();finish(new TransportError('cancelled'));};
+      if(limits)this.activeCancellations.add(abort);signal?.addEventListener('abort',abort,{once:true});
+      try {if(signal?.aborted||this.closed){abort();return;}
+        call=(c[service] as any)[method](request,this.metadata(write),{deadline:Date.now()+Math.min(limits?.deadlineMs??this.limits.unaryMs,this.limits.unaryMs),waitForReady:false},(error:any,result:any)=>{
+          if(!error&&limits)try {if(Buffer.byteLength(JSON.stringify(result))>limits.bodyBytes)error=new TransportError('resource_limit');}catch{error=new TransportError('rpc_failure');}finish(error,result);
+        });
+      }catch(e){finish(e);}
+    });
+  }
+  private nativeLimits(l:NativeReadLimits):void {
+    const max={deadlineMs:1200000,bodyBytes:MAX_MESSAGE,frameBytes:1024*1024,streamBytes:256*1024*1024,frames:1000000,idleMs:60000};
+    if(!l||Object.keys(l).length!==Object.keys(max).length||Object.entries(max).some(([k,v])=>!Number.isSafeInteger(l[k as keyof NativeReadLimits])||l[k as keyof NativeReadLimits]<1||l[k as keyof NativeReadLimits]>v))throw new TransportError('resource_limit');
+  }
+  private async nativeSubscription(service:'lightning'|'router',method:'subscribeHtlcEvents'|'subscribeChannelGraph',onFrame:(row:unknown)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits):Promise<void> {
+    this.nativeLimits(limits);const c=this.lease();return new Promise((resolve,reject)=>{
+      let call:grpc.ClientReadableStream<any>|undefined,settled=false,processing=false,ended=false,frames=0,bytes=0,idle:ReturnType<typeof setTimeout>|undefined;
+      const finish=(error?:unknown)=>{if(settled)return;settled=true;clearTimeout(idle);clearTimeout(budget);signal.removeEventListener('abort',abort);this.activeCancellations.delete(abort);call?.cancel();this.release(c);if(error){const sanitized=this.fail(error instanceof NativeReadBoundaryError?new TransportError('deadline'):error);reject(error instanceof NativeReadBoundaryError?error:sanitized);}else resolve();};
+      const abort=()=>finish(new TransportError('cancelled'));
+      const reset=()=>{clearTimeout(idle);idle=setTimeout(()=>finish(new NativeReadBoundaryError('idle_timeout')),limits.idleMs);};
+      const budget=setTimeout(()=>finish(new NativeReadBoundaryError('time_budget')),Math.min(limits.deadlineMs,this.limits.htlcMs));
+      this.activeCancellations.add(abort);signal.addEventListener('abort',abort,{once:true});
+      try {
+        if(signal.aborted||this.closed){abort();return;}reset();
+        call=(c[service] as any)[method]({},this.metadata(false),{deadline:Date.now()+Math.min(limits.deadlineMs,this.limits.htlcMs),waitForReady:false});
+        call!.on('metadata',()=>{if(settled)return;try{onReady();}catch{finish(new TransportError('rpc_failure'));}});
+        call!.on('data',row=>{if(settled)return;call!.pause();processing=true;reset();
+          void (async()=>{try {const size=Buffer.byteLength(JSON.stringify(row));bytes+=size;if(++frames>limits.frames||size>limits.frameBytes||bytes>Math.min(limits.streamBytes,this.limits.streamBytes))throw new TransportError('resource_limit');await onFrame(row);}catch(e){finish(e);}finally{processing=false;if(!settled){if(ended)finish();else call!.resume();}}})();
+        });
+        call!.on('error',error=>finish(error));call!.on('end',()=>{ended=true;if(!processing)finish();});
+      }catch(e){finish(e);}
+    });
+  }
+  nativeRead():NativeLndRead {
+    const exact=(v:unknown,max=18446744073709551615n)=>typeof v==='string'&&/^\d{1,20}$/.test(v)&&BigInt(v)<=max;
+    const keys=(r:any,wanted:string[])=>r&&typeof r==='object'&&!Array.isArray(r)&&Object.keys(r).length===wanted.length&&wanted.every(k=>Object.hasOwn(r,k));
+    const invalid=()=>{throw new TransportError('resource_limit');};
+    const unary=(method:string,request:unknown,signal:AbortSignal,limits:NativeReadLimits)=>{this.nativeLimits(limits);return this.unary('lightning',method,request,false,signal,limits);};
+    return Object.freeze({
+      getInfo:(signal:AbortSignal,limits:NativeReadLimits)=>unary('getInfo',{},signal,limits),
+      forwardingHistory:(request:any,signal:AbortSignal,limits:NativeReadLimits)=>{if(!keys(request,['start_time','end_time','index_offset','num_max_events'])||!exact(request.start_time,253402300799n)||!exact(request.end_time,253402300799n)||BigInt(request.start_time)>BigInt(request.end_time)||!Number.isInteger(request.index_offset)||request.index_offset<0||request.index_offset>4294967295||!Number.isInteger(request.num_max_events)||request.num_max_events<1||request.num_max_events>1000)invalid();return unary('forwardingHistory',request,signal,limits);},
+      listPayments:(request:any,signal:AbortSignal,limits:NativeReadLimits)=>{if(!keys(request,['creation_date_start','creation_date_end','index_offset','max_payments','reversed','include_incomplete','omit_hops'])||!exact(request.creation_date_start,253402300799n)||!exact(request.creation_date_end,253402300799n)||!exact(request.index_offset)||!exact(request.max_payments,1000n)||BigInt(request.max_payments)<1n||request.reversed!==true||request.include_incomplete!==true||request.omit_hops!==false)invalid();return unary('listPayments',request,signal,limits);},
+      listChannels:(signal:AbortSignal,limits:NativeReadLimits)=>unary('listChannels',{},signal,limits),
+      getChanInfo:(channelId:string,signal:AbortSignal,limits:NativeReadLimits)=>{if(!exact(channelId))invalid();return unary('getChanInfo',{chan_id:channelId},signal,limits);},
+      subscribeHtlcEvents:(onFrame:(row:unknown)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits)=>this.nativeSubscription('router','subscribeHtlcEvents',onFrame,onReady,signal,limits),
+      subscribeChannelGraph:(onFrame:(row:unknown)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits)=>this.nativeSubscription('lightning','subscribeChannelGraph',onFrame,onReady,signal,limits),
     });
   }
   private async stream(method:string,request:any,write:boolean,onEvent?:((e:any)=>void),signal?:AbortSignal):Promise<any> {
@@ -112,7 +170,7 @@ export class Lnd implements NodeClient {
       }catch(e){finish(e);}
     });
   }
-  close(){this.closed=true;for(const c of this.channels)c.retired=true;this.reap();}
+  close(){this.closed=true;for(const abort of [...this.activeCancellations])abort();for(const c of this.channels)c.retired=true;this.reap();}
   async snapshot():Promise<Snapshot> {
     const [info,wallet,list]=await Promise.all([this.unary('lightning','getInfo',{}),this.unary('lightning','walletBalance',{}),this.unary('lightning','listChannels',{peer_alias_lookup:true})]);
     if(!Array.isArray(list.channels) || !/^([0-9a-f]{66})$/.test(info.identity_pubkey) || wallet.confirmed_balance===undefined)throw new Error('Incompatible LND snapshot schema');

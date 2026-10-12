@@ -1,3 +1,4 @@
+import {readInterlock,type InterlockContract} from './interlocks.js';
 import { Store } from './store.js';
 import { forecast } from './economics.js';
 import { hash, json, now, integer, terminal, type Proposal, type Snapshot, type PaymentOutcome } from './domain.js';
@@ -7,7 +8,7 @@ export class Executor {
   constructor(private store:Store,private node:NodeClient){}
   private executing=false;
   private dispatchGuard(operation:string,snapshot?:Snapshot) {
-    try{if(snapshot)this.store.assertReservedDispatch(operation,snapshot);else this.store.assertDispatchReady();}catch(error){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});throw error;}
+    try{const contract=this.store.get<InterlockContract>('interlockContract');if(contract?.schema===2){const proof=readInterlock(process.env.INTERLOCK_FILE??'/interlock/status.json',Date.now,contract);this.store.set('automationProof',proof);if(!proof.ok)throw Error('Protected automation interlock unavailable');}if(snapshot)this.store.assertReservedDispatch(operation,snapshot);else this.store.assertDispatchReady();}catch(error){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});throw error;}
   }
   async execute(p:Proposal, approval?:{validate:(snapshot:Snapshot)=>void;reserved:(operation:string)=>void}) {
     if(this.executing)throw new Error('Executor busy');this.executing=true;

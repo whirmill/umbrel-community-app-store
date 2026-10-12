@@ -1,3 +1,4 @@
+import {LegacyStore} from './native-legacy-store-fixture.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Store } from '../store.js';
@@ -42,7 +43,7 @@ test('history import repeat, full integer precision and pinned retention',()=>{c
 test('reconciliation cannot steal a live invoice owner',async()=>{const {s,p}=ready();let release!:()=>void;let sends=0;const wait=new Promise<void>(r=>release=r);const node:any={snapshot:async()=>snapshot(),invoice:async()=>{await wait;return {hash:'one',request:'invoice'};},send:async()=>{sends++;return {status:'SUCCEEDED',feeMsat:'1000',amountSat:'100000',source:'a',target:'b'};}};const x=new Executor(s,node);const task=x.execute(p);await new Promise(r=>setTimeout(r,5));await x.reconcile();assert.equal(s.one('SELECT state FROM operations').state,'preparing');release();await task;assert.equal(sends,1);assert.equal(s.budget().dailyMsat,'1000');s.close();});
 test('aggregate cap cannot be reset by renaming strategy',()=>{const {s,p}=ready();const x=new Executor(s,{} as any);for(let i=0;i<3;i++){const {operation}=s.reserve({...p,strategy:'name'+i},f,snapshot());x.finish(operation,{status:'FAILED',amountSat:'0',feeMsat:'0'});}assert.throws(()=>s.reserve({...p,strategy:'new-name'},f,snapshot()),/Aggregate/);s.close();});
 test('MPP endpoint violation still records fee and pauses',()=>{const {s,p}=ready();const {operation}=s.reserve(p,f,snapshot());new Executor(s,{} as any).finish(operation,{status:'SUCCEEDED',feeMsat:'12000',amountSat:'100000'});assert.equal(s.budget().dailyMsat,'12000');assert.equal(s.get('enabled'),false);assert.match(s.get<string>('integrityBlocker')!,/invariant/);s.close();});
-test('database rollback refuses newer schema',()=>{const dir=mkdtempSync(join(tmpdir(),'surge-version-'));const p=join(dir,'op.sqlite');const s=new Store(p);s.db.exec('PRAGMA user_version=7');s.close();assert.throws(()=>new Store(p),/newer/);rmSync(dir,{recursive:true});});
+test('database rollback refuses newer schema',()=>{const dir=mkdtempSync(join(tmpdir(),'surge-version-'));const p=join(dir,'op.sqlite');const s=new Store(p);s.db.exec('PRAGMA user_version=8');s.close();assert.throws(()=>new Store(p),/newer/);rmSync(dir,{recursive:true});});
 test('daily and exploration reservations reject aggregate overspend',()=>{const {s,p}=ready();s.ledger({id:'today',at:now(),classification:'expense',amountMsat:'1490000',category:'manual_rebalance'});assert.throws(()=>s.reserve(p,f,snapshot()),/budget/);s.close();const r=ready();r.s.ledger({id:'explore',at:now(),classification:'expense',amountMsat:'749000',category:'exploratory'});assert.throws(()=>r.s.reserve(r.p,f,snapshot()),/Exploration/);r.s.close();});
 
 test('parallel ordinary forecasts cannot allocate the same target demand',()=>{
@@ -66,10 +67,10 @@ test('an observed forward releases only one of two overlapping benefit claims',(
 });
 
 test('migration preserves legacy pending ordinary reservation and reconstructs its future demand claim',()=>{
-  const dir=mkdtempSync(join(tmpdir(),'surge-migrate-')),path=join(dir,'state.sqlite');let s=new Store(path);
+  const dir=mkdtempSync(join(tmpdir(),'surge-migrate-')),path=join(dir,'state.sqlite');let s=new LegacyStore(path) as unknown as Store;
   s.set('bootstrapReady',true);s.set('automationProof',{ok:true,at:now()});const p={kind:'rebalance',category:'ordinary',strategy:'old',source:'a',target:'b',amountSat:'100000',maxFeeMsat:'100000',decisionCapMsat:'200000',demandKey:'a->b',evidenceIds:[s.evidence('old','qualified history')],problem:'old',evidence:'old',whyAct:'old',alternatives:'wait',verify:'7/30',hypothesis:'old'} as Proposal;
   const original=s.reserve(p,f,snapshot());s.run('DELETE FROM benefit_claims');s.db.exec('PRAGMA user_version=1');s.set('enabled',false);s.close();
-  s=new Store(path);assert.equal(s.get('enabled'),false);assert.equal(s.one('PRAGMA user_version').user_version,6);assert.equal(s.one('SELECT state FROM operations WHERE id=?',original.operation).state,'reserved');assert.equal(s.budget().dailyMsat,'100000');assert.equal(s.uncommittedDemand('c','b','100000000'),'0');assert.equal(s.one('SELECT volume_msat FROM benefit_claims').volume_msat,'100000000');s.close();rmSync(dir,{recursive:true});
+  s=new Store(path);assert.equal(s.get('enabled'),false);assert.equal(s.one('PRAGMA user_version').user_version,7);assert.equal(s.one('SELECT state FROM operations WHERE id=?',original.operation).state,'reserved');assert.equal(s.budget().dailyMsat,'100000');assert.equal(s.uncommittedDemand('c','b','100000000'),'0');assert.equal(s.one('SELECT volume_msat FROM benefit_claims').volume_msat,'100000000');s.close();rmSync(dir,{recursive:true});
 });
 
 test('forwards before verified settlement cannot consume future demand claims',()=>{
@@ -95,7 +96,7 @@ test('pre-RPC budgets and obligations are revalidated after invoice await withou
   }
 });
 test('expired event identities prevent repeated aggregation after collection and reopen',()=>{
-  const dir=mkdtempSync(join(tmpdir(),'surge-retain-')),path=join(dir,'state.sqlite');let s=new Store(path);
+  const dir=mkdtempSync(join(tmpdir(),'surge-retain-')),path=join(dir,'state.sqlite');let s=new LegacyStore(path) as unknown as Store;
   const row={id:'old-forward',at:'2020-01-01T00:00:00Z',type:'external_forward',source:'a',target:'b',amountMsat:'1000',feeMsat:'2'};
   s.event(row);s.retain();s.close();s=new Store(path);s.event(row);s.retain();
   assert.equal(s.all('SELECT * FROM events').length,0);assert.equal(JSON.parse(s.one('SELECT content FROM aggregates').content).events,1);assert.equal(JSON.parse(s.one('SELECT content FROM aggregates').content).amountMsat,'1000');s.close();rmSync(dir,{recursive:true});

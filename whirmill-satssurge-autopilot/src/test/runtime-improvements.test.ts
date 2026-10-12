@@ -198,7 +198,7 @@ test('advisory issues, artifacts and original unrelated receipts survive schema6
     try {
         s.set('piReceipt:original', { submission: 'original' }); const runtime = new RuntimeImprovements(s); runtime.observe(observation(), at);
         const original = runtime.issues(); s.close(); s = new Store(path);
-        assert.deepEqual(new RuntimeImprovements(s).issues(), original); assert.deepEqual(s.get('piReceipt:original'), { submission: 'original' }); assert.equal(s.one('PRAGMA user_version').user_version, 6);
+        assert.deepEqual(new RuntimeImprovements(s).issues(), original); assert.deepEqual(s.get('piReceipt:original'), { submission: 'original' }); assert.equal(s.one('PRAGMA user_version').user_version, 7);
     } finally { s.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 test('reprocessed inbound message after admission becomes active retains original job and never creates correction', async () => {

@@ -52,6 +52,32 @@ class LifecycleTests(unittest.TestCase):
             with contextlib.closing(sqlite3.connect(baseline / name)) as db:
                 self.assertEqual(db.execute('SELECT id FROM receipts').fetchone()[0], 'original')
 
+    def test_schema6_to7_storage_transition_keeps_current_baseline_and_same_fingerprint_guard(self):
+        def original_schema6():
+            for name in FILES:
+                with contextlib.closing(sqlite3.connect(self.data / name)) as db:
+                    db.execute('CREATE TABLE original_receipts(id TEXT PRIMARY KEY, value TEXT)')
+                    db.execute("INSERT INTO original_receipts VALUES('original', 'synthetic-original-identity')")
+                    db.execute('PRAGMA user_version=6')
+                    db.commit()
+        transition(self.data, self.data, 'schema6-release', original_schema6)
+        def migration():
+            with contextlib.closing(sqlite3.connect(self.data / 'operational.sqlite')) as db:
+                db.execute('CREATE TABLE canonical_fixture(id TEXT PRIMARY KEY, original_digest TEXT)')
+                db.execute('PRAGMA user_version=7')
+                db.commit()
+        state = transition(self.data, self.data, 'schema7-release', migration)
+        baseline = self.data / state['baseline']
+        with contextlib.closing(sqlite3.connect(baseline / 'operational.sqlite')) as db:
+            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 6)
+        transition(self.data, self.data, 'schema7-release', migration)
+        with contextlib.closing(sqlite3.connect(self.data / 'operational.sqlite')) as db:
+            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 7)
+            self.assertEqual(db.execute('SELECT value FROM original_receipts').fetchone()[0], 'synthetic-original-identity')
+            db.execute('PRAGMA user_version=6')
+        with self.assertRaisesRegex(ValueError, 'schema identity'):
+            transition(self.data, self.data, 'schema7-release', migration)
+
     def test_migration_crash_retry_never_recaptures_partial_state(self):
         transition(self.data, self.data, 'a', self.migrate)
         def partial():

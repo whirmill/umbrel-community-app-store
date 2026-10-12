@@ -1,3 +1,6 @@
+import {migrateCanonical,validateCanonical,LEGACY_TABLES,archiveOriginal} from './canonical-migration.js';
+import {CanonicalRuntime} from './canonical-runtime.js';
+import {canonicalRead,unifiedDiagnostics,indexDiagnosticCapture} from './canonical-consumers.js';
 import {channelScid} from './diagnostics.js';
 import {accountingPartition} from './accounting.js';
 import { DatabaseSync } from 'node:sqlite';
@@ -7,11 +10,14 @@ import { id, now, json, hash, integer, day, MANDATE, SCHEMA_VERSION, type Snapsh
 
 export class Store {
   readonly db: DatabaseSync;
+  readonly canonical:CanonicalRuntime;
   constructor(path: string) {
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(path);
     const previousSchema=Number(this.db.prepare('PRAGMA user_version').get()?.user_version);
-    if(Number(this.db.prepare('PRAGMA user_version').get()?.user_version)>SCHEMA_VERSION)throw new Error('Database is newer than this software; rollback refused');
+    if(previousSchema>SCHEMA_VERSION){this.db.close();throw new Error('Database is newer than this software; rollback refused');}
+    if(previousSchema===6){try{this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');migrateCanonical(this.db,{freezeOriginals:true});this.canonical=new CanonicalRuntime(this.db);if(path!==':memory:')chmodSync(path,0o600);return;}catch(error){this.db.close();throw error;}}
+    if(previousSchema===7){try{this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');validateCanonical(this.db);for(const table of ['meta','jobs','owner_proposals',...LEGACY_TABLES])if(!this.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))throw Error('Incomplete original runtime schema');this.canonical=new CanonicalRuntime(this.db);if(path!==':memory:')chmodSync(path,0o600);return;}catch(error){this.db.close();throw error;}}
     this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -96,12 +102,22 @@ export class Store {
     if (path !== ':memory:') chmodSync(path, 0o600);
     if (!this.get('mandate')) this.set('mandate', MANDATE);
     if (this.get('enabled')===undefined) this.set('enabled', true);
+    migrateCanonical(this.db,{freezeOriginals:true});this.canonical=new CanonicalRuntime(this.db);
   }
   all(sql: string, ...args: any[]): any[] { return this.db.prepare(sql).all(...args) as any[]; }
   one(sql: string, ...args: any[]): any { return this.db.prepare(sql).get(...args); }
   run(sql: string, ...args: any[]) { return this.db.prepare(sql).run(...args); }
   get<T = any>(key: string): T | undefined { const row=this.one('SELECT value FROM meta WHERE key=?',key); return row ? JSON.parse(row.value) as T : undefined; }
-  set(key: string, value: unknown) { this.run('INSERT INTO meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,json(value)); }
+  set(key: string, value: unknown) {
+    const encoded=json(value);
+    // Freeze both sides of diagnostic refresh; a rotating table scan cannot preserve overwritten source captures.
+    if(key==='diagnostics'&&this.canonical){
+      if(Buffer.byteLength(encoded)>16777216)throw Error('Diagnostic archive size limit');
+      const save=(row:any)=>{const archived=archiveOriginal(this.db,'meta',row,{nodeId:null,network:null,sourceInstance:'satssurge-operational-originals',sourceVersion:'schema6',observedAt:now(),rowid:key});indexDiagnosticCapture(this,archived.id,JSON.parse(row.value));};
+      const previous=this.one('SELECT key,value FROM meta WHERE key=?',key);if(previous)save(previous);save({key,value:encoded});
+    }
+    this.run('INSERT INTO meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,encoded);
+  }
   private commitCallbacks: Set<() => void> | undefined;
   afterCommit(callback: () => void) {
     if (this.commitCallbacks) this.commitCallbacks.add(callback);
@@ -254,7 +270,7 @@ export class Store {
       return {revenueMsat:revenue.toString(),costMsat:cost.toString(),netMsat:(revenue-cost).toString()};
     };
     return {enabled:this.get('enabled'),bootstrapReady:this.get('bootstrapReady')??false,blockers:this.get('blockers')??[],mandate:MANDATE,budget:this.budget(),snapshot:this.get('snapshot')??null,
-      diagnostics:this.get('diagnostics')??null,competition:this.get('competition')??null,pnl30:sums(ledger.filter(r=>r.at>=since)),cumulative:sums(ledger),partial:this.get('historicalCoverageComplete')!==true || !ledger.some(r=>r.classification==='expense'&&JSON.parse(r.details).scope==='subscription') || accountingPartition(ledger,this.all('SELECT * FROM ledger_annotations')).unassignedCosts,
+      canonical:canonicalRead(this,{limit:100}),canonicalArchive:this.canonical.summary(),nativeCollection:this.get('nativeCollection')??null,diagnostics:unifiedDiagnostics(this),competition:this.get('competition')??null,pnl30:sums(ledger.filter(r=>r.at>=since)),cumulative:sums(ledger),partial:this.get('historicalCoverageComplete')!==true || !ledger.some(r=>r.classification==='expense'&&JSON.parse(r.details).scope==='subscription') || accountingPartition(ledger,this.all('SELECT * FROM ledger_annotations')).unassignedCosts,
       accounting:accountingPartition(ledger,this.all('SELECT * FROM ledger_annotations')),
       accounting30:accountingPartition(ledger.filter(r=>r.at>=since),this.all('SELECT * FROM ledger_annotations')),
       operations:this.all('SELECT id,decision_id,at,state,payment_hash,details FROM operations ORDER BY at DESC LIMIT 50'),
@@ -263,20 +279,6 @@ export class Store {
       claims:this.all('SELECT * FROM claims ORDER BY at DESC LIMIT 25'), holds:this.all('SELECT * FROM channel_holds'),
       projectionLimits:{operations:50,decisions:50,evaluations:30,evaluationWindows:60,coverage:20,claims:25,upstreamHistoryComplete:false},agent:this.get('agent')??{},importReport:this.get('importReport')??{}, roadmap:['M1–M2.1 · Fondamenti, diagnostica e interfaccia web','M2.2 · Conversazione quotidiana su Telegram','M2.3 · Stabilizzazione del core — in corso','M2.4 · Prompt consultivi sui problemi del runtime — da qualificare','M3 · Raccolta nativa e storico unificato — da qualificare','M4 · Documenti, immagini ed export — da qualificare','M5 · Integrazioni opzionali RoboSats, Amboss e Magma — da qualificare']};
   }
-  retain(at=now()) {
-    const cutoff=new Date(Date.parse(at)-90*86400_000).toISOString();
-    this.tx(()=>{
-      const rows=this.all('SELECT * FROM events WHERE occurred_at<? AND pinned=0',cutoff);
-      this.run('INSERT INTO expired_intervals SELECT min(occurred_at),max(occurred_at),type,source,target,count(*) FROM events WHERE occurred_at<? AND pinned=0 GROUP BY type,source,target',cutoff);
-      const days=new Set(rows.map(r=>r.occurred_at.slice(0,10)));
-      for(const d of days){ const events=rows.filter(r=>r.occurred_at.startsWith(d)); const old=this.one('SELECT content FROM aggregates WHERE day=?',d); const agg=old?JSON.parse(old.content):{events:0,amountMsat:'0',feeMsat:'0',detailExpired:true};
-        agg.events+=events.length; agg.amountMsat=(integer(agg.amountMsat)+events.reduce((s,r)=>s+integer(r.amount_msat),0n)).toString();agg.feeMsat=(integer(agg.feeMsat)+events.reduce((s,r)=>s+integer(r.fee_msat),0n)).toString();
-        this.run('INSERT INTO aggregates VALUES(?,?,1) ON CONFLICT(day) DO UPDATE SET content=excluded.content',d,json(agg)); }
-      this.run('INSERT OR IGNORE INTO expired_events SELECT id FROM events WHERE occurred_at<? AND pinned=0',cutoff);
-      this.run('DELETE FROM events WHERE occurred_at<? AND pinned=0',cutoff);
-      this.run("INSERT INTO expired_intervals SELECT min(at),max(at),'snapshot','','',count(*) FROM snapshots WHERE at<? HAVING count(*)>0",cutoff);
-      this.run('DELETE FROM snapshots WHERE at<? AND id NOT IN (SELECT json_extract(details,\'$.snapshotId\') FROM operations WHERE json_extract(details,\'$.snapshotId\') IS NOT NULL)',cutoff);
-    });
-  }
+  retain(at=now()) {return this.canonical.retain(at);}
   close() {this.db.close();}
 }

@@ -1,4 +1,6 @@
+import {canonicalRead,canonicalDiagnostics} from './canonical-consumers.js';
 import { channelScid } from './diagnostics.js';
+import {hash,json} from './domain.js';
 import { Store } from './store.js';
 import { normalizeEvidenceQuery,type EvidenceQuery } from './evidence-views.js';
 const adapters:Record<string,{table:string;time:string;source?:string;target?:string;channel?:string;join?:string}>={
@@ -12,9 +14,19 @@ const adapters:Record<string,{table:string;time:string;source?:string;target?:st
 };
 export function evidenceSource(store:Store,input:EvidenceQuery){
  const q=normalizeEvidenceQuery(input);
+ const {sourceCursor,cursor,offset,version,...scope}=q;const scopeHash=hash(json(Object.fromEntries(Object.entries(scope).sort(([a],[b])=>a.localeCompare(b)))));
+ let continuation:any=null;if(sourceCursor){if(sourceCursor.length>2048)throw Error('Invalid source cursor');try{continuation=JSON.parse(Buffer.from(sourceCursor,'base64url').toString());}catch{throw Error('Invalid source cursor');}if(continuation.scopeHash!==scopeHash&&continuation.scopeHash!==hash(json(scope))||!Number.isSafeInteger(continuation.after)||continuation.after<0||!Number.isSafeInteger(continuation.through)||continuation.through<continuation.after)throw Error('Source cursor scope mismatch');}
+ const next=(after:number|null,through:number)=>after===null?null:Buffer.from(json({scopeHash,after,through})).toString('base64url');
  if(q.section==='channels')return {snapshot:store.get('snapshot')};
  if(q.section==='competition'||q.section==='competition_alternatives')return {competition:store.get('competition')};
- if(q.section==='diagnostics')return {diagnostics:store.get('diagnostics')};
+ if(q.section==='canonical_history'||q.section==='coverage'&&q.provider==='native'){
+ const page=canonicalRead(store,{...q,section:q.section==='coverage'?'coverage':undefined,limit:200,after:continuation?.after,through:continuation?.through});
+ return {[q.section]:page.rows,adapterFiltered:true,sourceMetadata:{...page,rows:undefined,sourceNext:next(page.nextAfter,page.through)},projectionLimits:page.projectionLimits};}
+ if(q.section==='diagnostics'){
+ const result:any=canonicalDiagnostics(store,{...q,limit:200,after:continuation?.after,through:q.provider==='native'?continuation?.through:undefined,diagnosticCaptureDigest:continuation?.captureDigest});const meta=result.sourceMetadata;
+ if(meta)meta.sourceNext=meta.nextAfter===null?null:Buffer.from(json({scopeHash,after:meta.nextAfter,through:meta.through,...(q.provider==='native'?{}:{captureDigest:meta.providerCaptureDigest})})).toString('base64url');
+ if(result.unavailableEvidence?.searching)result.unavailableEvidence.nextCall={tool:'state_page',query:{...scope,sourceCursor:Buffer.from(json({scopeHash,after:0,through:0,lookupProgress:result.unavailableEvidence.lookupProgress,...(continuation?.captureDigest?{captureDigest:continuation.captureDigest}:{})})).toString('base64url'),offset:0}};
+ return result;}
  const a=adapters[q.section];if(!a)throw Error('Unsupported evidence adapter');
  const clauses:string[]=[],args:any[]=[];
  if(['manual_events','policy_events'].includes(q.section)){
@@ -38,8 +50,9 @@ export function evidenceSource(store:Store,input:EvidenceQuery){
    if(q.end){base.push('julianday(d.occurred_at)<julianday(?)');unknownArgs.push(q.end);}
    if(store.one(`SELECT 1 FROM events d WHERE ${base.join(' AND ')} AND (${unknown.join(' OR ')}) LIMIT 1`,...unknownArgs))return {unavailableEvidence:{available:false,unsupportedFilter:true,rows:null,nextOffset:null,note:'Retained receipt direction is unknown; scoped completeness cannot be certified'}};
  }
- const rows=store.all(`SELECT d.* FROM ${a.table}${a.join??''}${clauses.length?' WHERE '+clauses.join(' AND '):''} ORDER BY ${a.time},${q.section==='holds'?'d.channel_id':'d.id'} LIMIT 10001`,...args);
+ const through=continuation?.through??Number(store.one(`SELECT coalesce(max(d.rowid),0) n FROM ${a.table}`).n);clauses.push('d.rowid>?','d.rowid<=?');args.push(continuation?.after??0,through);
+ const rows=store.all(`SELECT d.rowid source_rowid,d.* FROM ${a.table}${a.join??''}${clauses.length?' WHERE '+clauses.join(' AND '):''} ORDER BY d.rowid LIMIT 201`,...args);
  const coverage=store.all("SELECT start,end,kind,complete,details FROM coverage WHERE kind='LND forwards' ORDER BY start,end");
- return {[q.section]:rows.slice(0,10000),adapterFiltered:true,sourceMetadata:{schema:1,filterSemantics:'directional-v2',...(['manual_events','policy_events'].includes(q.section)?{perRouteAllocationQualified:false,directionScopeNote:'Recorded receipt direction; affectedChannels may include other MPP endpoints. Full-event amounts do not certify allocation by route.'}:{}),source:q.section==='corridor_events'?'LND original events':'operational receipts',coverage},projectionLimits:{selected:rows.length,processed:Math.min(rows.length,10000),limit:10000,truncated:rows.length>10000,upstreamHistoryComplete:false}};
+ return {[q.section]:rows.slice(0,200).map(({source_rowid,...row})=>row),adapterFiltered:true,sourceMetadata:{sourceNext:next(rows.length>200?Number(rows[199].source_rowid):null,through),frozenHighWater:through,schema:1,filterSemantics:'directional-v2',...(['manual_events','policy_events'].includes(q.section)?{perRouteAllocationQualified:false,directionScopeNote:'Recorded receipt direction; affectedChannels may include other MPP endpoints. Full-event amounts do not certify allocation by route.'}:{}),source:q.section==='corridor_events'?'LND original events':'operational receipts',coverage},projectionLimits:{selected:rows.length,processed:Math.min(rows.length,200),limit:200,truncated:rows.length>200,upstreamHistoryComplete:false}};
 }
 function decimal(v:string|undefined){if(!v)return '';const [h,t,o]=channelScid(v).split('x').map(BigInt);return ((h!<<40n)+(t!<<16n)+o!).toString();}
