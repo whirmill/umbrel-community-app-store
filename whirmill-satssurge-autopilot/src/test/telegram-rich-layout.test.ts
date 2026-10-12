@@ -10,30 +10,23 @@ import { Telegram, telegramClean, telegramHtml, telegramRichHtml } from '../tele
 import { TelegramTurns } from '../telegram-turns.js';
 import { UiEvents } from '../ui-events.js';
 import { hash } from '../domain.js';
+import { unsolicitedFixture } from './telegram-unsolicited-fixture.js';
 
 const at = new Date().toISOString();
-async function scannerAdvisory(method: string, body: any, store: Store) {
-    const document = method === 'sendDocument' && body instanceof FormData ? body.get('document') as File : undefined;
-    if (!document || !/^satssurge-[a-f0-9]{16}-r\d+\.txt$/.test(document.name)) return false;
-    // Only an independently correlated immutable advisory may be excluded from
-    // response replay accounting, regardless of the current quiet-hours window.
-    const artifact = store.all("SELECT value FROM meta WHERE key LIKE 'runtimeArtifact:advisory:%'").map(row => JSON.parse(row.value)).find(a => a.filename === document.name);
-    assert.ok(artifact); assert.equal(hash(await document.text()), artifact.checksum); assert.equal(body.get('chat_id'), String(artifact.chatId));
-    return true;
-}
 
 const commandNames = ['status','analyze','proposals','pause','resume','stop','queue','recover','prompt','menu','help'];
 function fixture(call: (method: string, body: any) => Promise<any> = async method => method === 'getMe' ? { username: 'satssurge_bot' } : true) {
     const directory = mkdtempSync(join(tmpdir(), 'rich-layout-')), store = new Store(':memory:'), queue = new Queue(store);
-    const control = new ApplicationControl(store, queue), telegram = new Telegram(store, control, directory, { call }), turns = new TelegramTurns(store, queue);
+    const unsolicited = unsolicitedFixture(store);
+    const control = new ApplicationControl(store, queue), telegram = new Telegram(store, control, directory, { call: async (method, body) => await unsolicited.acknowledge(method, body) ?? call(method, body) }), turns = new TelegramTurns(store, queue);
     store.set('bootstrapReady', true); store.set('telegramConfigured', true);
     store.set('telegramBinding', { generation: 'layout-owner', chatId: 42, userId: 42, since: new Date(Date.parse(at) - 60000).toISOString() });
-    return { store, queue, telegram, turns, open() {
+    return { unsolicited, store, queue, telegram, turns, open() {
         const job = control.admit('layout', 'Spiega i dati pubblici', 'telegram'); turns.attach(job, 'layout-owner', 42);
         store.set('jobTelegramGeneration:' + job.id, 'layout-owner');
         const claimed = queue.claim('coordinator', 'layout-test', at)!; turns.bind(claimed, { steer: async () => {}, stop: async () => {} }); return { job, claimed };
     }, complete(answer: string) { const { job, claimed } = this.open(); queue.finish(job.id, claimed.run_token!, 'completed', { answer }, at); turns.finalize(job.id, 'completed'); return job; },
-    close() { telegram.stop(); store.close(); rmSync(directory, { recursive: true, force: true }); } };
+    close() { unsolicited.verify(); telegram.stop(); store.close(); rmSync(directory, { recursive: true, force: true }); } };
 }
 
 test('new rich final emits headings, paragraphs, line breaks and real list blocks without changing canonical text', async () => {
@@ -169,7 +162,7 @@ test('thinking rich block keeps only allowlisted public summary, escaped line br
 });
 
 for(const state of ['sent','uncertain'])test('historical unversioned '+state+' rich receipt is never reformatted or replayed',async()=>{
-    let calls=0;const f=fixture(async(method,body)=>{if(!await scannerAdvisory(method,body,f.store))calls++;return {message_id:16};});try{
+    let calls=0;const f=fixture(async(method,body)=>{calls++;return {message_id:16};});try{
         const answer='# Storico\n\n- Dato',job=f.complete(answer),event='answer:'+job.id;f.telegram.capture(at);const old={generation:'layout-owner',chatId:42,botGeneration:null,checksum:hash(answer),htmlBytes:Buffer.byteLength(telegramHtml(answer),'utf8')};f.store.set('telegramRichFinal:'+event,old);f.store.run('UPDATE telegram_outbox SET status=?,attempts=1,message_id=? WHERE event_id=?',state,state==='sent'?16:null,event);
         const row=f.store.one('SELECT * FROM telegram_outbox WHERE event_id=?',event),bytes=f.store.one('SELECT value FROM meta WHERE key=?','telegramRichFinal:'+event).value;f.telegram.recover();f.telegram.capture(at);await f.telegram.deliver(at);assert.equal(calls,0);assert.deepEqual(f.store.one('SELECT * FROM telegram_outbox WHERE event_id=?',event),row);assert.equal(f.store.one('SELECT value FROM meta WHERE key=?','telegramRichFinal:'+event).value,bytes);
     }finally{f.close();}

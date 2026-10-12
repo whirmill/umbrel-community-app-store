@@ -6,44 +6,36 @@ import { tmpdir } from 'node:os';
 import { Store } from '../store.js';
 import { Queue } from '../queue.js';
 import { ApplicationControl } from '../application-control.js';
-import { Telegram, telegramClean } from '../telegram.js';
+import { Telegram, telegramClean, telegramHtml } from '../telegram.js';
 import { TelegramTurns } from '../telegram-turns.js';
 import { hash } from '../domain.js';
+import { unsolicitedFixture } from './telegram-unsolicited-fixture.js';
 
 const at = new Date().toISOString(), marker = 'telegramMenu:envelope-owner:null:ownerChatDefaultV1:42';
-async function responseMethods(calls: {method: string; body: any}[], store: Store) {
-    // Exclude only a separately correlated scanner artifact, never a response
-    // document. This stays valid before and after Rome's quiet-hours boundary.
-    const methods: string[] = [];
-    for (const call of calls) {
-        const document = call.method === 'sendDocument' && call.body instanceof FormData ? call.body.get('document') as File : undefined;
-        if (document && /^satssurge-[a-f0-9]{16}-r\d+\.txt$/.test(document.name)) {
-            const artifact = store.all("SELECT value FROM meta WHERE key LIKE 'runtimeArtifact:advisory:%'").map(row => JSON.parse(row.value)).find(a => a.filename === document.name);
-            assert.ok(artifact, 'unrelated document must have its own immutable advisory receipt');
-            assert.equal(hash(await document.text()), artifact.checksum); assert.equal(call.body.get('chat_id'), String(artifact.chatId));
-        } else methods.push(call.method);
-    }
-    return methods;
-}
 // Every call uses the production client and its actual JSON parser. Only fetch
 // is intercepted, before any network effect, in this process-isolated test file.
-function fixture(envelope: (method: string, body: any, attempt: number) => unknown | Promise<unknown>) {
+function fixture(envelope: (method: string, body: any, attempt: number) => unknown | Promise<unknown>, captureAt = at) {
+    const at = captureAt;
     const directory = mkdtempSync(join(tmpdir(), 'telegram-envelope-')), store = new Store(':memory:'), queue = new Queue(store);
     const control = new ApplicationControl(store, queue), telegram = new Telegram(store, control, directory), turns = new TelegramTurns(store, queue);
+    const unsolicited = unsolicitedFixture(store);
     const originalFetch = globalThis.fetch, calls: {method: string; body: any}[] = [];
     writeFileSync(telegram.tokenPath, 'offline-fixture-never-a-token', {mode:0o600});
     globalThis.fetch = async (input, options) => {
         const url = new URL(String(input)); assert.equal(url.origin, 'https://api.telegram.org'); assert.equal(options?.method, 'POST');
         const method = url.pathname.split('/').at(-1)!, body = options!.body instanceof FormData ? options!.body : JSON.parse(String(options!.body));
-        calls.push({method,body}); const result = await envelope(method, body, calls.length);
+        const acknowledgement = await unsolicited.acknowledge(method, body);
+        let result: unknown;
+        if (acknowledgement) result = {ok:true,result:acknowledgement};
+        else { calls.push({method,body}); result = await envelope(method, body, calls.length); }
         return new Response(JSON.stringify(result), {status:200,headers:{'content-type':'application/json'}});
     };
     store.set('bootstrapReady',true); store.set('telegramConfigured',true);
-    store.set('telegramBinding',{generation:'envelope-owner',chatId:42,userId:42,since:new Date(Date.parse(at)-60000).toISOString()});
-    return {store,telegram,calls,complete(answer='# Dati pubblici\n\n- Ricevuta esatta 😀') {
+    store.set('telegramBinding',{generation:'envelope-owner',chatId:42,userId:42,since:new Date(Math.min(Date.parse(at),Date.now())-60000).toISOString()});
+    return {unsolicited,store,telegram,calls,complete(answer='# Dati pubblici\n\n- Ricevuta esatta 😀') {
         const job=control.admit('envelope','Spiega i dati pubblici','telegram'); turns.attach(job,'envelope-owner',42);store.set('jobTelegramGeneration:'+job.id,'envelope-owner');
         const claimed=queue.claim('coordinator','envelope-test',at)!;queue.finish(job.id,claimed.run_token!,'completed',{answer},at);turns.finalize(job.id,'completed');telegram.capture(at);return 'answer:'+job.id;
-    },close(){globalThis.fetch=originalFetch;telegram.stop();store.close();rmSync(directory,{recursive:true,force:true});}};
+    },close(){unsolicited.verify();globalThis.fetch=originalFetch;telegram.stop();store.close();rmSync(directory,{recursive:true,force:true});}};
 }
 
 const malformed: [string,unknown][] = [
@@ -59,7 +51,7 @@ for (const [name,envelope] of malformed) for (const attempts of [0,4]) test('pro
         assert.equal(row.status,'uncertain');assert.equal(row.attempts,attempts+1);assert.equal(row.message_id,null);assert.match(row.error,/Delivery uncertain/);
         assert.equal(f.store.get('telegramRichFinalFallback:'+event),undefined);assert.equal(f.store.get('telegramRateLimitUntil'),undefined);
         f.telegram.recover();f.telegram.capture(at);await f.telegram.deliver(new Date(Date.parse(at)+1000000).toISOString());
-        assert.deepEqual(await responseMethods(f.calls,f.store),['sendRichMessage']);assert.deepEqual(f.store.one('SELECT * FROM telegram_outbox WHERE event_id=?',event),row);assert.equal(f.store.one('SELECT value FROM meta WHERE key=?','telegramRichFinal:'+event).value,composition);
+        assert.deepEqual(f.calls.map(c=>c.method),['sendRichMessage']);assert.deepEqual(f.store.one('SELECT * FROM telegram_outbox WHERE event_id=?',event),row);assert.equal(f.store.one('SELECT value FROM meta WHERE key=?','telegramRichFinal:'+event).value,composition);
     }finally{f.close();}
 });
 
@@ -100,4 +92,65 @@ for(const malformedFifth of [{error_code:400},{ok:'false',result:{message_id:35}
         const row=f.store.one('SELECT status,attempts,message_id FROM telegram_outbox WHERE event_id=?',event);assert.equal(row.status,'uncertain');assert.equal(row.attempts,5);assert.equal(row.message_id,null);assert.equal(f.store.get('telegramRichFinalFallback:'+event),undefined);
         f.telegram.recover();await f.telegram.deliver(new Date(Date.parse(at)+1000000).toISOString());assert.deepEqual(f.calls.map(c=>c.method),Array(5).fill('sendRichMessage'));
     }finally{f.close();}
+});
+
+
+test('unsolicited digest correlation rejects lookalikes and requires its exact persisted destination and Rome day', async () => {
+    const store = new Store(':memory:'), unsolicited = unsolicitedFixture(store), date = '2030-01-15T08:00:00.000Z';
+    try {
+        store.set('telegramBinding', {generation:'fixture-owner',chatId:42});
+        const text = 'Riepilogo <dato> 😀', event = 'digest:2030-01-15', body = {chat_id:42,text:telegramHtml(text),parse_mode:'HTML'};
+        store.run("INSERT INTO telegram_outbox(event_id,created_at,kind,text,generation,status,attempts) VALUES(?,?,?,?,?,'sending',1)", event,date,'digest',text,'fixture-owner');
+        for (const [method, changed] of [['sendRichMessage',body],['sendMessage',{...body,chat_id:43}],['sendMessage',{...body,text:text}],['sendMessage',{...body,parse_mode:'Markdown'}]] as const)
+            assert.equal(await unsolicited.acknowledge(method,changed),undefined);
+        for (const [field,value] of [['kind','reply'],['event_id','digest:2030-01-16'],['generation','other-owner'],['status','pending'],['created_at','2030-01-15T07:00:00.000Z']] as const) {
+            const before = store.one('SELECT * FROM telegram_outbox WHERE event_id=?',event);
+            store.run(`UPDATE telegram_outbox SET ${field}=? WHERE event_id=?`,value,event);
+            assert.equal(await unsolicited.acknowledge('sendMessage',body),undefined);
+            store.run(`UPDATE telegram_outbox SET ${field}=?`,before[field]);
+        }
+        assert.equal(unsolicited.calls.length,0);
+        const acknowledgement = await unsolicited.acknowledge('sendMessage',body);
+        assert.ok(acknowledgement); assert.equal(unsolicited.calls.length,1);
+        store.run("UPDATE telegram_outbox SET status='sent',message_id=? WHERE event_id=?",acknowledgement.message_id,event);
+        unsolicited.verify(); assert.equal(await unsolicited.acknowledge('sendMessage',body),undefined);
+    } finally {store.close();}
+});
+
+test('unsolicited scanner correlation requires the immutable receipt, exact bytes and destination', async () => {
+    const store = new Store(':memory:'), unsolicited = unsolicitedFixture(store), issueId = '0123456789abcdef', event = 'advisory:'+issueId+':1';
+    const content = 'Prompt consultivo verificato 😀', filename = 'satssurge-'+issueId+'-r1.txt';
+    const artifact = {issueId,revision:1,requestLink:event,filename,content,checksum:hash(content),generation:'fixture-owner',chatId:42};
+    const form = (text=content, chat='42', name=filename) => {const body=new FormData();body.set('chat_id',chat);body.set('caption',content);body.set('document',new Blob([text]),name);return body;};
+    try {
+        store.set('telegramBinding',{generation:'fixture-owner',chatId:42});
+        store.run("INSERT INTO telegram_outbox(event_id,created_at,kind,text,generation,status,attempts) VALUES(?,?,?,?,?,'sending',1)",event,'2030-01-15T08:00:00.000Z','advisory',content,'fixture-owner');
+        assert.equal(await unsolicited.acknowledge('sendDocument',form()),undefined);
+        store.set('runtimeArtifact:'+event,artifact);
+        for (const body of [form(content+' changed'),form(content,'43'),form(content,'42','satssurge-response-0123456789abcdef.txt')])
+            assert.equal(await unsolicited.acknowledge('sendDocument',body),undefined);
+        for (const changes of [{generation:'other-owner'},{chatId:43},{requestLink:'advisory:other:1'},{checksum:hash('changed')},{revision:2}]) {
+            store.set('runtimeArtifact:'+event,{...artifact,...changes});
+            assert.equal(await unsolicited.acknowledge('sendDocument',form()),undefined);
+        }
+        store.set('runtimeArtifact:'+event,artifact); assert.equal(unsolicited.calls.length,0);
+        const acknowledgement=await unsolicited.acknowledge('sendDocument',form()); assert.ok(acknowledgement);
+        store.run("UPDATE telegram_outbox SET status='sent',message_id=? WHERE event_id=?",acknowledgement.message_id,event); unsolicited.verify();
+    } finally {store.close();}
+});
+
+test('after 09 Rome digest ACK remains separate from four denials and the uncertain fifth scenario attempt', async () => {
+    const captureAt='2030-01-15T08:00:00.000Z', seen:number[]=[], clock=Date.now;
+    const f=fixture((_method,_body,attempt)=>{seen.push(attempt);return attempt<=4?{ok:false,error_code:403}:{ok:'false',result:{message_id:35}};},captureAt);
+    try {
+        const event=f.complete();
+        for(const seconds of [0,3,8,17,34])await f.telegram.deliver(new Date(Date.parse(captureAt)+seconds*1000).toISOString());
+        assert.deepEqual(seen,[1,2,3,4,5]); assert.deepEqual(f.calls.map(c=>c.method),Array(5).fill('sendRichMessage'));
+        assert.deepEqual(f.unsolicited.calls.map(c=>[c.method,c.eventId]),[['sendMessage','digest:2030-01-15']]);
+        f.unsolicited.verify();
+        const before=f.store.one('SELECT * FROM telegram_outbox WHERE event_id=?',event);
+        assert.equal(before.status,'uncertain');assert.equal(before.attempts,5);assert.equal(before.message_id,null);
+        f.telegram.recover();f.telegram.capture(captureAt);await f.telegram.deliver('2030-01-15T09:00:00.000Z');
+        assert.deepEqual(f.store.one('SELECT * FROM telegram_outbox WHERE event_id=?',event),before);assert.deepEqual(seen,[1,2,3,4,5]);assert.equal(Date.now,clock);
+    } finally {f.close();}
 });
