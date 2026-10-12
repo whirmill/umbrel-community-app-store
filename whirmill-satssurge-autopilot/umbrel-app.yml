@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.13"
+version: "0.5.14"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for Lightning fee experiments and circular rebalances, using
@@ -31,14 +31,15 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.13 adds bounded native gRPC history and stream collection,
-  provenance, explicit coverage gaps and unified read-only consumers. Schema 7
-  preserves all 19 original legacy tables in immutable archives before migration;
-  research continuation survives refresh and reopening. Native protected-control
-  checks preserve suspension when evidence is unknown. Pi Durable, Pi AI and
-  Chord remain 1.1.0; OAuth, original identifiers and financial receipts remain
-  preserved. The release uses an immutable amd64/arm64 image index. Live migration,
-  semantic parity, protected-control and web/Telegram acceptance are separate
-  qualification steps; coverage remains partial. Autonomy stays suspended under
-  the existing maintenance claim, mandate, budgets and reserve. M3 completion,
-  agent-generated HTML/DLS exports and optional integrations remain pending.
+  Version 0.5.14 adds scoped, protected controls for Lightning Mate, LNDg,
+  Lightning Terminal and Alby Hub, using a sanitized read-only directory. Missing,
+  stale or incomplete evidence holds financial execution while native collection,
+  reconciliation, diagnostics and owner read-only tools continue. Schema 7
+  preserves all 19 original legacy tables in immutable archives. Pi Durable,
+  Pi AI and Chord remain 1.1.0; OAuth, original identifiers and financial receipts
+  remain preserved. Agent-generated HTML/DLS source is present with its feature
+  disabled pending M3 acceptance and separate rendering/attachment qualification.
+  The image index is immutable for amd64 and arm64. Live migration, semantic
+  parity, protected controls and web/Telegram acceptance remain separate gates.
+  Autonomy stays suspended under the original claim, mandate, budgets and reserve.
+  M3 completion, actual rendering/exports and optional integrations remain pending.
