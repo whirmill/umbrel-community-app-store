@@ -1352,6 +1352,11 @@ export function App() {
                     <p>Ispezione: {status.lndTransport?.inspectedAt ?? "Non disponibile"}.</p>
                     <Json value={status.lndTransport} label="Dettagli pubblici TLS" />
                   </Panel>
+                  {status.appControlProof && <Panel title="Controlli delle app" sub="Verifica separata per quattro app. Le automazioni esterne a questo ambito restano sconosciute.">
+                    <p>Raccolta e letture native: {status.operationalReadiness?.ready ? "disponibili" : "da verificare"}. Operazioni finanziarie: sospese.</p>
+                    {status.appControlProof.apps?.map((app: any) => <p key={app.id}>{app.id}: {app.state === "verified_absent" ? "assenza verificata" : app.state === "installed_disabled" ? "automazioni disabilitate e verificate" : "stato sconosciuto"}.</p>)}
+                    <p>Acquisizione: {status.appControlProof.at ?? "non disponibile"}. Un risultato sconosciuto non autorizza la sostituzione dell’app.</p>
+                  </Panel>}
                   <div className="two-columns">
                     <Panel
                       title="Diagnostica delle rotte"

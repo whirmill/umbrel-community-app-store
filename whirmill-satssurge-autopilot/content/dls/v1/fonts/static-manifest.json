@@ -1,0 +1,34 @@
+[
+  {
+    "file": "Manrope-700.ttf",
+    "derivedFrom": "Manrope.ttf",
+    "sourceSha256": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6",
+    "axes": {
+      "wght": 700
+    },
+    "generator": "fontTools 4.63.0 instantiateVariableFont",
+    "sha256": "f9696798e2d82d52207ac00c4462bc86999d371ab87401db4067feb3def4d27b"
+  },
+  {
+    "file": "DMSans-400.ttf",
+    "derivedFrom": "DMSans.ttf",
+    "sourceSha256": "8cd08d97e89c24d0aa92edd2f0f4c8ee6195eee9b7c9f154865a58b02f0c1c0d",
+    "axes": {
+      "opsz": 9.0,
+      "wght": 400
+    },
+    "generator": "fontTools 4.63.0 instantiateVariableFont",
+    "sha256": "8d1faea152c356d6f6135233f6676b6d3d44b4153e6937f03e9c74a8978a0e2b"
+  },
+  {
+    "file": "DMSans-700.ttf",
+    "derivedFrom": "DMSans.ttf",
+    "sourceSha256": "8cd08d97e89c24d0aa92edd2f0f4c8ee6195eee9b7c9f154865a58b02f0c1c0d",
+    "axes": {
+      "opsz": 9.0,
+      "wght": 700
+    },
+    "generator": "fontTools 4.63.0 instantiateVariableFont",
+    "sha256": "258c181dff27a230c87310fd22f55152c07d50a9cc92b01daa767da9c4ffea7b"
+  }
+]

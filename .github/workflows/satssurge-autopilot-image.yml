@@ -20,6 +20,12 @@ jobs:
       - name: Verify host diagnostic adapter
         working-directory: whirmill-satssurge-autopilot
         run: python3 -m unittest discover -s scripts/tests -v
+      - name: Verify disabled content renderer policy
+        working-directory: whirmill-satssurge-autopilot/renderer
+        run: npm ci --ignore-scripts && npm test
+      - name: Verify content renderer isolation fixtures
+        working-directory: whirmill-satssurge-autopilot/renderer
+        run: python3 -m unittest discover -s tests -v
       - name: Verify one-time current-data cutover operators
         run: |
           operator_fixture_tmp="$(mktemp -d "$RUNNER_TEMP/satssurge-operators.XXXXXX")"

@@ -1,0 +1,17 @@
+/* SatsSurge DLS 1.0.0: static print-first; no external resources. */
+:root { --ink:#111113; --muted:#52525b; --paper:#ffffff; --surface:#f4f4f5; --line:#d4d4d8; --brand:#1d4ed8; --positive:#166534; --warning:#854d0e; --negative:#991b1b; --unknown:#52525b; }
+@page { size:A4; margin:18mm 16mm 19mm; @bottom-left { content:"SatsSurge · DLS 1.0.0"; font-family:"DM Sans"; font-size:8pt; color:#52525b; } @bottom-right { content:counter(page) " / " counter(pages); font-family:"DM Sans"; font-size:8pt; color:#52525b; } }
+html { background:#fff; color:#111113; font-family:"DM Sans", sans-serif; font-size:10pt; line-height:1.5; }
+body { margin:0; }
+h1,h2,h3,.kpi-value { font-family:Manrope,sans-serif; font-weight:700; line-height:1.2; }
+h1 { font-size:25pt; margin:0 0 12pt; letter-spacing:-.4pt; } h2 { font-size:16pt; margin:24pt 0 8pt; break-after:avoid; } h3 { font-size:12pt; margin:16pt 0 6pt; break-after:avoid; }
+p { margin:0 0 8pt; } .eyebrow { color:#1d4ed8; font-size:9pt; font-weight:700; letter-spacing:.8pt; text-transform:uppercase; }
+.metadata,.provenance,.muted { color:#52525b; font-size:9pt; } .provenance { margin-top:12pt; border-top:1pt solid #d4d4d8; padding-top:8pt; }
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:12pt; } .grid-three { grid-template-columns:1fr 1fr 1fr; }
+.card,.kpi { border:1pt solid #d4d4d8; background:#f4f4f5; border-radius:6pt; padding:12pt; break-inside:avoid; }
+.kpi-value { font-size:22pt; font-variant-numeric:tabular-nums; margin:4pt 0; } .kpi-label { color:#52525b; font-size:9pt; }
+.positive { color:#166534; } .warning { color:#854d0e; } .negative { color:#991b1b; } .unknown { color:#52525b; }
+.notice { border-left:3pt solid #854d0e; padding:8pt 12pt; background:#fef9c3; break-inside:avoid; } .notice.negative { border-color:#991b1b; background:#fee2e2; }
+table { width:100%; border-collapse:collapse; table-layout:fixed; margin:12pt 0; font-size:9pt; } thead { display:table-header-group; } th { text-align:left; background:#f4f4f5; font-weight:700; } th,td { padding:7pt 6pt; border-bottom:.75pt solid #d4d4d8; vertical-align:top; overflow-wrap:anywhere; } tr { break-inside:avoid; } .number { text-align:right; font-variant-numeric:tabular-nums; }
+svg { max-width:100%; height:auto; } figure { margin:12pt 0; break-inside:avoid; } figcaption,.legend { font-size:9pt; color:#52525b; }
+.label { overflow-wrap:anywhere; } .page-break { break-before:page; } .keep { break-inside:avoid; } ul,ol { padding-left:18pt; } li { margin:0 0 4pt; } code { font-family:"DM Sans",sans-serif; font-size:8pt; overflow-wrap:anywhere; }

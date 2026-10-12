@@ -1,0 +1,28 @@
+# Development/qualification override only. Catalogue image remains 0.5.13.
+# Publication owner replaces build with the verified immutable renderer image.
+services:
+  server:
+    environment:
+      CONTENT_JOBS_DIR: /content-jobs
+    volumes:
+      - ${APP_DATA_DIR}/content-jobs:/content-jobs
+  content_renderer:
+    profiles: [content-artifacts]
+    build:
+      context: .
+      dockerfile: renderer/Dockerfile
+    restart: on-failure
+    init: true
+    user: "1000:1000"
+    network_mode: none
+    volumes:
+      - ${APP_DATA_DIR}/content-jobs:/content-jobs
+    read_only: true
+    tmpfs:
+      - /tmp:size=192m,mode=1777,noexec,nosuid,nodev
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 768m
+    cpus: 1
+    stop_grace_period: 5s

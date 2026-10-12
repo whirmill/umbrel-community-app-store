@@ -1,3 +1,4 @@
+import {scopedAppControls} from './app-controls.js';
 import {migrateCanonical,validateCanonical,LEGACY_TABLES,archiveOriginal} from './canonical-migration.js';
 import {CanonicalRuntime} from './canonical-runtime.js';
 import {canonicalRead,unifiedDiagnostics,indexDiagnosticCapture} from './canonical-consumers.js';
@@ -165,6 +166,8 @@ export class Store {
     return { cumulativeMsat:cumulative.toString(), dailyMsat:daily.toString(), exploratoryMsat:exploratory.toString(), remainingMsat:(integer(MANDATE.totalMsat)-cumulative).toString(), coverageComplete:this.get('historicalCoverageComplete')===true };
   }
   assertDispatchReady(at=now()) {
+    if(this.get('interlockContract')!==undefined&&this.get('interlockContract')?.schema!==2)throw new Error('Unsupported protected automation interlock');
+    if(scopedAppControls(this))throw new Error('Owner-wide standalone automation unknown in scoped app-controls mode');
     if(this.get('maintenanceClaim'))throw new Error('Financial execution suspended for maintenance');
     if(this.get('integrityBlocker'))throw new Error('Financial integrity review required');
     if(this.get('enabled')!==true)throw new Error('Autonomy paused');
@@ -269,7 +272,7 @@ export class Store {
       let revenue=0n,cost=0n; for(const r of rows){ if(r.classification==='expense')cost+=integer(r.amount_msat); if(r.classification==='revenue')revenue+=integer(r.amount_msat); }
       return {revenueMsat:revenue.toString(),costMsat:cost.toString(),netMsat:(revenue-cost).toString()};
     };
-    return {enabled:this.get('enabled'),bootstrapReady:this.get('bootstrapReady')??false,blockers:this.get('blockers')??[],mandate:MANDATE,budget:this.budget(),snapshot:this.get('snapshot')??null,
+    return {appControlProof:this.get('appControlProof')??null,operationalReadiness:this.get('operationalReadiness')??null,enabled:this.get('enabled'),bootstrapReady:this.get('bootstrapReady')??false,blockers:this.get('blockers')??[],mandate:MANDATE,budget:this.budget(),snapshot:this.get('snapshot')??null,
       canonical:canonicalRead(this,{limit:100}),canonicalArchive:this.canonical.summary(),nativeCollection:this.get('nativeCollection')??null,diagnostics:unifiedDiagnostics(this),competition:this.get('competition')??null,pnl30:sums(ledger.filter(r=>r.at>=since)),cumulative:sums(ledger),partial:this.get('historicalCoverageComplete')!==true || !ledger.some(r=>r.classification==='expense'&&JSON.parse(r.details).scope==='subscription') || accountingPartition(ledger,this.all('SELECT * FROM ledger_annotations')).unassignedCosts,
       accounting:accountingPartition(ledger,this.all('SELECT * FROM ledger_annotations')),
       accounting30:accountingPartition(ledger.filter(r=>r.at>=since),this.all('SELECT * FROM ledger_annotations')),

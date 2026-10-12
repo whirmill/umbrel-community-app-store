@@ -1,3 +1,5 @@
+import { ContentGeneration, type ContentFormat, type ContentSnapshot } from './content-generation.js';
+import { contentTools } from './content-tools.js';
 import {classifyNativeProviderError,failureCooldownMs,type ProviderFailure,type ProviderFailureKind} from './provider-failures.js';
 import { RuntimeImprovements } from './runtime-improvements.js';
 import {TelegramTurns, type Correction} from './telegram-turns.js';
@@ -72,6 +74,7 @@ const ProposalSchema = Type.Object({
 function usageDelta(value:any,baseline:any):any{return typeof value==='number'?Math.max(0,value-(typeof baseline==='number'?baseline:0)):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,v])=>[key,usageDelta(v,baseline?.[key])])):value;}
 class TerminalModelFailure extends Error { constructor(readonly failure:ProviderFailure){super('Model unavailable; original submission terminal, no automatic replay');} }
 export class Agent {
+  readonly content: ContentGeneration;
   readonly credentials: Credentials;
   readonly models;
   private harness?: Harness;
@@ -100,7 +103,10 @@ export class Agent {
     private directory: string,
     private queue: Queue,
     private providerBoundary?: ReturnType<typeof openaiProvider>,
+    private contentAdmission?: (job: Job) => { format:ContentFormat; snapshot:ContentSnapshot } | undefined,
+    contentDirectory = directory + "/content-jobs",
   ) {
+    this.content = new ContentGeneration(store, contentDirectory);
     this.views=new EvidenceViews(Date.now,900000,4*1024*1024,16*1024*1024,store);
     this.cooldown = store.get<number>("modelUnavailableUntil") ?? 0;
     this.credentials = new Credentials(directory + "/oauth.sqlite");
@@ -384,6 +390,15 @@ export class Agent {
           self.evidenceTimes.set(current()!.job.id, times.slice(-64));
         }
       };
+      const exportTools = contentTools(self.content, conversationId => {
+        limit(Number(conversationId));
+        if (exhausted()) throw Error('Content budget exhausted');
+        const owned = current()!.job;
+        const request = self.contentAdmission?.(owned);
+        if (!request) throw Error('Explicit authorized content request required');
+        const grant=self.content.admit(owned.id, request.format, request.snapshot);
+        self.content.call(grant);return grant;
+      }, label);
       const state = defineTool({
         name: "node_state" + label,
         description:
@@ -735,6 +750,7 @@ export class Agent {
             detail,
             runtimeEvidence,
             runtimeReport,
+            ...(self.store.get('contentArtifactsEnabled')===true?exportTools:[]),
             proposals,
             manualProposal,
             execute,
@@ -785,6 +801,7 @@ export class Agent {
             detail,
             runtimeEvidence,
             runtimeReport,
+            ...(self.store.get('contentArtifactsEnabled')===true?exportTools:[]),
             propose,
           ],
         });
@@ -1168,7 +1185,7 @@ export class Agent {
               slot === undefined ? "satssurge" : "satssurge-analyst-" + slot,
           },
         ],
-        instructions,
+        instructions: instructions + (this.store.get('contentAuthorizedRequest:'+job.id)? ` This owner requested an export: call content_snapshot${slot===undefined?'':'_analyst_'+slot} to read its immutable authorized data, output profile and DLS. For PDF/PNG compose HTML following the DLS and call create_content_artifact; for CSV/XLSX omit HTML and export the supplied table directly. Content and attachment tools grant no financial authority. Reuse recorded revision for retries, regenerate only explicitly linked bounded revisions. Include source timestamp and coverage; never raw private payloads, credentials or invented completeness.` : ''),
       };
       if (!conversation) {
         // Pi-side creation+binding is one commit. App DB retries rediscover this receipt
