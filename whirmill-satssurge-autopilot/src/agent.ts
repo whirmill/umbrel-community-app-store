@@ -8,7 +8,7 @@ import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { FollowUps } from "./follow-up.js";
 import { evidenceSource } from "./evidence-source.js";
 import { ReviewWaits } from "./review-waits.js";
-import { EvidenceViews } from "./evidence-views.js";
+import { EvidenceViews,boundedEvidenceEnvelope } from "./evidence-views.js";
 import { RunBudget } from "./run-budget.js";
 import { analystFeed, provenance } from "./analysis-feed.js";
 import { summaryDelta, summaryPrefix } from "./public-reasoning.js";
@@ -412,7 +412,7 @@ export class Agent {
           offset: Type.Optional(Type.Integer({ minimum: 0 })),
           version: Type.Optional(Type.String()),
           provider: Type.Optional(
-            Type.Union([Type.Literal("lndg"), Type.Literal("lightningMate")]),
+            Type.Union([Type.Literal("lndg"), Type.Literal("lightningMate"), Type.Literal("native")]),
           ),
           collection: Type.Optional(
             Type.Union([
@@ -420,10 +420,13 @@ export class Agent {
               Type.Literal("failures"),
               Type.Literal("failureRollups"),
               Type.Literal("rebalances"),
+              Type.Literal("paymentAttempts"),
+              Type.Literal("policies"),
             ]),
           ),
           channel: Type.Optional(Type.String()),
           cursor: Type.Optional(Type.String()),
+          sourceCursor: Type.Optional(Type.String()),
           source: Type.Optional(Type.String()),
           target: Type.Optional(Type.String()),
           start: Type.Optional(Type.String()),
@@ -440,12 +443,12 @@ export class Agent {
             query.cursor ? {} : evidenceSource(self.store, query),
             query,
           );
-          if((page as any).nextCall)(page as any).nextCall.tool='state_page'+label;
-          new Research(self.store).page(current()!.job,query,page);
+          const envelope=boundedEvidenceEnvelope(page,current()!.budget.status(),label);
+          new Research(self.store).page(current()!.job,query,envelope.page);
           observed(
             (page as any).metadata?.capturedAt ?? (page as any).metadata?.at,
           );
-          return result({ ...page, runBudget: current()!.budget.status() });
+          return envelope.result;
         },
       });
       const release = defineTool({
@@ -513,6 +516,7 @@ export class Agent {
           start: Type.Optional(Type.String()),
           end: Type.Optional(Type.String()),
           cursor: Type.Optional(Type.String()),
+          sourceCursor: Type.Optional(Type.String()),
           offset: Type.Optional(Type.Integer({ minimum: 0 })),
         }),
         replay: "safe",

@@ -4,8 +4,18 @@ import { Store } from './store.js';
 import { Queue,type Job } from './queue.js';
 import { hash,json,now } from './domain.js';
 import {normalizeEvidenceQuery,type EvidenceQuery } from './evidence-views.js';
-export const REQUIRED_RESEARCH=['state_budget','channels','coverage','manual_events','policy_events','diagnostics:lndg:forwards','diagnostics:lndg:failures','diagnostics:lightningMate:forwards','diagnostics:lightningMate:failures','competition','alternatives'] as const;
+export const REQUIRED_RESEARCH=['state_budget','channels','coverage','manual_events','policy_events','diagnostics:lndg:forwards','diagnostics:lndg:failures','diagnostics:lndg:failureRollups','diagnostics:lndg:rebalances','diagnostics:lightningMate:rebalances','diagnostics:lightningMate:failures','competition','alternatives'] as const;
 type Progress={query:any;version:string|null;offset:number;total:number|null;done:boolean;available:boolean;reason:string|null};
+function queryScope(q:EvidenceQuery){const {cursor,sourceCursor,offset,version,...scope}=normalizeEvidenceQuery(q);return scope;}
+const scopeDigest=(q:EvidenceQuery)=>hash(json(Object.fromEntries(Object.entries(queryScope(q)).sort(([a],[b])=>a.localeCompare(b)))));
+/** An unavailable lookup may continue only its exact normalized scope and emitted source position. */
+function admittedLookupNext(q:EvidenceQuery,page:any){
+ const next=page.nextCall;if(!next||typeof next.tool!=='string'||!/^state_page(?:_[a-zA-Z0-9_]+)?$/.test(next.tool)||!next.query||scopeDigest(next.query)!==scopeDigest(q)||next.query.cursor||next.query.version||(next.query.offset??0)!==0)throw Error('Invalid archive lookup continuation scope');
+ const token=next.query.sourceCursor;if(typeof token!=='string'||!token||token.length>2048)throw Error('Invalid archive lookup continuation');
+ let source:any;try{source=JSON.parse(Buffer.from(token,'base64url').toString());}catch{throw Error('Invalid archive lookup continuation');}
+ if(source.scopeHash!==scopeDigest(q)||source.after!==0||source.through!==0||json(source.lookupProgress)!==json(page.lookupProgress)||!Number.isSafeInteger(page.lookupProgress?.before)||!Number.isSafeInteger(page.lookupProgress?.through)||page.lookupProgress.before<0||page.lookupProgress.through<page.lookupProgress.before)throw Error('Invalid archive lookup continuation position');
+ return {tool:next.tool,query:normalizeEvidenceQuery(next.query)};
+}
 export class Research {
  constructor(private store:Store){}
  get(jobId:string):any{return this.store.get('research:'+jobId);}
@@ -16,6 +26,7 @@ export class Research {
    {researchId:job.id,revisionId:hash(job.id+':'+job.snapshot_at),segmentIndex:0,parentReceipt:null,start:new Date(Date.parse(job.created_at)-30*86400000).toISOString(),end:job.created_at,sections:{},progress:0,calls:0,segmentStartProgress:0,segmentStartCalls:0};
   if(!r.required){
     r.required=[...REQUIRED_RESEARCH];
+    if(this.store.get('nativeCollection')?.ok===true)r.required.push('canonical_history','diagnostics:native:forwards','diagnostics:native:failures','diagnostics:native:paymentAttempts','diagnostics:native:policies','diagnostics:native:rebalances');
     if(job.scope.includes('->'))try{const scoped=job.scope.split('->').map(channelScid).join('->');r.required=r.required.map((k:string)=>['manual_events','policy_events'].includes(k)?k+':'+scoped:k);}catch{}
     const channels=this.store.get<any>('snapshot')?.channels??[];
     let corridors=job.scope.includes('->')?[job.scope]:this.store.all("SELECT DISTINCT source,target FROM events WHERE type='external_forward'").map(x=>x.source+'->'+x.target);
@@ -37,13 +48,21 @@ export class Research {
   const r=this.initialize(job);let key:string=q.section==='diagnostics'?'diagnostics:'+q.provider+':'+q.collection:q.section;
   if(q.section==='competition_alternatives'&&q.channel)key+=':'+channelScid(q.channel);
   if(['corridor_events','manual_events','policy_events'].includes(q.section)&&q.source&&q.target)key+=':'+channelScid(q.source)+'->'+channelScid(q.target);
-  const {cursor,offset:queryOffset,version:queryVersion,...canonical}=normalizeEvidenceQuery(q);
-  const queryKey=hash(json(canonical));const previous:any=r.queries?.[queryKey];
+  const {cursor,sourceCursor,offset:queryOffset,version:queryVersion,...canonical}=normalizeEvidenceQuery(q);
+  const stableCanonical=Object.fromEntries(Object.entries(canonical).sort(([a],[b])=>a.localeCompare(b))),queryKey=hash(json(stableCanonical));const previous:any=r.queries?.[queryKey]??r.queries?.[hash(json(canonical))];
+  const pending=page.available!==true&&page.searching===true;
+  const lookupNext=pending&&!page.changed&&!page.expired&&!page.capacity?admittedLookupNext(q,page):null;
   const offset=page.available?(page.nextOffset??((page.offset??0)+(page.rows?.length??0))):0;
-  const signature=hash(json({query:canonical,version:page.version,offset,available:page.available,reason:page.available?null:page.note}));
+  const signature=hash(json({query:stableCanonical,version:page.version,offset,available:page.available,reason:page.available?null:page.note,...(pending?{lookupProgress:page.lookupProgress}:{} )}));
   r.calls++;
-  if(!page.changed&&!page.expired&&!page.capacity&&previous?.signature!==signature&&(!previous||page.version!==previous.version||offset>previous.offset))r.progress++;
-  const record={query:{...q,cursor:page.cursor},version:page.version??null,offset,total:page.total??null,done:page.available? !page.changed&&!page.restartOffset&&page.nextOffset===null:!page.expired&&!page.capacity&&!page.changed,available:page.available===true,coverageGap:page.metadata?.projectionLimits?.truncated===true||page.metadata?.captureComplete===false||page.metadata?.upstreamHistoryComplete===false,reason:page.available?null:page.note??'source unavailable',signature};
+  const record:any={query:{...q,cursor:page.cursor},version:page.version??null,offset,total:page.total??null,done:page.available? !page.changed&&!page.restartOffset&&page.nextOffset===null&&page.nextCall==null&&page.metadata?.projectionLimits?.truncated!==true:!pending&&!page.expired&&!page.capacity&&!page.changed,available:page.available===true,coverageGap:pending||page.metadata?.projectionLimits?.truncated===true||page.metadata?.captureComplete===false||page.metadata?.upstreamHistoryComplete===false,reason:page.available?null:page.note??'source unavailable',signature,lookupPending:pending,lookupProgress:pending?page.lookupProgress:null,nextCall:lookupNext};
+  const chunked=!!(pending||q.sourceCursor||page.metadata?.sourceNext||previous?.sourceCursor||previous?.expectedNextSourceCursor);
+  if(chunked){const current=q.sourceCursor??null,reopening=current===null&&(page.offset??0)===0&&!q.cursor,chainPrevious=reopening?null:previous,same=chainPrevious&&chainPrevious.sourceCursor===current,transition=chainPrevious&&chainPrevious.expectedNextSourceCursor===current&&current!==null;
+    const ordered=chainPrevious?(chainPrevious.lookupPending?transition&&(page.offset??0)===0||same&&pending&&json(page.lookupProgress)===json(chainPrevious.lookupProgress):(same?(page.offset??0)===chainPrevious.offset:transition&&(page.offset??0)===0)):current===null&&(page.offset??0)===0;
+    Object.assign(record,{sourceCursor:current,expectedNextSourceCursor:lookupNext?.query.sourceCursor??(page.nextOffset===null?page.metadata?.sourceNext??null:null),sourceChainQualified:ordered&&chainPrevious?.sourceChainQualified!==false,processedPreviousChunks:transition&&!chainPrevious.lookupPending?(previous.processedPreviousChunks??0)+1:previous?.processedPreviousChunks??0});
+    if(!ordered||chainPrevious?.sourceChainQualified===false){record.done=false;record.coverageGap=true;record.reason='Source chunks were not processed in their saved order';}
+  }
+  if(!page.changed&&!page.expired&&!page.capacity&&record.sourceChainQualified!==false&&previous?.signature!==signature&&(!previous||(page.version??null)!==previous.version||offset>previous.offset||pending&&json(page.lookupProgress)!==json(previous.lookupProgress)||previous.lookupPending&&!pending))r.progress++;
   r.queries??={};r.queries[queryKey]=record;
   const intervalRequired=['corridor_events','manual_events','policy_events','coverage'].includes(q.section);
   const fullInterval=!intervalRequired||(Date.parse(q.start??'')===Date.parse(r.start)&&Date.parse(q.end??'')===Date.parse(r.end));

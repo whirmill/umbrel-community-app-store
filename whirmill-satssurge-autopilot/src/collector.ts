@@ -1,5 +1,7 @@
-import { readFileSync } from 'node:fs';
+import {constants,openSync,fstatSync,readSync,closeSync} from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
+import {readInterlock,type InterlockContract} from './interlocks.js';
+import type {NativeCollection} from './native-collection.js';
 import { Store } from './store.js';
 import { now,hash,json,integer,type Snapshot } from './domain.js';
 import { readDiagnostics } from './diagnostics.js';
@@ -10,7 +12,9 @@ import type { NodeClient } from './lnd.js';
 
 /** Explicit config formats; unknown layouts fail closed, never mean OFF. */
 export function checkInterlocks(paths:{lightningMate:string;lndg:string}) {
-  const config=JSON.parse(readFileSync(paths.lightningMate,'utf8'));
+  let config:any;let fd:number|undefined;
+  try{fd=openSync(paths.lightningMate,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);const before=fstatSync(fd);if(!before.isFile()||before.nlink!==1||before.size>65536)throw Error('Invalid gate');const bytes=Buffer.alloc(65537);let length=0;while(length<bytes.length){const n=readSync(fd,bytes,length,bytes.length-length,null);if(!n)break;length+=n;}const after=fstatSync(fd);if(length>65536||before.size!==after.size||before.mtimeMs!==after.mtimeMs||before.ctimeMs!==after.ctimeMs)throw Error('Changed gate');config=JSON.parse(bytes.subarray(0,length).toString('utf8'));}catch{return {ok:false,at:now(),state:'unknown',reason:'Legacy automation projection unavailable'};}finally{if(fd!==undefined)closeSync(fd);}
+
   const keys=['fee','rebalance','channel','sell','autoclose','relist','reprice','size','maxHTLC'];
   // Deployment provides a reviewed projection of the live settings via a read-only gate file.
   if(config.schema!==1 || !Number.isFinite(Date.parse(config.at)) || Date.parse(config.at)>Date.now() || Date.now()-Date.parse(config.at)>90000 || keys.some(k=>config[k]!==false) || config.lsp!==false || config.lndgAF!==false || config.lndgAR!==false || config.lndgAutopilot!==false || config.loop!==false) return {ok:false,at:now(),reason:'Other automation settings unknown, enabled or stale'};
@@ -18,13 +22,13 @@ export function checkInterlocks(paths:{lightningMate:string;lndg:string}) {
 }
 export class Collector {
   busy=false;
-  constructor(private store:Store,private node:NodeClient,private executor:Executor,private gateFile:string){}
+  constructor(private store:Store,private node:NodeClient,private executor:Executor,private gateFile:string,private native?:NativeCollection){}
   async collect() {
     if(this.busy)return;this.busy=true;
     const recovered=this.node.beginCollection?.();
     try {
       this.persistTransport();
-      this.store.set('automationProof',checkInterlocks({lightningMate:this.gateFile,lndg:''}));
+      const contract=this.store.get<InterlockContract>('interlockContract');this.store.set('automationProof',contract?.schema===2?readInterlock(this.gateFile,Date.now,contract):checkInterlocks({lightningMate:this.gateFile,lndg:''}));
       await this.executor.reconcile();
       const s=await this.node.snapshot();if(s.identity!==this.store.get('expectedIdentity'))throw new Error('Node identity mismatch');const previous=this.store.get<Snapshot>('snapshot');
       for(const c of s.channels) {
@@ -75,6 +79,8 @@ export class Collector {
       });
       recovered?.();
       evaluate(this.store,end);this.store.retain();
+      await this.native?.tick();
+      this.store.set('collectionReadiness',{at:now(),operational:true,nativeObserved:this.store.get('nativeCollection')?.ok===true,financialAuthority:'unchanged',nativeParityQualified:false});
       const blockers:string[]=[];this.persistTransport();if(this.store.get('lndTransport')?.failure)blockers.push('Native LND TLS transport requires attention');if(this.store.get('integrityBlocker'))blockers.push(this.store.get<string>('integrityBlocker')!);
       if(this.store.get('importReport')?.problems?.length)blockers.push('Historical import discrepancies unresolved');
       if(!s.synced)blockers.push('LND not synchronized');

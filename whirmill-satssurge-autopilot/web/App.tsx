@@ -1,4 +1,5 @@
 import {TelegramSettings} from "./components/TelegramSettings";
+import {canonicalHistoryUrl,diagnosticCollectionCount} from '../src/ui-client';
 import {ResearchSummary} from './components/ResearchSummary';
 import {AccountingSectors} from './components/AccountingSectors';
 import { OwnerAccess } from "./components/OwnerAccess";
@@ -310,6 +311,11 @@ function ChatMessage() {
 }
 // The two diagnostic providers keep expansion across navigation independently of job pruning.
 const sourceExpansions = new Map<string, boolean>();
+function CanonicalHistory({initial,filter={},title='Cronologia LND e fonti conservate'}:{initial:any;filter?:{kind?:string;subtype?:string};title?:string}) {
+  const api=useContext(detailContext),[page,setPage]=useState(initial),[error,setError]=useState('');
+  return <Panel title={title} sub="Osservazioni con provenienza; copertura e sovrapposizioni restano esplicite."><Json value={page} label="Pagina della cronologia" />{page?.nextAfter!==null&&page?.nextAfter!==undefined&&<Button onClick={()=>{void api?.(canonicalHistoryUrl(page,filter)).then(setPage).catch(()=>setError('Pagina non disponibile.'));}}>Pagina successiva</Button>}{error&&<p>{error}</p>}</Panel>;
+}
+
 function SourceDetail({ provider, data }: { provider: string; data: any }) {
   const [open, setOpen] = useState(
     () => sourceExpansions.get(provider) ?? false,
@@ -330,6 +336,7 @@ function SourceDetail({ provider, data }: { provider: string; data: any }) {
           </p>
           <p>{data.coverage?.note}</p>
           <Json value={data} label="Evidenze della fonte" />
+          {provider==='native'&&(['failures','rebalances'] as const).map(collection=>Array.isArray(data[collection])&&<CanonicalHistory key={collection+data.collectionMetadata?.[collection]?.through} title={collection==='failures'?'Record di errore nativi':'Tentativi circolari conclusi'} initial={{...data.collectionMetadata?.[collection],rows:data[collection],sourceHistoryComplete:false,financialAuthority:false}} filter={collection==='failures'?{kind:'native_htlc',subtype:'failures'}:{kind:'payment_attempt',subtype:'circular_attempts'}} />)}
         </>
       )}
     />
@@ -1350,12 +1357,12 @@ export function App() {
                       title="Diagnostica delle rotte"
                       sub="HTLC, pagamenti e riepiloghi restano fonti distinte."
                     >
-                      {["lndg", "lightningMate"].map((name) => {
+                      {["lndg", "lightningMate", "native"].map((name) => {
                         const d = status.diagnostics?.[name];
                         return (
                           <article className="record" key={name}>
                             <h3>
-                              {name === "lndg" ? "LNDg" : "Lightning Mate"}{" "}
+                              {name === "lndg" ? "LNDg" : name === "native" ? "LND nativo" : "Lightning Mate"}{" "}
                               <Badge state={d?.status ?? "Non disponibile"} />
                             </h3>
                             {d?.status === "qualified" ? (
@@ -1364,18 +1371,18 @@ export function App() {
                                   <span>
                                     Record di errore
                                     <strong className="tone-danger">
-                                      {d.failures?.length ?? "Non disponibili"}
+                                      {diagnosticCollectionCount(d,'failures')}
                                     </strong>
                                   </span>
                                   <span>
                                     Rebalance nel log
                                     <strong>
-                                      {d.rebalances?.length ??
-                                        "Non disponibili"}
+                                      {diagnosticCollectionCount(d,'rebalances')}
                                     </strong>
                                   </span>
                                 </div>
                                 <p className="chart-note">
+                                  {Object.values(d.collectionMetadata ?? {}).some((c:any)=>c.projectionLimits?.truncated) ? 'Riepilogo limitato; altri record sono disponibili tramite la continuazione dei dettagli. ' : ''}
                                   Copertura{" "}
                                   {d.coverage?.complete
                                     ? "completa"
@@ -1399,6 +1406,7 @@ export function App() {
                       <FeeChart capture={status.competition} />
                     </Panel>
                   </div>
+                  <CanonicalHistory initial={status.canonical} />
                   <Panel title="Copertura e inizializzazione">
                     <Json
                       label="Collector, importazione e limiti osservati"
@@ -1408,6 +1416,9 @@ export function App() {
                         coverage: status.coverage,
                         import: status.importReport,
                         partialAccounting: status.partial,
+                        canonicalArchive: status.canonicalArchive,
+                        nativeCollection: status.nativeCollection,
+                        canonicalHistory: status.canonical,
                       }}
                     />
                   </Panel>

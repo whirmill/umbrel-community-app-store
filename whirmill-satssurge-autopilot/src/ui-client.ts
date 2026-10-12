@@ -1,3 +1,5 @@
+export function diagnosticCollectionCount(data:any,collection:string){const rows=data?.[collection];return Array.isArray(rows)?`${rows.length}${data.collectionMetadata?.[collection]?.projectionLimits?.truncated?'+':''}`:'Non disponibili';}
+export function canonicalHistoryUrl(page:{nextAfter?:number|null;through:number},filter:{kind?:string;subtype?:string}={}){const params=new URLSearchParams({after:String(page.nextAfter??0),through:String(page.through),limit:'100'});for(const [key,value] of Object.entries(filter))if(value!==undefined)params.set(key,value);return '/api/history/canonical?'+params.toString();}
 export type UiEvent = {
   id: number;
   job_id: string;

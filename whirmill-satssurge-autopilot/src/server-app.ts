@@ -10,6 +10,9 @@ import { readFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve, join, extname } from "node:path";
 import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
 import { Store } from "./store.js";
+import {NativeLndSource} from "./native-lnd-source.js";
+import {NativeCollection} from "./native-collection.js";
+import {canonicalRead} from "./canonical-consumers.js";
 import { Lnd } from "./lnd.js";
 import { Executor } from "./executor.js";
 import { Collector } from "./collector.js";
@@ -55,11 +58,15 @@ if (store.get("legacyChat") === undefined)
 let agent: Agent | undefined,
   collector: Collector | undefined,
   scheduler: Scheduler | undefined,
-  node: Lnd | undefined;
+  node: Lnd | undefined,
+  native: NativeCollection | undefined;
 const intervals: ReturnType<typeof setInterval>[] = [];
 const streamAbort = new AbortController();
 let closing = false;
 let streamRetry: ReturnType<typeof setTimeout> | undefined;
+let nativeRetry: ReturnType<typeof setTimeout> | undefined;
+let graphRetry: ReturnType<typeof setTimeout> | undefined;
+const nativeStreams=new Set<Promise<void>>();
 try {
   node = new Lnd(
     process.env.LND_GRPC_TARGET ?? "10.21.21.9:10009",
@@ -70,6 +77,10 @@ try {
   const expected = readFileSync("/credentials/node-pubkey", "utf8").trim();
   if (!/^[0-9a-f]{66}$/.test(expected)) throw new Error("Invalid node binding");
   store.set("expectedIdentity", expected);
+  const info:any=await node.nativeRead().getInfo(streamAbort.signal,{bodyBytes:1048576,deadlineMs:10000,frameBytes:262144,streamBytes:33554432,frames:100000,idleMs:30000});
+  if(info.identity_pubkey!==expected||!Array.isArray(info.chains)||info.chains.length!==1)throw new Error("Native source binding unavailable");
+  const source=new NativeLndSource({transport:node.nativeRead(),nodeId:expected,network:info.chains[0].network,chain:info.chains[0].chain,sourceVersion:info.version,sourceInstance:randomBytes(24).toString('hex')});
+  native=new NativeCollection(store,source);
   const executor = new Executor(store, node);
   control = new ApplicationControl(store, queue, executor);
   Object.assign(telegram, {control});
@@ -78,6 +89,7 @@ try {
     node,
     executor,
     process.env.INTERLOCK_FILE ?? "/interlock/status.json",
+    native,
   );
   agent = new Agent(store, executor, directory, queue);
   await agent.open();
@@ -97,6 +109,9 @@ try {
     if (!closing) streamRetry = setTimeout(() => void streamLoop(), 5000);
   };
   void streamLoop();
+  const nativeLoop=async(kind:'stream'|'graph')=>{try{await native![kind](streamAbort.signal);}catch{}if(!closing){const timer=setTimeout(()=>trackNative(kind),5000);if(kind==='graph')graphRetry=timer;else nativeRetry=timer;}};
+  function trackNative(kind:'stream'|'graph'){const pending=nativeLoop(kind);nativeStreams.add(pending);void pending.finally(()=>nativeStreams.delete(pending));}
+  trackNative('stream');trackNative('graph');
 } catch {
   store.set("bootstrapReady", false);
   store.set("blockers", [
@@ -272,6 +287,9 @@ const server = createServer(async (req, res) => {
         ),
       });
       return;
+    }
+    if (req.method === "GET" && url.pathname === "/api/history/canonical") {
+      const q:any={};for(const key of ['after','through','limit'])if(url.searchParams.has(key))q[key]=Number(url.searchParams.get(key));for(const key of ['kind','subtype','source','target','channel','start','end'])if(url.searchParams.has(key))q[key]=url.searchParams.get(key);send(canonicalRead(store,q));return;
     }
     if (req.method === "GET" && url.pathname === "/api/status") {
       send({
@@ -512,6 +530,9 @@ async function shutdown() {
   telegram.stop();
   for (const timer of intervals) clearInterval(timer);
   if (streamRetry) clearTimeout(streamRetry);
+  if (nativeRetry) clearTimeout(nativeRetry);
+  if (graphRetry) clearTimeout(graphRetry);
+  native?.shutdown();
   streamAbort.abort();
   let httpClosed = false;
   server.close(() => { httpClosed = true; });
@@ -522,17 +543,17 @@ async function shutdown() {
   });
   const deadline = Date.now() + 25000;
   const drained = (await scheduler?.drain(25000)) ?? true;
-  while ((collector?.busy || !httpClosed || activeRequests > 0) && Date.now() < deadline)
+  while ((collector?.busy || nativeStreams.size || !httpClosed || activeRequests > 0) && Date.now() < deadline)
     await new Promise((r) => setTimeout(r, 50));
   const httpDrained = httpClosed && activeRequests === 0;
   if (!httpDrained) server.closeAllConnections();
   store.set("shutdown", {
     at: now(),
     state:
-      drained && !collector?.busy && httpDrained ? "drained" : "restart_recovery_required",
+      drained && !collector?.busy && !nativeStreams.size && httpDrained ? "drained" : "restart_recovery_required",
     httpDrained,
   });
-  if (drained && !collector?.busy && httpDrained) await agent?.close();
+  if (drained && !collector?.busy && !nativeStreams.size && httpDrained) await agent?.close();
   node?.close();
   // SQLite FULL commits and durable operation receipts, not this exit status,
   // determine recovery. Never mark an uncertain financial operation failed.
