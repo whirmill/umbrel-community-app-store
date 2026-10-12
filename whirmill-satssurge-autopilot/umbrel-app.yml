@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.11"
+version: "0.5.12"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for Lightning fee experiments and circular rebalances, using
@@ -30,19 +30,22 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.11 corrects Telegram response composition: a stable preview by
-  default, a coherent partial prefix for long answers, and one bounded rich
-  final response. Oversize legacy replies preserve Unicode and natural text
-  boundaries. Explicit owner stream preferences and historical delivery
-  receipts are retained. Only a proven rich API rejection selects an exact
-  text attachment on a later bounded attempt; uncertain delivery is not replayed.
-  Exact-target Stop, owner/bot fences and shared rate limits remain intact.
-  Native LND gRPC with verified TLS, certificate diagnostics and the optional
-  public-certificate copy timer remain unchanged. The timer does not renew
-  certificates or restart the node. Application-owned lifecycle, current
-  three-database checkpoints, schema 6 and Pi Durable/Pi AI/Chord 1.1.0 remain.
-  Immutable amd64/arm64 images and isolated native qualification are complete;
-  0.5.11 Umbrel installation and actual Telegram Web acceptance remain pending.
-  Autonomy remains suspended under the existing maintenance claim. Mandate,
-  budgets and reserve are unchanged. Coverage remains partial, M2.3/M2.4 and
-  M3-M5 remain incomplete, and optional financial integrations remain disabled.
+  Version 0.5.12 preserves headings, paragraphs, lists and code in bounded
+  Telegram rich replies. The paired owner receives the current command menu
+  in both the default and Italian chat scopes; unrelated scopes are retained.
+  Production API acknowledgements require a boolean success field. Persistent
+  sends retry only proven, classified rejections; unknown outcomes remain
+  uncertain even on the fifth attempt. Historical intents and receipts retain
+  their original format and identity. Only a proven rich API rejection selects
+  an exact text attachment on a later bounded attempt.
+  Immutable amd64/arm64 images are published and qualified. Each architecture
+  passed 135 corrected external fixture cases, with 173 unchanged cases reused
+  by exact input and named outcome. The original bundled AMD run's 55 failures
+  came from daily digest traffic counted as scenario responses; that attempt
+  is preserved and the fixture isolation correction is published separately.
+  Native gRPC/TLS and unchanged lifecycle helper evidence remain qualified.
+  Application-owned shutdown and current three-database checkpoints, schema 6
+  and Pi Durable/Pi AI/Chord 1.1.0 remain. Installation and real-client layout,
+  menu and restart acceptance are pending. Autonomy stays suspended under the
+  existing maintenance claim; mandate, budgets and reserve are unchanged.
+  Coverage remains partial; core M2.3/M2.4 and M3-M5 remain incomplete.

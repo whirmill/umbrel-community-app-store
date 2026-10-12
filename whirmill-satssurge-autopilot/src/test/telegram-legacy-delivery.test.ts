@@ -9,6 +9,7 @@ import { ApplicationControl } from '../application-control.js';
 import { Telegram, telegramClean } from '../telegram.js';
 import { TelegramTurns } from '../telegram-turns.js';
 import { hash } from '../domain.js';
+import { unsolicitedFixture } from './telegram-unsolicited-fixture.js';
 
 const at = new Date().toISOString(), marker = 'telegramMenu:legacy-owner:null:ownerChatDefaultV1:42';
 // Every call uses the production client and its actual JSON parser. Only fetch
@@ -16,20 +17,24 @@ const at = new Date().toISOString(), marker = 'telegramMenu:legacy-owner:null:ow
 function fixture(envelope: (method: string, body: any, attempt: number) => unknown | Promise<unknown>) {
     const directory = mkdtempSync(join(tmpdir(), 'telegram-legacy-')), store = new Store(':memory:'), queue = new Queue(store);
     const control = new ApplicationControl(store, queue), telegram = new Telegram(store, control, directory), turns = new TelegramTurns(store, queue);
+    const unsolicited = unsolicitedFixture(store);
     const originalFetch = globalThis.fetch, calls: {method: string; body: any}[] = [];
     writeFileSync(telegram.tokenPath, 'offline-fixture-never-a-token', {mode:0o600});
     globalThis.fetch = async (input, options) => {
         const url = new URL(String(input)); assert.equal(url.origin, 'https://api.telegram.org'); assert.equal(options?.method, 'POST');
         const method = url.pathname.split('/').at(-1)!, body = options!.body instanceof FormData ? options!.body : JSON.parse(String(options!.body));
-        calls.push({method,body}); const result = await envelope(method, body, calls.length);
+        const acknowledgement = await unsolicited.acknowledge(method, body);
+        let result: unknown;
+        if (acknowledgement) result = {ok:true,result:acknowledgement};
+        else { calls.push({method,body}); result = await envelope(method, body, calls.length); }
         return new Response(JSON.stringify(result), {status:200,headers:{'content-type':'application/json'}});
     };
     store.set('bootstrapReady',true); store.set('telegramConfigured',true);
     store.set('telegramBinding',{generation:'legacy-owner',chatId:42,userId:42,since:new Date(Date.parse(at)-60000).toISOString()});
-    return {store,telegram,calls,complete(answer='# Dati pubblici\n\n- Ricevuta esatta 😀') {
+    return {unsolicited,store,telegram,calls,complete(answer='# Dati pubblici\n\n- Ricevuta esatta 😀') {
         const job=control.admit('legacy','Spiega i dati pubblici','telegram'); turns.attach(job,'legacy-owner',42);store.set('jobTelegramGeneration:'+job.id,'legacy-owner');
         const claimed=queue.claim('coordinator','envelope-test',at)!;queue.finish(job.id,claimed.run_token!,'completed',{answer},at);turns.finalize(job.id,'completed');telegram.capture(at);return 'answer:'+job.id;
-    },close(){globalThis.fetch=originalFetch;telegram.stop();store.close();rmSync(directory,{recursive:true,force:true});}};
+    },close(){unsolicited.verify();globalThis.fetch=originalFetch;telegram.stop();store.close();rmSync(directory,{recursive:true,force:true});}};
 }
 
 
