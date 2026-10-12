@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.12"
+version: "0.5.13"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for Lightning fee experiments and circular rebalances, using
@@ -16,8 +16,9 @@ description: >-
   drafts, correction choices, targeted Stop, guarded pause/resume, proposal review,
   accounting notifications and explicit review of recoverable historical requests.
   Web settings retain configuration and read-only history. Native LND collection
-  and unified history (M3), agent-generated HTML/DLS exports (M4), and optional
-  RoboSats/Amboss/Magma integrations (M5) remain future milestones.
+  and unified history preserve original records and report coverage gaps;
+  their live qualification remains in progress. Agent-generated HTML/DLS exports
+  (M4) and optional RoboSats/Amboss/Magma integrations (M5) remain future milestones.
 developer: whirmill
 website: https://github.com/whirmill/umbrel-community-app-store
 repo: https://github.com/whirmill/umbrel-community-app-store
@@ -30,22 +31,14 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.12 preserves headings, paragraphs, lists and code in bounded
-  Telegram rich replies. The paired owner receives the current command menu
-  in both the default and Italian chat scopes; unrelated scopes are retained.
-  Production API acknowledgements require a boolean success field. Persistent
-  sends retry only proven, classified rejections; unknown outcomes remain
-  uncertain even on the fifth attempt. Historical intents and receipts retain
-  their original format and identity. Only a proven rich API rejection selects
-  an exact text attachment on a later bounded attempt.
-  Immutable amd64/arm64 images are published and qualified. Each architecture
-  passed 135 corrected external fixture cases, with 173 unchanged cases reused
-  by exact input and named outcome. The original bundled AMD run's 55 failures
-  came from daily digest traffic counted as scenario responses; that attempt
-  is preserved and the fixture isolation correction is published separately.
-  Native gRPC/TLS and unchanged lifecycle helper evidence remain qualified.
-  Application-owned shutdown and current three-database checkpoints, schema 6
-  and Pi Durable/Pi AI/Chord 1.1.0 remain. Installation and real-client layout,
-  menu and restart acceptance are pending. Autonomy stays suspended under the
-  existing maintenance claim; mandate, budgets and reserve are unchanged.
-  Coverage remains partial; core M2.3/M2.4 and M3-M5 remain incomplete.
+  Version 0.5.13 adds bounded native gRPC history and stream collection,
+  provenance, explicit coverage gaps and unified read-only consumers. Schema 7
+  preserves all 19 original legacy tables in immutable archives before migration;
+  research continuation survives refresh and reopening. Native protected-control
+  checks preserve suspension when evidence is unknown. Pi Durable, Pi AI and
+  Chord remain 1.1.0; OAuth, original identifiers and financial receipts remain
+  preserved. The release uses an immutable amd64/arm64 image index. Live migration,
+  semantic parity, protected-control and web/Telegram acceptance are separate
+  qualification steps; coverage remains partial. Autonomy stays suspended under
+  the existing maintenance claim, mandate, budgets and reserve. M3 completion,
+  agent-generated HTML/DLS exports and optional integrations remain pending.
