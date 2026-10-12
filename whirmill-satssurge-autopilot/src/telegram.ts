@@ -14,13 +14,65 @@ const RUNTIME_ADVISORY_INLINE_LIMIT = 2000;
 // Application bounds, not claims about Telegram's rich-message size limits.
 const RICH_FINAL_TEXT_LIMIT = 32768;
 const RICH_FINAL_HTML_BYTES = 65536;
+const RICH_BLOCK_LIMIT = 500;
+const RICH_DEPTH_LIMIT = 16;
+const RICH_FORMAT = 'rich-blocks-v1';
 const graphemes = new Intl.Segmenter('it', { granularity: 'grapheme' });
 interface RichFinal {
     generation: string; chatId: number; botGeneration: unknown; checksum: string; htmlBytes: number;
+    format?: string; blocks?: number; depth?: number;
 }
 export function telegramText(text: string) { return telegramClean(text).slice(0, 3500); }
 export function telegramClean(text: string) { return String(scrub(text)).replace(/\b\d{6,12}:[A-Za-z0-9_-]{20,}\b/g, '[REDACTED]').replace(/\blnbc[a-z0-9]+\b/gi, '[REDACTED]'); }
 export function telegramHtml(text: string) { return telegramClean(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/^#{1,6} (.+)$/gm, '<b>$1</b>'); }
+function richEscape(text: string) { return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function richInline(text: string) {
+    // Interpret only these two inline forms. Code is opaque; model HTML and
+    // links remain text, and cannot introduce tags, attributes or media.
+    let html = '', cursor = 0;
+    for (const match of text.matchAll(/`([^`\n]+)`|\*\*([^*\n]+)\*\*/g)) {
+        html += richEscape(text.slice(cursor, match.index));
+        html += match[1] !== undefined ? '<code>' + richEscape(match[1]) + '</code>' : '<b>' + richEscape(match[2]!) + '</b>';
+        cursor = match.index + match[0].length;
+    }
+    return html + richEscape(text.slice(cursor));
+}
+function richLayout(clean: string) {
+    const lines = clean.split(/\r?\n/), output: string[] = []; let paragraph: string[] = [], list: 'ul'|'ol'|undefined, blocks = 0, depth = 0;
+    const flushParagraph = () => { if (paragraph.length) { output.push('<p>' + paragraph.map(richInline).join('<br>') + '</p>'); blocks++; depth = Math.max(depth, 2); paragraph = []; } };
+    const flushList = () => { if (list) { output.push('</' + list + '>'); list = undefined; } };
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]!;
+        if (/^```(?:[\w+-]+)?[\t ]*$/.test(line)) {
+            flushParagraph(); flushList(); let end = i + 1;
+            while (end < lines.length && !/^```[\t ]*$/.test(lines[end]!)) end++;
+            const code = lines.slice(i + 1, end).join('\n') + (end < lines.length && end > i + 1 ? '\n' : '');
+            output.push('<pre><code>' + richEscape(code) + '</code></pre>'); blocks++; depth = Math.max(depth, 2); i = end; continue;
+        }
+        const heading = /^(#{1,6}) (.+)$/.exec(line), item = /^[ ]{0,3}([-+*]|\d{1,9}[.)])[\t ]+(.+)$/.exec(line);
+        if (heading) {
+            flushParagraph(); flushList(); const size = heading[1]!.length;
+            output.push('<h' + size + '>' + richInline(heading[2]!) + '</h' + size + '>'); blocks++; depth = Math.max(depth, 2);
+        } else if (item) {
+            flushParagraph(); const tag = /^\d/.test(item[1]!) ? 'ol' : 'ul';
+            if (list !== tag) { flushList(); list = tag; output.push('<' + tag + '>'); blocks++; }
+            output.push('<li' + (tag === 'ol' ? ' value="' + Number.parseInt(item[1]!, 10) + '"' : '') + '><p>' + richInline(item[2]!) + '</p></li>');
+            // Count both the list item and its nested paragraph, as required by
+            // the API block cap. The fixed grammar has at most four tag levels.
+            blocks += 2; depth = Math.max(depth, 4);
+        } else if (!line.trim()) { flushParagraph(); flushList(); }
+        else { flushList(); paragraph.push(line); }
+    }
+    flushParagraph(); flushList(); return { html: output.join(''), blocks, depth };
+}
+export function telegramRichHtml(text: string) { return richLayout(telegramClean(text)).html; }
+function finalLayout(text: string, rich: RichFinal) {
+    // No format means the immutable 0.5.11 serializer, not today's renderer.
+    if (rich.format === undefined) return { html: telegramHtml(text) };
+    if (rich.format !== RICH_FORMAT) return undefined;
+    const layout = richLayout(telegramClean(text));
+    return layout.blocks <= RICH_BLOCK_LIMIT && layout.depth <= RICH_DEPTH_LIMIT && layout.blocks === rich.blocks && layout.depth === rich.depth ? layout : undefined;
+}
 function textBoundary(text: string, limit: number) {
     if (text.length <= limit) return text.length;
     let cut = 0; const boundaries = new Set<number>();
@@ -155,7 +207,11 @@ export class Telegram {
                     const multipart = body instanceof FormData;
                     const response = await fetch('https://api.telegram.org/bot' + token + '/' + method, { method: 'POST', headers: multipart ? undefined : { 'content-type': 'application/json' }, body: multipart ? body : json(body), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(35000)]) : AbortSignal.timeout(35000) });
                     const result = await response.json() as any;
-                    if (!result.ok) {
+                    // Only a well-formed API envelope can prove acceptance or
+                    // rejection. Malformed values remain an unclassified outcome.
+                    if (!result || typeof result !== 'object' || Array.isArray(result) || typeof result.ok !== 'boolean')
+                        throw Error('Telegram response envelope is uncertain');
+                    if (result.ok === false) {
                         const error = new Error('Telegram API rejected request') as any;
                         error.retryAfter = result.parameters?.retry_after;
                         error.rejected = true;
@@ -227,17 +283,19 @@ export class Telegram {
         } }
     private answerExists(event: string) { return !!this.store.one('SELECT event_id FROM telegram_outbox WHERE event_id=? OR event_id LIKE ? LIMIT 1', event, event + ':%'); }
     private enqueueAnswer(event: string, text: string, at: string) {
-        const binding = this.store.get('telegramBinding'), clean = telegramClean(text) || 'Richiesta completata.', html = telegramHtml(clean);
+        const binding = this.store.get('telegramBinding'), clean = telegramClean(text) || 'Richiesta completata.';
         this.store.tx(() => {
             // Historical multipart/partial/sent/uncertain receipts keep their original
             // transport and bytes. Capture must never retrofit a new delivery format.
             if (!binding || this.answerExists(event)) return;
-            const htmlBytes = Buffer.byteLength(html, 'utf8');
-            if (clean.length > RICH_FINAL_TEXT_LIMIT || htmlBytes > RICH_FINAL_HTML_BYTES) {
+            const layout = clean.length <= RICH_FINAL_TEXT_LIMIT ? richLayout(clean) : undefined;
+            const htmlBytes = layout ? Buffer.byteLength(layout.html, 'utf8') : 0;
+            if (!layout || htmlBytes > RICH_FINAL_HTML_BYTES || layout.blocks > RICH_BLOCK_LIMIT || layout.depth > RICH_DEPTH_LIMIT) {
                 this.enqueue(event, clean, 'reply', undefined, at, binding.generation); return;
             }
             const composition: RichFinal = { generation: binding.generation, chatId: binding.chatId,
-                botGeneration: this.store.get('telegramBotGeneration') ?? null, checksum: hash(clean), htmlBytes };
+                botGeneration: this.store.get('telegramBotGeneration') ?? null, checksum: hash(clean), htmlBytes,
+                format: RICH_FORMAT, blocks: layout.blocks, depth: layout.depth };
             this.store.run('INSERT INTO telegram_outbox(event_id,created_at,kind,text,generation) VALUES(?,?,?,?,?)', event, at, 'reply', clean, binding.generation);
             this.store.set('telegramRichFinal:' + event, composition);
             this.store.set('telegramOutboxVersion:' + event, runtimeDetectorVersion);
@@ -811,9 +869,10 @@ export class Telegram {
             }
             const rich = this.store.get<RichFinal>('telegramRichFinal:' + r.event_id);
             const fallback = this.store.get<any>('telegramRichFinalFallback:' + r.event_id);
+            const layout = rich ? finalLayout(r.text, rich) : undefined;
             if (fallback && !rich || rich && (rich.generation !== binding.generation || rich.chatId !== binding.chatId || rich.botGeneration !== botGeneration ||
-                rich.checksum !== hash(r.text) || r.text.length > RICH_FINAL_TEXT_LIMIT || rich.htmlBytes !== Buffer.byteLength(telegramHtml(r.text), 'utf8') || rich.htmlBytes > RICH_FINAL_HTML_BYTES ||
-                fallback && (fallback.checksum !== rich.checksum || fallback.generation !== binding.generation || fallback.chatId !== binding.chatId || fallback.botGeneration !== botGeneration || ![400,404].includes(fallback.apiCode)))) {
+                rich.checksum !== hash(r.text) || r.text.length > RICH_FINAL_TEXT_LIMIT || !layout || rich.htmlBytes !== Buffer.byteLength(layout.html, 'utf8') || rich.htmlBytes > RICH_FINAL_HTML_BYTES ||
+                fallback && (fallback.checksum !== rich.checksum || fallback.htmlBytes !== rich.htmlBytes || fallback.format !== rich.format || fallback.blocks !== rich.blocks || fallback.depth !== rich.depth || fallback.generation !== binding.generation || fallback.chatId !== binding.chatId || fallback.botGeneration !== botGeneration || ![400,404].includes(fallback.apiCode)))) {
                 this.store.run("UPDATE telegram_outbox SET status='failed',error='Rich response integrity or destination mismatch' WHERE event_id=?", r.event_id); continue;
             }
             // A crash after this receipt is uncertain, not silently retried after restart.
@@ -823,7 +882,7 @@ export class Telegram {
             try {
                 let method = 'sendMessage', body: unknown = { chat_id: binding.chatId, text: telegramHtml(r.text), parse_mode: 'HTML', reply_markup: buttons };
                 if (rich && !fallback) {
-                    method = 'sendRichMessage'; body = { chat_id: binding.chatId, rich_message: { html: telegramHtml(r.text) }, reply_markup: buttons };
+                    method = 'sendRichMessage'; body = { chat_id: binding.chatId, rich_message: { html: layout!.html }, reply_markup: buttons };
                 } else if (rich && fallback) {
                     const form = new FormData(); form.set('chat_id', String(binding.chatId));
                     form.set('caption', 'Risposta in allegato; eventuali limiti o interruzioni sono indicati nel testo.');
@@ -849,15 +908,15 @@ export class Telegram {
                 if (r.proposal_id)
                     this.store.run('UPDATE owner_proposals SET expires_at=NULL WHERE id=?', r.proposal_id);
                 const attempts = r.attempts + 1, retry = this.rejectedRetryAfter(error), apiCode = (error as any).apiCode;
-                // Only explicit API client-denial codes prove a persistent rich send
+                // Only explicit API client-denial codes prove a persistent send
                 // was rejected. Missing/malformed codes and server failures are uncertain.
-                const rejected = (error as any).rejected === true && (!rich || [400,401,403,404,429].includes(apiCode));
+                const rejected = (error as any).rejected === true && [400,401,403,404,429].includes(apiCode);
                 const changed = this.store.get('telegramBinding')?.generation !== binding.generation || this.store.get('telegramBinding')?.chatId !== binding.chatId || (this.store.get('telegramBotGeneration') ?? null) !== botGeneration;
-                const status = changed || rich && !rejected ? 'uncertain' : attempts >= 5 ? 'failed' : rejected ? 'pending' : 'uncertain';
+                const status = changed || !rejected ? 'uncertain' : attempts >= 5 ? 'failed' : 'pending';
                 this.store.tx(() => {
                     if (rich && !fallback && rejected && status === 'pending' && retry === undefined && [400,404].includes(apiCode))
                         this.store.set('telegramRichFinalFallback:' + r.event_id, { ...rich, apiCode });
-                    this.store.run('UPDATE telegram_outbox SET status=?,next_at=?,error=? WHERE event_id=?', status, new Date(Math.min(8640000000000000,Date.parse(at) + Math.max(retry ?? 0, 2 ** attempts) * 1000)).toISOString(), rejected && !(rich && status === 'uncertain') ? 'API rejection; bounded retry' : 'Delivery uncertain; inspect Telegram before manual retry', r.event_id);
+                    this.store.run('UPDATE telegram_outbox SET status=?,next_at=?,error=? WHERE event_id=?', status, new Date(Math.min(8640000000000000,Date.parse(at) + Math.max(retry ?? 0, 2 ** attempts) * 1000)).toISOString(), rejected && status !== 'uncertain' ? 'API rejection; bounded retry' : 'Delivery uncertain; inspect Telegram before manual retry', r.event_id);
                 });
                 new RuntimeImprovements(this.store).delivery(r.event_id, status);
                 if (this.recordRateLimit(error,botGeneration)!==undefined) break;
@@ -922,32 +981,38 @@ export class Telegram {
         }
         await this.wait(500);
     } }
-    async menu() {
+    async menu() { return this.dispatch(() => this.menuUnlocked()); }
+    private async menuUnlocked() {
         const b = this.store.get('telegramBinding');
-        if (!b)
-            return;
+        if (!b) return;
         const bot = this.store.get('telegramBotGeneration') ?? null, key = 'telegramMenu:' + b.generation + ':' + bot;
-        if (this.store.get(key)&&this.store.get(key+':recoveryReviewV1')&&this.store.get(key+':promptRetrievalV1'))
-            return;
+        const completeKey = key + ':ownerChatDefaultV1:' + b.chatId;
+        if (this.store.get(completeKey) === true) return;
         const dispatchAuthorized=()=>this.authorized(b.generation,b.chatId,bot)&&Date.now()>=(this.store.get<number>('telegramRateLimitUntil')??0);
         const commands = [['status', 'Stato e budget'], ['analyze', 'Analizza il nodo'], ['proposals', 'Proposte da approvare'], ['pause', 'Sospendi autonomia'], ['resume', 'Riprendi con conferma'], ['stop', 'Interrompi risposta attiva'], ['queue', 'Richieste future'], ['recover', 'Richieste precedenti'], ['prompt', 'Recupera prompt consultivo per ID'], ['menu', 'Menu'], ['help', 'Aiuto']].map(([command, description]) => ({ command, description }));
-        if (!dispatchAuthorized())
-            return;
-        await this.outboundCall('setMyCommands', { commands });
-        if (!dispatchAuthorized())
-            return;
-        await this.outboundCall('setMyCommands', { commands, scope: { type: 'chat', chat_id: b.chatId }, language_code: 'it' });
-        if (!dispatchAuthorized())
-            return;
-        await this.outboundCall('setChatMenuButton', { chat_id: b.chatId, menu_button: { type: 'commands' } });
-        if (!dispatchAuthorized())
-            return;
-        const identity = await this.outboundCall('getMe', {});
-        if (this.authorized(b.generation, b.chatId, bot)) {
-            if (/^[a-zA-Z0-9_]{5,32}$/.test(identity?.username ?? ''))
+        try {
+            // The owner's no-language scope outranks inherited scopes. Leave
+            // global, all-private and unrelated command registrations untouched.
+            for (const body of [{ commands, scope: { type: 'chat', chat_id: b.chatId } },
+                { commands, scope: { type: 'chat', chat_id: b.chatId }, language_code: 'it' }]) {
+                if (!dispatchAuthorized()) return;
+                const ack = await this.outboundCall('setMyCommands', body);
+                if (!dispatchAuthorized()) return;
+                if (ack !== true) throw Error('Command menu acknowledgement missing');
+            }
+            if (!dispatchAuthorized()) return;
+            const ack = await this.outboundCall('setChatMenuButton', { chat_id: b.chatId, menu_button: { type: 'commands' } });
+            if (!dispatchAuthorized()) return;
+            if (ack !== true) throw Error('Chat menu acknowledgement missing');
+            const identity = await this.outboundCall('getMe', {});
+            if (!dispatchAuthorized()) return;
+            if (!/^[a-zA-Z0-9_]{5,32}$/.test(identity?.username ?? '')) throw Error('Bot identity acknowledgement missing');
+            this.store.tx(() => {
                 this.store.set('telegramUsername', identity.username);
-            this.store.set(key, true);this.store.set(key+':recoveryReviewV1',true);this.store.set(key+':promptRetrievalV1',true);
-        }
+                this.store.set(key, true);this.store.set(key+':recoveryReviewV1',true);this.store.set(key+':promptRetrievalV1',true);
+                this.store.set(completeKey, true);
+            });
+        } catch (error) { this.recordRateLimit(error, bot); throw error; }
     }
     async streamDrafts(at = now()) {return this.dispatch(()=>this.streamDraftsUnlocked(at));}
     private async streamDraftsUnlocked(at:string) {
@@ -1010,8 +1075,15 @@ export class Telegram {
                         prior.messageId = result.message_id;
                     }
                 }
-                else if (!prior.plainDraft)
-                    await this.outboundCall('sendRichMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, rich_message: { html: text.startsWith('Thinking…') ? '<tg-thinking>' + telegramHtml(text.slice('Thinking…'.length).trim() || 'Sto elaborando…') + '</tg-thinking>' : telegramHtml(text) }, can_stop: true, keep_on_stop: true });
+                else if (!prior.plainDraft) {
+                    const layout = richLayout(text);
+                    if (layout.blocks > RICH_BLOCK_LIMIT || layout.depth > RICH_DEPTH_LIMIT || Buffer.byteLength(layout.html, 'utf8') > RICH_FINAL_HTML_BYTES) {
+                        // A local bound selects the existing plain preview before
+                        // any rich send, without fabricating an API rejection.
+                        prior.plainDraft = true;
+                        await this.outboundCall('sendMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, text, can_stop: true, keep_on_stop: true });
+                    } else await this.outboundCall('sendRichMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, rich_message: { html: text.startsWith('Thinking…') ? '<tg-thinking>' + richInline(text.slice('Thinking…'.length).trim() || 'Sto elaborando…').replace(/\r?\n/g, '<br>') + '</tg-thinking>' : layout.html }, can_stop: true, keep_on_stop: true });
+                }
                 else
                     await this.outboundCall('sendMessageDraft', { chat_id: b.chatId, draft_id: prior.draftId, text,can_stop:true,keep_on_stop:true });
                 if(allocation)this.store.set('telegramDraft:'+allocation.id,{...allocation.alias,outcome:'accepted',completedAt:now()});

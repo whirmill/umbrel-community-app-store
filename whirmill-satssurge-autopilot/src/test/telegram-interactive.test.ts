@@ -113,7 +113,7 @@ test('progressive drafts use public projection only, refresh expiry, obey retry_
     assert.doesNotMatch(JSON.stringify(calls), /HIDDEN/);
     ui.append(j.id, 'text', { text: 'Prima parte' });
     await f.t.streamDrafts('2026-10-10T12:00:02Z');
-    assert.equal(calls.at(-1).body.rich_message.html, 'Prima parte');
+    assert.equal(calls.at(-1).body.rich_message.html, '<p>Prima parte</p>');
     const count = calls.length;
     await f.t.streamDrafts('2026-10-10T12:00:03Z');
     assert.equal(calls.length, count);
@@ -341,7 +341,7 @@ finally {
     rmSync(dir, { recursive: true, force: true });
 } });
 test('command menu replaces inherited default commands once per generation and fences every write', async () => { const methods: string[] = [], f = setup(async (method: string, body: any) => { methods.push(method); if (method === 'setMyCommands')
-    assert.deepEqual(body.commands.map((c: any) => c.command), ['status', 'analyze', 'proposals', 'pause', 'resume', 'stop', 'queue', 'recover', 'prompt', 'menu', 'help']); return { username: 'satssurge_bot' }; }); try {
+    assert.deepEqual(body.commands.map((c: any) => c.command), ['status', 'analyze', 'proposals', 'pause', 'resume', 'stop', 'queue', 'recover', 'prompt', 'menu', 'help']); return method === 'getMe' ? { username: 'satssurge_bot' } : true; }); try {
     await f.t.menu();
     await f.t.menu();
     assert.deepEqual(methods, ['setMyCommands', 'setMyCommands', 'setChatMenuButton', 'getMe']);
@@ -514,7 +514,7 @@ test('rich draft rejection falls back to visible Thinking text with native Stop 
 
 test('long cumulative response keeps one honest prefix preview and preserves the whole Unicode rich final',async()=>{
  const calls:{method:string;body:any}[]=[],f=setup(async(method:string,body:any)=>{calls.push({method,body});return {message_id:1};});
- try{const job=f.c.admit('long-moving-draft','Spiega il nodo','telegram');f.s.set('jobTelegramGeneration:'+job.id,'owner-generation');f.turns.attach(job,'owner-generation',42);const owned=f.q.claim('coordinator','test')!;f.turns.bind(owned,{steer:async()=>{},stop:async()=>{}});const ui=new UiEvents(f.s),initial='Stato del nodo.\n\n'+'Una frase completa 😀. '.repeat(200),later=initial+'NUOVA PARTE 😀';ui.append(job.id,'text',{text:initial});await f.t.streamDrafts();const first=calls.filter(c=>c.method==='sendRichMessageDraft').at(-1)!.body.rich_message.html;assert.match(first,/Anteprima parziale/);assert.ok(first.startsWith('Stato del nodo.'));assert.ok(first.length<=3500);ui.append(job.id,'text',{text:later});await f.t.streamDrafts(new Date(Date.now()+2000).toISOString());const next=calls.filter(c=>c.method==='sendRichMessageDraft').at(-1)!.body.rich_message.html;assert.equal(next,first);assert.doesNotMatch(next,/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u);f.q.finish(job.id,owned.run_token!,'completed',{answer:later});f.t.capture();const rows=f.s.all("SELECT text FROM telegram_outbox WHERE event_id LIKE ? ORDER BY rowid",'answer:'+job.id+'%');assert.equal(rows.length,1);assert.equal(rows[0]!.text,later);assert.ok(f.s.get('telegramRichFinal:answer:'+job.id));}
+ try{const job=f.c.admit('long-moving-draft','Spiega il nodo','telegram');f.s.set('jobTelegramGeneration:'+job.id,'owner-generation');f.turns.attach(job,'owner-generation',42);const owned=f.q.claim('coordinator','test')!;f.turns.bind(owned,{steer:async()=>{},stop:async()=>{}});const ui=new UiEvents(f.s),initial='Stato del nodo.\n\n'+'Una frase completa 😀. '.repeat(200),later=initial+'NUOVA PARTE 😀';ui.append(job.id,'text',{text:initial});await f.t.streamDrafts();const first=calls.filter(c=>c.method==='sendRichMessageDraft').at(-1)!.body.rich_message.html;assert.match(first,/Anteprima parziale/);assert.ok(first.startsWith('<p>Stato del nodo.</p>'));assert.ok(f.s.get<any>('telegramStream:'+job.id).text.length<=3500);assert.ok(Buffer.byteLength(first,'utf8')<=65536);ui.append(job.id,'text',{text:later});await f.t.streamDrafts(new Date(Date.now()+2000).toISOString());const next=calls.filter(c=>c.method==='sendRichMessageDraft').at(-1)!.body.rich_message.html;assert.equal(next,first);assert.doesNotMatch(next,/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u);f.q.finish(job.id,owned.run_token!,'completed',{answer:later});f.t.capture();const rows=f.s.all("SELECT text FROM telegram_outbox WHERE event_id LIKE ? ORDER BY rowid",'answer:'+job.id+'%');assert.equal(rows.length,1);assert.equal(rows[0]!.text,later);assert.ok(f.s.get('telegramRichFinal:answer:'+job.id));}
  finally{f.close();}
 });
 
