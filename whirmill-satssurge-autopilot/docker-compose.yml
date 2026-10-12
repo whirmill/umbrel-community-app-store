@@ -4,7 +4,7 @@ services:
       APP_HOST: whirmill-satssurge-autopilot_server_1
       APP_PORT: 8080
   server:
-    image: ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.13@sha256:013ab7b36ab23e966f8ba56b4f289b2603238c4c2ec4aa65f2f87d77bfec0774
+    image: ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.14@sha256:6e79c44b8c52ac000e13ef8cc8b455b0140022696bc71b0ab155dd3d742725a4
     container_name: whirmill-satssurge-autopilot_server_1
     restart: on-failure
     init: true
@@ -15,6 +15,8 @@ services:
       INTERLOCK_FILE: /interlock/status.json
       DIAGNOSTICS_FILE: /diagnostics/status.json
       COMPETITION_FILE: /diagnostics/competition.json
+      APP_CONTROL_CONTRACT_FILE: /app-controls/contract.json
+      APP_CONTROL_FILE: /app-controls/status.json
       LND_GRPC_TARGET: ${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_GRPC_PORT}
       LND_URL: https://${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_REST_PORT}
       PORT: "8080"
@@ -24,6 +26,7 @@ services:
       - ${APP_DATA_DIR}/history:/history:ro
       - ${APP_DATA_DIR}/interlock:/interlock:ro
       - ${APP_DATA_DIR}/diagnostics:/diagnostics:ro
+      - /etc/satssurge-app-controls:/app-controls:ro
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
