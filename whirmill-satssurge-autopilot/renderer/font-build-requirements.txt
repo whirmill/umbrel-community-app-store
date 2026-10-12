@@ -1,0 +1,2 @@
+# Offline asset derivation only; never installed in application/runtime.
+fonttools==4.63.0

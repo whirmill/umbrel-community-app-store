@@ -1,3 +1,6 @@
+import { projectContent } from './content-projection.js';
+import { prepareContentDirectory } from './content-runtime.js';
+import { authorizedContentRequest } from './content-requests.js';
 import {ApplicationControl} from "./application-control.js";
 import {Telegram} from "./telegram.js";
 import { modelSettings } from "./model-settings.js";
@@ -43,7 +46,11 @@ const sessions = new OwnerSessions();
 const uiEvents = new UiEvents(store);
 const queue = new Queue(store);
 let control = new ApplicationControl(store, queue);
-const telegram = new Telegram(store, control, directory);
+const contentDirectory = resolve(process.env.CONTENT_JOBS_DIR ?? join(directory,'content-jobs'));
+if(store.get('contentArtifactsEnabled')===undefined)store.set('contentArtifactsEnabled',false);
+if(store.get('contentArtifactsEnabled')===true)prepareContentDirectory(contentDirectory);
+const telegram = new Telegram(store, control, directory, undefined, contentDirectory);
+telegram.setContentProjection(message=>projectContent(store,message));
 queue.recoverAfterRestart();
 // Preserve pre-queue exchanges once. Durable jobs own all subsequent history.
 if (store.get("legacyChat") === undefined)
@@ -91,7 +98,7 @@ try {
     process.env.INTERLOCK_FILE ?? "/interlock/status.json",
     native,
   );
-  agent = new Agent(store, executor, directory, queue);
+  agent = new Agent(store, executor, directory, queue, undefined, job=>authorizedContentRequest(store,job.id),contentDirectory);
   await agent.open();
   await collector.collect();
   intervals.push(setInterval(() => void collector!.collect(), 60000));
