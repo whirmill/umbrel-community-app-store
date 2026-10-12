@@ -174,8 +174,9 @@ inoltrati come attività. L'attività mostra soltanto il nome dello strumento.
 
 L'invio iniziale di un messaggio fallback registra `sending`; timeout o crash
 lo rendono `uncertain`, senza un nuovo invio automatico. I draft sono
-aggiornamenti temporanei, mentre il testo finale usa eventi outbox univoci e
-segmenti sotto 3500 unità UTF-16. HTML è escapato e supporta grassetto/code/
+aggiornamenti temporanei, mentre il testo finale usa eventi outbox univoci. La
+composizione rich candidata 0.5.11 è descritta sotto; i segmenti legacy sono
+limitati a 3500 unità UTF-16. HTML è escapato e supporta grassetto/code/
 intestazioni sicure. `retry_after` sospende l'uscita e ogni dispatch rilegge i
 fence dell'associazione e del bot. Le ricevute finali incerte mantengono la
 politica di non replay.
@@ -377,3 +378,51 @@ originale e crea una consegna distinta correlata all'update, con
 ritenta una consegna incerta automaticamente. Un update duplicato conserva
 la sua ricevuta. Il recupero non autorizza modifica del runtime o effetti
 finanziari. La consegna e apertura nel client reale restano prove separate.
+
+## Composizione candidata 0.5.11 — 2026-10-12
+
+Il checkpoint reale 0.5.10 su Telegram Web conserva il testo finale completo,
+ma mostra parole tagliate ai confini dei cinque messaggi e anteprime sovrapposte.
+La precedente candidata rotating e la sua motivazione sul client nativo restano
+evidenze storiche: non provano equivalenza di resa tra client. Il nuovo default
+è stable soltanto quando manca una scelta esplicita; l'API di confronto conserva
+stable/rotating e il rifiuto durante un turno o dispatch attivo. Job, associazione
+o versione diversi richiedono sempre un alias nuovo. Stop su un alias vecchio
+mantiene il target originale, mentre `/stop` generico offre soltanto conferma.
+
+Un'anteprima lunga conserva un prefisso coerente entro 3500 unità UTF-16, con
+marcatore **Anteprima parziale** e indicazione della consegna completa al termine.
+Non sposta una finestra sul testo né promette che il prefisso sia tutta la risposta.
+Coalescenza, refresh, Stop nativo e allowlist delle sintesi pubbliche restano uguali.
+
+La [Bot API](https://core.telegram.org/bots/api#sendrichmessagedraft) descrive il
+draft come anteprima temporanea di 30 secondi; la persistenza del contenuto usa
+[sendRichMessage](https://core.telegram.org/bots/api#sendrichmessage).
+[InputRichMessage](https://core.telegram.org/bots/api#inputrichmessage) richiede
+esattamente un campo tra html, markdown e blocks. La candidata usa soltanto
+`rich_message: { html: ... }`, prodotto dal renderer applicativo che esegue escape
+del testo pubblico e aggiunge grassetto, code e intestazioni sicure. Nessun HTML
+grezzo, file remoto, media, paid broadcast o capacità nuova proviene dal modello.
+
+Un nuovo finale entra come un unico intento outbox se il testo è entro 32768
+unità UTF-16 e l'HTML codificato entro 65536 byte UTF-8. Sono limiti applicativi,
+non una dichiarazione della capacità massima Telegram. Oltre quei limiti si usa
+la segmentazione legacy, preservando la concatenazione esatta del testo pubblico:
+prima confini di paragrafo, poi spazi; i normali grafemi Unicode restano interi.
+Un token o grafema eccezionale più grande di un intero segmento richiede uno split
+limitato, senza perdita di code point. Il job e le ricevute conservano l'originale.
+Capture non converte né riscrive finali preesistenti, anche multipart parzialmente
+consegnati, `sending`, `sent` o `uncertain`; non aggiunge loro metadata rich.
+
+Un rifiuto API esplicito 400/404 senza `retry_after`, con binding e bot ancora
+validi, può registrare un fallback deterministico `.txt` per il successivo
+tentativo limitato della stessa ricevuta. Nome sanitizzato, destinazione, checksum
+e byte del testo pubblico restano vincolati; una risposta parziale resta parziale.
+Non segue un invio alternativo nello stesso tentativo. 429 rispetta l'epoch globale
+e ritenta lo stesso metodo. Timeout, crash dopo l'intento, ACK non verificabile
+e 5xx sono incerti: nessun replay automatico né cambio di canale. Anche un codice
+API assente, malformato o non provato resta incerto, indipendentemente dal numero
+di tentativi precedenti. I soli rifiuti rich ritentabili sono 400/401/403/404/429;
+un cambio di identità conserva uno stato e un errore di consegna incerta. La resa rich,
+la scomparsa dell'anteprima e l'apertura del fallback sul client reale richiedono
+qualificazione separata dopo review, pubblicazione e installazione.

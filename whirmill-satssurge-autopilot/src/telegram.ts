@@ -11,17 +11,38 @@ export interface TelegramTransport {
     call(method: string, body: unknown, signal?: AbortSignal): Promise<any>;
 }
 const RUNTIME_ADVISORY_INLINE_LIMIT = 2000;
+// Application bounds, not claims about Telegram's rich-message size limits.
+const RICH_FINAL_TEXT_LIMIT = 32768;
+const RICH_FINAL_HTML_BYTES = 65536;
+const graphemes = new Intl.Segmenter('it', { granularity: 'grapheme' });
+interface RichFinal {
+    generation: string; chatId: number; botGeneration: unknown; checksum: string; htmlBytes: number;
+}
 export function telegramText(text: string) { return telegramClean(text).slice(0, 3500); }
 export function telegramClean(text: string) { return String(scrub(text)).replace(/\b\d{6,12}:[A-Za-z0-9_-]{20,}\b/g, '[REDACTED]').replace(/\blnbc[a-z0-9]+\b/gi, '[REDACTED]'); }
 export function telegramHtml(text: string) { return telegramClean(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/^#{1,6} (.+)$/gm, '<b>$1</b>'); }
-export function telegramParts(text: string) { const parts: string[] = []; let part = ''; for (const ch of telegramClean(text)) {
-    if (part.length + ch.length > 3500) {
-        parts.push(part);
-        part = '';
+function textBoundary(text: string, limit: number) {
+    if (text.length <= limit) return text.length;
+    let cut = 0; const boundaries = new Set<number>();
+    for (const { segment, index } of graphemes.segment(text)) {
+        if (index + segment.length > limit) break;
+        cut = index + segment.length; boundaries.add(cut);
     }
-    part += ch;
-} if (part)
-    parts.push(part); return parts.length ? parts : ['Richiesta completata.']; }
+    // An exceptional single cluster can exceed the whole transport allowance.
+    // Preserve every code point even then; ordinary emoji/combining clusters stay whole.
+    if (!cut) for (const point of text) { if (cut + point.length > limit) break; cut += point.length; }
+    const prefix = text.slice(0, cut);
+    let paragraph = 0, whitespace = 0;
+    for (const match of prefix.matchAll(/\n[\t \r]*\n+/g)) { const end = match.index + match[0].length; if (boundaries.has(end)) paragraph = end; }
+    if (paragraph >= limit / 2) return paragraph;
+    for (const match of prefix.matchAll(/\s+/gu)) { const end = match.index + match[0].length; if (boundaries.has(end)) whitespace = end; }
+    return whitespace || cut;
+}
+export function telegramParts(text: string) {
+    const parts: string[] = []; let remaining = telegramClean(text);
+    while (remaining) { const cut = textBoundary(remaining, 3500); parts.push(remaining.slice(0, cut)); remaining = remaining.slice(cut); }
+    return parts.length ? parts : ['Richiesta completata.'];
+}
 export function romeHour(at: string) { return Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', hour: '2-digit', hourCycle: 'h23' }).format(new Date(at))); }
 export class Telegram {
     readonly tokenPath: string;
@@ -56,7 +77,7 @@ export class Telegram {
         this.store.set('telegramRateLimitUntil',Math.max(deadline,typeof prior==='number'&&Number.isFinite(prior)?prior:0));
         return retry;
     }
-    private richDraftPolicy(): 'stable'|'rotating'{return this.store.get('telegramRichDraftPolicy')==='stable'?'stable':'rotating';}
+    private richDraftPolicy(): 'stable'|'rotating'{return this.store.get('telegramRichDraftPolicy')==='rotating'?'rotating':'stable';}
     streamPolicy(policy:unknown){
         if(policy!=='stable'&&policy!=='rotating')throw Object.assign(Error('Unknown rich draft policy'),{statusCode:400});
         if(this.dispatchPending||this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'").some(r=>{const t=JSON.parse(r.value);return !t.closed&&(['running','stop_requested','waiting'].includes(t.state)||this.control.queue.get(t.jobId)?.state==='running');}))throw Object.assign(Error('Stream policy cannot change during an active turn or dispatch'),{statusCode:409});
@@ -138,6 +159,7 @@ export class Telegram {
                         const error = new Error('Telegram API rejected request') as any;
                         error.retryAfter = result.parameters?.retry_after;
                         error.rejected = true;
+                        error.apiCode = Number.isSafeInteger(result.error_code) ? result.error_code : undefined;
                         throw error;
                     }
                     return result.result;
@@ -203,6 +225,24 @@ export class Telegram {
             const inserted = this.store.run("INSERT OR IGNORE INTO telegram_outbox(event_id,created_at,kind,text,proposal_id,generation) VALUES(?,?,?,?,?,?)", partId, at, kind, parts[i], proposalId ?? null, generation);
             if (inserted.changes === 1) this.store.set('telegramOutboxVersion:' + partId, runtimeDetectorVersion);
         } }
+    private answerExists(event: string) { return !!this.store.one('SELECT event_id FROM telegram_outbox WHERE event_id=? OR event_id LIKE ? LIMIT 1', event, event + ':%'); }
+    private enqueueAnswer(event: string, text: string, at: string) {
+        const binding = this.store.get('telegramBinding'), clean = telegramClean(text) || 'Richiesta completata.', html = telegramHtml(clean);
+        this.store.tx(() => {
+            // Historical multipart/partial/sent/uncertain receipts keep their original
+            // transport and bytes. Capture must never retrofit a new delivery format.
+            if (!binding || this.answerExists(event)) return;
+            const htmlBytes = Buffer.byteLength(html, 'utf8');
+            if (clean.length > RICH_FINAL_TEXT_LIMIT || htmlBytes > RICH_FINAL_HTML_BYTES) {
+                this.enqueue(event, clean, 'reply', undefined, at, binding.generation); return;
+            }
+            const composition: RichFinal = { generation: binding.generation, chatId: binding.chatId,
+                botGeneration: this.store.get('telegramBotGeneration') ?? null, checksum: hash(clean), htmlBytes };
+            this.store.run('INSERT INTO telegram_outbox(event_id,created_at,kind,text,generation) VALUES(?,?,?,?,?)', event, at, 'reply', clean, binding.generation);
+            this.store.set('telegramRichFinal:' + event, composition);
+            this.store.set('telegramOutboxVersion:' + event, runtimeDetectorVersion);
+        });
+    }
     private callback(eventId: string, value: {
         action: string;
         code?: string;
@@ -628,6 +668,7 @@ export class Telegram {
         for (const j of this.store.all("SELECT j.* FROM jobs j JOIN job_events e ON e.job_id=j.id AND e.type='accepted' WHERE json_extract(e.details,'$.origin')='telegram' AND j.created_at>=? AND j.state IN ('completed','failed')", this.store.get('telegramBinding').since)) {
             if (this.store.get('jobTelegramGeneration:' + j.id) !== this.store.get('telegramBinding').generation)
                 continue;
+            if (this.answerExists('answer:' + j.id)) continue;
             const result = JSON.parse(j.result ?? '{}');
             const source=JSON.parse(j.payload??'{}').message??'';
             const greeting=/^(ciao|buongiorno|salve|hello|hi|grazie|ok)[!.,\s]*$/i.test(source.trim());
@@ -637,7 +678,7 @@ export class Telegram {
             if(cta.length)this.attachButtons('answer:'+j.id,cta,this.store.get('telegramBinding').generation);
             const partial=this.store.one("SELECT data FROM ui_events WHERE job_id=? AND type='text' ORDER BY id DESC LIMIT 1",j.id);
             const finalText=j.state==='completed'?telegramClean(result.answer??'Richiesta completata; dettagli nella web app.'):((partial?JSON.parse(partial.data).text+'\n\n':'')+'Risposta interrotta o non completata. Il testo è parziale; puoi chiedere un nuovo approfondimento.');
-            this.enqueue('answer:'+j.id,finalText,'reply',undefined,at);
+            this.enqueueAnswer('answer:'+j.id,finalText,at);
         }
         for (const o of this.store.all("SELECT id,state FROM operations WHERE at>=? AND state IN ('SUCCEEDED','FAILED','uncertain','in_flight')", this.store.get('telegramBinding').since))
             this.enqueue('operation:' + o.id + ':' + o.state, `Operation ${o.id}: ${o.state}. Dettagli nella web app.`, o.state === 'uncertain' ? 'critical' : 'ordinary', undefined, at);
@@ -768,18 +809,34 @@ export class Telegram {
                 this.store.run("UPDATE telegram_outbox SET status='failed',error='Artifact integrity or destination mismatch' WHERE event_id=?", r.event_id);
                 new RuntimeImprovements(this.store).delivery(r.event_id, 'failed'); continue;
             }
+            const rich = this.store.get<RichFinal>('telegramRichFinal:' + r.event_id);
+            const fallback = this.store.get<any>('telegramRichFinalFallback:' + r.event_id);
+            if (fallback && !rich || rich && (rich.generation !== binding.generation || rich.chatId !== binding.chatId || rich.botGeneration !== botGeneration ||
+                rich.checksum !== hash(r.text) || r.text.length > RICH_FINAL_TEXT_LIMIT || rich.htmlBytes !== Buffer.byteLength(telegramHtml(r.text), 'utf8') || rich.htmlBytes > RICH_FINAL_HTML_BYTES ||
+                fallback && (fallback.checksum !== rich.checksum || fallback.generation !== binding.generation || fallback.chatId !== binding.chatId || fallback.botGeneration !== botGeneration || ![400,404].includes(fallback.apiCode)))) {
+                this.store.run("UPDATE telegram_outbox SET status='failed',error='Rich response integrity or destination mismatch' WHERE event_id=?", r.event_id); continue;
+            }
             // A crash after this receipt is uncertain, not silently retried after restart.
             this.store.run("UPDATE telegram_outbox SET status='sending',attempts=attempts+1 WHERE event_id=?", r.event_id);
             new RuntimeImprovements(this.store).delivery(r.event_id, 'sending');
             this.invalidateDrafts(binding.generation,binding.chatId);
             try {
                 let method = 'sendMessage', body: unknown = { chat_id: binding.chatId, text: telegramHtml(r.text), parse_mode: 'HTML', reply_markup: buttons };
-                if (artifact && artifact.content.length > RUNTIME_ADVISORY_INLINE_LIMIT) {
+                if (rich && !fallback) {
+                    method = 'sendRichMessage'; body = { chat_id: binding.chatId, rich_message: { html: telegramHtml(r.text) }, reply_markup: buttons };
+                } else if (rich && fallback) {
+                    const form = new FormData(); form.set('chat_id', String(binding.chatId));
+                    form.set('caption', 'Risposta in allegato; eventuali limiti o interruzioni sono indicati nel testo.');
+                    form.set('document', new Blob([r.text], { type: 'text/plain;charset=utf-8' }), `satssurge-response-${hash(r.event_id).slice(0,16)}.txt`);
+                    if (buttons) form.set('reply_markup', json(buttons));
+                    method = 'sendDocument'; body = form;
+                } else if (artifact && artifact.content.length > RUNTIME_ADVISORY_INLINE_LIMIT) {
                     const form = new FormData(); form.set('chat_id', String(binding.chatId)); form.set('caption', telegramClean(r.text));
                     form.set('document', new Blob([artifact.content], { type: 'text/plain;charset=utf-8' }), artifact.filename);
                     method = 'sendDocument'; body = form;
                 }
                 const message = await this.outboundCall(method,body);
+                if (rich && (!Number.isSafeInteger(message?.message_id) || message.message_id <= 0)) throw Error('Response delivery acknowledgement is uncertain');
                 this.store.tx(() => {
                     this.store.run("UPDATE telegram_outbox SET status='sent',message_id=?,error=NULL WHERE event_id=?", message.message_id, r.event_id);
                     new RuntimeImprovements(this.store).delivery(r.event_id, 'sent', message.message_id);
@@ -791,10 +848,17 @@ export class Telegram {
             catch (error) {
                 if (r.proposal_id)
                     this.store.run('UPDATE owner_proposals SET expires_at=NULL WHERE id=?', r.proposal_id);
-                const attempts = r.attempts + 1, retry = this.rejectedRetryAfter(error), rejected = (error as any).rejected === true;
-                const changed = this.store.get('telegramBinding')?.generation !== binding.generation || (this.store.get('telegramBotGeneration') ?? null) !== botGeneration;
-                const status = changed ? 'uncertain' : attempts >= 5 ? 'failed' : rejected ? 'pending' : 'uncertain';
-                this.store.run('UPDATE telegram_outbox SET status=?,next_at=?,error=? WHERE event_id=?', status, new Date(Math.min(8640000000000000,Date.parse(at) + Math.max(retry ?? 0, 2 ** attempts) * 1000)).toISOString(), rejected ? 'API rejection; bounded retry' : 'Delivery uncertain; inspect Telegram before manual retry', r.event_id);
+                const attempts = r.attempts + 1, retry = this.rejectedRetryAfter(error), apiCode = (error as any).apiCode;
+                // Only explicit API client-denial codes prove a persistent rich send
+                // was rejected. Missing/malformed codes and server failures are uncertain.
+                const rejected = (error as any).rejected === true && (!rich || [400,401,403,404,429].includes(apiCode));
+                const changed = this.store.get('telegramBinding')?.generation !== binding.generation || this.store.get('telegramBinding')?.chatId !== binding.chatId || (this.store.get('telegramBotGeneration') ?? null) !== botGeneration;
+                const status = changed || rich && !rejected ? 'uncertain' : attempts >= 5 ? 'failed' : rejected ? 'pending' : 'uncertain';
+                this.store.tx(() => {
+                    if (rich && !fallback && rejected && status === 'pending' && retry === undefined && [400,404].includes(apiCode))
+                        this.store.set('telegramRichFinalFallback:' + r.event_id, { ...rich, apiCode });
+                    this.store.run('UPDATE telegram_outbox SET status=?,next_at=?,error=? WHERE event_id=?', status, new Date(Math.min(8640000000000000,Date.parse(at) + Math.max(retry ?? 0, 2 ** attempts) * 1000)).toISOString(), rejected && !(rich && status === 'uncertain') ? 'API rejection; bounded retry' : 'Delivery uncertain; inspect Telegram before manual retry', r.event_id);
+                });
                 new RuntimeImprovements(this.store).delivery(r.event_id, status);
                 if (this.recordRateLimit(error,botGeneration)!==undefined) break;
             }
@@ -921,11 +985,8 @@ export class Telegram {
             }
             const clean=telegramClean(text);
             if(clean.length>3500){
-                const marker='… Risposta in corso (continuazione)\n';
-                let tail='';
-                // Count UTF-16 transport units but keep whole Unicode code points.
-                for(const ch of [...clean].reverse()){if(marker.length+tail.length+ch.length>3500)break;tail=ch+tail;}
-                text=marker+tail;
+                const marker='\n\n… Anteprima parziale. Il testo completo sarà consegnato al termine.';
+                text=clean.slice(0,textBoundary(clean,3500-marker.length))+marker;
             }else text=clean;
             if (prior.at && Date.parse(at) - Date.parse(prior.at) < 1000)
                 continue;
