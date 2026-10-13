@@ -12,6 +12,8 @@ export interface CollectionSource extends NativeHistorySource,NativePolicySource
  subscribeChannelGraph(callbacks:NativeStreamCallbacks,signal?:AbortSignal):Promise<NativeStreamReceipt>;
  shutdown():void;
 }
+// Ordinary runtime archives include large retained state rows; generic migration/retention limits stay unchanged.
+export const NATIVE_ARCHIVE_MAX_BYTES=4*1024*1024;
 /** Bounded persisted windows survive restart; client instance labels never attest database epochs. */
 export class NativeCollection {
  readonly model:CanonicalModel;readonly history:NativeHistoryCollector;readonly htlc:NativeHtlcCollector;readonly policy:NativePolicyCollector;
@@ -26,15 +28,15 @@ export class NativeCollection {
    const index=this.store.get<number>('canonicalArchiveTable')??0,table=LEGACY_TABLES[index%LEGACY_TABLES.length]!,archiveAt=this.clock();
    let archiveReady=true;
    try{
-    const page=this.store.canonical!.scan(table,{limit:200,observedAt:archiveAt});
+    const page=this.store.canonical!.scan(table,{limit:200,maxBytes:NATIVE_ARCHIVE_MAX_BYTES,observedAt:archiveAt});
     this.store.set('canonicalArchiveTable',(index+1)%LEGACY_TABLES.length);
     this.store.set('canonicalArchiveProgress',{at:archiveAt,table,ok:true,...page,sourceHistoryComplete:false,sourceMutationTimeKnown:false});
    }catch(error){
     // Capacity holds this exact table/cursor; integrity and transaction failures still fail closed.
     if(!(error instanceof OriginalArchiveCapacityError))throw error;
     archiveReady=false;
-    this.model.appendCoverage({nodeId:null,network:null,capability:'legacy_archive',scope:table,source:'legacy:'+table,epoch:randomUUID(),start:archiveAt,end:archiveAt,observedAt:archiveAt,status:'gap',details:{reason:'original_archive_byte_capacity',maxBytes:1048576,cursorUnchanged:true,sourceHistoryComplete:false,sourceMutationTimeKnown:false,accountingAuthority:'none'}});
-    this.store.set('canonicalArchiveProgress',{at:archiveAt,table,ok:false,error:'original_archive_byte_capacity',maxBytes:1048576,cursorUnchanged:true,sourceHistoryComplete:false,sourceMutationTimeKnown:false});
+    this.model.appendCoverage({nodeId:null,network:null,capability:'legacy_archive',scope:table,source:'legacy:'+table,epoch:randomUUID(),start:archiveAt,end:archiveAt,observedAt:archiveAt,status:'gap',details:{reason:'original_archive_byte_capacity',maxBytes:NATIVE_ARCHIVE_MAX_BYTES,cursorUnchanged:true,sourceHistoryComplete:false,sourceMutationTimeKnown:false,accountingAuthority:'none'}});
+    this.store.set('canonicalArchiveProgress',{at:archiveAt,table,ok:false,error:'original_archive_byte_capacity',maxBytes:NATIVE_ARCHIVE_MAX_BYTES,cursorUnchanged:true,sourceHistoryComplete:false,sourceMutationTimeKnown:false});
    }
    const binding=await this.source.binding(),previous=this.store.get<any>('nativeAcquisitionBinding');
    if(previous&&digest(previous)!==digest(binding)){

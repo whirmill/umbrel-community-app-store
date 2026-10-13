@@ -413,7 +413,7 @@ export class Agent {
           const stats = self.store.stats();
           observed(stats.snapshot?.at);
           return result({
-            ...(stateSummary(stats) as object),
+            ...(stateSummary({...stats,lndTransport:self.store.get("lndTransport")??null}) as object),
             runBudget: current()!.budget.status(),
           });
         },
