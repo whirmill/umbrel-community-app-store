@@ -550,6 +550,7 @@ async function shutdown() {
   });
   const deadline = Date.now() + 25000;
   const drained = (await scheduler?.drain(25000)) ?? true;
+  const voiceDrained = await telegram.drain();
   while ((collector?.busy || nativeStreams.size || !httpClosed || activeRequests > 0) && Date.now() < deadline)
     await new Promise((r) => setTimeout(r, 50));
   const httpDrained = httpClosed && activeRequests === 0;
@@ -557,10 +558,11 @@ async function shutdown() {
   store.set("shutdown", {
     at: now(),
     state:
-      drained && !collector?.busy && !nativeStreams.size && httpDrained ? "drained" : "restart_recovery_required",
+      drained && voiceDrained && !collector?.busy && !nativeStreams.size && httpDrained ? "drained" : "restart_recovery_required",
     httpDrained,
+    voiceDrained,
   });
-  if (drained && !collector?.busy && !nativeStreams.size && httpDrained) await agent?.close();
+  if (drained && voiceDrained && !collector?.busy && !nativeStreams.size && httpDrained) await agent?.close();
   node?.close();
   // SQLite FULL commits and durable operation receipts, not this exit status,
   // determine recovery. Never mark an uncertain financial operation failed.
