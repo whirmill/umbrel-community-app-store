@@ -112,6 +112,9 @@ export function canonicalDiagnostics(store:Store,q:CanonicalReadQuery&{provider?
  if(!kinds[collection])return {unavailableEvidence:{available:false,rows:null,nextOffset:null,note:'Native capability has no qualified event-multiplicity rollup'}};
  if(!store.get('nativeCollection')&&!store.one("SELECT 1 FROM canonical_observations WHERE kind IN ('forward','native_htlc','native_policy','payment_attempt') LIMIT 1"))return {unavailableEvidence:{available:false,rows:null,nextOffset:null,note:'Native acquisition unavailable; unknown is not zero'}};
  const page=canonicalRead(store,{...q,section:undefined,kind:kinds[collection],subtype:collection==='failures'?'failures':collection==='rebalances'?'circular_attempts':undefined,limit:q.limit??200});const rows=page.rows;
+ // A failed acquisition marker is not an observed empty collection. Retained
+ // positive observations remain readable, but absence under unavailable collection is unknown.
+ if(store.get('nativeCollection')?.ok!==true&&!rows.length)return {unavailableEvidence:{available:false,rows:null,nextOffset:null,note:'Native acquisition unavailable and no matching observations retained; unknown is not zero'}};
  const {rows:ignored,...metadata}=page;
  return {diagnostics:{native:{status:store.get('nativeCollection')?.ok===true?'qualified':'unavailable',[collection]:rows,...metadata,source:'SatsSurge native LND observations',semanticParityQualified:false,historicalIntentQualified:false}},adapterFiltered:true,sourceMetadata:metadata,projectionLimits:page.projectionLimits};
 }
@@ -120,7 +123,18 @@ export function unifiedDiagnostics(store:Store){
  const pages=Object.fromEntries(['forwards','failures','rebalances','paymentAttempts','policies'].map(collection=>[collection,canonicalDiagnostics(store,{provider:'native',collection,limit:100}) as any]));
  const native=Object.fromEntries(Object.entries(pages).map(([collection,page])=>[collection,page.diagnostics?.native?.[collection]??null]));
  const collectionMetadata=Object.fromEntries(Object.entries(pages).map(([collection,page])=>[collection,{available:!!page.diagnostics,selected:page.diagnostics?.native?.[collection]?.length??null,count:{value:page.diagnostics?.native?.[collection]?.length??null,exact:!!page.diagnostics&&page.projectionLimits?.truncated===false},nextAfter:page.sourceMetadata?.nextAfter??null,through:page.sourceMetadata?.through??null,projectionLimits:page.projectionLimits??null,detailQuery:{section:'diagnostics',provider:'native',collection}}]));
- const provider=(name:string)=>{const p=legacy?.[name];if(!p)return {status:'unavailable',reason:'Historical source capability unavailable'};const collections=Object.fromEntries(['forwards','failures','failureRollups','rebalances'].map(collection=>[collection,(canonicalDiagnostics(store,{provider:name,collection}) as any).diagnostics?.[name]?.[collection]??null]));return {status:p.status,version:p.version,capturedAt:p.capturedAt,coverage:p.coverage,captureComplete:p.captureComplete,captureCounts:p.captureCounts,reason:p.reason,...collections,provenance:{source:name,sourceVersion:p.version??null,capturedAt:p.capturedAt??null,financialAuthority:false}};};
+ const provider=(name:string)=>{
+  const current=legacy?.[name];
+  const pages=Object.fromEntries(diagnosticCollections.map(collection=>[collection,canonicalDiagnostics(store,{provider:name,collection}) as any]));
+  const collections=Object.fromEntries(Object.entries(pages).map(([collection,page])=>[collection,page.diagnostics?.[name]?.[collection]??null]));
+  // Each collection may come from a different immutable capture. Current availability
+  // describes only the latest provider; it cannot date or qualify retained rows.
+  const collectionMetadata=Object.fromEntries(Object.entries(pages).map(([collection,page])=>{
+   const rows=collections[collection],metadata=page.sourceMetadata;
+   return [collection,{available:Array.isArray(rows),selected:rows?.length??null,count:{value:rows?.length??null,exact:Array.isArray(rows)&&page.projectionLimits?.truncated===false},...metadata,captureStatus:page.diagnostics?.[name]?.status??null,projectionLimits:page.projectionLimits??null,unavailableEvidence:page.unavailableEvidence??null,detailQuery:{section:'diagnostics',provider:name,collection}}];
+  }));
+  return {status:current?.status??'unavailable',reason:current?.reason??(!current?'Current source capability unavailable':undefined),...collections,collectionMetadata,currentAvailability:{present:!!current,status:current?.status??'unavailable',version:current?.version??null,capturedAt:current?.capturedAt??null,coverage:current?.coverage??null,captureComplete:current?.captureComplete??null,captureCounts:current?.captureCounts??null,reason:current?.reason??null},financialAuthority:false};
+ };
  return {at:legacy?.at??store.get('nativeCollection')?.at??null,lndg:provider('lndg'),lightningMate:provider('lightningMate'),native:{status:store.get('nativeCollection')?.ok===true?'qualified':'unavailable',...native,collectionMetadata,coverageComplete:false,sourceHistoryComplete:false,provenance:'native LND immutable observations'},archive:store.canonical.summary()};
 }
 
