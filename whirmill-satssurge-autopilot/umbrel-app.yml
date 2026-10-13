@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.13"
+version: "0.5.14"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for Lightning fee experiments and circular rebalances, using
@@ -10,8 +10,9 @@ description: >-
   durable intent tracking and deterministic budget controls. Protects 500,000
   on-chain sats. Mainnet POC: maximum 30,000 sats cumulative including history,
   1,500 sats daily rebalance costs and 100 sats per attempt. Requires initial
-  restricted LND credential provisioning, live automation interlock and successful
-  reconciliation. Autonomy remains suspended until explicit qualification.
+  restricted LND credential provisioning and successful reconciliation. App-control
+  evidence remains unknown; financial autonomy stays suspended under the existing
+  maintenance claim. Installation does not require host helpers or attestations.
   Paired-owner Telegram conversation with read-only coordination, streaming
   drafts, correction choices, targeted Stop, guarded pause/resume, proposal review,
   accounting notifications and explicit review of recoverable historical requests.
@@ -31,14 +32,15 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.13 adds bounded native gRPC history and stream collection,
-  provenance, explicit coverage gaps and unified read-only consumers. Schema 7
-  preserves all 19 original legacy tables in immutable archives before migration;
-  research continuation survives refresh and reopening. Native protected-control
-  checks preserve suspension when evidence is unknown. Pi Durable, Pi AI and
-  Chord remain 1.1.0; OAuth, original identifiers and financial receipts remain
-  preserved. The release uses an immutable amd64/arm64 image index. Live migration,
-  semantic parity, protected-control and web/Telegram acceptance are separate
-  qualification steps; coverage remains partial. Autonomy stays suspended under
-  the existing maintenance claim, mandate, budgets and reserve. M3 completion,
-  agent-generated HTML/DLS exports and optional integrations remain pending.
+  Version 0.5.14 supports native gRPC TLS collection, reconciliation and owner
+  read-only tools without a host-helper bootstrap or host-attestation mount.
+  App-control evidence remains unknown, and scoped mode keeps financial execution
+  held independently of legacy interlock files. This packaging does not qualify
+  other apps or owner-wide standalone automation. Restricted LND credentials,
+  the original maintenance claim, mandate, budgets and reserve remain preserved.
+  Schema 7 retains all 19 original legacy tables in immutable archives. Pi Durable,
+  Pi AI and Chord remain 1.1.0; OAuth and original identifiers are preserved.
+  The amd64/arm64 image index is immutable. Agent-generated HTML/DLS remains
+  disabled pending M3 and separate rendering/Telegram attachment acceptance.
+  Native parity, app-control observations, live web/Telegram acceptance and
+  controlled legacy retirement remain separate roadmap gates.
