@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {CanonicalModel,digest} from './canonical-model.js';
-import {LEGACY_TABLES} from './canonical-migration.js';
+import {LEGACY_TABLES,OriginalArchiveCapacityError} from './canonical-migration.js';
 import {NativeHistoryCollector,type NativeHistorySource} from './native-history.js';
 import {NativeHtlcCollector} from './native-htlc.js';
 import {NativePolicyCollector,type NativePolicySource} from './native-policy.js';
@@ -23,8 +23,19 @@ export class NativeCollection {
   if(this.busy)return;this.busy=true;
   try{
    // Archive one original table batch per tick, including every retained financial receipt.
-   const index=this.store.get<number>('canonicalArchiveTable')??0;
-   this.store.canonical!.scan(LEGACY_TABLES[index%LEGACY_TABLES.length]!,{limit:200,observedAt:this.clock()});this.store.set('canonicalArchiveTable',(index+1)%LEGACY_TABLES.length);
+   const index=this.store.get<number>('canonicalArchiveTable')??0,table=LEGACY_TABLES[index%LEGACY_TABLES.length]!,archiveAt=this.clock();
+   let archiveReady=true;
+   try{
+    const page=this.store.canonical!.scan(table,{limit:200,observedAt:archiveAt});
+    this.store.set('canonicalArchiveTable',(index+1)%LEGACY_TABLES.length);
+    this.store.set('canonicalArchiveProgress',{at:archiveAt,table,ok:true,...page,sourceHistoryComplete:false,sourceMutationTimeKnown:false});
+   }catch(error){
+    // Capacity holds this exact table/cursor; integrity and transaction failures still fail closed.
+    if(!(error instanceof OriginalArchiveCapacityError))throw error;
+    archiveReady=false;
+    this.model.appendCoverage({nodeId:null,network:null,capability:'legacy_archive',scope:table,source:'legacy:'+table,epoch:randomUUID(),start:archiveAt,end:archiveAt,observedAt:archiveAt,status:'gap',details:{reason:'original_archive_byte_capacity',maxBytes:1048576,cursorUnchanged:true,sourceHistoryComplete:false,sourceMutationTimeKnown:false,accountingAuthority:'none'}});
+    this.store.set('canonicalArchiveProgress',{at:archiveAt,table,ok:false,error:'original_archive_byte_capacity',maxBytes:1048576,cursorUnchanged:true,sourceHistoryComplete:false,sourceMutationTimeKnown:false});
+   }
    const binding=await this.source.binding(),previous=this.store.get<any>('nativeAcquisitionBinding');
    if(previous&&digest(previous)!==digest(binding)){
     this.model.appendCoverage({...binding,capability:'native_acquisition',scope:'runtime_restart',source:'lnd.native',epoch:randomUUID(),start:this.clock(),end:this.clock(),observedAt:this.clock(),status:'gap',details:{reason:'client_binding_changed_resume_reopened',previousBindingDigest:digest(previous),sourceInstanceMeaning:'client_provenance_not_database_epoch',sourceHistoryComplete:false}});
@@ -63,7 +74,7 @@ export class NativeCollection {
    const cursor=this.store.get<number>('nativePolicyCursor')??0,channels=list.channels.slice(cursor,cursor+10).map(c=>String(c.chan_id));
    if(channels.length)await this.policy.snapshot({captureId:randomUUID(),channelIds:channels});
    this.store.set('nativePolicyCursor',cursor+10>=list.channels.length?0:cursor+10);
-   this.store.set('nativeCollection',{at:this.clock(),ok:true,binding,sourceHistoryComplete:false,accountingAuthority:'none'});
+   this.store.set('nativeCollection',{at:this.clock(),ok:true,binding,legacyArchiveReady:archiveReady,sourceHistoryComplete:false,accountingAuthority:'none'});
   }catch{this.store.set('nativeCollection',{at:this.clock(),ok:false,sourceHistoryComplete:false,error:'Native acquisition unavailable; coverage remains unknown'});}finally{this.busy=false;}
  }
  async stream(signal:AbortSignal){

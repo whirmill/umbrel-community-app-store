@@ -45,6 +45,20 @@ test('TLS expiry is persisted before a delayed reconciliation and bootstrap fail
  try{const collecting=collector.collect();await started;assert.equal(s.get('lndTransport').failure,'certificate_expired');assert.equal(s.get('bootstrapReady'),false);assert.equal(collector.busy,true);release();await collecting;assert.equal(collector.busy,false);}finally{release();s.close();rmSync(dir,{recursive:true,force:true});}
 });
 
+test('full collection readiness and blockers use the recovered latest transport while scoped finance stays held',async()=>{
+ for(const lateFailure of [false,true]){
+  const s=new Store(':memory:');let transport:LndTransportStatus={...status('healthy'),failure:'deadline'},reconciled=0,recovered=0,nativeTicks=0;
+  s.set('appControlContract',{schema:1,scope:'apps-only'});s.set('expectedIdentity','self');s.set('historicalLedgerImported',true);s.set('enabled',false);s.set('maintenanceClaim',{owner:'original'});s.set('bootstrapReady',true);const mandate=s.get('mandate');
+  const node:any={transportStatus:()=>transport,beginCollection:()=>()=>{recovered++;transport={...status('healthy')};},snapshot:async()=>({at:new Date().toISOString(),identity:'self',synced:true,confirmedSat:'600000',channels:[]}),payments:async()=>[],forwards:async()=>[]};
+  const native:any={tick:async()=>{nativeTicks++;if(lateFailure)transport={...transport,failure:'unavailable'};}};
+  const collector=new Collector(s,node,{reconcile:async()=>{reconciled++;assert.equal(s.get('lndTransport').failure,'deadline');assert.equal(s.get('bootstrapReady'),false);}} as any,'/synthetic-unavailable-gate',native);
+  try{
+   await collector.collect();assert.equal(reconciled,1);assert.equal(recovered,1);assert.equal(nativeTicks,1);assert.equal(s.get('collector').ok,true);assert.equal(s.get('lndTransport').failure,lateFailure?'unavailable':undefined);assert.equal(s.get('operationalReadiness').ready,!lateFailure);
+   assert.equal(s.get<string[]>('blockers')!.includes('Native LND TLS transport requires attention'),lateFailure);assert.ok(s.get<string[]>('blockers')!.includes('Live automation interlock unavailable'));assert.equal(s.get('bootstrapReady'),false);assert.equal(s.get('operationalReadiness').financialEligible,false);assert.equal(s.get('automationProof').state,'unknown');assert.equal(s.get('maintenanceClaim').owner,'original');assert.equal(s.get('enabled'),false);assert.deepEqual(s.get('mandate'),mandate);assert.equal(s.one('SELECT count(*) n FROM operations').n,0);
+  }finally{s.close();}
+ }
+});
+
 for(const failure of ['permission_denied','unavailable'] as const)test(`healthy collection followed by HTLC ${failure} blocks dispatch until full native recovery`,async()=>{
  const dir=mkdtempSync(join(tmpdir(),'collector-stream-readiness-')),s=new Store(':memory:'),server=new grpc.Server();let node:Lnd|undefined;
  const identity='02'+'11'.repeat(32),key=join(dir,'fixture.key'),ca=join(dir,'tls.cert'),read=join(dir,'read'),write=join(dir,'write'),gate=join(dir,'gate');
