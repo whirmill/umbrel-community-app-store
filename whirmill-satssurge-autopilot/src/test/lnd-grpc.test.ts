@@ -108,3 +108,40 @@ test('unavailable SendPayment stream is never replayed; tracking uses original h
  let sends=0;const f=await fixture({}, {sendPaymentV2:(c:any)=>{sends++;c.emit('error',{code:grpc.status.UNAVAILABLE,details:'synthetic service failure'});},trackPaymentV2:(c:any)=>{c.write(payment);c.end();}});
  try{await assert.rejects(f.client.send('fixture',big,peer,'1'),/unavailable/);assert.equal((await f.client.track('07'.repeat(32)))?.status,'SUCCEEDED');assert.equal(sends,1);assert.equal(Buffer.from(f.seen.find(r=>r.method==='trackPaymentV2')!.request.payment_hash,'base64').toString('hex'),'07'.repeat(32));}finally{f.close();}
 });
+
+test('planned native read boundaries retain prior transport failure and collection epoch',async t=>{
+ for(const priorFailure of [false,true])for(const kind of ['idle','budget','abort','shutdown'])await t.test(`${kind} prior=${priorFailure}`,async()=>{
+  let denied=priorFailure;const quiet=(c:any)=>c.sendMetadata(new grpc.Metadata());
+  const f=await fixture({getInfo:(_c:any,cb:any)=>cb(null,{identity_pubkey:identity}),walletBalance:(_c:any,cb:any)=>denied?cb({code:grpc.status.PERMISSION_DENIED}):cb(null,{}),listChannels:(_c:any,cb:any)=>cb(null,{}),subscribeChannelGraph:quiet},{subscribeHtlcEvents:quiet});
+  try{
+   if(priorFailure)await assert.rejects((f.client as any).unary('lightning','walletBalance',{}),/permission_denied/);denied=false;
+   const epoch=(f.client as any).failureEpoch,recover=f.client.beginCollection();
+   const bounds={deadlineMs:kind==='budget'?80:1000,idleMs:kind==='idle'?40:1000,bodyBytes:1000000,frameBytes:1000000,streamBytes:1000000,frames:20};
+   const controllers=[new AbortController(),new AbortController()];let ready=0,started!:()=>void;const bothReady=new Promise<void>(r=>started=r);
+   const cap=f.client.nativeRead(),pending=[cap.subscribeHtlcEvents,cap.subscribeChannelGraph].map((subscribe,i)=>assert.rejects(subscribe(async()=>{},()=>{if(++ready===2)started();},controllers[i]!.signal,bounds),e=>kind==='idle'?(e as any).code==='idle_timeout':kind==='budget'?(e as any).code==='time_budget':String(e).includes('cancelled')));
+   if(kind==='abort'||kind==='shutdown'){await bothReady;if(kind==='abort')controllers.forEach(c=>c.abort());else f.client.close();}
+   await Promise.all(pending);assert.equal(f.client.transportStatus().activeCalls,0);assert.equal(f.client.transportStatus().failure,priorFailure?'permission_denied':undefined);assert.equal((f.client as any).failureEpoch,epoch);
+   if(kind!=='shutdown'){await f.client.snapshot();assert.equal(f.client.transportStatus().failure,priorFailure?'permission_denied':undefined);recover();assert.equal(f.client.transportStatus().failure,undefined);}else assert.equal(f.client.transportStatus().activeChannels,0);
+  }finally{f.close();}
+ });
+});
+
+test('remote read stream status codes still latch failures before the local boundary',async t=>{
+ for(const [failure,code] of Object.entries({cancelled:grpc.status.CANCELLED,deadline:grpc.status.DEADLINE_EXCEEDED,unavailable:grpc.status.UNAVAILABLE,authentication:grpc.status.UNAUTHENTICATED,permission_denied:grpc.status.PERMISSION_DENIED,resource_limit:grpc.status.RESOURCE_EXHAUSTED,rpc_failure:grpc.status.UNKNOWN}))await t.test(failure,async()=>{
+  const remote=(c:any)=>c.emit('error',{code,details:'private fixture diagnostics'}),f=await fixture({subscribeChannelGraph:remote},{subscribeHtlcEvents:remote});
+  try{
+   const bounds={deadlineMs:1000,idleMs:1000,bodyBytes:1000000,frameBytes:1000000,streamBytes:1000000,frames:20},cap=f.client.nativeRead();
+   for(const subscribe of [cap.subscribeHtlcEvents,cap.subscribeChannelGraph]){const epoch=(f.client as any).failureEpoch;await assert.rejects(subscribe(async()=>{},()=>{},new AbortController().signal,bounds),e=>String(e).includes(failure)&&!String(e).includes('private'));assert.equal(f.client.transportStatus().failure,failure);assert.equal((f.client as any).failureEpoch,epoch+1);}
+   await assert.rejects(f.client.htlc(()=>{},new AbortController().signal),new RegExp(failure));assert.equal(f.client.transportStatus().failure,failure);assert.equal(f.client.transportStatus().activeCalls,0);
+  }finally{f.close();}
+ });
+});
+
+test('legacy local HTLC budget abort and shutdown retain prior failure while payment errors stay latched',async t=>{
+ for(const kind of ['budget','abort','shutdown'])await t.test(kind,async()=>{
+  let entered!:()=>void;const started=new Promise<void>(r=>entered=r),f=await fixture({walletBalance:(_c:any,cb:any)=>cb({code:grpc.status.PERMISSION_DENIED})},{subscribeHtlcEvents:(c:any)=>{c.write({timestamp_ns:'1'});entered();}},{htlcMs:300});
+  try{await assert.rejects((f.client as any).unary('lightning','walletBalance',{}),/permission_denied/);const epoch=(f.client as any).failureEpoch,controller=new AbortController(),pending=f.client.htlc(()=>{},controller.signal),settled=kind==='budget'?pending:assert.rejects(pending,/cancelled/);await started;if(kind==='abort')controller.abort();else if(kind==='shutdown')f.client.close();await settled;assert.equal(f.client.transportStatus().failure,'permission_denied');assert.equal((f.client as any).failureEpoch,epoch);assert.equal(f.client.transportStatus().activeCalls,0);}finally{f.close();}
+ });
+ const f=await fixture({}, {sendPaymentV2:(c:any)=>c.emit('error',{code:grpc.status.CANCELLED}),trackPaymentV2:(c:any)=>c.emit('error',{code:grpc.status.DEADLINE_EXCEEDED})});
+ try{await assert.rejects(f.client.send('fixture',big,peer,'1'),/cancelled/);assert.equal(f.client.transportStatus().failure,'cancelled');await assert.rejects(f.client.track('07'.repeat(32)),/deadline/);assert.equal(f.client.transportStatus().failure,'deadline');assert.equal(f.seen.filter(v=>v.method==='sendPaymentV2').length,1);assert.equal(f.seen.filter(v=>v.method==='trackPaymentV2').length,1);assert.equal(f.client.transportStatus().activeCalls,0);}finally{f.close();}
+});

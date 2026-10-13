@@ -102,8 +102,8 @@ export class NativeLndSource implements NativeHistorySource,NativePolicySource {
    const fence=()=>{if(this.#closed)fail('shutdown');if(boundedSignal.aborted)fail('cancelled');};
    b=await this.#bindingRead(boundedSignal);let frameError:NativeLndSourceError|undefined;
    const ready=()=>{try{transportReady=true;if(kind==='graph')this.#notify(callbacks.onReady,{...origin(),kind:'transport_ready'});}catch(e){frameError=this.#error(e);throw e;}};
-   const frame=async(raw:unknown)=>{try{
-   await this.#bindingRead(boundedSignal);fence();frames++;const r=object(raw);
+   const frame=async(raw:unknown,bindingSignal?:AbortSignal)=>{try{
+   await this.#bindingRead(bindingSignal??boundedSignal);if(bindingSignal?.aborted)throw bindingSignal.reason;fence();frames++;const r=object(raw);
    if(kind==='htlc'){
     if(['subscribed_event','forward_event','link_fail_event','settle_event','forward_fail_event','final_htlc_event'].filter(k=>r[k]!=null).length!==1)fail('malformed_response');
     if(r.subscribed_event!==undefined&&r.subscribed_event!==null){if(subscribed||Object.keys(object(r.subscribed_event)).length||['forward_event','link_fail_event','settle_event','forward_fail_event','final_htlc_event'].some(k=>r[k]!=null))fail('malformed_response');subscribed=true;this.#notify(callbacks.onReady,{...origin(),kind:'subscribed'});return;}
