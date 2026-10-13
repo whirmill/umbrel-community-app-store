@@ -1,0 +1,28 @@
+# Merge only after binding an independently published immutable worker digest.
+# ${SATSSURGE_VOICE_IMAGE:?} must be ghcr.io/...@sha256:<verified digest>.
+# Deployment is NOT READY while this digest or native qualification is absent.
+services:
+  server:
+    environment:
+      VOICE_SPOOL: /voice-spool
+    volumes:
+      - voice_private:/voice-spool
+  voice:
+    image: ${SATSSURGE_VOICE_IMAGE:?Bind verified immutable voice worker image before deployment}
+    restart: on-failure
+    init: true
+    user: "1000:1000"
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    cpus: 2
+    mem_limit: 768m
+    stop_grace_period: 10s
+    tmpfs: [/tmp:size=32m,mode=0700,uid=1000,gid=1000]
+    volumes:
+      - voice_private:/voice-spool
+
+volumes:
+  voice_private: {}

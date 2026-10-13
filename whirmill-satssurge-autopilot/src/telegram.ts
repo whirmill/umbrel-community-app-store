@@ -2,6 +2,7 @@ import { authorizeContentRequest, parseContentRequest } from './content-requests
 import { ContentGeneration, type ContentSnapshot } from './content-generation.js';
 import {availabilityBlocker} from './provider-failures.js';
 import { RuntimeImprovements, runtimeDetectorVersion, type RuntimeArtifact } from './runtime-improvements.js';
+import { TelegramVoice, FilesystemVoiceWorker, sanitizeVoice, telegramVoiceTransport, type VoiceWorker, type VoiceTransport, type VoiceReceipt } from './telegram-voice.js';
 import { TelegramTurns } from './telegram-turns.js';
 import { randomBytes } from 'node:crypto';
 import { writeFileSync, readFileSync, existsSync, chmodSync, renameSync, unlinkSync } from 'node:fs';
@@ -100,6 +101,7 @@ export function telegramParts(text: string) {
 export function romeHour(at: string) { return Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', hour: '2-digit', hourCycle: 'h23' }).format(new Date(at))); }
 export class Telegram {
     readonly content: ContentGeneration;
+    readonly voice: TelegramVoice;
     private contentProjection?: (message:string) => ContentSnapshot;
     setContentProjection(project: (message:string) => ContentSnapshot) { this.contentProjection = project; }
     readonly tokenPath: string;
@@ -182,7 +184,32 @@ export class Telegram {
         text: string;
         value: any;
     }[], generation: string) { this.store.set('telegramButtons:' + eventId, this.buttons(eventId, items, generation)); }
-    constructor(readonly store: Store, readonly control: ApplicationControl, directory: string, transport?: TelegramTransport, contentDirectory = join(directory, 'content-jobs')) { this.content = new ContentGeneration(store, contentDirectory); this.tokenPath = join(directory, 'telegram.secret'); this.transport = transport; }
+    constructor(readonly store: Store, readonly control: ApplicationControl, directory: string, transport?: TelegramTransport, contentDirectory = join(directory, 'content-jobs'), voice?: { worker: VoiceWorker; transport: VoiceTransport }) {
+        this.content = new ContentGeneration(store, contentDirectory); this.tokenPath = join(directory, 'telegram.secret'); this.transport = transport;
+        this.voice = new TelegramVoice(store, voice?.transport ?? telegramVoiceTransport((body, signal) => this.client().call('getFile', body, signal), () => readFileSync(this.tokenPath,'utf8').trim()), voice?.worker ?? new FilesystemVoiceWorker(process.env.VOICE_SPOOL ?? '/voice-spool'),
+            r => { const b = this.store.get('telegramBinding'), original = this.store.one('SELECT body FROM telegram_updates WHERE update_id=?',r.updateId); return !!b && b.generation===r.generation && b.userId===r.userId && b.chatId===r.chatId && (this.store.get('telegramBotGeneration')??null)===r.botGeneration && original && hash(original.body)===r.bodyHash; },
+            r => this.admitVoice(r), (r,code) => this.enqueue('update:'+r.updateId+':voice-result', this.voiceReply(code),'reply',undefined,now(),r.generation));
+    }
+    private voiceReply(code: string) { return code === 'voice_cancelled' ? 'Nota vocale annullata; processo rilasciato. Nessuna richiesta è stata ammessa.' : code === 'voice_capacity' ? 'Ci sono già 8 note vocali in attesa. Riprova quando la coda è libera oppure scrivi il testo.' : code === 'voice_metadata_invalid' ? 'Nota vocale non supportata: invia una nuova nota Ogg/Opus, massimo 120 secondi e 10 MiB, oppure scrivi il testo.' : code === 'voice_release_unknown' ? 'Trascrizione sospesa: il rilascio del processo non è confermato. Scrivi una nuova richiesta in testo.' : 'Non posso trascrivere questa nota vocale con il servizio locale. Riprova con una nuova nota oppure scrivi il testo.'; }
+    private admitVoice(r: VoiceReceipt) {
+        if (!r.transcript || hash(r.transcript)!==r.transcriptHash) throw Error('voice_transcript_invalid');
+        const original=this.store.one('SELECT * FROM jobs WHERE request_id=?',r.requestId), event='update:'+r.updateId+':voice-result';
+        if(original&&this.store.get('jobTelegramGeneration:'+original.id)!==r.generation)throw Error('voice_authority');
+        if (!original && r.target) {
+            const c=this.turns().receive(r.generation+':'+r.updateId,r.target,r.transcript);
+            if(c.body!==r.transcript||c.jobId!==r.target.jobId||c.version!==r.target.version)throw Error('voice_correction_invalid');
+            r.correctionId=c.id; r.state='choice_pending';
+            this.store.set('telegramVoiceCorrection:'+c.id,r.id);
+            this.attachButtons(event,[{text:'Correggi questa risposta',value:{action:'steer',id:c.id}},{text:'Nuova richiesta',value:{action:'followup',id:c.id}}],r.generation);
+            this.enqueue(event,'Nota vocale trascritta. Vuoi correggere la risposta indicata oppure accodare una nuova richiesta? Il testo resta in attesa della tua scelta.','reply',undefined,now(),r.generation);
+        } else {
+            const job=original??this.control.admitWithinTransaction(r.requestId,r.transcript,'telegram');
+            this.store.set('jobTelegramGeneration:'+job.id,r.generation);this.store.set('jobTelegramVoice:'+job.id,{id:r.id,requestId:r.requestId,transcriptHash:r.transcriptHash});
+            if(!['completed','failed','cancelled'].includes(job.state))this.turns().attach(job,r.generation,r.chatId);
+            const output=parseContentRequest(r.transcript);if(output&&!this.store.get('contentAuthorizedRequest:'+job.id)){if(!this.contentProjection)throw Error('voice_content_unavailable');authorizeContentRequest(this.store,job.id,output.format,this.contentProjection(r.transcript));}
+            r.jobId=job.id;r.state='admitted';queueMicrotask(()=>{void this.wake?.().catch(()=>{});});
+        }
+    }
     configure(token: string) {
         if (typeof token !== 'string' || !/^\d{6,12}:[A-Za-z0-9_-]{20,}$/.test(token))
             throw Error('Invalid bot token');
@@ -254,7 +281,7 @@ export class Telegram {
             return this.status();
         });
     }
-    revoke() { this.store.tx(() => { this.store.set('telegramBinding', null); this.store.set('telegramPairing', null); this.store.set('telegramCandidate', null); this.store.run("DELETE FROM meta WHERE key LIKE 'resume:%' OR key LIKE 'telegramCallback:%'"); this.store.run("UPDATE owner_proposals SET status='revoked' WHERE status='pending' OR (status='executing' AND operation_id IS NULL)"); this.store.run("UPDATE telegram_outbox SET status='cancelled' WHERE status='pending'"); }); return this.status(); }
+    revoke() { this.voice.cancel(); this.store.tx(() => { this.store.set('telegramBinding', null); this.store.set('telegramPairing', null); this.store.set('telegramCandidate', null); this.store.run("DELETE FROM meta WHERE key LIKE 'resume:%' OR key LIKE 'telegramCallback:%'"); this.store.run("UPDATE owner_proposals SET status='revoked' WHERE status='pending' OR (status='executing' AND operation_id IS NULL)"); this.store.run("UPDATE telegram_outbox SET status='cancelled' WHERE status='pending'"); }); return this.status(); }
     removeToken() {
         this.revoke();
         if (existsSync(this.tokenPath))
@@ -273,7 +300,8 @@ export class Telegram {
                 const draft = stopped && this.store.get('telegramDraft:' + stopped.draft_id);
                 let text = String(u.message?.text ?? '');
                 const start = /^\/start\s+(\S+)\s*$/.exec(text);
-                const safe = { botGeneration:this.store.get('telegramBotGeneration')??null,generation: this.store.get('telegramBinding')?.generation, update_id: u.update_id, chatId: m?.chat?.id, chatType: m?.chat?.type, userId: from?.id ?? (stopped&&m?.chat?.type==='private'&&m?.chat?.id===this.store.get('telegramBinding')?.chatId ? this.store.get('telegramBinding')?.userId : undefined), topic: m?.message_thread_id, edited: !!u.edited_message, stoppedDraft: stopped?.draft_id, callbackId: u.callback_query?.id, username: telegramText(String(from?.username ?? '')), text: start ? '/start' : telegramText(text), date: m?.date, codeDigest: start ? hash(start[1]!) : undefined, callback: String(u.callback_query?.data ?? '').slice(0, 64) };
+                const voice = sanitizeVoice(u.message ?? u.edited_message), unsupportedAttachment = !!m && ['audio','document','photo','video','video_note','sticker','animation','contact','location'].some(k=>m[k]!==undefined);
+                const safe = { voice, caption:telegramText(String(m?.caption??'')), unsupportedAttachment, botGeneration:this.store.get('telegramBotGeneration')??null,generation: this.store.get('telegramBinding')?.generation, update_id: u.update_id, chatId: m?.chat?.id, chatType: m?.chat?.type, userId: from?.id ?? (stopped&&m?.chat?.type==='private'&&m?.chat?.id===this.store.get('telegramBinding')?.chatId ? this.store.get('telegramBinding')?.userId : undefined), topic: m?.message_thread_id, edited: !!u.edited_message, stoppedDraft: stopped?.draft_id, callbackId: u.callback_query?.id, username: telegramText(String(from?.username ?? '')), text: start ? '/start' : telegramText(text), date: m?.date, codeDigest: start ? hash(start[1]!) : undefined, callback: String(u.callback_query?.data ?? '').slice(0, 64) };
                 this.store.run('INSERT OR IGNORE INTO telegram_updates(update_id,body) VALUES(?,?)', u.update_id, json(safe));
                 cursor = Math.max(cursor, u.update_id + 1);
             }
@@ -338,7 +366,7 @@ export class Telegram {
         void this.wake?.().catch(() => { }); return job;
     }
     private delayedReadOnly(u:any):boolean {
-        if(u.callbackId||u.callback||u.stoppedDraft||u.codeDigest||u.edited||u.topic||typeof u.text!=='string')return false;
+        if(u.voice||u.unsupportedAttachment||u.callbackId||u.callback||u.stoppedDraft||u.codeDigest||u.edited||u.topic||typeof u.text!=='string')return false;
         if(['/status','/help','/queue','/menu'].includes(u.text))return true;
         return !!u.text.trim()&&!u.text.startsWith('/')&&requestCapability(u.text,'telegram')==='read_only_chat';
     }
@@ -540,6 +568,15 @@ export class Telegram {
                 if (u.topic || u.edited) {
                     answer = 'Modifiche e topic non sono supportati: invia una nuova richiesta nella chat privata.';
                 }
+                else if (u.voice) {
+                    const code=this.store.tx(()=>{const code=this.voice.accept(u,row.body,this.turns().active(binding.generation));this.finishIncoming(row,code??null);return code;});
+                    if(code)answer=this.voiceReply(code);else {
+                        const r=this.voice.receipts().find(r=>r.updateId===row.update_id&&r.generation===binding.generation);
+                        if(r&&['accepted','downloading','transcribing'].includes(r.state)) { const pending=event+':voice-pending';this.attachButtons(pending,[{text:'Annulla nota vocale',value:{action:'voice_cancel',id:r.id}}],binding.generation);this.enqueue(pending,'Sto trascrivendo la nota vocale localmente. Puoi annullarla durante l’attesa.','reply',undefined,at,binding.generation); }
+                        this.voice.kick();
+                    }
+                }
+                else if (u.unsupportedAttachment) { answer='Questo allegato non è supportato. Invia una nota vocale Ogg/Opus oppure scrivi il testo della richiesta.'; }
                 else if (u.stoppedDraft) {
                     const mapped = this.store.get('telegramDraft:' + u.stoppedDraft);
                     if (mapped?.generation === binding.generation&&(!mapped.expires||mapped.expires>at)&&(!mapped.chatId||mapped.chatId===binding.chatId)&&(!('botGeneration' in mapped)||mapped.botGeneration===callbackBot)) {
@@ -578,6 +615,8 @@ export class Telegram {
                             if(anchor?.state==='pending'&&anchor.correctionId===value.id&&anchor.correctionHash===hash(beforeChoice.value)&&c.state==='choice_pending'&&after?.value===json({...c,state:'late'}))this.store.set(anchorKey,{...anchor,correctionHash:hash(after.value)});
                         });
                         answer = state === 'late' ? 'Questa risposta è già chiusa. Puoi inviare il testo come nuova richiesta.' : state === 'failed' ? 'Correzione non inserita; ricevuta conservata per verifica.' : 'Correzione ammessa. Pi la applica al prossimo confine utile; la ricevuta non certifica che il modello abbia seguito il testo.';
+                        const voiceId=this.store.get<string>('telegramVoiceCorrection:'+value.id),voice=voiceId&&this.store.get<VoiceReceipt>('telegramVoice:'+voiceId);
+                        if(voice&&['admitted','placed','settled'].includes(state)&&this.authorized(binding.generation,binding.chatId,callbackBot)){const correction=this.turns().correction(value.id!);if(correction&&correction.body===voice.transcript&&hash(correction.body)===voice.transcriptHash){voice.state='admitted';voice.jobId=correction.jobId;this.store.set('telegramVoice:'+voice.id,voice);}}
                         if (['admitted', 'placed'].includes(state))
                             this.attachButtons(event, [{ text: 'Ritira correzione', value: { action: 'withdraw', id: value.id } }], binding.generation);
                         if (state === 'late')
@@ -587,12 +626,15 @@ export class Telegram {
                         const result = await this.turns().withdraw(value.id!);
                         answer = result === 'aborted' ? 'Correzione ritirata; ricevuta conservata.' : result === 'already_placed' ? 'La correzione è già nel contesto del modello e non può essere ritirata. Puoi interrompere questa risposta.' : 'Correzione già conclusa o da riconciliare; nessun replay.';
                     }
+                    else if(value.action==='voice_cancel'){ answer=this.voice.withdraw(value.id!,binding.generation)?'Annullamento della nota vocale richiesto; attendo il rilascio del processo.':'Questa nota vocale è già conclusa o il pulsante è scaduto.'; }
                     else if (value.action === 'followup') {
                         answer = 'Nuova richiesta accodata; puoi annullarla con /queue.';
                         this.admitAction(row.update_id, event, 'telegram-followup:' + value.id, binding, at, answer, () => {
                             const c = this.turns().correction(value.id!);
+                            const voiceId=this.store.get<string>('telegramVoiceCorrection:'+value.id), voice=voiceId&&this.store.get<VoiceReceipt>('telegramVoice:'+voiceId);
+                            if(voice&&(voice.generation!==binding.generation||voice.botGeneration!==callbackBot||voice.transcript!==c?.body||hash(c?.body??'')!==voice.transcriptHash))throw Error('Voice choice authority expired');
                             if (!c || c.expires <= at || c.generation !== binding.generation || !['choice_pending', 'late'].includes(c.state)) throw Error('Choice expired');
-                            return { message: c.body, link: { priorTurn: c.jobId, correction: c.id }, consume: () => { c.state = 'withdrawn'; this.turns().saveCorrection(c); } };
+                            return { message: c.body, link: { priorTurn: c.jobId, correction: c.id }, consume: () => { c.state = 'withdrawn'; this.turns().saveCorrection(c); if(voice){voice.state='admitted';voice.jobId=this.store.one('SELECT id FROM jobs WHERE request_id=?','telegram-followup:'+c.id)?.id;this.store.set('telegramVoice:'+voice.id,voice);if(voice.jobId)this.store.set('jobTelegramVoice:'+voice.jobId,{id:voice.id,requestId:voice.requestId,transcriptHash:voice.transcriptHash});} } };
                         });
                     }
                     else if (value.action === 'stop') {
@@ -694,6 +736,7 @@ export class Telegram {
                     answer = '/status /analyze /pause /resume /proposals /stop /queue /recover /prompt ISSUE_ID [REVISIONE] /menu /help. /prompt recupera una copia del prompt consultivo già registrato. La chat consente analisi; chiedi esplicitamente una proposta da approvare. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.' + (this.store.get('contentArtifactsEnabled')===true?' Esporta dati con /export pdf|png|csv|xlsx [section=...] [limit=1..100] [-- descrizione].':'');
                 }
                 else {
+                    if(this.voice.blocks(row.update_id))continue;
                     const message = u.text.startsWith('/analyze') ? u.text.slice(8).trim() || 'Analizza economia del nodo e blocchi attuali' : u.text;
                     if (!message.trim()) throw Error('Empty request');
                     const outputRequest = parseContentRequest(message);
@@ -732,6 +775,9 @@ export class Telegram {
                 this.store.tx(() => { this.enqueue(event, 'Richiesta bloccata o scaduta. Verifica lo stato nella web app e crea una nuova richiesta.', 'reply', undefined, at, u.generation); this.finishIncoming(row,'Request blocked; inspect web receipt'); });
             }
         }
+        // Earlier text may have released the shared ingress barrier. Restart
+        // the finite pump without awaiting audio or delaying control handling.
+        this.voice.kick();
     }
     summary(p: any) { return `Proposta ${p.content.kind}: ${p.content.source || 'policy'} → ${p.content.target}. Importo ${p.content.amountSat} sat; costo massimo ${p.content.maxFeeMsat} msat${p.content.newPpm === undefined ? '' : `; nuova fee ${p.content.newPpm} ppm`}. Motivo: ${telegramText(p.content.whyAct)}. Valida per 5 minuti dalla consegna. Approva o rifiuta; restano attivi i controlli di sicurezza.`; }
     capture(at = now()) {
@@ -996,9 +1042,10 @@ export class Telegram {
         }
         await this.outgoing;
         await this.incoming;
+        await this.voice.drain();
         this.running = false;
     }
-    private async processLoop(){while(!this.abort.signal.aborted){try{await this.process();}catch{this.store.set('telegramError','Ingresso Telegram temporaneamente bloccato; aggiornamenti conservati');}await this.wait(100);}}
+    private async processLoop(){while(!this.abort.signal.aborted){try{this.voice.kick();await this.process();}catch{this.store.set('telegramError','Ingresso Telegram temporaneamente bloccato; aggiornamenti conservati');}await this.wait(100);}}
     private async outbound() { while (!this.abort.signal.aborted) {
         let botGeneration=this.store.get('telegramBotGeneration')??null;
         try {
@@ -1162,5 +1209,6 @@ export class Telegram {
             this.abort.signal.addEventListener('abort', done, { once: true });
         });
     }
-    stop() { this.abort.abort(); }
+    stop() { this.abort.abort(); this.voice.stop(); }
+    async drain() { const voiceDrained=await this.voice.drain(); await this.incoming; await this.outgoing; return voiceDrained; }
 }

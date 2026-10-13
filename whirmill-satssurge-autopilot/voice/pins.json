@@ -1,0 +1,8 @@
+{
+  "protocol": 1,
+  "runtime": {"version": "1.9.5", "commit": "d1be6fde11ac6e0407606b4e42fe72d34add8037", "archiveSha256": "645445da884df6dbd52b30f82d7be7c01d1767c938714e477e786b88d529e9f4", "archiveBytes": 9631456, "license": "MIT"},
+  "model": {"name": "base", "revision": "5359861c739e955e79d9a303bcbc70fb988958b1", "bytes": 147951465, "sha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe", "license": "MIT"},
+  "decoder": {"version": "7.1.1", "archiveSha256": "733984395e0dbbe5c046abda2dc49a5544e7e0e1e2366bba849222ae9e3a03b1", "archiveBytes": 11019500, "license": "LGPL-2.1-or-later", "network": false, "gpl": false, "nonfree": false},
+  "cpu": {"native": false, "avx": false, "avx2": false, "fma": false, "f16c": false, "arm": "armv8-a", "threads": 2, "gpu": false, "language": "it", "contextTokens": 0},
+  "qualification": "native amd64 and arm64 inference, quality, timing and memory remain required"
+}

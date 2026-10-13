@@ -20,6 +20,9 @@ jobs:
       - name: Verify host diagnostic adapter
         working-directory: whirmill-satssurge-autopilot
         run: python3 -m unittest discover -s scripts/tests -v
+      - name: Verify offline voice worker boundaries
+        working-directory: whirmill-satssurge-autopilot
+        run: python3 -m unittest discover -s voice/tests -v
       - name: Verify disabled content renderer policy
         working-directory: whirmill-satssurge-autopilot/renderer
         run: npm ci --ignore-scripts && npm test
@@ -65,6 +68,20 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        id: voice_image
+        with:
+          context: ./whirmill-satssurge-autopilot
+          file: ./whirmill-satssurge-autopilot/voice/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ startsWith(github.ref, 'refs/tags/') }}
+          tags: ghcr.io/whirmill/umbrel-satssurge-voice:${{ steps.version.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Immutable voice image receipt (build alone is not native qualification)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: echo 'ghcr.io/whirmill/umbrel-satssurge-voice:${{ steps.version.outputs.version }}@${{ steps.voice_image.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"
       - name: Immutable release receipt
         if: startsWith(github.ref, 'refs/tags/')
         run: echo 'ghcr.io/whirmill/umbrel-satssurge-autopilot:${{ steps.version.outputs.version }}@${{ steps.image.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"
