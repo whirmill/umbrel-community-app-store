@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.16"
+version: "0.5.17"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Pi Durable agent for Lightning fee experiments and circular rebalances, using
@@ -32,12 +32,14 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.16 fixes bounded native archive progress and readiness reporting.
-  Local stream timeouts, cancellation and shutdown preserve the existing LND
-  transport state; independent RPC failures still require attention. TLS
-  verification and restricted credentials remain enforced. Telegram audio and
-  voice messages receive an explicit unsupported reply; use text or phone-keyboard
-  dictation. No audio decoder, transcription worker or model is installed.
+  Version 0.5.17 continues the immutable original archive past large evidence
+  records using bounded runtime batches, without skipping records or changing
+  migration, retention or archive limits. Read-only agent diagnostics now include
+  the persisted LND TLS status, certificate validity and independent inspection
+  time; unknown transport evidence stays explicit. TLS verification and restricted
+  credentials remain enforced. Telegram audio and voice messages receive an
+  explicit unsupported reply; use text or phone-keyboard dictation. No audio
+  decoder, transcription worker or model is installed.
   Native gRPC TLS collection, reconciliation and owner read-only tools require
   no host-helper bootstrap or host-attestation mount.
   App-control evidence remains unknown, and scoped mode keeps financial execution
