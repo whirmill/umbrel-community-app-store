@@ -69,7 +69,7 @@ function projection(table:LegacyTable,row:Record<string,any>,originalDigest:stri
 }
 export interface LegacyBatchOptions extends Binding {table:LegacyTable;sourceInstance:string;sourceVersion:string|null;observedAt:string;limit?:number;maxBytes?:number;beforeCheckpoint?:()=>void}
 /** Each complete cycle starts another bounded scan: catches post-baseline rows, rowid reuse and updates behind a previous cursor. */
-export function ingestLegacyBatch(db:DatabaseSync,o:LegacyBatchOptions):{read:number;inserted:number;cursor:string|null;cycle:number;cycleComplete:boolean;checkpointId:string} {
+export function ingestLegacyBatch(db:DatabaseSync,o:LegacyBatchOptions):{read:number;inserted:number;cursor:string|null;cycle:number;cycleComplete:boolean;boundedByBytes:boolean;checkpointId:string} {
  if(!LEGACY_TABLES.includes(o.table))throw Error('Unsupported original table');
  const limit=o.limit??200;if(!Number.isSafeInteger(limit)||limit<1||limit>1000)throw Error('Bounded legacy batch required');
  const source='legacy:'+o.table;const model=new CanonicalModel(db),scope=stable({table:o.table,sourceInstance:o.sourceInstance,nodeId:o.nodeId,network:o.network});
@@ -79,17 +79,17 @@ export function ingestLegacyBatch(db:DatabaseSync,o:LegacyBatchOptions):{read:nu
    let cycle=checkpoint?.cycle??1,cursor=checkpoint?.cursor===undefined||checkpoint.cursor===null?null:String(checkpoint.cursor),upperBound=checkpoint?.upperBound;
    if(checkpoint?.cycleComplete){cycle++;cursor=null;upperBound=undefined;}
    if(upperBound===undefined){const highwater=db.prepare(`SELECT coalesce(max(rowid),0) highwater FROM ${o.table}`);highwater.setReadBigInts(true);upperBound=String(highwater.get()!.highwater);}
-   const rows=boundedOriginalRows(db,o.table,cursor===null?'rowid>=? AND rowid<=?':'rowid>? AND rowid<=?',[cursor===null?-9223372036854775808n:BigInt(cursor),BigInt(upperBound)],'rowid',limit,o.maxBytes??1048576);
+   const page=boundedOriginalPage(db,o.table,cursor===null?'rowid>=? AND rowid<=?':'rowid>? AND rowid<=?',[cursor===null?-9223372036854775808n:BigInt(cursor),BigInt(upperBound)],'rowid',limit,o.maxBytes??1048576),rows=page.rows;
    let inserted=0,encodedBytes=0;const rowDigests:string[]=[],previousDigest=checkpoint?.cycleComplete?null:checkpoint?.scanDigest??null;let scanDigest=previousDigest??digest({table:o.table,cycle,upperBound});let scannedRows=checkpoint?.cycleComplete?0:checkpoint?.scannedRows??0;
    for(const raw of rows){const {__canonical_rowid__,...row}=raw;cursor=String(__canonical_rowid__);const rowDigest=digest(encodeOriginal(row));rowDigests.push(rowDigest);scanDigest=digest({previous:scanDigest,rowid:cursor,rowDigest});scannedRows++;
      encodedBytes+=Buffer.byteLength(encodeOriginal(row));if(encodedBytes>(o.maxBytes??1048576))throw Error('Original archive byte limit exceeded; original rows retained');
      inserted+=archiveOriginal(db,o.table,row,{sourceInstance:o.sourceInstance,sourceVersion:o.sourceVersion,observedAt:o.observedAt,nodeId:o.nodeId,network:o.network,rowid:cursor}).inserted;
 
    }
-   const cycleComplete=rows.length<limit||(cursor!==null&&BigInt(cursor)>=BigInt(upperBound));
+   const cycleComplete=page.exhausted||(cursor!==null&&BigInt(cursor)>=BigInt(upperBound));
    o.beforeCheckpoint?.();
-   const checkpointId=model.appendCoverage({nodeId:o.nodeId,network:o.network,capability:'legacy_ingestion',scope,source,epoch:String(cycle),start:o.observedAt,end:o.observedAt,observedAt:o.observedAt,status:'checkpoint',supersedes:old?.id??null,details:{table:o.table,cycle,cursor,upperBound,cycleComplete,read:rows.length,scannedRows,scanDigest,rowDigests,frozenHighWaterComplete:cycleComplete,sourceMutationTimeKnown:false}});
-   return {read:rows.length,inserted,cursor,cycle,cycleComplete,scannedRows,scanDigest,upperBound,checkpointId};
+   const checkpointId=model.appendCoverage({nodeId:o.nodeId,network:o.network,capability:'legacy_ingestion',scope,source,epoch:String(cycle),start:o.observedAt,end:o.observedAt,observedAt:o.observedAt,status:'checkpoint',supersedes:old?.id??null,details:{table:o.table,cycle,cursor,upperBound,cycleComplete,boundedByBytes:page.boundedByBytes,read:rows.length,scannedRows,scanDigest,rowDigests,frozenHighWaterComplete:cycleComplete,sourceMutationTimeKnown:false}});
+   return {read:rows.length,inserted,cursor,cycle,cycleComplete,boundedByBytes:page.boundedByBytes,scannedRows,scanDigest,upperBound,checkpointId};
  });
 }
 
@@ -100,16 +100,27 @@ export function encodeOriginal(row:Record<string,unknown>):string {
 export function decodeOriginal(text:string):Record<string,unknown> {
  return Object.fromEntries(Object.entries(JSON.parse(text)).map(([k,raw])=>{const [type,value]=raw as string[];return [k,type==='null'?null:type==='integer'?BigInt(value!):type==='real'?Number(value):type==='text'?value:type==='blob'?Buffer.from(value!,'base64'):(()=>{throw Error('Unsupported archive format');})()];}));
 }
-/** Size gate is evaluated by SQLite before fetching payload columns. At most limit rows materialize. */
-export function boundedOriginalRows(db:DatabaseSync,table:LegacyTable,where:string,args:any[],order:string,limit:number,maxBytes:number):any[] {
+/** Only bounded capacity holds can be isolated from native acquisition. */
+export class OriginalArchiveCapacityError extends Error {
+ constructor(){super('Original archive byte limit exceeded; original rows retained');this.name='OriginalArchiveCapacityError';}
+}
+/** SQLite sizes candidates before payload fetch; runtime prefixes also obey exact encoded bytes. A short byte-bounded page never proves exhaustion. */
+export function boundedOriginalPage(db:DatabaseSync,table:LegacyTable,where:string,args:any[],order:string,limit:number,maxBytes:number,allowPrefix=true):{rows:any[];exhausted:boolean;boundedByBytes:boolean} {
  if(!LEGACY_TABLES.includes(table)||!Number.isSafeInteger(limit)||limit<1||limit>1000||!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>16777216)throw Error('Bounded original batch required');
  const columns=db.prepare(`PRAGMA table_info(${table})`).all().map(r=>String(r.name));
  const size=columns.map(k=>`coalesce(length(CAST("${k}" AS BLOB)),0)+64`).join('+');
  const candidateStatement=db.prepare(`SELECT rowid rid,(${size}) bytes FROM ${table} WHERE ${where} ORDER BY ${order} LIMIT ?`);candidateStatement.setReadBigInts(true);const candidates=candidateStatement.all(...args,limit) as any[];
- let bytes=0;for(const row of candidates){bytes+=Number(row.bytes)*2;if(bytes>maxBytes)throw Error('Original archive byte limit exceeded; original rows retained');}
- if(!candidates.length)return [];
- const statement=db.prepare(`SELECT rowid AS __canonical_rowid__,* FROM ${table} WHERE rowid IN (${candidates.map(()=>'?').join(',')}) ORDER BY ${order}`);statement.setReadBigInts(true);
- return statement.all(...candidates.map(r=>r.rid)) as any[];
+ let bytes=0;const selected:any[]=[];for(const row of candidates){const next=bytes+Number(row.bytes)*2;if(next>maxBytes){if(!allowPrefix||!selected.length)throw new OriginalArchiveCapacityError();break;}bytes=next;selected.push(row);}
+ if(!selected.length)return {rows:[],exhausted:true,boundedByBytes:false};
+ const statement=db.prepare(`SELECT rowid AS __canonical_rowid__,* FROM ${table} WHERE rowid IN (${selected.map(()=>'?').join(',')}) ORDER BY ${order}`);statement.setReadBigInts(true);
+ const fetched=statement.all(...selected.map(r=>r.rid)) as any[],rows:any[]=[];let encodedBytes=0;
+ for(const raw of fetched){const {__canonical_rowid__,...row}=raw,next=encodedBytes+Buffer.byteLength(encodeOriginal(row));if(next>maxBytes){if(!allowPrefix||!rows.length)throw new OriginalArchiveCapacityError();break;}encodedBytes=next;rows.push(raw);}
+ const boundedByBytes=rows.length<candidates.length;
+ return {rows,exhausted:!boundedByBytes&&candidates.length<limit,boundedByBytes};
+}
+/** Migration, retention and scoped projections keep their strict all-or-rollback batch contract. */
+export function boundedOriginalRows(db:DatabaseSync,table:LegacyTable,where:string,args:any[],order:string,limit:number,maxBytes:number):any[] {
+ return boundedOriginalPage(db,table,where,args,order,limit,maxBytes,false).rows;
 }
 export function archiveOriginal(db:DatabaseSync,table:LegacyTable,row:Record<string,any>,o:Binding&{sourceInstance:string;sourceVersion:string|null;observedAt:string;rowid:number|string}):{id:string;inserted:number} {
  if(!LEGACY_TABLES.includes(table)||!o.sourceInstance||o.sourceInstance.length>512)throw Error('Original provenance required');

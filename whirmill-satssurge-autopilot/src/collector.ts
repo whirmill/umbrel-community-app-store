@@ -87,9 +87,10 @@ export class Collector {
       recovered?.();
       evaluate(this.store,end);this.store.retain();
       await this.native?.tick();
+      this.persistTransport();
       this.store.set('operationalReadiness',{at:now(),ready:s.synced&&!this.store.get('lndTransport')?.failure,appControls:scoped?(this.store.get('appControlProof')?.ok===true?'qualified':'unknown'):'not-configured',standalone:scoped?'unknown':'separate-interlock',financialEligible:scoped?false:this.store.get('automationProof')?.ok===true});
       this.store.set('collectionReadiness',{at:now(),operational:true,nativeObserved:this.store.get('nativeCollection')?.ok===true,financialAuthority:'unchanged',nativeParityQualified:false});
-      const blockers:string[]=[];this.persistTransport();if(this.store.get('lndTransport')?.failure)blockers.push('Native LND TLS transport requires attention');if(this.store.get('integrityBlocker'))blockers.push(this.store.get<string>('integrityBlocker')!);
+      const blockers:string[]=[];if(this.store.get('lndTransport')?.failure)blockers.push('Native LND TLS transport requires attention');if(this.store.get('integrityBlocker'))blockers.push(this.store.get<string>('integrityBlocker')!);
       if(this.store.get('importReport')?.problems?.length)blockers.push('Historical import discrepancies unresolved');
       if(!s.synced)blockers.push('LND not synchronized');
       if(!this.store.get('historicalLedgerImported'))blockers.push('Historical ledger not imported');
