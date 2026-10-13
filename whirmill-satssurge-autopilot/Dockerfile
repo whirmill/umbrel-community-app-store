@@ -21,7 +21,6 @@ COPY --from=build /app/lnd-proto ./lnd-proto
 COPY scripts/*.py ./scripts/
 COPY scripts/app-control-node-probe.cjs ./scripts/
 COPY --from=build /app/public ./public
-RUN mkdir -p /voice-spool && chown 1000:1000 /voice-spool && chmod 0700 /voice-spool
 USER 1000:1000
 EXPOSE 8080
 CMD ["python3","scripts/app_launcher.py"]

@@ -40,7 +40,8 @@ export class TelegramTurns {
     attach(job: Job, generation: string, chatId: number) { const old = this.get(job.id); if (old)
         return old; const turn: Turn = { jobId: job.id, generation, chatId, version: 1, state: 'queued', capability: this.store.get('jobCapability:' + job.id) ?? 'read_only_chat', submissions: [], closed: false }; this.save(turn); return turn; }
     active(generation: string) { return this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'").map(r => JSON.parse(r.value) as Turn).find(t => t.generation === generation && !t.closed && (['running', 'stop_requested'].includes(t.state) || this.queue.get(t.jobId)?.state === 'running')); }
-    choices(generation: string) { return this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramCorrection:%'").map(r => JSON.parse(r.value) as Correction).filter(c => c.generation === generation && c.state === 'choice_pending'); }
+    // telegramVoiceCorrection belongs to dormant legacy local audio. Future audio must use a separate namespace.
+    choices(generation: string) { return this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramCorrection:%'").map(r => JSON.parse(r.value) as Correction).filter(c => c.generation === generation && c.state === 'choice_pending' && this.store.get('telegramVoiceCorrection:' + c.id) === undefined); }
     receive(id: string, turn: Turn, body: string, at = now()) { const key = 'telegramCorrection:' + id; if (this.choices(turn.generation).length >= 20 && !this.store.get(key))
         throw Error('Too many unanswered choices'); let c = this.store.get<Correction>(key); if (!c) {
         c = { id, jobId: turn.jobId, generation: turn.generation, version: turn.version, body, state: 'choice_pending', expires: new Date(Date.parse(at) + 300000).toISOString() };
@@ -175,7 +176,7 @@ export class TelegramTurns {
         }
     } for (const row of this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramCorrection:%'")) {
         const c = JSON.parse(row.value) as Correction;
-        if (c.state === 'choice_pending' && c.expires <= now()) {
+        if (c.state === 'choice_pending' && c.expires <= now() && this.store.get('telegramVoiceCorrection:' + c.id) === undefined) {
             c.state = 'withdrawn';
             this.saveCorrection(c);
         }

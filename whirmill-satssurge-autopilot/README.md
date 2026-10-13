@@ -1508,3 +1508,14 @@ The concrete filesystem layout is a **private** root-owned 0700 `/usr/local/lib/
 The app uses a read-only **directory** bind `/etc/satssurge-app-controls:/app-controls:ro`, with `APP_CONTROL_CONTRACT_FILE=/app-controls/contract.json` and `APP_CONTROL_FILE=/app-controls/status.json`. A single-file bind is unsuitable: atomic rename would leave the app reading the old inode. No root helpers, Docker socket or private configuration mount enters the app. This deployment configuration belongs to the next root-integrated immutable release; this source change does not change catalogue/version/compose or install anything.
 
 The private root configuration must contain real, independently reviewed values, never placeholder grants: schema1/scope/appIds; actual boot/generation; projection sourceHash and producerHash; exact installed app runtimeBinding and runtimeGeneration (`startedAt`,`restartCount`); expectedLndNodeId; root CLI/docker absolute paths and commandHashes for both plus the interpreter; moduleHashes for read-boundary/qualification/Alby modules; optional installedQualifications and albyQualification from actual supported native sources. `nodeProbe` requires the installed protected JS path/sourceHash and its public input object: exact target, `/credentials/tls.cert`, `/credentials/read.macaroon`, current TLS/read hashes, nodeId, lndVersion, packageVersion, and sourcePins for `/app/package.json`, the two grpc/loader package files and `/app/lnd-proto/lightning.proto`. Secret values and tokens are absent from this configuration and all public files. Existing installed native-hook private configuration/import manifests retain their reviewed protected chain; they are not replaced by booleans or precomputed receipts. Root must establish these finite current bindings and qualify the real proof before controlled per-app retirement. App control readiness alone does not establish historical parity, Graph coverage, database incarnation, owner-wide automation absence, or M3 completion.
+
+### Telegram audio support (0.5.16 candidate)
+
+Voice notes and audio messages are unsupported. The bot asks the associated
+owner to send text or use smartphone keyboard dictation. Audio is never
+downloaded, decoded, or transcribed; no audio worker or model is packaged.
+Ordinary text requests retain the existing admission and delivery behavior.
+Legacy audio receipts, transcripts, identifiers and deliveries remain in place;
+voice-linked correction/followup/cancellation buttons cannot admit or change
+those originals. No data or historical spool files are deleted by this change.
+Local checks are separate from publication, installation and live acceptance.

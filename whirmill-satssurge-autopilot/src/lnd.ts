@@ -29,8 +29,8 @@ export interface NativeLndRead {
  listPayments(request:{creation_date_start:string;creation_date_end:string;index_offset:string;max_payments:string;reversed:true;include_incomplete:true;omit_hops:false},signal:AbortSignal,limits:NativeReadLimits):Promise<unknown>;
  listChannels(signal:AbortSignal,limits:NativeReadLimits):Promise<unknown>;
  getChanInfo(channelId:string,signal:AbortSignal,limits:NativeReadLimits):Promise<unknown>;
- subscribeHtlcEvents(onFrame:(row:unknown)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits):Promise<void>;
- subscribeChannelGraph(onFrame:(row:unknown)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits):Promise<void>;
+ subscribeHtlcEvents(onFrame:(row:unknown,bindingSignal?:AbortSignal)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits):Promise<void>;
+ subscribeChannelGraph(onFrame:(row:unknown,bindingSignal?:AbortSignal)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits):Promise<void>;
 }
 const protoRoot=fileURLToPath(new URL('../lnd-proto/',import.meta.url));
 // Compiled digests bind the vendored runtime schema to the existing lifecycle fingerprint.
@@ -61,6 +61,7 @@ export class Lnd implements NodeClient {
   private endpoint:{target:string;host:string};
   private closed=false;
   private activeCancellations=new Set<()=>void>();
+  private streamBindingCleanup=new WeakSet<AbortSignal>();
   private failureEpoch=0;
   private status:LndTransportStatus={transport:'grpc-tls',inspectedAt:now(),warning:'unavailable',activeChannels:0,activeCalls:0};
   constructor(target:string,private caFile:string,readFile:string,writeFile:string,private limits={unaryMs:20000,paymentMs:45000,htlcMs:300000,maxChannels:4,maxCalls:64,historyBytes:128*1024*1024,streamBytes:32*1024*1024}) {
@@ -108,8 +109,11 @@ export class Lnd implements NodeClient {
   private async unary(service:'lightning'|'router',method:string,request:any,write=false,signal?:AbortSignal,limits?:NativeReadLimits):Promise<any> {
     const c=this.lease();return new Promise((resolve,reject)=>{
       let call:grpc.ClientUnaryCall|undefined,settled=false;
-      const finish=(error?:unknown,result?:unknown)=>{if(settled)return;settled=true;signal?.removeEventListener('abort',abort);this.activeCancellations.delete(abort);this.release(c);if(error)reject(this.fail(error));else resolve(result);};
-      const abort=()=>{call?.cancel();finish(new TransportError('cancelled'));};
+      const finish=(error?:unknown,result?:unknown,localBoundary=false)=>{if(settled)return;settled=true;signal?.removeEventListener('abort',abort);this.activeCancellations.delete(abort);this.release(c);if(error)reject(localBoundary?error:this.fail(error));else resolve(result);};
+      const abort=()=>{
+        if(service==='lightning'&&method==='getInfo'&&!write&&limits&&signal&&this.streamBindingCleanup.has(signal)){finish(signal.reason,undefined,true);call?.cancel();}
+        else{call?.cancel();finish(new TransportError('cancelled'));}
+      };
       if(limits)this.activeCancellations.add(abort);signal?.addEventListener('abort',abort,{once:true});
       try {if(signal?.aborted||this.closed){abort();return;}
         call=(c[service] as any)[method](request,this.metadata(write),{deadline:Date.now()+Math.min(limits?.deadlineMs??this.limits.unaryMs,this.limits.unaryMs),waitForReady:false},(error:any,result:any)=>{
@@ -122,20 +126,24 @@ export class Lnd implements NodeClient {
     const max={deadlineMs:1200000,bodyBytes:MAX_MESSAGE,frameBytes:1024*1024,streamBytes:256*1024*1024,frames:1000000,idleMs:60000};
     if(!l||Object.keys(l).length!==Object.keys(max).length||Object.entries(max).some(([k,v])=>!Number.isSafeInteger(l[k as keyof NativeReadLimits])||l[k as keyof NativeReadLimits]<1||l[k as keyof NativeReadLimits]>v))throw new TransportError('resource_limit');
   }
-  private async nativeSubscription(service:'lightning'|'router',method:'subscribeHtlcEvents'|'subscribeChannelGraph',onFrame:(row:unknown)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits):Promise<void> {
+  private async nativeSubscription(service:'lightning'|'router',method:'subscribeHtlcEvents'|'subscribeChannelGraph',onFrame:(row:unknown,bindingSignal?:AbortSignal)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits):Promise<void> {
     this.nativeLimits(limits);const c=this.lease();return new Promise((resolve,reject)=>{
       let call:grpc.ClientReadableStream<any>|undefined,settled=false,processing=false,ended=false,frames=0,bytes=0,idle:ReturnType<typeof setTimeout>|undefined;
-      const finish=(error?:unknown)=>{if(settled)return;settled=true;clearTimeout(idle);clearTimeout(budget);signal.removeEventListener('abort',abort);this.activeCancellations.delete(abort);call?.cancel();this.release(c);if(error){const sanitized=this.fail(error instanceof NativeReadBoundaryError?new TransportError('deadline'):error);reject(error instanceof NativeReadBoundaryError?error:sanitized);}else resolve();};
-      const abort=()=>finish(new TransportError('cancelled'));
-      const reset=()=>{clearTimeout(idle);idle=setTimeout(()=>finish(new NativeReadBoundaryError('idle_timeout')),limits.idleMs);};
-      const budget=setTimeout(()=>finish(new NativeReadBoundaryError('time_budget')),Math.min(limits.deadlineMs,this.limits.htlcMs));
+      // A private signal binds frame GetInfo cleanup to this stream, never an independent unary.
+      const frameBinding=new AbortController();
+      // Only our timers/abort own a coverage boundary; remote status codes remain failures.
+      const finish=(error?:unknown,localBoundary=false)=>{if(settled)return;settled=true;clearTimeout(idle);clearTimeout(budget);signal.removeEventListener('abort',abort);this.activeCancellations.delete(abort);if(localBoundary)this.streamBindingCleanup.add(frameBinding.signal);frameBinding.abort(error??new TransportError('cancelled'));call?.cancel();this.release(c);if(error)reject(localBoundary?error:this.fail(error));else resolve();};
+      const abort=()=>finish(new TransportError('cancelled'),true);
+      const reset=()=>{clearTimeout(idle);idle=setTimeout(()=>finish(new NativeReadBoundaryError('idle_timeout'),true),limits.idleMs);};
+      const budget=setTimeout(()=>finish(new NativeReadBoundaryError('time_budget'),true),Math.min(limits.deadlineMs,this.limits.htlcMs));
       this.activeCancellations.add(abort);signal.addEventListener('abort',abort,{once:true});
       try {
         if(signal.aborted||this.closed){abort();return;}reset();
-        call=(c[service] as any)[method]({},this.metadata(false),{deadline:Date.now()+Math.min(limits.deadlineMs,this.limits.htlcMs),waitForReady:false});
+        // Local budget still cancels at the original cap; RPC deadline is a later safety backstop.
+        call=(c[service] as any)[method]({},this.metadata(false),{deadline:Date.now()+Math.min(limits.deadlineMs,this.limits.htlcMs)+1000,waitForReady:false});
         call!.on('metadata',()=>{if(settled)return;try{onReady();}catch{finish(new TransportError('rpc_failure'));}});
         call!.on('data',row=>{if(settled)return;call!.pause();processing=true;reset();
-          void (async()=>{try {const size=Buffer.byteLength(JSON.stringify(row));bytes+=size;if(++frames>limits.frames||size>limits.frameBytes||bytes>Math.min(limits.streamBytes,this.limits.streamBytes))throw new TransportError('resource_limit');await onFrame(row);}catch(e){finish(e);}finally{processing=false;if(!settled){if(ended)finish();else call!.resume();}}})();
+          void (async()=>{try {const size=Buffer.byteLength(JSON.stringify(row));bytes+=size;if(++frames>limits.frames||size>limits.frameBytes||bytes>Math.min(limits.streamBytes,this.limits.streamBytes))throw new TransportError('resource_limit');await onFrame(row,frameBinding.signal);}catch(e){finish(e);}finally{processing=false;if(!settled){if(ended)finish();else call!.resume();}}})();
         });
         call!.on('error',error=>finish(error));call!.on('end',()=>{ended=true;if(!processing)finish();});
       }catch(e){finish(e);}
@@ -152,21 +160,25 @@ export class Lnd implements NodeClient {
       listPayments:(request:any,signal:AbortSignal,limits:NativeReadLimits)=>{if(!keys(request,['creation_date_start','creation_date_end','index_offset','max_payments','reversed','include_incomplete','omit_hops'])||!exact(request.creation_date_start,253402300799n)||!exact(request.creation_date_end,253402300799n)||!exact(request.index_offset)||!exact(request.max_payments,1000n)||BigInt(request.max_payments)<1n||request.reversed!==true||request.include_incomplete!==true||request.omit_hops!==false)invalid();return unary('listPayments',request,signal,limits);},
       listChannels:(signal:AbortSignal,limits:NativeReadLimits)=>unary('listChannels',{},signal,limits),
       getChanInfo:(channelId:string,signal:AbortSignal,limits:NativeReadLimits)=>{if(!exact(channelId))invalid();return unary('getChanInfo',{chan_id:channelId},signal,limits);},
-      subscribeHtlcEvents:(onFrame:(row:unknown)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits)=>this.nativeSubscription('router','subscribeHtlcEvents',onFrame,onReady,signal,limits),
-      subscribeChannelGraph:(onFrame:(row:unknown)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits)=>this.nativeSubscription('lightning','subscribeChannelGraph',onFrame,onReady,signal,limits),
+      subscribeHtlcEvents:(onFrame:(row:unknown,bindingSignal?:AbortSignal)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits)=>this.nativeSubscription('router','subscribeHtlcEvents',onFrame,onReady,signal,limits),
+      subscribeChannelGraph:(onFrame:(row:unknown,bindingSignal?:AbortSignal)=>Promise<void>,onReady:()=>void,signal:AbortSignal,limits:NativeReadLimits)=>this.nativeSubscription('lightning','subscribeChannelGraph',onFrame,onReady,signal,limits),
     });
   }
   private async stream(method:string,request:any,write:boolean,onEvent?:((e:any)=>void),signal?:AbortSignal):Promise<any> {
     const c=this.lease();return new Promise((resolve,reject)=>{
       let call:grpc.ClientReadableStream<any>|undefined;let last:any;let settled=false;let rows=0;let bytes=0;
-      const finish=(error?:any)=>{if(settled)return;settled=true;signal?.removeEventListener('abort',abort);this.release(c);if(error)reject(this.fail(error));else resolve(last);};
-      const abort=()=>{call?.cancel();finish(new TransportError('cancelled'));};
+      const readSubscription=method==='subscribeHtlcEvents'&&!write&&onEvent!==undefined;
+      let budget:ReturnType<typeof setTimeout>|undefined;
+      const finish=(error?:any,localBoundary=false)=>{if(settled)return;settled=true;signal?.removeEventListener('abort',abort);if(readSubscription){clearTimeout(budget);this.activeCancellations.delete(abort);if(localBoundary)call?.cancel();}this.release(c);if(error)reject(localBoundary?error:this.fail(error));else resolve(last);};
+      const abort=()=>{if(readSubscription)finish(new TransportError('cancelled'),true);else{call?.cancel();finish(new TransportError('cancelled'));}};
+      // Keep the existing read segment cap, with explicit local ownership of expiry/closure.
+      if(readSubscription){this.activeCancellations.add(abort);budget=setTimeout(()=>finish(undefined,true),this.limits.htlcMs);}
       try {
-        if(signal?.aborted){abort();return;}
-        call=(c.router as any)[method](request,this.metadata(write),{deadline:Date.now()+(onEvent?this.limits.htlcMs:this.limits.paymentMs),waitForReady:false});
+        if(signal?.aborted||(readSubscription&&this.closed)){abort();return;}
+        call=(c.router as any)[method](request,this.metadata(write),{deadline:Date.now()+(onEvent?this.limits.htlcMs:this.limits.paymentMs)+(readSubscription?1000:0),waitForReady:false});
         signal?.addEventListener('abort',abort,{once:true});
         call!.on('data',row=>{if(settled)return;try {rows++;bytes+=Buffer.byteLength(JSON.stringify(row));if(rows>100000||(!onEvent&&bytes>this.limits.streamBytes))throw new TransportError('resource_limit');last=row;onEvent?.(row);}catch(e){call?.cancel();finish(e);}});
-        call!.on('error',(error:grpc.ServiceError)=>{if(onEvent&&error.code===grpc.status.DEADLINE_EXCEEDED)finish();else finish(error);});call!.on('end',()=>finish());
+        call!.on('error',(error:grpc.ServiceError)=>finish(error));call!.on('end',()=>finish());
       }catch(e){finish(e);}
     });
   }
