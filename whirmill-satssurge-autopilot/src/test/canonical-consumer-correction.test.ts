@@ -81,3 +81,141 @@ test('review R3: failure subtype selection happens before caps in detail and ove
  const q={section:'diagnostics' as const,provider:'native' as const,collection:'failures' as const};const state:any=evidenceSource(s,q);assert.equal(state.diagnostics.native.failures.length,1);assert.equal(state.sourceMetadata.sourceNext,null);
  }finally{s.close();}
 });
+
+test('retained collection captures keep historical metadata and rendered visibility when current provider is unavailable or missing',async()=>{
+ const {createServer}=await import('vite');
+ const {createElement}=await import('react');
+ const {renderToStaticMarkup}=await import('react-dom/server');
+ const vite=await createServer({root:process.cwd(),configFile:false,server:{middlewareMode:true,watch:null},appType:'custom'});
+ const s=new Store(':memory:');
+ try{
+  const {DiagnosticSourceRecord}=await vite.ssrLoadModule('/web/App.tsx');
+  const coverage={complete:false,start:at,end:'2026-10-12T10:01:00.000Z',note:'Partial historical request log'};
+  const firstCapture={status:'qualified',version:'historical-forwards',capturedAt:at,coverage,captureComplete:false,captureCounts:{forwards:{selected:1,returned:1}},forwards:[{id:'f1',at,source:'1',target:'2',amountMsat:'1000',feeMsat:'1'}]};
+  s.set('diagnostics',{at,lightningMate:firstCapture});
+  const captured={status:'qualified',version:'historical-rebalances',capturedAt:'2026-10-12T10:01:00.000Z',coverage,captureComplete:false,captureCounts:{rebalances:{selected:201,returned:201}},rebalances:Array.from({length:201},(_,i)=>({id:'r'+i,at,source:'1',target:'2',status:'requested',privateToken:'synthetic-private'}))};
+  s.set('diagnostics',{at,lightningMate:captured});
+  const query={section:'diagnostics' as const,provider:'lightningMate' as const,collection:'rebalances' as const};
+  const first:any=evidenceSource(s,query);
+  for(const latest of [
+   {at:'2026-10-13T12:00:00.000Z',lightningMate:{status:'unavailable',reason:'Source retired',version:'latest-version',capturedAt:'2026-10-13T12:00:00.000Z',coverage:{complete:true}}},
+   {at:'2026-10-14T12:00:00.000Z'},
+  ]){
+   s.set('diagnostics',latest);
+   const d:any=s.stats().diagnostics.lightningMate;
+   assert.equal(d.status,'unavailable');
+   assert.equal(d.currentAvailability.present,'lightningMate' in latest);
+   assert.equal(d.version,undefined);
+   assert.equal(d.capturedAt,undefined);
+   assert.equal(d.coverage,undefined);
+   assert.equal(d.captureComplete,undefined);
+   assert.equal(d.currentAvailability.version,'lightningMate' in latest?'latest-version':null);
+   assert.deepEqual(d.currentAvailability.coverage,'lightningMate' in latest?{complete:true}:null);
+   assert.equal(d.forwards[0].id,'f1');
+   assert.equal(d.rebalances.length,201);
+   assert.equal(diagnosticCollectionCount(d,'rebalances'),'201');
+   const m=d.collectionMetadata.rebalances;
+   assert.equal(m.available,true);
+   assert.equal(m.captureStatus,'qualified');
+   assert.equal(m.sourceLifecycle,'retained_immutable_capture');
+   assert.ok(m.retainedArchiveId);
+   assert.equal(m.providerCaptureDigest,digest(captured));
+   assert.equal(m.version,captured.version);
+   assert.equal(m.capturedAt,captured.capturedAt);
+   assert.deepEqual(m.coverage,coverage);
+   assert.equal(m.captureComplete,false);
+   assert.deepEqual(m.captureCounts,captured.captureCounts);
+   assert.equal(m.through,201);
+   assert.equal(m.count.exact,true);
+   assert.equal(m.projectionLimits.limit,100000);
+   assert.equal(d.failures,null);
+   assert.equal(d.collectionMetadata.failures.available,false);
+   assert.equal(d.collectionMetadata.forwards.version,firstCapture.version);
+   assert.equal(d.collectionMetadata.forwards.providerCaptureDigest,digest(firstCapture));
+   const markup=renderToStaticMarkup(createElement(DiagnosticSourceRecord,{name:'lightningMate',data:d}));
+   assert.match(markup,/Fonte corrente/);
+   assert.match(markup,/>201</);
+   assert.match(markup,/Cattura storica conservata/);
+   assert.match(markup,/historical-forwards/);
+   assert.match(markup,/historical-rebalances/);
+   assert.match(markup,/Acquisizione parziale/);
+   assert.match(markup,/Partial historical request log/);
+   assert.match(markup,/fuori dalla sua copertura i dati restano sconosciuti/);
+   assert.doesNotMatch(markup,/Copertura completa|synthetic-private/);
+   const tail:any=evidenceSource(s,{...query,sourceCursor:first.sourceMetadata.sourceNext});
+   assert.equal(tail.diagnostics.lightningMate.rebalances.length,1);
+   assert.equal(tail.diagnostics.lightningMate.rebalances[0].id,'r200');
+   assert.equal(tail.sourceMetadata.providerCaptureDigest,digest(captured));
+   assert.equal(tail.sourceMetadata.sourceNext,null);
+   const outside:any=canonicalDiagnostics(s,{provider:'lightningMate',collection:'rebalances',start:'2026-10-13T00:00:00.000Z',end:'2026-10-14T00:00:00.000Z'});
+   assert.deepEqual(outside.diagnostics.lightningMate.rebalances,[]);
+   assert.deepEqual(outside.sourceMetadata.coverage,coverage);
+   assert.equal(outside.projectionLimits.upstreamHistoryComplete,false);
+   assert.equal(outside.sourceMetadata.financialAuthority,false);
+  }
+ }finally{s.close();await vite.close();}
+});
+
+test('actual first native acquisition failure stays unknown in stats and SSR while qualified empties and retained positive history remain visible',async()=>{
+ const {NativeCollection}=await import('../native-collection.js');
+ const {createServer}=await import('vite');
+ const {createElement}=await import('react');
+ const {renderToStaticMarkup}=await import('react-dom/server');
+ const vite=await createServer({root:process.cwd(),configFile:false,server:{middlewareMode:true,watch:null},appType:'custom'});
+ const s=new Store(':memory:');
+ try{
+  const {DiagnosticSourceRecord}=await vite.ssrLoadModule('/web/App.tsx');
+  const acquisition=new NativeCollection(s,{binding:async()=>{throw Error('Synthetic first binding failure');}} as any,()=>at);
+  await acquisition.tick();
+  assert.equal(s.get<any>('nativeCollection').ok,false);
+  assert.equal(s.one("SELECT count(*) n FROM canonical_observations WHERE kind IN ('forward','native_htlc','native_policy','payment_attempt')").n,0);
+  const unknown:any=s.stats().diagnostics.native;
+  assert.equal(unknown.status,'unavailable');
+  for(const collection of ['forwards','failures','rebalances']){
+   assert.equal(unknown[collection],null);
+   assert.equal(unknown.collectionMetadata[collection].available,false);
+   assert.equal(unknown.collectionMetadata[collection].count.value,null);
+   assert.equal(diagnosticCollectionCount(unknown,collection),'Non disponibili');
+   assert.equal((canonicalDiagnostics(s,{provider:'native',collection}) as any).unavailableEvidence.rows,null);
+  }
+  const unknownMarkup=renderToStaticMarkup(createElement(DiagnosticSourceRecord,{name:'native',data:unknown}));
+  assert.match(unknownMarkup,/Esportazione corrente non disponibile/);
+  assert.doesNotMatch(unknownMarkup,/key-metrics|<strong[^>]*>0</);
+  s.set('nativeCollection',{at,ok:true});
+  const qualifiedEmpty:any=s.stats().diagnostics.native;
+  assert.equal(qualifiedEmpty.status,'qualified');
+  assert.equal(diagnosticCollectionCount(qualifiedEmpty,'failures'),'0');
+  assert.equal(diagnosticCollectionCount(qualifiedEmpty,'rebalances'),'0');
+  const qualifiedMarkup=renderToStaticMarkup(createElement(DiagnosticSourceRecord,{name:'native',data:qualifiedEmpty}));
+  assert.match(qualifiedMarkup,/key-metrics/);
+  assert.match(qualifiedMarkup,/<strong[^>]*>0</);
+  const partialCoverage={complete:false,note:'Qualified empty historical capture; outside interval unknown',start:at,end:'2026-10-12T10:01:00.000Z'};
+  s.set('diagnostics',{at,lightningMate:{status:'qualified',capturedAt:at,version:'empty-capture',rebalances:[],failures:[],coverage:partialCoverage,captureComplete:false}});
+  s.set('diagnostics',{at,lightningMate:{status:'unavailable'}});
+  const retainedEmpty:any=s.stats().diagnostics.lightningMate;
+  assert.equal(retainedEmpty.status,'unavailable');
+  assert.equal(retainedEmpty.collectionMetadata.rebalances.captureStatus,'qualified');
+  assert.equal(retainedEmpty.collectionMetadata.rebalances.sourceLifecycle,'retained_immutable_capture');
+  assert.deepEqual(retainedEmpty.collectionMetadata.rebalances.coverage,partialCoverage);
+  assert.equal(diagnosticCollectionCount(retainedEmpty,'rebalances'),'0');
+  const retainedMarkup=renderToStaticMarkup(createElement(DiagnosticSourceRecord,{name:'lightningMate',data:retainedEmpty}));
+  assert.match(retainedMarkup,/<strong[^>]*>0</);
+  assert.match(retainedMarkup,/Cattura storica conservata/);
+  assert.match(retainedMarkup,/Acquisizione parziale/);
+  const m=new CanonicalModel(s.db);
+  m.observe({...binding,kind:'native_htlc',source:'lnd.htlc',originalId:'retained-failure',payload:{native:{variant:'link_fail'}}});
+  await acquisition.tick();
+  const history:any=s.stats().diagnostics.native;
+  assert.equal(history.status,'unavailable');
+  assert.equal(history.failures.length,1);
+  assert.equal(diagnosticCollectionCount(history,'failures'),'1');
+  assert.equal(history.rebalances,null);
+  assert.equal(diagnosticCollectionCount(history,'rebalances'),'Non disponibili');
+  const historyMarkup=renderToStaticMarkup(createElement(DiagnosticSourceRecord,{name:'native',data:history}));
+  assert.match(historyMarkup,/key-metrics/);
+  assert.match(historyMarkup,/<strong[^>]*>1</);
+  assert.match(historyMarkup,/Non disponibili/);
+  assert.doesNotMatch(historyMarkup,/<strong[^>]*>0</);
+  assert.equal(s.one('SELECT count(*) n FROM operations').n,0);
+ }finally{s.close();await vite.close();}
+});

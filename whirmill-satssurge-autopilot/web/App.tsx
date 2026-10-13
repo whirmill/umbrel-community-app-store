@@ -316,7 +316,40 @@ function CanonicalHistory({initial,filter={},title='Cronologia LND e fonti conse
   return <Panel title={title} sub="Osservazioni con provenienza; copertura e sovrapposizioni restano esplicite."><Json value={page} label="Pagina della cronologia" />{page?.nextAfter!==null&&page?.nextAfter!==undefined&&<Button onClick={()=>{void api?.(canonicalHistoryUrl(page,filter)).then(setPage).catch(()=>setError('Pagina non disponibile.'));}}>Pagina successiva</Button>}{error&&<p>{error}</p>}</Panel>;
 }
 
+export function DiagnosticSourceRecord({ name, data: d }: { name: string; data: any }) {
+  const collections = ["forwards", "failures", "failureRollups", "rebalances"];
+  const available = collections.some(collection => Array.isArray(d?.[collection]));
+  return <article className="record">
+    <h3>{name === "lndg" ? "LNDg" : name === "native" ? "LND nativo" : "Lightning Mate"}{" "}
+      <small>Fonte corrente · </small><Badge state={d?.status ?? "Non disponibile"} />
+    </h3>
+    {d?.status !== "qualified" && <p>{d?.reason ?? "Esportazione corrente non disponibile"}</p>}
+    {available && <>
+      <div className="key-metrics">
+        <span>Record di errore<strong className="tone-danger">{diagnosticCollectionCount(d, "failures")}</strong></span>
+        <span>Rebalance nel log<strong>{diagnosticCollectionCount(d, "rebalances")}</strong></span>
+      </div>
+      <p className="chart-note">
+        {Object.values(d.collectionMetadata ?? {}).some((c: any) => c.projectionLimits?.truncated) ? "Riepilogo limitato; altri record richiedono la lettura paginata della fonte. " : ""}
+        {name === "native" ? "Copertura parziale" : "Conteggi della cattura disponibile; fuori dalla sua copertura i dati restano sconosciuti."}
+      </p>
+      {name !== "native" && collections.map(collection => {
+        const m = d.collectionMetadata?.[collection];
+        if (!m?.available) return null;
+        return <p className="chart-note" key={collection}>
+          {collection} · {m.sourceLifecycle === "retained_immutable_capture" ? "Cattura storica conservata" : "Ultima cattura"}
+          {" · "}{m.version ?? "versione sconosciuta"}{" · "}{m.capturedAt ?? "data non disponibile"}
+          {" · Copertura "}{m.coverage?.complete === true ? "completa nella cattura" : "parziale o sconosciuta"}
+          {m.captureComplete === false ? " · Acquisizione parziale" : ""}
+          {m.coverage?.note ? " · " + m.coverage.note : ""}
+        </p>;
+      })}
+      <SourceDetail provider={name} data={d} />
+    </>}
+  </article>;
+}
 function SourceDetail({ provider, data }: { provider: string; data: any }) {
+  const current = data.currentAvailability ?? data;
   const [open, setOpen] = useState(
     () => sourceExpansions.get(provider) ?? false,
   );
@@ -331,10 +364,10 @@ function SourceDetail({ provider, data }: { provider: string; data: any }) {
       render={() => (
         <>
           <p>
-            Versione · {data.version ?? "sconosciuta"} ·{" "}
-            {data.capturedAt ?? "data non disponibile"}
+            Fonte corrente · versione {current.version ?? "sconosciuta"} ·{" "}
+            {current.capturedAt ?? "data non disponibile"}
           </p>
-          <p>{data.coverage?.note}</p>
+          <p>Copertura della fonte corrente: {current.coverage?.note ?? "sconosciuta"}</p>
           <Json value={data} label="Evidenze della fonte" />
           {provider==='native'&&(['failures','rebalances'] as const).map(collection=>Array.isArray(data[collection])&&<CanonicalHistory key={collection+data.collectionMetadata?.[collection]?.through} title={collection==='failures'?'Record di errore nativi':'Tentativi circolari conclusi'} initial={{...data.collectionMetadata?.[collection],rows:data[collection],sourceHistoryComplete:false,financialAuthority:false}} filter={collection==='failures'?{kind:'native_htlc',subtype:'failures'}:{kind:'payment_attempt',subtype:'circular_attempts'}} />)}
         </>
@@ -1363,45 +1396,7 @@ export function App() {
                       sub="HTLC, pagamenti e riepiloghi restano fonti distinte."
                     >
                       {["lndg", "lightningMate", "native"].map((name) => {
-                        const d = status.diagnostics?.[name];
-                        return (
-                          <article className="record" key={name}>
-                            <h3>
-                              {name === "lndg" ? "LNDg" : name === "native" ? "LND nativo" : "Lightning Mate"}{" "}
-                              <Badge state={d?.status ?? "Non disponibile"} />
-                            </h3>
-                            {d?.status === "qualified" ? (
-                              <>
-                                <div className="key-metrics">
-                                  <span>
-                                    Record di errore
-                                    <strong className="tone-danger">
-                                      {diagnosticCollectionCount(d,'failures')}
-                                    </strong>
-                                  </span>
-                                  <span>
-                                    Rebalance nel log
-                                    <strong>
-                                      {diagnosticCollectionCount(d,'rebalances')}
-                                    </strong>
-                                  </span>
-                                </div>
-                                <p className="chart-note">
-                                  {Object.values(d.collectionMetadata ?? {}).some((c:any)=>c.projectionLimits?.truncated) ? 'Riepilogo limitato; altri record sono disponibili tramite la continuazione dei dettagli. ' : ''}
-                                  Copertura{" "}
-                                  {d.coverage?.complete
-                                    ? "completa"
-                                    : "parziale"}
-                                </p>
-                                <SourceDetail provider={name} data={d} />
-                              </>
-                            ) : (
-                              <p>
-                                {d?.reason ?? "Esportazione non disponibile"}
-                              </p>
-                            )}
-                          </article>
-                        );
+                        return <DiagnosticSourceRecord key={name} name={name} data={status.diagnostics?.[name]} />;
                       })}
                     </Panel>
                     <Panel
