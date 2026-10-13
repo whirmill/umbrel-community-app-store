@@ -2,7 +2,12 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Store} from '../store.js';
 import {NativeLndSource} from '../native-lnd-source.js';
-import {NativeCollection} from '../native-collection.js';
+import {NativeCollection,NATIVE_ARCHIVE_MAX_BYTES} from '../native-collection.js';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {decodeOriginal,encodeOriginal} from '../canonical-migration.js';
+import {digest} from '../canonical-model.js';
 import {canonicalRead} from '../canonical-consumers.js';
 import {nativeGrpcFixture,identity} from './native-grpc-fixture.js';
 const peer='03'+'22'.repeat(32),info={identity_pubkey:identity,version:'0.21.4-beta',chains:[{chain:'bitcoin',network:'mainnet'}]},binding={nodeId:identity,network:'mainnet',sourceVersion:info.version,sourceInstance:'synthetic-runtime'};
@@ -12,12 +17,12 @@ test('archive capacity hold preserves its table and cursor while native history 
  let instant='1970-01-01T00:06:40.000Z';
  const f=await nativeGrpcFixture({getInfo:(_c:any,cb:any)=>cb(null,info),listChannels:(_c:any,cb:any)=>cb(null,{channels:[]}),listPayments:(_c:any,cb:any)=>cb(null,{payments:[],first_index_offset:'0',last_index_offset:'0'}),forwardingHistory:(c:any,cb:any)=>cb(null,{forwarding_events:[forward(String((BigInt(c.request.start_time)+10n)*1000000000n))],last_offset_index:1})}),s=new Store(':memory:'),native=new NativeCollection(s,source(f),()=>instant);
  try{
-  s.run('DELETE FROM meta');s.run('INSERT INTO meta VALUES(?,?)','synthetic-oversized','x'.repeat(600000));s.set('historyStart','1970-01-01T00:01:40Z');
+  s.run('DELETE FROM meta');s.run('INSERT INTO meta VALUES(?,?)','synthetic-oversized','x'.repeat(2200000));s.set('historyStart','1970-01-01T00:01:40Z');
   await native.tick();assert.equal(s.get('nativeCollection').ok,true);assert.equal(s.get('nativeCollection').legacyArchiveReady,false);assert.equal(s.get('nativeCollection').sourceHistoryComplete,false);assert.equal(s.get('nativeCollection').accountingAuthority,'none');assert.deepEqual(s.get('nativeAcquisitionBinding'),binding);
-  const progress=s.get('canonicalArchiveProgress');assert.equal(progress.ok,false);assert.equal(progress.table,'meta');assert.equal(progress.error,'original_archive_byte_capacity');assert.equal(progress.cursorUnchanged,true);
+  const progress=s.get('canonicalArchiveProgress');assert.equal(progress.ok,false);assert.equal(progress.table,'meta');assert.equal(progress.error,'original_archive_byte_capacity');assert.equal(progress.cursorUnchanged,true);assert.equal(progress.maxBytes,NATIVE_ARCHIVE_MAX_BYTES);
   assert.equal(s.get('canonicalArchiveTable'),undefined);assert.equal(s.one("SELECT count(*) n FROM canonical_coverage WHERE capability='legacy_ingestion'").n,0);assert.equal(s.one("SELECT count(*) n FROM canonical_original_archive WHERE source_instance='satssurge-operational-originals'").n,0);
   assert.equal(s.get('nativeProgress:forwards').pagesComplete,true);assert.equal(s.get('nativeProgress:payments').pagesComplete,true);assert.equal(s.one("SELECT count(*) n FROM canonical_observations WHERE kind='forward'").n,1);
-  const gap=JSON.parse(s.one("SELECT details FROM canonical_coverage WHERE capability='legacy_archive' AND status='gap'").details);assert.equal(gap.reason,'original_archive_byte_capacity');assert.equal(gap.sourceMutationTimeKnown,false);assert.equal(gap.sourceHistoryComplete,false);
+  const gap=JSON.parse(s.one("SELECT details FROM canonical_coverage WHERE capability='legacy_archive' AND status='gap'").details);assert.equal(gap.reason,'original_archive_byte_capacity');assert.equal(gap.maxBytes,NATIVE_ARCHIVE_MAX_BYTES);assert.equal(gap.sourceMutationTimeKnown,false);assert.equal(gap.sourceHistoryComplete,false);
   instant='1970-01-01T00:08:20.000Z';await native.tick();assert.equal(s.get('nativeCollection').ok,true);assert.equal(s.get('nativeCollection').legacyArchiveReady,false);assert.equal(s.get('canonicalArchiveTable'),undefined);assert.equal(f.seen.filter(v=>v.method==='forwardingHistory').length,2);assert.equal(s.one('SELECT count(*) n FROM ledger').n,0);assert.equal(JSON.stringify(s.get('nativeCollection')).includes('synthetic-oversized'),false);
  }finally{native.shutdown();s.close();f.close();}assert.equal(f.client.transportStatus().activeCalls,0);assert.equal(f.client.transportStatus().activeChannels,0);
 });
@@ -41,4 +46,39 @@ test('native directional rebalances require a settled attempt in an observed loc
  const records=[{payment_index:'1',payment_hash:'a'.repeat(64),status:'SUCCEEDED',creation_time_ns:'150000000000',value_msat:'1000',fee_msat:'1',htlcs:[attempt('0','FAILED',identity),attempt('1','SUCCEEDED',identity)]},{payment_index:'2',payment_hash:'b'.repeat(64),status:'SUCCEEDED',creation_time_ns:'150000000000',value_msat:'1000',fee_msat:'1',htlcs:[attempt('0','SUCCEEDED',peer)]},{payment_index:'3',payment_hash:'c'.repeat(64),status:'IN_FLIGHT',creation_time_ns:'150000000000',value_msat:'1000',fee_msat:'0',htlcs:[attempt('0','IN_FLIGHT',identity)]}];
  const f=await nativeGrpcFixture({getInfo:(_c:any,cb:any)=>cb(null,info),listPayments:(_c:any,cb:any)=>cb(null,{payments:records,first_index_offset:'1',last_index_offset:'3'})}),s=new Store(':memory:'),native=new NativeCollection(s,source(f));
  try{const r=await native.history.collect({captureId:'routes',kind:'payments',startTime:'100',endTime:'201',pageSize:10});assert.equal(r.error,undefined);const {canonicalDiagnostics}=await import('../canonical-consumers.js');const detail:any=canonicalDiagnostics(s,{provider:'native',collection:'rebalances',source:'1',target:'2'});assert.equal(detail.diagnostics.native.rebalances.length,1);const row=detail.diagnostics.native.rebalances[0];assert.equal(row.kind,'payment_attempt');assert.equal(row.status,'SUCCEEDED');assert.equal(row.attemptRoute.settled,true);assert.equal(row.externalIntent,'unknown');assert.equal(row.amountMsat,'1001');assert.equal(JSON.stringify(detail).includes(peer),false);assert.equal(JSON.stringify(detail).includes('paymentHash'),false);assert.equal(s.one('SELECT count(*) n FROM ledger').n,0);}finally{native.shutdown();s.close();f.close();}
+});
+
+test('runtime 4 MiB scan resumes the frozen 31/82 prefix with exact large typed originals across reopen',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'native-archive-large-')),path=join(dir,'operational.sqlite'),at='2026-10-13T10:00:00.000Z';
+ const f=await nativeGrpcFixture({getInfo:(_c:any,cb:any)=>cb(null,info),listChannels:(_c:any,cb:any)=>cb(null,{channels:[]})});let s=new Store(path),native=new NativeCollection(s,source(f),()=>at);
+ try{
+  s.run('DELETE FROM meta');
+  for(let i=1;i<=82;i++)s.run('INSERT INTO meta VALUES(?,?)','public-state-'+i,JSON.stringify({rows:[{status:'unknown',amountMsat:'900719925474099300',padding:'x'.repeat(i===32?739400:i===33||i===34?1423000:10)}]}));
+  const originals=s.all('SELECT rowid,key,value FROM meta ORDER BY rowid');
+  const prefix=s.canonical.scan('meta',{limit:31,observedAt:at});assert.equal(prefix.cursor,'31');assert.equal(prefix.cycleComplete,false);
+  const row32=originals[31]!,guard=2*(Buffer.byteLength(row32.key)+Buffer.byteLength(row32.value)+128);assert.ok(guard>1048576&&guard<NATIVE_ARCHIVE_MAX_BYTES);
+  const large=originals[32]!;assert.ok(Buffer.byteLength(encodeOriginal({key:large.key,value:large.value}))>1048576);assert.ok(2*(Buffer.byteLength(large.key)+Buffer.byteLength(large.value)+128)<NATIVE_ARCHIVE_MAX_BYTES);
+  await native.tick();const first=s.get('canonicalArchiveProgress');assert.equal(first.ok,true);assert.equal(first.cursor,'32');assert.equal(first.cycleComplete,false);assert.equal(first.boundedByBytes,true);assert.equal(s.get('nativeCollection').legacyArchiveReady,true);
+  const firstCheckpoint=s.one('SELECT * FROM canonical_coverage WHERE id=?',first.checkpointId);assert.equal(JSON.parse(firstCheckpoint.details).upperBound,'82');
+  s.close();s=new Store(path);native=new NativeCollection(s,source(f),()=>at);
+  let progress=first;
+  while(!progress.cycleComplete){s.set('canonicalArchiveTable',0);await native.tick();progress=s.get('canonicalArchiveProgress');assert.equal(progress.ok,true);assert.equal(progress.cycle,first.cycle);assert.ok(BigInt(progress.cursor)>31n);assert.equal(JSON.parse(s.one('SELECT details FROM canonical_coverage WHERE id=?',progress.checkpointId).details).upperBound,'82');}
+  assert.equal(progress.cursor,'82');
+  const archived=s.all("SELECT original_id,raw_row,original_digest FROM canonical_original_archive WHERE original_table='meta' AND source_instance='satssurge-operational-originals' ORDER BY rowid");assert.equal(archived.length,82);
+  assert.deepEqual(archived.map(r=>decodeOriginal(r.raw_row)),originals.map(({key,value})=>({key,value})));
+  assert.ok(archived.every(r=>r.original_digest===digest(r.raw_row)));assert.deepEqual(s.one('SELECT * FROM canonical_coverage WHERE id=?',first.checkpointId),firstCheckpoint);
+  assert.deepEqual(s.all('SELECT rowid,key,value FROM meta ORDER BY rowid').slice(0,82),originals);assert.equal(s.one('SELECT count(*) n FROM ledger').n,0);assert.equal(s.get('nativeCollection').sourceHistoryComplete,false);assert.equal(s.get('nativeCollection').accountingAuthority,'none');
+ }finally{native.shutdown();s.close();f.close();rmSync(dir,{recursive:true});}assert.equal(f.client.transportStatus().activeCalls,0);assert.equal(f.client.transportStatus().activeChannels,0);
+});
+test('runtime encoded-byte capacity and checkpoint transaction failure preserve the exact prior prefix',async()=>{
+ const f=await nativeGrpcFixture({getInfo:(_c:any,cb:any)=>cb(null,info),listChannels:(_c:any,cb:any)=>cb(null,{channels:[]})}),s=new Store(':memory:'),native=new NativeCollection(s,source(f));
+ try{
+  s.run('DELETE FROM meta');s.run('INSERT INTO meta VALUES(?,?)','prefix','ok');s.run('INSERT INTO meta VALUES(?,?)','escaped','\u0000'.repeat(720000));s.run('INSERT INTO meta VALUES(?,?)','following','small');
+  const prefix=s.canonical.scan('meta',{limit:1});assert.equal(prefix.cursor,'1');const checkpoint=s.one('SELECT * FROM canonical_coverage WHERE id=?',prefix.checkpointId),originals=s.all('SELECT rowid,key,value FROM meta ORDER BY rowid');
+  assert.ok(2*(Buffer.byteLength(originals[1].key)+Buffer.byteLength(originals[1].value)+128)<NATIVE_ARCHIVE_MAX_BYTES);assert.ok(Buffer.byteLength(encodeOriginal({key:originals[1].key,value:originals[1].value}))>NATIVE_ARCHIVE_MAX_BYTES);
+  await native.tick();assert.equal(s.get('canonicalArchiveProgress').ok,false);assert.equal(s.get('canonicalArchiveProgress').maxBytes,NATIVE_ARCHIVE_MAX_BYTES);assert.equal(s.get('canonicalArchiveTable'),undefined);assert.deepEqual(s.one("SELECT * FROM canonical_coverage WHERE capability='legacy_ingestion' ORDER BY rowid DESC LIMIT 1"),checkpoint);assert.equal(s.one("SELECT count(*) n FROM canonical_original_archive WHERE source_instance='satssurge-operational-originals'").n,1);assert.deepEqual(s.all('SELECT rowid,key,value FROM meta ORDER BY rowid').slice(0,3),originals);
+  s.run("UPDATE meta SET value='fits' WHERE key='escaped'");
+  s.db.exec("CREATE TRIGGER synthetic_checkpoint_failure BEFORE INSERT ON canonical_coverage WHEN NEW.capability='legacy_ingestion' BEGIN SELECT RAISE(ABORT,'synthetic checkpoint failure'); END");
+  const seen=f.seen.length;await native.tick();assert.equal(s.get('nativeCollection').ok,false);assert.equal(f.seen.length,seen);assert.equal(s.get('canonicalArchiveTable'),undefined);assert.deepEqual(s.one("SELECT * FROM canonical_coverage WHERE capability='legacy_ingestion' ORDER BY rowid DESC LIMIT 1"),checkpoint);assert.equal(s.one("SELECT count(*) n FROM canonical_original_archive WHERE source_instance='satssurge-operational-originals'").n,1);assert.equal(s.one('SELECT count(*) n FROM ledger').n,0);
+ }finally{native.shutdown();s.close();f.close();}assert.equal(f.client.transportStatus().activeCalls,0);assert.equal(f.client.transportStatus().activeChannels,0);
 });

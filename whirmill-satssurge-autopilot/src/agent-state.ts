@@ -12,6 +12,8 @@ export function stateSummary(s:any){
   return scrub({appControlProof:s.appControlProof??null,operationalReadiness:s.operationalReadiness??null,enabled:s.enabled,bootstrapReady:s.bootstrapReady,blockers:s.blockers,mandate:s.mandate,budget:s.budget,pnl30:s.pnl30,cumulative:s.cumulative,partial:s.partial,
     agent:s.agent?{at:s.agent.at,status:s.agent.status,model:s.agent.model,thinkingLevel:s.agent.thinkingLevel,until:s.agent.until}:null,
     importReport:s.importReport?{at:s.importReport.at,fileCount:s.importReport.files?.length??null,ledgerEntriesRead:s.importReport.ledgerEntriesRead,problemCount:s.importReport.problems?.length??null,coverageComplete:s.importReport.coverageComplete,note:s.importReport.note}:null,
+    // Persisted inspection time is independent of snapshot time and does not attest current health.
+    lndTransport:s.lndTransport?{transport:s.lndTransport.transport??null,warning:s.lndTransport.warning??null,failure:s.lndTransport.failure??null,inspectedAt:s.lndTransport.inspectedAt??null,certificateDigest:s.lndTransport.certificateDigest??null,validFrom:s.lndTransport.validFrom??null,validTo:s.lndTransport.validTo??null}:null,
     snapshot:snapshot?{at:snapshot.at,identity:snapshot.identity,synced:snapshot.synced,confirmedSat:snapshot.confirmedSat,channelCount:snapshot.channels.length}:null,
     diagnostics:diagnostics?{at:diagnostics.at,lndg:providerSummary(diagnostics.lndg),lightningMate:providerSummary(diagnostics.lightningMate),native:providerSummary(diagnostics.native)}:null,
     competition:competition?{status:competition.status,at:competition.at,capturedAt:competition.capturedAt,coverage:competition.coverage,reason:competition.reason,channelCount:competition.channels?.length??null}:null,

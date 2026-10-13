@@ -1,5 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync,existsSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {fixture as piFixture} from './pi-fixture.js';
+import {createAssistantMessageEventStream} from '@earendil-works/pi-ai/utils/event-stream';
 import {stateSummary,statePage,STATE_PAGE_BYTES} from '../agent-state.js';
 function fixture(){return {enabled:false,budget:{remainingMsat:'19294831'},pnl30:{netMsat:'-8391975'},partial:true,snapshot:{at:'2026-10-09T00:00:00Z',identity:'node',synced:true,confirmedSat:'502858',channels:Array.from({length:10},(_,i)=>({id:String(i),localSat:'250000'}))},diagnostics:{at:'now',lndg:{status:'qualified',coverage:{complete:false},failures:Array.from({length:201},(_,i)=>({id:String(i),distinctPaymentsUnknown:true,amountMsat:'900719925474099300'}))},lightningMate:{status:'unavailable'}},competition:{status:'qualified',coverage:'graph only',channels:Array.from({length:10},(_,i)=>({id:String(i),alias:'peer'+i,status:'partial',quotes:[{amountSat:'100000',ourFeeMsat:'40000'}],alternativesTruncated:true,alternatives:Array.from({length:100},(_,j)=>({id:String(j),ppm:'200'}))}))},decisions:[],operations:[],evaluations:[],evaluationWindows:[],coverage:[],claims:[],holds:[]};}
 test('large live-shaped state retains accounting and coverage with bounded discoverable details',()=>{
@@ -33,4 +38,32 @@ test('continuation rejects changed source instead of mixing acquisition versions
   const absent=statePage(s,{section:'diagnostics',provider:'lightningMate',collection:'failures'});assert.equal(absent.available,false);assert.equal(absent.total,null);
   const edges=statePage(s,{section:'competition_alternatives',channel:'9'});assert.equal(edges.metadata.alternativesTruncated,true);assert.equal(edges.total,100);
   assert.throws(()=>statePage(s,{section:'channels',offset:-1}));
+});
+
+test('summary exposes only public TLS inspection fields with independent evidence time and unchanged finance',()=>{
+ const s:any=fixture(),transport={transport:'grpc-tls',warning:'healthy',failure:'authentication',inspectedAt:'2025-01-01T00:00:00Z',certificateDigest:'a'.repeat(64),validFrom:'2024-01-01T00:00:00Z',validTo:'2025-02-01T00:00:00Z'};
+ s.lndTransport={...transport,endpoint:'private-host:10009',error:'private error detail',macaroon:'private credential',oauth:{state:'private oauth'},activeChannels:9,activeCalls:8,extra:'private future field'};
+ const summary:any=stateSummary(s);assert.deepEqual(summary.lndTransport,transport);assert.equal(summary.snapshot.at,s.snapshot.at);assert.notEqual(summary.lndTransport.inspectedAt,summary.snapshot.at);assert.deepEqual(summary.budget,s.budget);assert.deepEqual(summary.pnl30,s.pnl30);assert.equal(summary.enabled,false);assert.equal(summary.partial,true);assert.equal(JSON.stringify(summary).includes('private'),false);
+ assert.equal(summary.lndTransport.warning,'healthy');assert.equal(summary.lndTransport.failure,'authentication');assert.equal(summary.lndTransport.fresh,undefined);
+});
+test('summary retains missing and unavailable transport evidence as explicit unknown without snapshot inference',()=>{
+ const s:any=fixture();assert.equal((stateSummary(s) as any).lndTransport,null);
+ s.lndTransport={transport:'grpc-tls',warning:'unavailable'};
+ assert.deepEqual((stateSummary(s) as any).lndTransport,{transport:'grpc-tls',warning:'unavailable',failure:null,inspectedAt:null,certificateDigest:null,validFrom:null,validTo:null});
+ s.lndTransport={};assert.deepEqual((stateSummary(s) as any).lndTransport,{transport:null,warning:null,failure:null,inspectedAt:null,certificateDigest:null,validFrom:null,validTo:null});assert.equal(s.snapshot.synced,true);
+});
+
+test('actual analyst node_state reads stored transport through its public projection without effects',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'analyst-transport-')),f=piFixture(dir,'analyst');let observed:any;
+ try{
+  const transport={transport:'grpc-tls',warning:'unavailable',failure:'certificate_expired',inspectedAt:'2025-01-01T00:00:00Z',certificateDigest:'b'.repeat(64),validFrom:'2024-01-01T00:00:00Z',validTo:'2024-12-31T00:00:00Z'};
+  f.store.set('lndTransport',{...transport,endpoint:'private host',error:'private detail',macaroon:'private credential'});assert.equal((f.store.stats() as any).lndTransport,undefined);
+  f.agent.models.streamSimple=(_model,request)=>{
+   const results=request.messages.filter((m:any)=>m.role==='toolResult');if(results.length){assert.equal((results[0] as any).toolName,'node_state_analyst_2');observed=JSON.parse((results[0] as any).content[0].text);}
+   const stream=createAssistantMessageEventStream(),message:any={role:'assistant',api:'openai-responses',provider:'openai',model:'gpt-6.1-sol',timestamp:Date.now(),usage:{input:1,output:1,cacheRead:0,cacheWrite:0,totalTokens:2,cost:{input:0,output:0,cacheRead:0,cacheWrite:0,total:0}},stopReason:results.length?'stop':'toolUse',content:results.length?[{type:'text',text:'Stored public transport inspected; current health unknown.'}]:[{type:'toolCall',id:'transport-fixture',name:'node_state_analyst_2',arguments:{}}]};
+   queueMicrotask(()=>{stream.push({type:'start',partial:message});stream.push({type:'done',reason:message.stopReason,message});});return stream;
+  };
+  await f.agent.open();f.queue.enqueue({requestId:'public-transport',kind:'analysis',scope:'node',payload:{message:'Inspect persisted public transport'}});await f.agent.runJob(f.queue.claim('analyst','fixture')!,2);
+  assert.deepEqual(observed.lndTransport,transport);assert.equal(JSON.stringify(observed).includes('private'),false);assert.equal(observed.lndTransport.fresh,undefined);assert.equal(existsSync(join(dir,'effects.jsonl')),false);assert.equal(f.store.one('SELECT count(*) n FROM operations').n,0);assert.equal(f.store.one('SELECT count(*) n FROM ledger').n,0);
+ }finally{await f.agent.close();f.store.close();rmSync(dir,{recursive:true});}
 });
