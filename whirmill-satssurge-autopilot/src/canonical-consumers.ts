@@ -1,3 +1,4 @@
+import {nativeFailureRollups} from './native-failure-aggregate.js';
 import type {Store} from './store.js';
 import {channelScid} from './diagnostics.js';
 import {archiveOriginal,boundedOriginalRows,encodeOriginal,type LegacyTable} from './canonical-migration.js';
@@ -108,6 +109,11 @@ export function canonicalDiagnostics(store:Store,q:CanonicalReadQuery&{provider?
   const clean=selected.map((row:any)=>({...Object.fromEntries(allowed.filter(k=>row[k]!==undefined).map(k=>[k,row[k]])),provenance:{source:provider,sourceVersion:p.version??null,capturedAt:p.capturedAt??null,granularity:row.granularity??'source record',checksum:digest(row),externalIntent:collection==='rebalances'?'external_request_status':'not_applicable'}}));
   return {diagnostics:{[provider]:{status:p.status,version:p.version,capturedAt:p.capturedAt,coverage:p.coverage,captureComplete:p.captureComplete,captureCounts:p.captureCounts,[collection]:clean}},adapterFiltered:true,sourceMetadata:{providerCaptureDigest:digest(p),nextAfter,through:rows.length,retainedArchiveId,sourceMutationTimeKnown:false,sourceLifecycle:retainedArchiveId?'retained_immutable_capture':'current_capture',source:provider,version:p.version,capturedAt:p.capturedAt,coverage:p.coverage,captureComplete:p.captureComplete,captureCounts:p.captureCounts,financialAuthority:false},projectionLimits:{selected:clean.length,limit,truncated:nextAfter!==null,upstreamHistoryComplete:p.coverage?.complete===true}};
  }
+ if(collection==='failureRollups'){
+  const page=nativeFailureRollups(store,q);if(!page.available)return {unavailableEvidence:{available:false,rows:null,nextOffset:null,note:page.note}};
+  const {rows,...metadata}=page;
+  return {diagnostics:{native:{status:store.get('nativeCollection')?.ok===true?'qualified':'unavailable',failureRollups:rows,countUnit:metadata.countUnit,semanticParityQualified:false,historicalIntentQualified:false}},adapterFiltered:true,sourceMetadata:metadata,projectionLimits:page.projectionLimits};
+ }
  const kinds:Record<string,string>={forwards:'forward',failures:'native_htlc',policies:'native_policy',paymentAttempts:'payment_attempt',rebalances:'payment_attempt'};
  if(!kinds[collection])return {unavailableEvidence:{available:false,rows:null,nextOffset:null,note:'Native capability has no qualified event-multiplicity rollup'}};
  if(!store.get('nativeCollection')&&!store.one("SELECT 1 FROM canonical_observations WHERE kind IN ('forward','native_htlc','native_policy','payment_attempt') LIMIT 1"))return {unavailableEvidence:{available:false,rows:null,nextOffset:null,note:'Native acquisition unavailable; unknown is not zero'}};
@@ -120,9 +126,9 @@ export function canonicalDiagnostics(store:Store,q:CanonicalReadQuery&{provider?
 }
 export function unifiedDiagnostics(store:Store){
  const legacy=store.get<any>('diagnostics');
- const pages=Object.fromEntries(['forwards','failures','rebalances','paymentAttempts','policies'].map(collection=>[collection,canonicalDiagnostics(store,{provider:'native',collection,limit:100}) as any]));
+ const pages=Object.fromEntries(['forwards','failures','failureRollups','rebalances','paymentAttempts','policies'].map(collection=>[collection,canonicalDiagnostics(store,{provider:'native',collection,limit:100}) as any]));
  const native=Object.fromEntries(Object.entries(pages).map(([collection,page])=>[collection,page.diagnostics?.native?.[collection]??null]));
- const collectionMetadata=Object.fromEntries(Object.entries(pages).map(([collection,page])=>[collection,{available:!!page.diagnostics,selected:page.diagnostics?.native?.[collection]?.length??null,count:{value:page.diagnostics?.native?.[collection]?.length??null,exact:!!page.diagnostics&&page.projectionLimits?.truncated===false},nextAfter:page.sourceMetadata?.nextAfter??null,through:page.sourceMetadata?.through??null,projectionLimits:page.projectionLimits??null,detailQuery:{section:'diagnostics',provider:'native',collection}}]));
+ const collectionMetadata=Object.fromEntries(Object.entries(pages).map(([collection,page])=>[collection,{available:!!page.diagnostics,selected:page.diagnostics?.native?.[collection]?.length??null,count:{value:page.diagnostics?.native?.[collection]?.length??null,exact:!!page.diagnostics&&page.projectionLimits?.truncated===false,unit:page.sourceMetadata?.rowUnit??'retained_rows'},nextAfter:page.sourceMetadata?.nextAfter??null,through:page.sourceMetadata?.through??null,projectionLimits:page.projectionLimits??null,countUnit:page.sourceMetadata?.countUnit??null,rowUnit:page.sourceMetadata?.rowUnit??null,revisionId:page.sourceMetadata?.revisionId??null,receiptRange:page.sourceMetadata?.receiptRange??null,queryRangeExhausted:page.sourceMetadata?.queryRangeExhausted??null,distinctCountScope:page.sourceMetadata?.distinctCountScope??null,detailQuery:{section:'diagnostics',provider:'native',collection}}]));
  const provider=(name:string)=>{
   const current=legacy?.[name];
   const pages=Object.fromEntries(diagnosticCollections.map(collection=>[collection,canonicalDiagnostics(store,{provider:name,collection}) as any]));
