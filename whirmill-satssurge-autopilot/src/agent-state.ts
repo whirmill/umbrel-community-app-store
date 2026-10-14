@@ -1,3 +1,4 @@
+import {safeLndFailureContext} from './lnd.js';
 import {hash,json,scrub} from './domain.js';
 
 // Smaller than the harness output window. Pagination never silently omits rows.
@@ -13,7 +14,7 @@ export function stateSummary(s:any){
     agent:s.agent?{at:s.agent.at,status:s.agent.status,model:s.agent.model,thinkingLevel:s.agent.thinkingLevel,until:s.agent.until}:null,
     importReport:s.importReport?{at:s.importReport.at,fileCount:s.importReport.files?.length??null,ledgerEntriesRead:s.importReport.ledgerEntriesRead,problemCount:s.importReport.problems?.length??null,coverageComplete:s.importReport.coverageComplete,note:s.importReport.note}:null,
     // Persisted inspection time is independent of snapshot time and does not attest current health.
-    lndTransport:s.lndTransport?{transport:s.lndTransport.transport??null,warning:s.lndTransport.warning??null,failure:s.lndTransport.failure??null,inspectedAt:s.lndTransport.inspectedAt??null,certificateDigest:s.lndTransport.certificateDigest??null,validFrom:s.lndTransport.validFrom??null,validTo:s.lndTransport.validTo??null}:null,
+    lndTransport:s.lndTransport?{transport:s.lndTransport.transport??null,warning:s.lndTransport.warning??null,failure:s.lndTransport.failure??null,...(safeLndFailureContext(s.lndTransport.failureContext)?{failureContext:safeLndFailureContext(s.lndTransport.failureContext)}:{}),inspectedAt:s.lndTransport.inspectedAt??null,certificateDigest:s.lndTransport.certificateDigest??null,validFrom:s.lndTransport.validFrom??null,validTo:s.lndTransport.validTo??null}:null,
     snapshot:snapshot?{at:snapshot.at,identity:snapshot.identity,synced:snapshot.synced,confirmedSat:snapshot.confirmedSat,channelCount:snapshot.channels.length}:null,
     diagnostics:diagnostics?{at:diagnostics.at,lndg:providerSummary(diagnostics.lndg),lightningMate:providerSummary(diagnostics.lightningMate),native:providerSummary(diagnostics.native)}:null,
     competition:competition?{status:competition.status,at:competition.at,capturedAt:competition.capturedAt,coverage:competition.coverage,reason:competition.reason,channelCount:competition.channels?.length??null}:null,

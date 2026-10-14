@@ -67,3 +67,9 @@ test('actual analyst node_state reads stored transport through its public projec
   assert.deepEqual(observed.lndTransport,transport);assert.equal(JSON.stringify(observed).includes('private'),false);assert.equal(observed.lndTransport.fresh,undefined);assert.equal(existsSync(join(dir,'effects.jsonl')),false);assert.equal(f.store.one('SELECT count(*) n FROM operations').n,0);assert.equal(f.store.one('SELECT count(*) n FROM ledger').n,0);
  }finally{await f.agent.close();f.store.close();rmSync(dir,{recursive:true});}
 });
+
+
+test('owner transport context projects only closed diagnostic fields',()=>{
+ const s:any=fixture();s.lndTransport={failure:'acquisition_failure',failureContext:{failureAt:'2027-01-12T21:59:00.000Z',origin:'local_acquisition',method:'subscribeHtlcEvents',reason:'callback_error',grpcStatus:99,details:'private-secret',nodeId:'private-node'}};
+ const transport=(stateSummary(s) as any).lndTransport;assert.deepEqual(transport.failureContext,{failureAt:'2027-01-12T21:59:00.000Z',origin:'local_acquisition',method:'subscribeHtlcEvents',reason:'callback_error'});assert.ok(!JSON.stringify(transport).includes('private'));
+});

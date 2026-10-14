@@ -6,8 +6,17 @@ import * as grpc from '@grpc/grpc-js';
 import { loadSync } from '@grpc/proto-loader';
 import { now, integer, type Channel, type Snapshot, type PaymentOutcome } from './domain.js';
 
-export type TransportFailure = 'certificate_missing'|'certificate_invalid'|'certificate_expired'|'certificate_not_yet_valid'|'endpoint_mismatch'|'authentication'|'permission_denied'|'deadline'|'cancelled'|'unavailable'|'resource_limit'|'rpc_failure';
-export type LndTransportStatus = {transport:'grpc-tls';inspectedAt:string;certificateDigest?:string;validFrom?:string;validTo?:string;warning:'healthy'|'expires_30d'|'expires_7d'|'expired'|'unavailable';failure?:TransportFailure;activeChannels:number;activeCalls:number};
+export type TransportFailure = 'certificate_missing'|'certificate_invalid'|'certificate_expired'|'certificate_not_yet_valid'|'endpoint_mismatch'|'authentication'|'permission_denied'|'deadline'|'cancelled'|'unavailable'|'resource_limit'|'rpc_failure'|'acquisition_failure';
+const RPC_METHODS=['getInfo','walletBalance','listChannels','getChanInfo','forwardingHistory','listPayments','addInvoice','updateChannelPolicy','sendPaymentV2','trackPaymentV2','subscribeHtlcEvents','subscribeChannelGraph'] as const;
+const ACQUISITION_REASONS=['malformed_response','binding_mismatch','callback_error','not_subscribed','size_limit','invalid_request','invalid_config'] as const;
+export type LndFailureContext={failureAt:string;origin:'rpc'|'local_acquisition'|'transport';method?:typeof RPC_METHODS[number];grpcStatus?:number;reason?:typeof ACQUISITION_REASONS[number]};
+/** Only closed labels and a timestamp cross owner diagnostics boundaries. */
+export function safeLndFailureContext(value:unknown):LndFailureContext|undefined {
+ const v=value as any;if(!v||!['rpc','local_acquisition','transport'].includes(v.origin)||typeof v.failureAt!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v.failureAt)||!Number.isFinite(Date.parse(v.failureAt)))return undefined;
+ return {failureAt:v.failureAt,origin:v.origin,...(RPC_METHODS.includes(v.method)?{method:v.method}:{}),...(Number.isInteger(v.grpcStatus)&&v.grpcStatus>=0&&v.grpcStatus<=16?{grpcStatus:v.grpcStatus}:{}),...(ACQUISITION_REASONS.includes(v.reason)?{reason:v.reason}:{})};
+}
+export function certificateTransportFailure(failure:unknown):boolean{return ['certificate_missing','certificate_invalid','certificate_expired','certificate_not_yet_valid','endpoint_mismatch'].includes(failure as string);}
+export type LndTransportStatus = {transport:'grpc-tls';inspectedAt:string;certificateDigest?:string;validFrom?:string;validTo?:string;warning:'healthy'|'expires_30d'|'expires_7d'|'expired'|'unavailable';failure?:TransportFailure;failureContext?:LndFailureContext;activeChannels:number;activeCalls:number};
 export interface NodeClient {
   snapshot():Promise<Snapshot>;
   forwards(start:number,end:number):Promise<any[]>;
@@ -49,7 +58,7 @@ export function grpcTarget(target:string):{target:string;host:string} {
   if(host.includes(':')&&!isIP(host))throw new Error('Invalid LND gRPC target');
   return {target,host};
 }
-class TransportError extends Error {constructor(readonly category:TransportFailure){super('LND gRPC '+category+'; outcome may be uncertain');}}
+class TransportError extends Error {constructor(readonly category:TransportFailure,readonly failureContext?:LndFailureContext){super('LND gRPC '+category+'; outcome may be uncertain');}}
 class NativeReadBoundaryError extends Error {constructor(readonly code:'idle_timeout'|'time_budget'){super('LND native read '+code);}}
 function category(error:any):TransportFailure {
   switch(error?.code){case grpc.status.UNAUTHENTICATED:return 'authentication';case grpc.status.PERMISSION_DENIED:return 'permission_denied';case grpc.status.DEADLINE_EXCEEDED:return 'deadline';case grpc.status.CANCELLED:return 'cancelled';case grpc.status.UNAVAILABLE:return 'unavailable';case grpc.status.RESOURCE_EXHAUSTED:return 'resource_limit';default:return 'rpc_failure';}
@@ -78,7 +87,7 @@ export class Lnd implements NodeClient {
       if(statSync(this.caFile).size>65536)throw new TransportError('certificate_invalid');
       ca=readFileSync(this.caFile);const pem=ca.toString('ascii');if(pem.split('-----BEGIN CERTIFICATE-----').length!==2||pem.includes('PRIVATE KEY'))throw new TransportError('certificate_invalid');cert=new X509Certificate(ca);digest=createHash('sha256').update(cert.raw).digest('hex');
       const from=Date.parse(cert.validFrom),to=Date.parse(cert.validTo),at=Date.now();
-      this.status={...this.status,inspectedAt:now(),certificateDigest:digest,validFrom:new Date(from).toISOString(),validTo:new Date(to).toISOString(),warning:to<=at?'expired':to-at<=7*86400000?'expires_7d':to-at<=30*86400000?'expires_30d':'healthy',failure:this.status.failure&&['authentication','permission_denied','deadline','cancelled','unavailable','resource_limit','rpc_failure'].includes(this.status.failure)?this.status.failure:undefined};
+      this.status={...this.status,inspectedAt:now(),certificateDigest:digest,validFrom:new Date(from).toISOString(),validTo:new Date(to).toISOString(),failureContext:certificateTransportFailure(this.status.failure)?undefined:this.status.failureContext,warning:to<=at?'expired':to-at<=7*86400000?'expires_7d':to-at<=30*86400000?'expires_30d':'healthy',failure:this.status.failure&&['authentication','permission_denied','deadline','cancelled','unavailable','resource_limit','rpc_failure','acquisition_failure'].includes(this.status.failure)?this.status.failure:undefined};
       if(from>at)throw new TransportError('certificate_not_yet_valid');
       if(to<=at)throw new TransportError('certificate_expired');
       if(!(isIP(this.endpoint.host)?cert.checkIP(this.endpoint.host):cert.checkHost(this.endpoint.host)))throw new TransportError('endpoint_mismatch');
@@ -91,7 +100,7 @@ export class Lnd implements NodeClient {
       if(this.current)this.current.retired=true;
       this.channels.push(next);this.current=next;this.reap();
     } catch(e:any) {failure=e instanceof TransportError?e.category:e?.code==='ENOENT'?'certificate_missing':'certificate_invalid';}
-    if(failure)this.status={...this.status,inspectedAt:now(),failure,warning:failure==='certificate_expired'?'expired':'unavailable'};
+    if(failure)this.status={...this.status,inspectedAt:now(),failure,failureContext:this.status.failure===failure?this.status.failureContext:{failureAt:now(),origin:'transport'},warning:failure==='certificate_expired'?'expired':'unavailable'};
   }
   private reap(){this.channels=this.channels.filter(c=>{if(c.retired&&c.active===0){c.lightning.close();c.router.close();return false;}return true;});}
   transportStatus():LndTransportStatus {this.refresh();return {...this.status,activeChannels:this.channels.length,activeCalls:this.channels.reduce((n,c)=>n+c.active,0)};}
@@ -103,13 +112,18 @@ export class Lnd implements NodeClient {
   }
   private release(c:ChannelLease){c.active--;this.reap();}
   private metadata(write:boolean){const metadata=new grpc.Metadata();metadata.set('macaroon',write?this.writeToken:this.readToken);return metadata;}
-  private success(){if(this.status.warning!=='unavailable'&&this.status.warning!=='expired')this.status={...this.status,failure:undefined};}
+  private success(){if(this.status.warning!=='unavailable'&&this.status.warning!=='expired')this.status={...this.status,failure:undefined,failureContext:undefined};}
   beginCollection(){const epoch=this.failureEpoch;return ()=>{if(epoch===this.failureEpoch)this.success();};}
-  private fail(error:any){this.failureEpoch++;const failure=error instanceof TransportError?error.category:category(error);this.status={...this.status,failure};return new TransportError(failure);}
+  private fail(error:any,method?:string,localAcquisition=false){
+    this.failureEpoch++;const reason=localAcquisition&&ACQUISITION_REASONS.includes(error?.code)?error.code:undefined;
+    const failure=error instanceof TransportError?error.category:localAcquisition?'acquisition_failure':category(error);
+    const failureContext=error instanceof TransportError&&error.failureContext?error.failureContext:safeLndFailureContext({failureAt:now(),origin:localAcquisition?'local_acquisition':error instanceof TransportError?'transport':'rpc',method,grpcStatus:localAcquisition?undefined:error?.code,reason});
+    this.status={...this.status,failure,failureContext};return new TransportError(failure,failureContext);
+  }
   private async unary(service:'lightning'|'router',method:string,request:any,write=false,signal?:AbortSignal,limits?:NativeReadLimits):Promise<any> {
     const c=this.lease();return new Promise((resolve,reject)=>{
       let call:grpc.ClientUnaryCall|undefined,settled=false;
-      const finish=(error?:unknown,result?:unknown,localBoundary=false)=>{if(settled)return;settled=true;signal?.removeEventListener('abort',abort);this.activeCancellations.delete(abort);this.release(c);if(error)reject(localBoundary?error:this.fail(error));else resolve(result);};
+      const finish=(error?:unknown,result?:unknown,localBoundary=false)=>{if(settled)return;settled=true;signal?.removeEventListener('abort',abort);this.activeCancellations.delete(abort);this.release(c);if(error)reject(localBoundary?error:this.fail(error,method));else resolve(result);};
       const abort=()=>{
         if(service==='lightning'&&method==='getInfo'&&!write&&limits&&signal&&this.streamBindingCleanup.has(signal)){finish(signal.reason,undefined,true);call?.cancel();}
         else{call?.cancel();finish(new TransportError('cancelled'));}
@@ -132,7 +146,7 @@ export class Lnd implements NodeClient {
       // A private signal binds frame GetInfo cleanup to this stream, never an independent unary.
       const frameBinding=new AbortController();
       // Only our timers/abort own a coverage boundary; remote status codes remain failures.
-      const finish=(error?:unknown,localBoundary=false)=>{if(settled)return;settled=true;clearTimeout(idle);clearTimeout(budget);signal.removeEventListener('abort',abort);this.activeCancellations.delete(abort);if(localBoundary)this.streamBindingCleanup.add(frameBinding.signal);frameBinding.abort(error??new TransportError('cancelled'));call?.cancel();this.release(c);if(error)reject(localBoundary?error:this.fail(error));else resolve();};
+      const finish=(error?:unknown,localBoundary=false,localAcquisition=false)=>{if(settled)return;if(localAcquisition&&!error)error=Object.assign(new Error('LND acquisition callback failed'),{code:'callback_error'});settled=true;clearTimeout(idle);clearTimeout(budget);signal.removeEventListener('abort',abort);this.activeCancellations.delete(abort);if(localBoundary)this.streamBindingCleanup.add(frameBinding.signal);frameBinding.abort(error??new TransportError('cancelled'));call?.cancel();this.release(c);if(error)reject(localBoundary?error:this.fail(error,method,localAcquisition));else resolve();};
       const abort=()=>finish(new TransportError('cancelled'),true);
       const reset=()=>{clearTimeout(idle);idle=setTimeout(()=>finish(new NativeReadBoundaryError('idle_timeout'),true),limits.idleMs);};
       const budget=setTimeout(()=>finish(new NativeReadBoundaryError('time_budget'),true),Math.min(limits.deadlineMs,this.limits.htlcMs));
@@ -141,9 +155,9 @@ export class Lnd implements NodeClient {
         if(signal.aborted||this.closed){abort();return;}reset();
         // Local budget still cancels at the original cap; RPC deadline is a later safety backstop.
         call=(c[service] as any)[method]({},this.metadata(false),{deadline:Date.now()+Math.min(limits.deadlineMs,this.limits.htlcMs)+1000,waitForReady:false});
-        call!.on('metadata',()=>{if(settled)return;try{onReady();}catch{finish(new TransportError('rpc_failure'));}});
+        call!.on('metadata',()=>{if(settled)return;try{onReady();}catch(e){finish(e,false,true);}});
         call!.on('data',row=>{if(settled)return;call!.pause();processing=true;reset();
-          void (async()=>{try {const size=Buffer.byteLength(JSON.stringify(row));bytes+=size;if(++frames>limits.frames||size>limits.frameBytes||bytes>Math.min(limits.streamBytes,this.limits.streamBytes))throw new TransportError('resource_limit');await onFrame(row,frameBinding.signal);}catch(e){finish(e);}finally{processing=false;if(!settled){if(ended)finish();else call!.resume();}}})();
+          void (async()=>{try {const size=Buffer.byteLength(JSON.stringify(row));bytes+=size;if(++frames>limits.frames||size>limits.frameBytes||bytes>Math.min(limits.streamBytes,this.limits.streamBytes))throw new TransportError('resource_limit');await onFrame(row,frameBinding.signal);}catch(e){finish(e,false,true);}finally{processing=false;if(!settled){if(ended)finish();else call!.resume();}}})();
         });
         call!.on('error',error=>finish(error));call!.on('end',()=>{ended=true;if(!processing)finish();});
       }catch(e){finish(e);}
@@ -169,7 +183,7 @@ export class Lnd implements NodeClient {
       let call:grpc.ClientReadableStream<any>|undefined;let last:any;let settled=false;let rows=0;let bytes=0;
       const readSubscription=method==='subscribeHtlcEvents'&&!write&&onEvent!==undefined;
       let budget:ReturnType<typeof setTimeout>|undefined;
-      const finish=(error?:any,localBoundary=false)=>{if(settled)return;settled=true;signal?.removeEventListener('abort',abort);if(readSubscription){clearTimeout(budget);this.activeCancellations.delete(abort);if(localBoundary)call?.cancel();}this.release(c);if(error)reject(localBoundary?error:this.fail(error));else resolve(last);};
+      const finish=(error?:any,localBoundary=false)=>{if(settled)return;settled=true;signal?.removeEventListener('abort',abort);if(readSubscription){clearTimeout(budget);this.activeCancellations.delete(abort);if(localBoundary)call?.cancel();}this.release(c);if(error)reject(localBoundary?error:this.fail(error,method));else resolve(last);};
       const abort=()=>{if(readSubscription)finish(new TransportError('cancelled'),true);else{call?.cancel();finish(new TransportError('cancelled'));}};
       // Keep the existing read segment cap, with explicit local ownership of expiry/closure.
       if(readSubscription){this.activeCancellations.add(abort);budget=setTimeout(()=>finish(undefined,true),this.limits.htlcMs);}
