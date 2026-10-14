@@ -10,7 +10,7 @@ import {Telegram} from '../telegram.js';
 import {Collector} from '../collector.js';
 import {execFileSync} from 'node:child_process';
 import * as grpc from '@grpc/grpc-js';
-import {Lnd,lndPackage} from '../lnd.js';
+import {Lnd,lndPackage,safeLndFailureContext} from '../lnd.js';
 import type {LndTransportStatus} from '../lnd.js';
 const at='2027-01-12T22:00:00.000Z';
 function status(warning:LndTransportStatus['warning']='expires_30d',digest='publicdigest'):LndTransportStatus{return {transport:'grpc-tls',inspectedAt:at,certificateDigest:digest,validFrom:'2026-01-01T00:00:00.000Z',validTo:'2027-02-01T00:00:00.000Z',warning,activeChannels:1,activeCalls:0};}
@@ -54,7 +54,7 @@ test('full collection readiness and blockers use the recovered latest transport 
   const collector=new Collector(s,node,{reconcile:async()=>{reconciled++;assert.equal(s.get('lndTransport').failure,'deadline');assert.equal(s.get('bootstrapReady'),false);}} as any,'/synthetic-unavailable-gate',native);
   try{
    await collector.collect();assert.equal(reconciled,1);assert.equal(recovered,1);assert.equal(nativeTicks,1);assert.equal(s.get('collector').ok,true);assert.equal(s.get('lndTransport').failure,lateFailure?'unavailable':undefined);assert.equal(s.get('operationalReadiness').ready,!lateFailure);
-   assert.equal(s.get<string[]>('blockers')!.includes('Native LND TLS transport requires attention'),lateFailure);assert.ok(s.get<string[]>('blockers')!.includes('Live automation interlock unavailable'));assert.equal(s.get('bootstrapReady'),false);assert.equal(s.get('operationalReadiness').financialEligible,false);assert.equal(s.get('automationProof').state,'unknown');assert.equal(s.get('maintenanceClaim').owner,'original');assert.equal(s.get('enabled'),false);assert.deepEqual(s.get('mandate'),mandate);assert.equal(s.one('SELECT count(*) n FROM operations').n,0);
+   assert.equal(s.get<string[]>('blockers')!.includes('Native LND gRPC/acquisition requires attention'),lateFailure);assert.ok(s.get<string[]>('blockers')!.includes('Live automation interlock unavailable'));assert.equal(s.get('bootstrapReady'),false);assert.equal(s.get('operationalReadiness').financialEligible,false);assert.equal(s.get('automationProof').state,'unknown');assert.equal(s.get('maintenanceClaim').owner,'original');assert.equal(s.get('enabled'),false);assert.deepEqual(s.get('mandate'),mandate);assert.equal(s.one('SELECT count(*) n FROM operations').n,0);
   }finally{s.close();}
  }
 });
@@ -84,4 +84,14 @@ for(const failure of ['permission_denied','unavailable'] as const)test(`healthy 
   s.set('integrityBlocker','Original integrity hold');await collector.collect();assert.equal(s.get('lndTransport').failure,undefined);assert.equal(s.get('bootstrapReady'),false);assert.ok(s.get<string[]>('blockers')!.includes('Original integrity hold'));
   s.set('integrityBlocker',null);await collector.collect();assert.equal(s.get('bootstrapReady'),true);s.assertDispatchReady();assert.deepEqual(s.all('SELECT * FROM operations ORDER BY id'),original);
  }finally{node?.close();server.forceShutdown();s.close();rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('noncertificate failures report bounded RPC/acquisition context without implying TLS failure',()=>{
+ for(const failure of ['rpc_failure','acquisition_failure'] as const){
+  const f=fixture();try{f.s.set('lndTransport',{...status('healthy'),failure,failureContext:{failureAt:'2027-01-12T21:59:00.000Z',origin:failure==='rpc_failure'?'rpc':'local_acquisition',method:'subscribeHtlcEvents',grpcStatus:2,reason:'callback_error',details:'private-secret',nodeId:'private-node'}});capture(f.t);const content=JSON.stringify(f.s.one("SELECT * FROM telegram_outbox WHERE event_id LIKE 'lnd-transport:%'"));assert.ok(content.includes('2027-01-12T21:59:00.000Z'));assert.ok(content.includes('subscribeHtlcEvents'));assert.ok(!content.includes('gRPC TLS'));assert.ok(!content.includes('Certificato'));assert.ok(!content.includes('private-secret'));assert.ok(!content.includes('private-node'));}finally{f.close();}
+ }
+ assert.deepEqual(safeLndFailureContext({failureAt:at,origin:'rpc',method:'private-rpc',grpcStatus:99,reason:'private-secret',details:'private-secret'}),{failureAt:at,origin:'rpc'});
+ assert.equal(safeLndFailureContext({failureAt:'private-secret',origin:'rpc'}),undefined);
+ assert.equal(safeLndFailureContext({failureAt:at,origin:'private-secret'}),undefined);
 });

@@ -58,7 +58,7 @@ test('stream binding cleanup does not exempt an independent unary sharing the ow
 test('remote errors in a stream frame binding remain latched and invalidate stale recovery epochs',async t=>{
  for(const [failure,code] of Object.entries({cancelled:grpc.status.CANCELLED,deadline:grpc.status.DEADLINE_EXCEEDED,authentication:grpc.status.UNAUTHENTICATED,permission_denied:grpc.status.PERMISSION_DENIED,unavailable:grpc.status.UNAVAILABLE,resource_limit:grpc.status.RESOURCE_EXHAUSTED,rpc_failure:grpc.status.UNKNOWN}))await t.test(failure,async()=>{
   let reads=0,fail=true;const f=await nativeGrpcFixture({getInfo:(_c:any,cb:any)=>++reads===1||!fail?cb(null,info):cb({code,details:'private binding diagnostics'}),walletBalance:(_c:any,cb:any)=>cb(null,{}),listChannels:(_c:any,cb:any)=>cb(null,{})},{subscribeHtlcEvents:(c:any)=>c.write({subscribed_event:{}})});const s=source(f);
-  try{const stale=f.client.beginCollection(),r=await s.subscribeHtlcEvents({onEvent:()=>assert.fail('failed binding admitted an event')});assert.equal(r.frames,0);assert.equal(r.sourceHistoryComplete,false);assert.equal(f.client.transportStatus().failure,failure);assert.ok((f.client as any).failureEpoch>0);assert.equal(f.client.transportStatus().activeCalls,0);fail=false;await f.client.snapshot();stale();assert.equal(f.client.transportStatus().failure,failure);const recover=f.client.beginCollection();await f.client.snapshot();recover();assert.equal(f.client.transportStatus().failure,undefined);}finally{s.shutdown();f.close();}
+  try{const stale=f.client.beginCollection(),r=await s.subscribeHtlcEvents({onEvent:()=>assert.fail('failed binding admitted an event')});assert.equal(r.frames,0);assert.equal(r.sourceHistoryComplete,false);assert.equal(f.client.transportStatus().failure,failure);assert.equal(f.client.transportStatus().failureContext?.method,'getInfo');assert.equal(f.client.transportStatus().failureContext?.grpcStatus,code);assert.equal(f.client.transportStatus().failureContext?.origin,'rpc');assert.ok(!JSON.stringify(f.client.transportStatus()).includes('private binding diagnostics'));assert.ok((f.client as any).failureEpoch>0);assert.equal(f.client.transportStatus().activeCalls,0);fail=false;await f.client.snapshot();stale();assert.equal(f.client.transportStatus().failure,failure);const recover=f.client.beginCollection();await f.client.snapshot();recover();assert.equal(f.client.transportStatus().failure,undefined);}finally{s.shutdown();f.close();}
  });
 });
 
@@ -77,7 +77,7 @@ test('planned source stream boundaries retain exact incomplete receipts without 
 test('malformed binding and callback failures remain transport failures with retained source gap reasons',async t=>{
  for(const kind of ['malformed','binding','callback','overflow'])await t.test(kind,async()=>{
   let reads=0;const f=await nativeGrpcFixture({getInfo:(_c:any,cb:any)=>cb(null,kind==='binding'&&++reads>1?{...info,identity_pubkey:peer}:info)},{subscribeHtlcEvents:(c:any)=>{c.write({subscribed_event:{}});c.write(kind==='malformed'?{...htlc,settle_event:{preimage:Buffer.alloc(32)}}:htlc);}});
-  try{const s=source(f,kind==='overflow'?{frames:1}:{}),r=await s.subscribeHtlcEvents({onEvent:()=>{if(kind==='callback')throw Error('private fixture callback');}});assert.equal(r.reason,kind==='malformed'?'malformed_response':kind==='binding'?'binding_mismatch':kind==='callback'?'callback_error':'size_limit');assert.equal(f.client.transportStatus().failure,kind==='overflow'?'resource_limit':'rpc_failure');assert.equal(r.sourceHistoryComplete,false);assert.equal(r.replayQualified,false);assert.equal(f.client.transportStatus().activeCalls,0);s.shutdown();}finally{f.close();}
+  try{const s=source(f,kind==='overflow'?{frames:1}:{}),r=await s.subscribeHtlcEvents({onEvent:()=>{if(kind==='callback')throw Error('private fixture callback');}});assert.equal(r.reason,kind==='malformed'?'malformed_response':kind==='binding'?'binding_mismatch':kind==='callback'?'callback_error':'size_limit');assert.equal(f.client.transportStatus().failure,kind==='overflow'?'resource_limit':'acquisition_failure');assert.equal(f.client.transportStatus().failureContext?.method,'subscribeHtlcEvents');assert.equal(f.client.transportStatus().failureContext?.origin,'local_acquisition');if(kind!=='overflow')assert.equal(f.client.transportStatus().failureContext?.reason,r.reason);assert.ok(!JSON.stringify(f.client.transportStatus()).includes('private fixture callback'));assert.equal(r.sourceHistoryComplete,false);assert.equal(r.replayQualified,false);assert.equal(f.client.transportStatus().activeCalls,0);s.shutdown();}finally{f.close();}
  });
 });
 
@@ -191,4 +191,15 @@ test('empty stream EOF and invalid channel messages never fabricate ACK, identit
 
 test('shared transport call cap constrains native binding while the subscription holds its lease',async()=>{
  const f=await nativeGrpcFixture({getInfo},{subscribeHtlcEvents:(c:any)=>{c.write({subscribed_event:{}});c.write(htlc);}},{maxCalls:1});try{const s=source(f),r=await s.subscribeHtlcEvents({onEvent:()=>assert.fail('unbound frame')});assert.equal(r.reason,'size_limit');assert.equal(r.subscribed,false);assert.equal(f.client.transportStatus().activeCalls,0);s.shutdown();}finally{f.close();}
+});
+
+test('actual native transport rejects falsy readiness and frame callback throws',async t=>{
+ for(const phase of ['ready','frame'])for(const value of [undefined,null,0,false,''])await t.test(`${phase} ${String(value)}`,async()=>{
+  const f=await nativeGrpcFixture({getInfo},{subscribeHtlcEvents:(c:any)=>{c.sendMetadata(new grpc.Metadata());c.write({subscribed_event:{}});}});
+  try{
+   const cap=f.client.nativeRead(),controller=new AbortController();
+   await assert.rejects(cap.subscribeHtlcEvents(async()=>{if(phase==='frame')throw value;},()=>{if(phase==='ready')throw value;},controller.signal,bounds),/acquisition_failure/);
+   assert.equal(f.client.transportStatus().failure,'acquisition_failure');assert.equal(f.client.transportStatus().failureContext?.origin,'local_acquisition');assert.equal(f.client.transportStatus().failureContext?.reason,'callback_error');assert.equal(f.client.transportStatus().activeCalls,0);
+  }finally{f.close();}
+ });
 });
