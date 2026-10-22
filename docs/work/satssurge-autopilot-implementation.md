@@ -1,6 +1,12 @@
 # SatsSurge Autopilot — implementation checkpoint
 
-## Current roadmap — updated 2026-10-21
+## Current roadmap — updated 2026-10-22
+
+### Path A begun — app restarted on a new 0.5.16 generation; fresh capture cycle next — 2026-10-22T05:15Z
+
+Executed under the recorded authorization: leftover qualification container m3-native-0515-app-amd64 removed from the host (no volumes touched, zero satssurge/m3 containers remain); SatsSurge started through the real Umbrel dashboard (2FA session, Open control — Update NOT pressed). New generation: container c7c555207aa8d238c58d356984816c60546f4f86a24f58b3e7713f20dcfb9c94, startedAt 2026-10-22T05:11:13.521417753Z, running/healthy, image ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.16@sha256:2a40905c9b59199ef682192d8e0c4a9c6702a30f811b5179c9b77588e11c3836 — anonymous ghcr readback confirms this is exactly the immutable 0.5.16 index digest, so the source image binding for the fresh cycle is verified against the registry. Autonomy/timers resumed with the app; the fresh capture qualifies the resulting state as-is, consistent with the authorized path. Browser session closed and verified gone.
+
+Next: one scoped writer prepares the fresh read-only capture of the current databases for this generation (reusing the capture/classification machinery and today's vocabulary/checker corrections), then classification → new preservation-only epoch → pair binding/freeze rebuild for c7c55520 → fresh whole review → root consumption → fresh S≤90 PASS/hash/unchanged 0.5.17 target → ONE supported Update 17 → AFTER census → PR104 merge/tag/BOTH 0.5.18. Epoch 46e958 and the pair03 corrected candidate remain historical/candidate artifacts.
 
 ### Fase-3 live finding — pinned source generation destroyed, fresh epoch cycle authorized — 2026-10-21T21:50Z
 
