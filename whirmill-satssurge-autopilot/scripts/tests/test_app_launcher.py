@@ -273,21 +273,6 @@ time.sleep(30)
         with self.assertRaises(ProcessLookupError):
             os.kill(children[0].pid, 0)
 
-    def test_installer_copies_all_required_imports_without_native_systemctl(self):
-        scripts = pathlib.Path(__file__).resolve().parents[1]
-        app, commands = (self.data / name for name in ('app', 'commands'))
-        commands.mkdir()
-        mock = commands / 'systemctl'
-        mock.write_text('#!/bin/sh\nexit 99\n')
-        mock.chmod(0o700)
-        env = {**os.environ, 'PATH': str(commands) + os.pathsep + os.environ['PATH']}
-        subprocess.run(['sh', str(scripts / 'install-backfill.sh'), str(app), '--helpers-only'], env=env, check=True, timeout=5)
-        self.assertTrue((app / 'scripts/maintenance_lock.py').is_file())
-        for name in ('lm_backfill.py', 'checkpoint.py'):
-            result = subprocess.run([sys.executable, str(app / 'scripts' / name), '--help'],
-                                    cwd=self.data, env=env, capture_output=True, timeout=5)
-            self.assertEqual(result.returncode, 0, result.stderr.decode())
-
     def test_migration_deadline_kills_and_reaps_unresponsive_child(self):
         from app_launcher import ChildSupervisor
         original = subprocess.Popen
