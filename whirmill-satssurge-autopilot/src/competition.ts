@@ -15,7 +15,7 @@ const LND_GRAPH_VERSION=/^0\.(?:2[1-9]|[3-9]\d)\.\d+-beta(?:\.rc\d+)?$/;
 /** Announced direct-hop price distribution, never proof of executable routes. */
 export function qualifyCompetition(raw:any,snapshot:Snapshot,at=new Date().toISOString()){
   const unavailable=(reason:string)=>({status:'unavailable',at,reason,channels:[]});
-  if(raw?.schema!==1||raw.identity!==snapshot.identity||!LND_GRAPH_VERSION.test(String(raw.version)))return unavailable('Graph source, version or node binding unavailable');
+  if(raw?.schema!==1||raw.identity!==snapshot.identity||typeof raw.version!=='string'||!LND_GRAPH_VERSION.test(raw.version))return unavailable('Graph source, version or node binding unavailable');
   const age=Date.parse(at)-Date.parse(raw.capturedAt);
   if(!Number.isFinite(age)||age<0||age>300000||!Array.isArray(raw.peers)||raw.peers.length>16)return unavailable('Graph capture stale, missing or unbounded');
   try{
