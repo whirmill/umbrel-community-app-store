@@ -79,7 +79,7 @@ agent that earns fees safely; everything else waits for a concrete need.
    is no project to retire LNDg/LightningMate and no further canonical-model work
    until there is a concrete reason.
 
-Done: Telegram tables (#115) and one automatic retry after transient provider errors (#116), both in 0.5.20.
+Done: Telegram tables (#115, 0.5.20). The app-level retry after transient provider errors (#116, 0.5.20) was replaced by Pi Durable's native generation retry (3 retries, #137).
 
 Dropped:
 - runtime-improvement prompts sent by the bot (M2.4);

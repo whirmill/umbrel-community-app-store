@@ -894,7 +894,8 @@ export class Agent {
       {
         models: this.models,
         registry,
-        settings: { toolExecution: "sequential", retry: { maxRetries: 0 } },
+        // Native generation retries repeat only the model request; committed tool calls are never re-run.
+        settings: { toolExecution: "sequential", retry: { maxRetries: 3 } },
       },
       context,
     );
@@ -1121,7 +1122,8 @@ export class Agent {
           for(const entry of page.items){const message=entry.model?.[0];if(entry.kind==='pi.assistant'&&message?.role==='assistant'&&message.stopReason==='error'&&entry.byTaskId)candidates.push(entry);}
           cursor=page.next;
         }while(cursor);
-        for(const entry of candidates.sort((a,b)=>Number(a.id)-Number(b.id)).slice(0,1)){
+        // Retried attempts leave earlier error entries; the terminal failure is the last one.
+        for(const entry of candidates.sort((a,b)=>Number(b.id)-Number(a.id)).slice(0,1)){
           const task=await this.harness.getTask(entry.byTaskId,context),message=entry.model[0];
           if(task?.kind!=='pi.generation'||task.version!==1||String(task.conversationId)!==String(conversation.id)||task.state.status!=='terminal'||task.state.outcome.status!=='failed'||task.state.outcome.error.message!==message.errorMessage||settled.detail!==message.errorMessage)continue;
           qualified=classifyNativeProviderError(message.errorMessage);taskId=String(task.id);entryId=String(entry.id);break;
