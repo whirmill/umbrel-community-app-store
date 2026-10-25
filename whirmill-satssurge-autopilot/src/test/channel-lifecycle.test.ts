@@ -9,7 +9,8 @@ import { Store } from '../store.js';
 import { Queue } from '../queue.js';
 import { Executor } from '../executor.js';
 import { ApplicationControl } from '../application-control.js';
-import { ChannelLifecycle, channelBudget, channelApprovalState, type ChannelOperation } from '../channels.js';
+import { ChannelLifecycle, channelBudget, channelApprovalState, CHANNEL_OPERATION_KEYS, type ChannelOperation } from '../channels.js';
+import { channelOperationText } from '../telegram.js';
 import { Lnd, lndPackage } from '../lnd.js';
 import { stateSummary } from '../agent-state.js';
 import { now, month, json, hash, type Snapshot, type Channel, type ChannelProposal } from '../domain.js';
@@ -210,4 +211,87 @@ test('gRPC channel client: separate credential, absent credential unavailable, c
     await assert.rejects(rpc.openChannel(fresh, '1000000', '0'), /fee rate/); await assert.rejects(rpc.connectPeer(fresh, 'bad host'), /address/);
     assert.equal(seen.filter(r => r.method === 'openChannelSync').length, 1);
   } finally { absent.close(); client.close(); server.forceShutdown(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+const later = (ms: number) => new Date(Date.now() + ms).toISOString();
+test('D1: an uncertain open can be closed out only after the evidence horizon, and later funding is recorded', async () => {
+  const f = setup({ openChannel: async (...a: any[]) => { f.calls.push(['openChannel', ...a]); throw Object.assign(Error('deadline'), { category: 'deadline' }); } });
+  const p = await f.c.createChannelProposal(f.draft(), f.job.id); await assert.rejects(f.c.approve(p!.id), /deadline/);
+  const op = f.op(); assert.equal(op.state, 'uncertain'); assert.equal(op.rejected, false);
+  await assert.rejects(f.executor.channels!.ownerMarkFailed(op.id), /^Error: Channel: too early/);
+  await f.executor.channels!.reconcile(later(3600_000)); assert.equal(f.op().state, 'uncertain');
+  const at = later(3 * 3600_000);
+  // Past the horizon reconcile itself fails it; the owner close-out is the same decision with explicit evidence.
+  const g = setup({ openChannel: async () => { throw Object.assign(Error('deadline'), { category: 'deadline' }); } });
+  const q = await g.c.createChannelProposal(g.draft(), g.job.id); await assert.rejects(g.c.approve(q!.id));
+  const closed = await g.executor.channels!.ownerMarkFailed(g.op().id, at);
+  assert.equal(closed.state, 'failed'); assert.equal(closed.ownerResolved, true); assert.equal(channelBudget(g.s).spentSat, '0');
+  g.pending.opens.push({ peer: fresh, point: openTx + ':0', capacitySat: '1000000' });
+  await g.executor.channels!.reconcile(later(4 * 3600_000));
+  assert.equal(g.op().state, 'pending'); assert.equal(g.op().feeChargedSat, '2500'); assert.equal(channelBudget(g.s).spentSat, '2500');
+  await assert.rejects(g.c.createChannelProposal(g.draft({ hypothesis: 'again' }), g.job.id), /peer already has a channel or pending operation/);
+  g.set(snapshot({ channels: [channel('1', peerA), channel('2', peerB), channel('9', fresh, { point: openTx + ':0' })] }));
+  await g.executor.channels!.reconcile(later(5 * 3600_000)); assert.equal(g.op().state, 'confirmed');
+  assert.equal(f.effects().filter(x => x[0] === 'openChannel').length, 1); f.s.close(); g.s.close();
+});
+
+test('D2/D4: a timed-out close stays uncertain and a later close is recorded with its real type', async () => {
+  const f = setup({ closeChannel: async (...a: any[]) => { f.calls.push(['closeChannel', ...a]); throw Object.assign(Error('deadline'), { category: 'deadline' }); } });
+  const p = await f.c.createChannelProposal(f.draft({ kind: 'channel_close', peer: peerA, channel: '1', amountSat: '0' }), f.job.id);
+  await assert.rejects(f.c.approve(p!.id));
+  await f.executor.channels!.reconcile(); await f.executor.channels!.reconcile();
+  assert.equal(f.op().state, 'uncertain');
+  f.closed.push({ point: funding + ':1', peer: peerA, txid: closeTx, type: 'COOPERATIVE_CLOSE' });
+  await f.executor.channels!.reconcile();
+  assert.equal(f.op().state, 'confirmed'); assert.equal(f.op().feeChargedSat, '2500'); assert.equal(f.effects().length, 1);
+  const g = setup();
+  const q = await g.c.createChannelProposal(g.draft({ kind: 'channel_close', peer: peerA, channel: '1', amountSat: '0' }), g.job.id); await g.c.approve(q!.id);
+  g.closed.push({ point: funding + ':1', peer: peerA, txid: 'aa'.repeat(32), type: 'REMOTE_FORCE_CLOSE' });
+  await g.executor.channels!.reconcile();
+  const op = g.op(); assert.equal(op.state, 'confirmed'); assert.equal(op.closeType, 'REMOTE_FORCE_CLOSE'); assert.match(op.reason!, /not our cooperative close/);
+  const text = channelOperationText(op, op.history.at(-1)!);
+  assert.match(text, /chiusura di tipo REMOTE_FORCE_CLOSE, non cooperativa/); assert.doesNotMatch(text, /Chiusura cooperativa/);
+  f.s.close(); g.s.close();
+});
+
+test('D5: a dispatch waits for a running reconcile, and gives up with nothing sent when the wait is exhausted', async () => {
+  let release!: () => void; const gate = new Promise<void>(r => release = r);
+  const f = setup({ pendingChannels: async () => { await gate; return { opens: [], closing: [] }; } });
+  const at = now(); f.s.set('channelOperation:watched', { id: 'watched', proposalId: 'x', kind: 'channel_close', at, month: month(at), state: 'pending', peer: peerB, channel: '2', point: funding + ':2', amountSat: '0', satPerVbyte: '10', maxFeeSat: '2500', feeChargedSat: '2500', txid: closeTx, history: [] });
+  const p = await f.c.createChannelProposal(f.draft(), f.job.id);
+  const reconciling = f.executor.channels!.reconcile(); const approving = f.c.approve(p!.id);
+  await new Promise(r => setTimeout(r, 20)); assert.equal(f.effects().length, 0);
+  release(); await reconciling; const result = await approving;
+  assert.equal(result.consumed, true); assert.equal(f.effects().filter(x => x[0] === 'openChannel').length, 1);
+  let hold!: () => void; const stuck = new Promise<void>(r => hold = r);
+  const g = setup({ pendingChannels: async () => { await stuck; return { opens: [], closing: [] }; } }); g.executor.channels!.waitMs = 30;
+  g.s.set('channelOperation:watched', { id: 'watched', proposalId: 'x', kind: 'channel_close', at, month: month(at), state: 'pending', peer: peerB, channel: '2', point: funding + ':2', amountSat: '0', satPerVbyte: '10', maxFeeSat: '2500', feeChargedSat: '2500', txid: closeTx, history: [] });
+  const q = await g.c.createChannelProposal(g.draft(), g.job.id); const busy = g.executor.channels!.reconcile();
+  await assert.rejects(g.c.approve(q!.id), /^Error: Channel: executor busy with reconciliation; nothing was sent/);
+  assert.equal(g.c.proposal(q!.id).status, 'invalidated'); assert.equal(g.effects().length, 0);
+  hold(); await busy; f.s.close(); g.s.close();
+});
+
+test('H1: a fresh fee estimate above the approved cap refuses before any intent or RPC', async () => {
+  let calls = 0; const f = setup({ estimateFee: async () => ++calls === 1 ? { feeSat: '2000', satPerVbyte: '10' } : { feeSat: '3000', satPerVbyte: '10' } });
+  const p = await f.c.createChannelProposal(f.draft(), f.job.id);
+  await assert.rejects(f.c.approve(p!.id), /fresh on-chain fee estimate 3000 sat exceeds the approved 2500 sat; nothing was sent/);
+  assert.equal(f.effects().filter(x => x[0] === 'openChannel').length, 0); assert.equal(f.s.one(`SELECT count(*) n FROM meta WHERE ${CHANNEL_OPERATION_KEYS}`).n, 0);
+  assert.equal(f.c.proposal(p!.id).status, 'invalidated'); f.s.close();
+});
+
+test('blocked after intent, expired approval and changed funding state never dispatch', async () => {
+  const f = setup();
+  const p = await f.c.createChannelProposal(f.draft(), f.job.id);
+  f.s.run("UPDATE owner_proposals SET status='executing',intent_at=? WHERE id=?", now(), p!.id);
+  await assert.rejects(f.executor.channels!.execute(p!.id, { validate: () => {}, reserved: () => f.s.set('maintenanceClaim', { owner: 'test', at: now() }) }), /maintenance/);
+  assert.equal(f.op().state, 'failed'); assert.equal(f.op().feeChargedSat, '0'); assert.match(f.op().reason!, /Blocked before dispatch/);
+  f.s.set('maintenanceClaim', null);
+  const expired = await f.c.createChannelProposal(f.draft({ hypothesis: 'expired' }), f.job.id);
+  f.s.run('UPDATE owner_proposals SET expires_at=? WHERE id=?', new Date(Date.now() - 1000).toISOString(), expired!.id);
+  await assert.rejects(f.c.approve(expired!.id), /expired/); assert.equal(f.c.proposal(expired!.id).status, 'invalidated');
+  const moved = await f.c.createChannelProposal(f.draft({ hypothesis: 'moved' }), f.job.id);
+  f.set(snapshot({ confirmedSat: '2900000' }));
+  await assert.rejects(f.c.approve(moved!.id), /conditions changed/);
+  assert.equal(f.effects().filter(x => x[0] !== 'connectPeer').length, 0); f.s.close();
 });

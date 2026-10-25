@@ -13,10 +13,22 @@ const share = (c: Channel) => { const capacity = Number(c.capacitySat); return c
  * minute snapshots), so production-size history is never materialised in JS. Missing coverage is
  * reported as 'unknown' and never as zero.
  */
-export function channelPerformance(store: Store, at = now(), offset = 0) {
+// One computation per store, snapshot and window end: repeated agent pages reuse it instead of rescanning 30 days.
+const cache = new WeakMap<Store, { key: string; value: ReturnType<typeof measure> }>();
+export function channelPerformance(store: Store, offset = 0, end?: string) {
   if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Invalid page offset');
   const s = store.get<Snapshot>('snapshot');
   if (!s) return { available: false, reason: 'Snapshot unavailable; unknown is not zero', rows: null };
+  // The window ends at the snapshot it describes unless a caller fixes another end.
+  const at = end ?? s.at;
+  // Cheap fingerprints of everything measured, so new forwards, coverage or retention changes invalidate within one snapshot.
+  const key = JSON.stringify([s.at, at, s.channels.map(c => c.id).join(','), store.one("SELECT max(end) e FROM coverage WHERE kind='LND forwards'")?.e ?? null, store.one('SELECT max(rowid) r FROM events')?.r ?? 0, store.one('SELECT count(*) n FROM operations')?.n ?? 0, store.one('SELECT count(*) n FROM expired_intervals')?.n ?? 0, store.get('historyStart') ?? null, store.get('installedAt') ?? null]);
+  let hit = cache.get(store);
+  if (hit?.key !== key) { hit = { key, value: measure(store, s, at) }; cache.set(store, hit); }
+  const { rows, ...meta } = hit.value;
+  return { available: true, ...meta, total: rows.length, offset, nextOffset: offset + PAGE < rows.length ? offset + PAGE : null, rows: rows.slice(offset, offset + PAGE) };
+}
+function measure(store: Store, s: Snapshot, at: string) {
   const start = new Date(Date.parse(at) - WINDOW_MS).toISOString();
   const coverage = store.one("SELECT start,end FROM coverage WHERE kind='LND forwards' AND complete=1 ORDER BY end DESC LIMIT 1");
   const forwardsExpired = !!store.one("SELECT 1 FROM expired_intervals WHERE type='external_forward' AND end>=? LIMIT 1", start);
@@ -40,6 +52,9 @@ export function channelPerformance(store: Store, at = now(), offset = 0) {
     for (const [channel, side] of [[r.source, 'asSource'], [r.target, 'asTarget']] as const) { count(String(channel), side, 'autopilotAttempts'); if (r.state === 'SUCCEEDED') count(String(channel), side, 'autopilotSucceeded'); }
   }
   for (const r of store.all("SELECT source,target FROM events WHERE type='manual_operation' AND occurred_at>=? AND occurred_at<=?", start, at)) { count(String(r.source), 'asSource', 'manual'); count(String(r.target), 'asTarget', 'manual'); }
+  // Circular payments are collected from historyStart; before it, or before installation, or across a retention gap, counts are only a lower bound.
+  const historyStart = store.get<string>('historyStart') ?? '2026-09-25T00:36:45Z', installedAt = store.get<string>('installedAt');
+  const rebalancesComplete = start >= historyStart && (!installedAt || start >= installedAt) && !store.one("SELECT 1 FROM expired_intervals WHERE type='manual_operation' AND end>=? LIMIT 1", start);
   const rows = s.channels.slice().sort((a, b) => a.id.localeCompare(b.id)).map(c => {
     const o = outgoing.get(c.id), i = incoming.get(c.id), m = samples.get(c.id), capacity = integer(c.capacitySat);
     const forwards = { in: { count: Number(i?.n ?? 0), amountMsat: String(i?.amount ?? 0) }, out: { count: Number(o?.n ?? 0), amountMsat: String(o?.amount ?? 0) }, feesEarnedMsat: String(o?.fee ?? 0) };
@@ -51,16 +66,15 @@ export function channelPerformance(store: Store, at = now(), offset = 0) {
       utilisation: forwardsComplete && capacity > 0n ? ratio(Number(volumeSat) / Number(capacity)) : 'unknown',
       localShare: m && m.lo !== null ? { samples: Number(m.n), min: ratio(m.lo), avg: ratio(m.mean), max: ratio(m.hi), current: ratio(share(c)), firstSampleAt: m.first } : 'unknown',
       activity: m ? { samples: Number(m.n), activeSamples: Number(m.up), activeShare: ratio(Number(m.up) / Number(m.n)), transitions: Number(m.flips), firstSampleAt: m.first } : 'unknown',
-      rebalances: rebalances.get(c.id) ?? { asSource: { autopilotSucceeded: 0, autopilotAttempts: 0, manual: 0 }, asTarget: { autopilotSucceeded: 0, autopilotAttempts: 0, manual: 0 } },
+      ...(() => { const counts = rebalances.get(c.id) ?? { asSource: { autopilotSucceeded: 0, autopilotAttempts: 0, manual: 0 }, asTarget: { autopilotSucceeded: 0, autopilotAttempts: 0, manual: 0 } }; return rebalancesComplete ? { rebalances: counts } : { rebalances: 'unknown' as const, observedRebalancesLowerBound: counts }; })(),
     };
   });
-  const page = rows.slice(offset, offset + PAGE);
   return {
-    available: true, window: { start, end: at }, total: rows.length, offset, nextOffset: offset + PAGE < rows.length ? offset + PAGE : null, rows: page,
+    window: { start, end: at }, rows, computedAt: now(),
     coverage: {
       forwards: forwardsComplete ? 'complete' : 'incomplete', forwardsCoveredUntil: coverage?.end ?? null,
       snapshots: { samples: snapshotCount, expectedAtOnePerMinute: Math.floor(WINDOW_MS / 60000), retentionGap: snapshotsExpired },
-      rebalances: 'Autopilot operations plus circular LND payments observed by the collector; other tools are counted only when they settle through LND payments.',
+      rebalances: rebalancesComplete ? 'complete' : 'lower_bound', rebalancesSource: 'Autopilot operations plus circular LND payments observed by the collector since historyStart; other tools are counted only when they settle through LND payments.',
     },
     notes: ['Local share and active figures are sample statistics over retained snapshots, not time-weighted.', 'Utilisation is forwarded volume in plus out over 30 days divided by capacity.', 'Channels closed during the window are not listed.'],
   };

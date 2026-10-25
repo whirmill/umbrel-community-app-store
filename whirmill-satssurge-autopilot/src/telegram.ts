@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { ApplicationControl, requestCapability } from './application-control.js';
 import { Store } from './store.js';
 import { hash, json, now, day, scrub, channelKind } from './domain.js';
-import { channelOperations, type ChannelOperation } from './channels.js';
+import { channelOperations, OPEN_EVIDENCE_MS, type ChannelOperation } from './channels.js';
 export interface TelegramTransport {
     call(method: string, body: unknown, signal?: AbortSignal): Promise<any>;
 }
@@ -30,8 +30,12 @@ interface RichFinal {
 }
 const CHANNEL_STATE_TEXT: Record<string, string> = { pending: 'in attesa di conferma on-chain', confirmed: 'confermata', failed: 'fallita', uncertain: 'esito incerto: nessun nuovo invio; riconciliazione da LND in corso. Puoi segnarla come fallita solo se LND non mostra canali aperti o in attesa' };
 export function channelOperationText(o: ChannelOperation, h: { state: string; reason?: string }) {
-    const what = o.kind === 'channel_open' ? `Apertura canale da ${o.amountSat} sat verso ${o.peer.slice(0, 16)}` : `Chiusura cooperativa del canale ${o.channel ?? o.point ?? ''}`;
-    return `${what}: ${CHANNEL_STATE_TEXT[h.state] ?? h.state}.${o.txid && h.state !== 'failed' ? ` Transazione ${o.txid}.` : ''}${h.reason ? ` Motivo: ${telegramText(h.reason)}.` : ''} Fee on-chain massima approvata ${o.maxFeeSat} sat. Nessuna chiusura forzata.`;
+    // Never claim a cooperative close LND did not record as cooperative.
+    const foreign = o.kind === 'channel_close' && h.state === 'confirmed' && o.closeType !== undefined && o.closeType !== 'COOPERATIVE_CLOSE';
+    const what = o.kind === 'channel_open' ? `Apertura canale da ${o.amountSat} sat verso ${o.peer.slice(0, 16)}…${o.peer.slice(-8)}` : `${foreign ? 'Chiusura' : 'Chiusura cooperativa'} del canale ${o.channel ?? o.point ?? ''}`;
+    const state = foreign ? `chiusa on-chain con una chiusura di tipo ${o.closeType}, non cooperativa e non inviata da SatsSurge` : CHANNEL_STATE_TEXT[h.state] ?? h.state;
+    const horizon = o.kind === 'channel_open' && h.state === 'uncertain' ? ` Per un’apertura il pulsante vale solo dopo le ${new Date(Date.parse(o.at) + OPEN_EVIDENCE_MS).toISOString().slice(11, 16)} UTC (2 ore dall’invio): prima LND può ancora completare il funding.` : '';
+    return `${what}: ${state}.${horizon}${o.txid && h.state !== 'failed' ? ` Transazione ${o.txid}.` : ''}${h.reason ? ` Motivo: ${telegramText(h.reason)}.` : ''} Fee on-chain massima approvata ${o.maxFeeSat} sat. SatsSurge non usa mai la chiusura forzata.`;
 }
 export function telegramText(text: string) { return telegramClean(text).slice(0, 3500); }
 export function telegramClean(text: string) { return String(scrub(text)).replace(/\b\d{6,12}:[A-Za-z0-9_-]{20,}\b/g, '[REDACTED]').replace(/\blnbc[a-z0-9]+\b/gi, '[REDACTED]'); }
@@ -789,7 +793,8 @@ export class Telegram {
     }
     summary(p: any) {
         const c = p.content;
-        if (channelKind(c.kind)) return `${c.kind === 'channel_open' ? `Proposta apertura canale da ${c.amountSat} sat verso` : 'Proposta chiusura cooperativa del canale con'} ${telegramText(String(c.alias || c.peer.slice(0, 16)))}${c.channel ? ` (${c.channel})` : ''}. Fee on-chain massima ${c.maxFeeSat} sat a ${c.satPerVbyte} sat/vB; budget on-chain mensile residuo ${c.forecast?.monthlyBudget?.remainingSat ?? 'sconosciuto'} sat.${c.kind === 'channel_close' ? ' Mai chiusura forzata: se il peer è offline o rifiuta, l’operazione si ferma e viene segnalata.' : ` Riserva on-chain di ${c.forecast?.reserveSat ?? '500000'} sat protetta.`} Motivo: ${telegramText(c.whyAct)}. Valida per 5 minuti dalla consegna. Nulla viene eseguito senza la tua approvazione.`;
+        // The pubkey is the identity the owner approves; the alias is gossip the peer controls and can impersonate anyone.
+        if (channelKind(c.kind)) return `${c.kind === 'channel_open' ? `Proposta apertura canale da ${c.amountSat} sat verso il nodo ${c.peer} all’indirizzo ${telegramText(String(c.address ?? 'non disponibile'))}` : `Proposta chiusura cooperativa del canale ${c.channel} con il nodo ${String(c.peer).slice(0, 16)}…${String(c.peer).slice(-8)}`}${c.alias ? ` (alias dichiarato dal nodo, non verificato: «${telegramText(String(c.alias)).slice(0, 40)}»)` : ''}. Fee on-chain massima ${c.maxFeeSat} sat a ${c.satPerVbyte} sat/vB; budget on-chain mensile residuo ${c.forecast?.monthlyBudget?.remainingSat ?? 'sconosciuto'} sat.${c.kind === 'channel_close' ? ' Mai chiusura forzata: se il peer è offline o rifiuta, l’operazione si ferma e viene segnalata.' : ` Riserva on-chain di ${c.forecast?.reserveSat ?? '500000'} sat protetta.`} Motivo: ${telegramText(c.whyAct)}. Valida per 5 minuti dalla consegna. Nulla viene eseguito senza la tua approvazione.`;
         return `Proposta ${p.content.kind}: ${p.content.source || 'policy'} → ${p.content.target}. Importo ${p.content.amountSat} sat; costo massimo ${p.content.maxFeeMsat} msat${p.content.newPpm === undefined ? '' : `; nuova fee ${p.content.newPpm} ppm`}. Motivo: ${telegramText(p.content.whyAct)}. Valida per 5 minuti dalla consegna. Approva o rifiuta; restano attivi i controlli di sicurezza.`; }
     /** A read-only turn cut by a transient provider error is asked again once, as a new request linked to the original. */
     private transientRetry(j: any, at: string): { until: string } | undefined {

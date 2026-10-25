@@ -701,7 +701,7 @@ export class Agent {
         parameters: Type.Object({ offset: Type.Optional(Type.Integer({ minimum: 0 })) }, { additionalProperties: false }), replay: 'safe',
         async execute(a, api) {
           limit(api.conversationId); const stop = exhausted(); if (stop) return stop;
-          return result(channelPerformance(self.store, now(), a.offset ?? 0));
+          return result(channelPerformance(self.store, a.offset ?? 0));
         },
       });
       const candidate = defineTool({

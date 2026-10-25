@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
+import { once } from 'node:events';
+import { hash } from '../domain.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
@@ -20,7 +24,7 @@ const channel = (cid: string, peer: string, over: Partial<Channel> = {}): Channe
 const minutes = (n: number) => new Date(Date.now() - n * 60000).toISOString();
 
 function seeded() {
-  const s = new Store(':memory:'), at = now();
+  const s = new Store(':memory:'), at = now(); s.set('historyStart', '2020-01-01T00:00:00.000Z');
   // Channel 1 starts depleted then recovers; channel 2 flaps offline once.
   const shares = [100000, 300000, 800000], actives = [true, false, true];
   for (let i = 0; i < 3; i++) { const snap: Snapshot = { at: minutes(3 - i), identity: self, synced: true, confirmedSat: '3000000', channels: [channel('1', peerA, { localSat: String(shares[i]) }), channel('2', peerB, { active: actives[i]! })] }; s.saveSnapshot(snap); }
@@ -73,8 +77,8 @@ test('channel_performance never infers zero: incomplete coverage is unknown with
   // Bounded pages.
   for (let i = 10; i < 40; i++) snap.channels.push(channel(String(i), far)); s.set('snapshot', snap);
   const first: any = channelPerformance(s); assert.equal(first.rows.length, 25); assert.equal(first.nextOffset, 25);
-  const second: any = channelPerformance(s, now(), 25); assert.equal(second.rows.length, 8); assert.equal(second.nextOffset, null);
-  assert.throws(() => channelPerformance(s, now(), -1));
+  const second: any = channelPerformance(s, 25); assert.equal(second.rows.length, 8); assert.equal(second.nextOffset, null);
+  assert.throws(() => channelPerformance(s, -1));
   s.close();
 });
 
@@ -134,19 +138,20 @@ function channelSetup() {
   const executor = new Executor(s, node); executor.channels = new ChannelLifecycle(s, node, rpc);
   const c = new ApplicationControl(s, q, executor), t = new Telegram(s, c, dir, { call: async () => ({ message_id: 1 }) } as any);
   s.set('telegramConfigured', true);
-  const op = (kind: 'channel_open' | 'channel_close', st: string): ChannelOperation => { const at = now(), o: any = { id: id(), proposalId: id(), kind, at, month: month(at), state: st, peer: kind === 'channel_open' ? cand : peerA, ...(kind === 'channel_close' ? { channel: '1', point: 'ab'.repeat(32) + ':1' } : {}), amountSat: kind === 'channel_open' ? '1000000' : '0', satPerVbyte: '10', maxFeeSat: '2500', feeChargedSat: '2500', history: [{ at, state: 'reserved' }, { at, state: 'sending' }, { at, state: st }] }; s.set('channelOperation:' + o.id, o); return o; };
+  const op = (kind: 'channel_open' | 'channel_close', st: string, at = now()): ChannelOperation => { const o: any = { id: id(), proposalId: id(), kind, at, month: month(at), state: st, peer: kind === 'channel_open' ? cand : peerA, ...(kind === 'channel_close' ? { channel: '1', point: 'ab'.repeat(32) + ':1' } : {}), amountSat: kind === 'channel_open' ? '1000000' : '0', satPerVbyte: '10', maxFeeSat: '2500', feeChargedSat: '2500', history: [{ at, state: 'reserved' }, { at, state: 'sending' }, { at, state: st }] }; s.set('channelOperation:' + o.id, o); return o; };
   return { s, c, t, pending, closed, calls, op, set: (next: Snapshot) => { state = next; s.saveSnapshot(next); }, close: () => { t.stop(); s.close(); rmSync(dir, { recursive: true, force: true }); } };
 }
 const tgUpdate = (uid: number, text: string) => ({ update_id: uid, message: { text, from: { id: 42, username: 'owner' }, chat: { id: 42, type: 'private' } } });
-async function pairOwner(f: ReturnType<typeof channelSetup>) { const at = new Date(Date.now() - 3600000).toISOString(), code = f.t.pairing(at); f.t.ingest([tgUpdate(1, '/start ' + code.code)]); await f.t.process(at); f.t.confirm(42, at); }
+async function pairOwner(f: ReturnType<typeof channelSetup>) { const at = new Date(Date.now() - 4 * 3600000).toISOString(), code = f.t.pairing(at); f.t.ingest([tgUpdate(1, '/start ' + code.code)]); await f.t.process(at); f.t.confirm(42, at); }
 
 test('Telegram reports each channel state once; uncertain carries an owner close-out that never re-sends', async () => {
   const f = channelSetup(); await pairOwner(f);
-  const open = f.op('channel_open', 'uncertain');
+  // Dispatched three hours ago: past the open evidence horizon, so the owner close-out is allowed.
+  const open = f.op('channel_open', 'uncertain', new Date(Date.now() - 3 * 3600_000).toISOString());
   f.t.capture(); f.t.capture();
   const rows = f.s.all("SELECT event_id,kind,text FROM telegram_outbox WHERE event_id LIKE 'channel-operation:%'");
   assert.deepEqual(rows.map(r => [r.event_id, r.kind]), [['channel-operation:' + open.id + ':uncertain', 'critical']]);
-  assert.match(rows[0].text, /esito incerto/); assert.match(rows[0].text, /Nessuna chiusura forzata/);
+  assert.match(rows[0].text, /esito incerto/); assert.match(rows[0].text, /non usa mai la chiusura forzata/); assert.match(rows[0].text, /solo dopo le .* UTC \(2 ore/);
   const button = f.s.get('telegramButtons:channel-operation:' + open.id + ':uncertain').inline_keyboard[0][0];
   assert.equal(button.text, 'Segna come fallita');
   const press = async (uid: number) => { f.t.ingest([{ update_id: uid, callback_query: { id: 'cb' + uid, data: button.callback_data, from: { id: 42 }, message: { chat: { id: 42, type: 'private' } } } }]); await f.t.process(); return f.s.all('SELECT text FROM telegram_outbox WHERE event_id LIKE ?', 'update:' + uid + '%').map(r => r.text).join(' '); };
@@ -182,7 +187,56 @@ test('an owner-failed close that LND completes later is recorded with its fee, n
   f.pending.closing.push({ peer: peerA, point: close.point, txid: 'ef'.repeat(32) });
   await f.c.channels().reconcile();
   const late = f.s.get<ChannelOperation>('channelOperation:' + close.id)!;
-  assert.equal(late.state, 'pending'); assert.equal(late.feeChargedSat, '2500'); assert.match(late.reason!, /after the owner marked it failed/);
+  assert.equal(late.state, 'pending'); assert.equal(late.feeChargedSat, '2500'); assert.match(late.reason!, /after it was recorded as failed/);
   await assert.rejects(f.c.channels().ownerMarkFailed(close.id), /not uncertain/);
   assert.deepEqual(f.calls, []); f.close();
+});
+
+test('H3/H4: performance is computed once per state and rebalance counts before collection are a lower bound', async () => {
+  const s = seeded();
+  s.run("INSERT OR REPLACE INTO coverage VALUES('forwards',?,?,'LND forwards',1,'{}')", new Date(Date.now() - 60 * 86400000).toISOString(), now());
+  const first: any = channelPerformance(s); await new Promise(r => setTimeout(r, 5));
+  const again: any = channelPerformance(s); assert.equal(again.computedAt, first.computedAt); assert.equal(again.coverage.rebalances, 'complete');
+  s.event({ id: 'f4', at: minutes(1), type: 'external_forward', source: '1', target: '2', amountMsat: '1000', feeMsat: '1' });
+  const fresh: any = channelPerformance(s); assert.notEqual(fresh.computedAt, first.computedAt); assert.equal(fresh.rows[0].forwards.in.count, 3);
+  s.set('historyStart', new Date(Date.now() - 10 * 86400000).toISOString());
+  const partial: any = channelPerformance(s);
+  assert.equal(partial.coverage.rebalances, 'lower_bound'); assert.equal(partial.rows[0].rebalances, 'unknown');
+  assert.deepEqual(partial.rows[0].observedRebalancesLowerBound.asTarget, { autopilotSucceeded: 1, autopilotAttempts: 2, manual: 1 });
+  s.set('historyStart', '2020-01-01T00:00:00.000Z'); s.set('installedAt', new Date(Date.now() - 86400000).toISOString());
+  assert.equal((channelPerformance(s) as any).coverage.rebalances, 'lower_bound');
+  s.close();
+});
+
+test('D3: channel proposal summaries show the pubkey and host; a self-declared alias cannot hide them', () => {
+  const f = channelSetup(), impostor = '02' + '5a'.repeat(32);
+  const open = f.t.summary({ content: { kind: 'channel_open', peer: impostor, address: '203.0.113.7:9735', alias: 'LNMarkets', amountSat: '1000000', maxFeeSat: '2500', satPerVbyte: '10', whyAct: 'routes back', forecast: { monthlyBudget: { remainingSat: '20000' } } } });
+  assert.ok(open.includes(impostor)); assert.ok(open.includes('203.0.113.7:9735')); assert.match(open, /alias dichiarato dal nodo, non verificato: «LNMarkets»/);
+  assert.ok(open.indexOf(impostor) < open.indexOf('LNMarkets'));
+  const close = f.t.summary({ content: { kind: 'channel_close', peer: peerA, channel: '1', alias: 'Kappa', amountSat: '0', maxFeeSat: '2500', satPerVbyte: '10', whyAct: 'local-heavy', forecast: {} } });
+  assert.match(close, /canale 1 con il nodo 02aaaaaaaaaaaaaa…aaaaaaaa/); assert.match(close, /non verificato: «Kappa»/);
+  f.close();
+});
+
+test('web approve of a channel proposal without an executor or channel credential dispatches nothing', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'surge-channel-http-')), socket = createServer(); socket.listen(0, '127.0.0.1'); await once(socket, 'listening');
+  const port = (socket.address() as any).port; socket.close();
+  const store = new Store(join(dir, 'operational.sqlite')), at = now(), content = json({ kind: 'channel_open', peer: cand, amountSat: '1000000', satPerVbyte: '10', maxFeeSat: '2500', evidenceIds: ['e'], problem: 'p', evidence: 'e', whyAct: 'w', alternatives: 'a', verify: 'v', hypothesis: 'h' });
+  store.run("INSERT INTO owner_proposals VALUES('web-channel',?,?,?,'digest','pending',?,NULL,NULL,NULL,'job')", at, content, hash(content), new Date(Date.now() + 300000).toISOString());
+  store.set('proposalAuthority:web-channel', { generation: null }); store.close();
+  writeFileSync(join(dir, 'owner.secret'), 'fixture-password', { mode: 0o600 });
+  const child = spawn(process.execPath, ['--input-type=module', '-e', "import {startApplication} from './dist/server-app.js'; await startApplication();"], { env: { ...process.env, DATA_DIR: dir, HISTORY_DIR: join(dir, 'missing'), PORT: String(port) }, stdio: 'ignore' });
+  const base = 'http://127.0.0.1:' + port;
+  try {
+    for (let n = 0; n < 200; n++) { try { if ((await fetch(base + '/health')).ok) break; } catch {} await new Promise(r => setTimeout(r, 20)); }
+    const login = await fetch(base + '/api/owner/login', { method: 'POST', headers: { Origin: base, 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'fixture-password' }) });
+    const { session } = await login.json() as any;
+    const approve = await fetch(base + '/api/proposals/approve', { method: 'POST', headers: { Origin: base, 'Content-Type': 'application/json', Authorization: 'Bearer ' + session }, body: JSON.stringify({ id: 'web-channel' }) });
+    assert.notEqual(approve.status, 200);
+  } finally { child.kill(); await once(child, 'exit'); }
+  const after = new Store(join(dir, 'operational.sqlite'));
+  try {
+    assert.equal(after.one("SELECT status FROM owner_proposals WHERE id='web-channel'").status, 'pending');
+    assert.equal(after.one("SELECT count(*) n FROM meta WHERE key>='channelOperation:' AND key<'channelOperation;'").n, 0);
+  } finally { after.close(); rmSync(dir, { recursive: true, force: true }); }
 });

@@ -3,6 +3,11 @@
 # separate macaroon for owner-approved channel opens and cooperative closes.
 # Existing read/write macaroons are not touched. Without this file the app runs
 # unchanged and channel operations stay unavailable.
+# Residual risk: macaroon URIs cannot restrict request fields. CloseChannel also
+# permits force and delivery_address, and OpenChannelSync permits push_sat. The
+# app never sets them (force:false, push_sat:0, no delivery address), but a
+# compromised container holding this file could. Field-level enforcement would
+# need LND RPC middleware.
 set -eu
 umask 077
 APP_DIR=${1:?Supply installed app data path}

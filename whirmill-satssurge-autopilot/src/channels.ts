@@ -16,9 +16,14 @@ const LIVE:ChannelState[]=['reserved','sending','uncertain','pending'];
 const DISPATCHING:ChannelState[]=['reserved','sending','uncertain'];
 const PEER=/^0[23][0-9a-f]{64}$/;
 
-const lateClose=(o:ChannelOperation,at:string)=>o.ownerResolved===true&&o.kind==='channel_close'&&o.state==='failed'&&Date.parse(at)-Date.parse(o.at)<14*86400_000;
+/** LND evidence horizon for an open: past it, no pending or open channel means the funding did not happen. */
+export const OPEN_EVIDENCE_MS=2*3600_000;
+// Failed operations whose effect LND could still complete later: owner close-outs and explicitly rejected closes. Watched for 14 days.
+const lateWatch=(o:ChannelOperation,at:string)=>o.state==='failed'&&(o.ownerResolved===true||(o.kind==='channel_close'&&o.rejected===true))&&Date.parse(at)-Date.parse(o.at)<14*86400_000;
+// Key range, not LIKE, so the meta primary key is used.
+export const CHANNEL_OPERATION_KEYS="key>='channelOperation:' AND key<'channelOperation;'";
 export function channelOperations(store:Store):ChannelOperation[] {
-  return store.all("SELECT value FROM meta WHERE key LIKE 'channelOperation:%'").map(r=>JSON.parse(r.value) as ChannelOperation).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id));
+  return store.all(`SELECT value FROM meta WHERE ${CHANNEL_OPERATION_KEYS}`).map(r=>JSON.parse(r.value) as ChannelOperation).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id));
 }
 /** Monthly (Europe/Rome) on-chain fee budget, separate from the v1 Lightning expense ledger. Pending opens and closes are on-chain obligations. */
 export function channelBudget(store:Store,at=now()) {
@@ -39,8 +44,14 @@ export async function candidateView(channels:ChannelLifecycle|undefined,peer:str
 }
 /** Owner-approved channel opens and cooperative closes. Nothing here dispatches without a consumed owner approval. */
 export class ChannelLifecycle {
-  private busy=false;
+  /** Bound on waiting for a running reconcile before a dispatch gives up with nothing sent. */
+  waitMs=30000;
+  private busy=false;private released:Promise<void>=Promise.resolve();private release=()=>{};
   constructor(private store:Store,private node:NodeClient,private rpc:ChannelRpc){}
+  private acquire(){this.busy=true;this.released=new Promise(r=>this.release=r);}
+  private free(){this.busy=false;this.release();}
+  /** Waits, bounded, for a running reconcile or dispatch; the caller rechecks busy synchronously afterwards. */
+  private async idle(ms=this.waitMs){const end=Date.now()+ms;while(this.busy&&Date.now()<end){let timer:ReturnType<typeof setTimeout>|undefined;await Promise.race([this.released,new Promise(r=>timer=setTimeout(r,end-Date.now()))]);clearTimeout(timer);}}
   operations(){return channelOperations(this.store);}
   candidate(peer:string){return channelCandidate(this.store,this.rpc,peer);}
   budget(at=now()){return channelBudget(this.store,at);}
@@ -99,7 +110,7 @@ export class ChannelLifecycle {
   }
   /** Executes one consumed owner approval. A dispatch is written as intent first and is never repeated. */
   async execute(proposalId:string,approval:{validate:(s:Snapshot)=>void;reserved:(operation:string)=>void}) {
-    if(this.busy)throw Error('Channel executor busy');this.busy=true;
+    await this.idle();if(this.busy)throw Error('Channel: executor busy with reconciliation; nothing was sent');this.acquire();
     try {
       const row=this.store.one('SELECT status,content,intent_at FROM owner_proposals WHERE id=?',proposalId);
       if(row?.status!=='executing'||!row.intent_at)throw Error('Owner approval required');
@@ -112,6 +123,12 @@ export class ChannelLifecycle {
         if(!p.address)throw Error('Channel: peer not connected and no address known');
         await this.rpc.connectPeer(p.peer,p.address);
       }
+      // Fresh price right before dispatch: the UTXO set or the market may have moved since approval.
+      const estimate=await this.rpc.estimateFee(p.kind==='channel_open'?p.amountSat:'50000',CHANNEL_MANDATE.targetConf).catch(()=>{throw Error('Channel: fee re-estimate unavailable; nothing was sent');});
+      const approvedRate=integer(p.satPerVbyte!),freshRate=integer(estimate.satPerVbyte)>0n?integer(estimate.satPerVbyte):1n;
+      const fresh=p.kind==='channel_open'?[integer(estimate.feeSat),(integer(estimate.feeSat)*approvedRate+freshRate-1n)/freshRate]:[freshRate*BigInt(CHANNEL_MANDATE.closeVbytes)];
+      const worst=fresh.reduce((a,b)=>a>b?a:b);
+      if(worst>integer(p.maxFeeSat!))throw Error(`Channel: fresh on-chain fee estimate ${worst} sat exceeds the approved ${p.maxFeeSat} sat; nothing was sent`);
       const op=this.store.tx(()=>{
         const at=now();
         if(!Number.isFinite(Date.parse(s.at))||Date.parse(s.at)>Date.parse(at)||Date.parse(at)-Date.parse(s.at)>60000)throw Error('Stale/unsynchronized state');
@@ -131,14 +148,14 @@ export class ChannelLifecycle {
         else if(op.state==='sending')this.transition(op,'uncertain',{rejected:(error as any)?.category==='rpc_failure',reason:'RPC rejected or interrupted; no replay, reconcile from pending/closed channels'});
         throw error;
       }
-    } finally {this.busy=false;}
+    } finally {this.free();}
   }
   /** Moves live operations from LND evidence only. Unknown stays uncertain; nothing is re-sent. */
   async reconcile(at=now()) {
     if(this.busy)return;
     // A close the owner marked failed may still complete if the peer later finishes a persisted shutdown; keep watching it for 14 days.
-    const live=this.operations().filter(o=>LIVE.includes(o.state)||lateClose(o,at));if(!live.length)return;
-    this.busy=true;try {
+    const live=this.operations().filter(o=>LIVE.includes(o.state)||lateWatch(o,at));if(!live.length)return;
+    this.acquire();try {
       // A reserved intent never reached its dispatch marker; no RPC could have occurred.
       for(const op of live.filter(o=>o.state==='reserved'))this.transition(op,'failed',{feeChargedSat:'0',reason:'Interrupted before dispatch; never replayed'},at);
       const rest=live.filter(o=>o.state!=='reserved');if(!rest.length)return;
@@ -148,28 +165,33 @@ export class ChannelLifecycle {
           // No other channel to this peer existed at intent, so peer and capacity identify the funding before its point is known.
           const ours=(c:{peer:string;point:string;capacitySat:string})=>op.point?c.point===op.point:c.peer===op.peer&&c.capacitySat===op.amountSat;
           const open=s.channels.find(ours),waiting=pending.opens.find(ours),cancelled=op.point?closed.find(c=>c.point===op.point&&['FUNDING_CANCELED','ABANDONED'].includes(c.type)):undefined;
-          if(open)this.transition(op,'confirmed',{point:open.point,channel:open.id},at);
+          if(op.state==='failed'){if(open||waiting)this.transition(op,open?'confirmed':'pending',{point:(open??waiting)!.point,...(open?{channel:open.id}:{}),txid:(open??waiting)!.point.split(':')[0],feeChargedSat:op.maxFeeSat,reason:'Funding appeared after the owner marked it failed; recorded, never re-sent'},at);}
+          else if(open)this.transition(op,'confirmed',{point:open.point,channel:open.id},at);
           else if(cancelled)this.transition(op,'failed',{closeType:cancelled.type,reason:'Funding cancelled or abandoned'},at);
           else if(waiting){if(op.state!=='pending')this.transition(op,'pending',{point:waiting.point,txid:waiting.point.split(':')[0]},at);}
-          else if(op.state!=='pending'&&(op.rejected||Date.parse(at)-Date.parse(op.at)>2*3600_000))this.transition(op,'failed',{feeChargedSat:'0',reason:'No pending or open channel observed; open did not happen'},at);
+          else if(op.state!=='pending'&&(op.rejected||Date.parse(at)-Date.parse(op.at)>OPEN_EVIDENCE_MS))this.transition(op,'failed',{feeChargedSat:'0',reason:'No pending or open channel observed; open did not happen'},at);
           else if(op.state==='sending')this.transition(op,'uncertain',{reason:'Dispatch interrupted; outcome unknown, never replayed'},at);
         } else {
           const done=closed.find(c=>c.point===op.point),waiting=pending.closing.find(c=>c.point===op.point),channel=s.channels.find(c=>c.point===op.point);
-          if(op.state==='failed'){if(done||waiting)this.transition(op,done?'confirmed':'pending',{txid:done?.txid??waiting!.txid,closeType:done?.type,feeChargedSat:op.maxFeeSat,reason:'Close completed after the owner marked it failed; recorded, never re-sent'},at);}
-          else if(done)this.transition(op,'confirmed',{txid:done.txid,closeType:done.type},at);
+          const closeReason=(type:string)=>type==='COOPERATIVE_CLOSE'?undefined:`Closed on chain as ${type}; not our cooperative close`;
+          if(op.state==='failed'){if(done||waiting)this.transition(op,done?'confirmed':'pending',{txid:done?.txid??waiting!.txid,closeType:done?.type,feeChargedSat:op.maxFeeSat,reason:(done&&closeReason(done.type))??'Close completed after it was recorded as failed; recorded, never re-sent'},at);}
+          else if(done)this.transition(op,'confirmed',{txid:done.txid,closeType:done.type,reason:closeReason(done.type)},at);
           else if(waiting){if(op.state!=='pending'||op.txid!==waiting.txid)this.transition(op,'pending',{txid:waiting.txid},at);}
-          // An active link proves no shutdown is in progress: the peer was offline or refused. Reported, never retried or forced.
-          else if(op.state!=='pending'&&channel?.active)this.transition(op,'failed',{feeChargedSat:'0',reason:'Cooperative close not in progress; peer offline or refused. No retry, no force close'},at);
+          // Only an explicit LND rejection with the link still active is a failure; a timeout stays uncertain. Never retried or forced.
+          else if(op.state!=='pending'&&op.rejected===true&&channel?.active)this.transition(op,'failed',{feeChargedSat:'0',reason:'Cooperative close not in progress; peer offline or refused. No retry, no force close'},at);
           else if(op.state==='sending')this.transition(op,'uncertain',{reason:'Dispatch interrupted; outcome unknown, never replayed'},at);
         }
       }
-    } finally {this.busy=false;}
+    } finally {this.free();}
   }
   /** Owner close-out of an uncertain operation, allowed only when LND shows no trace of it. Never re-dispatches. */
   async ownerMarkFailed(operationId:string,at=now()) {
-    if(this.busy)throw Error('Channel: executor busy; retry shortly');this.busy=true;
+    await this.idle();if(this.busy)throw Error('Channel: executor busy; retry shortly');this.acquire();
     try {
       const uncertain=()=>{const op=this.store.get<ChannelOperation>('channelOperation:'+operationId);if(op?.state!=='uncertain')throw Error('Channel: operation is not uncertain');return op;};
+      const early=uncertain();
+      // LND may still be negotiating the funding after a client deadline; before the evidence horizon absence proves nothing.
+      if(early.kind==='channel_open'&&Date.parse(at)-Date.parse(early.at)<OPEN_EVIDENCE_MS)throw Error(`Channel: too early; an open can be marked failed only 2 hours after dispatch (from ${new Date(Date.parse(early.at)+OPEN_EVIDENCE_MS).toISOString()})`);
       const op=uncertain(),s=await this.node.snapshot(),pending=await this.rpc.pendingChannels(),closed=await this.rpc.closedChannels();
       if(op.kind==='channel_open'){
         const ours=(c:{peer:string;point:string;capacitySat:string})=>op.point?c.point===op.point:c.peer===op.peer&&c.capacitySat===op.amountSat;
@@ -178,7 +200,7 @@ export class ChannelLifecycle {
       const current=uncertain();
       this.transition(current,'failed',{feeChargedSat:'0',ownerResolved:true,reason:'Owner marked failed after LND showed no pending or open channel; never re-sent'},at);
       return current;
-    } finally {this.busy=false;}
+    } finally {this.free();}
   }
   private transition(op:ChannelOperation,state:ChannelState,patch:Partial<ChannelOperation>={},at=now()) {
     Object.assign(op,patch,{state});op.history.push({at,state,...(patch.reason?{reason:patch.reason}:{})});
