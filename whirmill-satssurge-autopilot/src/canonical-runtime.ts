@@ -42,12 +42,14 @@ export class CanonicalRuntime {
     const candidates=statement.all(...args) as any[];
     const eligible=candidates.filter(row=>row.stamp<cutoff&&row.pinned===0n&&!row.linked);
     // Both tables share one archive byte budget. A byte-bounded prefix resumes after its last archived
-    // row; a lone row larger than a full budget stays in its original table and is passed over.
+    // row. A head row that alone exceeds maxBytes (size estimate or exact encoding) stays in its original
+    // table and is passed over, whatever budget the other table consumed.
     const available=budget;let rows:any[]=[];
     if(eligible.length&&available>0)try{rows=boundedOriginalPage(this.db,table,`rowid IN (${eligible.map(()=>'?').join(',')})`,eligible.map(row=>row.rid),'rowid',eligible.length,available).rows;}catch(error){if(!(error instanceof OriginalArchiveCapacityError))throw error;}
     for(const raw of rows){const {__canonical_rowid__,...row}=raw;budget-=Buffer.byteLength(encodeOriginal(row));}
     const truncated=rows.length<eligible.length;
-    if(candidates.length)cursor=!truncated?String(candidates.at(-1).rid):rows.length?String(rows.at(-1).__canonical_rowid__):available===maxBytes?String(eligible[0].rid):cursor;
+    const oversized=(head:any)=>{if(Number(head.bytes)*2>maxBytes)return true;const original=this.db.prepare(`SELECT * FROM ${table} WHERE rowid=?`);original.setReadBigInts(true);return Buffer.byteLength(encodeOriginal(original.get(head.rid) as any))>maxBytes;};
+    if(candidates.length)cursor=!truncated?String(candidates.at(-1).rid):rows.length?String(rows.at(-1).__canonical_rowid__):oversized(eligible[0])?String(eligible[0].rid):cursor;
     const cycleComplete=!truncated&&(candidates.length<limit||(cursor!==null&&BigInt(cursor)>=BigInt(upperBound)));
     return {table,rows,examined:candidates.length,checkpoint:{cycle,cursor,upperBound,cycleComplete},supersedes:old?String(old.id):null};
    });

@@ -1,4 +1,6 @@
 import contextlib
+import fcntl
+import subprocess
 import pathlib
 import sqlite3
 import sys
@@ -97,6 +99,20 @@ class PruneRedundantHistoryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'schema 7'):
             prune(self.path, now=NOW)
         self.assertEqual(len(self.ids('SELECT id FROM canonical_projection_revisions')), 8)
+
+
+    def test_cli_refuses_while_the_executor_lock_is_held(self):
+        script = pathlib.Path(__file__).resolve().parents[1] / 'prune_redundant_history.py'
+        with open(self.path.parent / 'executor.lock', 'a+') as held:
+            fcntl.flock(held, fcntl.LOCK_EX)
+            result = subprocess.run([sys.executable, str(script), str(self.path.parent), '--apply'], capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('BlockingIOError', result.stderr)
+        self.assertEqual(len(self.ids('SELECT id FROM canonical_projection_revisions')), 8)
+        self.assertEqual(len(self.ids('SELECT id FROM ui_events')), 12)
+        unlocked = subprocess.run([sys.executable, str(script), str(self.path.parent)], capture_output=True, text=True)
+        self.assertEqual(unlocked.returncode, 0, unlocked.stderr)
+        self.assertIn('"applied": false', unlocked.stdout)
 
 
 if __name__ == '__main__':

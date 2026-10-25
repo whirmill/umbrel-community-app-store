@@ -81,22 +81,23 @@ def plan(db, now):
 def prune(path, apply=False, vacuum=False, now=None):
     db = sqlite3.connect(path, isolation_level=None)
     try:
-        db.execute('PRAGMA foreign_keys=ON')
-        if db.execute('PRAGMA user_version').fetchone()[0] != 7:
-            raise ValueError('Canonical schema 7 required')
-        report, references = plan(db, now or datetime.now(timezone.utc))
-        if any(references.values()):
-            raise ValueError('Unexpected references to redundant revisions: ' + json.dumps({**report, **references}))
-        if not apply:
-            return report
-        trigger = db.execute("SELECT sql FROM sqlite_master WHERE type='trigger' AND name=?", (GUARD,)).fetchone()
-        if trigger is None:
-            raise ValueError('Immutable delete guard not found')
-        # References were refused above; per-row enforcement would scan the unindexed
+        # References are refused before any delete; per-row enforcement would scan the unindexed
         # supersedes column once per deleted revision. The full check runs before commit.
-        db.execute('PRAGMA foreign_keys=OFF')
-        db.execute('BEGIN IMMEDIATE')
+        db.execute('PRAGMA foreign_keys=OFF' if apply else 'PRAGMA foreign_keys=ON')
+        # Plan, refusal checks and deletes share one write transaction: nothing can change in between.
+        db.execute('BEGIN IMMEDIATE' if apply else 'BEGIN')
         try:
+            if db.execute('PRAGMA user_version').fetchone()[0] != 7:
+                raise ValueError('Canonical schema 7 required')
+            report, references = plan(db, now or datetime.now(timezone.utc))
+            if any(references.values()):
+                raise ValueError('Unexpected references to redundant revisions: ' + json.dumps({**report, **references}))
+            if not apply:
+                db.execute('ROLLBACK')
+                return report
+            trigger = db.execute("SELECT sql FROM sqlite_master WHERE type='trigger' AND name=?", (GUARD,)).fetchone()
+            if trigger is None:
+                raise ValueError('Immutable delete guard not found')
             db.execute('DROP TRIGGER ' + GUARD)
             db.execute('DELETE FROM canonical_projection_revisions WHERE id IN (SELECT id FROM doomed_revision)')
             db.execute(trigger[0])
@@ -105,7 +106,8 @@ def prune(path, apply=False, vacuum=False, now=None):
                 raise ValueError('Foreign key check failed')
             db.execute('COMMIT')
         except BaseException:
-            db.execute('ROLLBACK')
+            if db.in_transaction:
+                db.execute('ROLLBACK')
             raise
         report['applied'] = True
         if vacuum:

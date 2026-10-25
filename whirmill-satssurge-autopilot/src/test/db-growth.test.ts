@@ -7,7 +7,8 @@ import {join} from 'node:path';
 import {Store,UI_TEXT_FRAME_RETENTION_MS} from '../store.js';
 import {CanonicalModel} from '../canonical-model.js';
 import {NativeCollection} from '../native-collection.js';
-import {NATIVE_POLICY_CONTRACT} from '../native-policy.js';
+import {NATIVE_POLICY_CONTRACT,NativePolicyCollector} from '../native-policy.js';
+import {NativeLndSource} from '../native-lnd-source.js';
 import {NATIVE_DELIVERY_ROLLUP_VERSION} from '../native-failure-aggregate.js';
 import {RUNTIME_ARCHIVE_TABLES} from '../canonical-runtime.js';
 import {decodeOriginal} from '../canonical-migration.js';
@@ -131,4 +132,34 @@ test('the minute archive scan leaves snapshots to retention and still reaches ev
   assert.ok(Number(s.one('SELECT count(*) n FROM snapshots').n)>=RUNTIME_ARCHIVE_TABLES.length*2);
   assert.equal(s.canonical.summary().runtimeScansComplete,true);
  }finally{s.close();}
+});
+
+test('oversized snapshot is passed over by its own size even when an event becomes eligible on every call',()=>{
+ const s=new Store(':memory:');try{
+  const at='2026-10-25T00:00:00.000Z',old='2026-06-01T00:00:00.000Z';
+  s.run('INSERT INTO snapshots VALUES(?,?,?)','huge',old,JSON.stringify({padding:'y'.repeat(30000)}));s.run('INSERT INTO snapshots VALUES(?,?,?)','after-huge',old,'{}');
+  for(let call=0;call<4;call++){s.event({id:'late-'+call,at:old,type:'external_forward',source:'1',target:'2',amountMsat:'1000',feeMsat:'1',details:{note:'x'.repeat(2000)}});s.canonical.retain(at,{maxBytes:50000});}
+  assert.ok(s.one("SELECT id FROM snapshots WHERE id='huge'"));assert.equal(s.one("SELECT id FROM snapshots WHERE id='after-huge'"),undefined);
+  assert.ok(s.one("SELECT id FROM canonical_original_archive WHERE original_table='snapshots' AND original_id='after-huge'"));assert.equal(s.one("SELECT id FROM canonical_original_archive WHERE original_id='huge'"),undefined);
+  assert.equal(s.one('SELECT count(*) n FROM events').n,0);
+ }finally{s.close();}
+});
+
+test('production NativeLndSource policy reuse keys on the whole raw ChanInfo checksum',async()=>{
+ const s=new Store(':memory:');let raw:any={channel_id:'1',chan_point:'00'.repeat(32)+':0',capacity:'5000000',last_update:1760000000,node1_pub:identity,node2_pub:peer(1),node1_policy:policy(100),node2_policy:policy(200)};
+ const transport:any={getInfo:async()=>({identity_pubkey:identity,version:binding.sourceVersion,chains:[{chain:'bitcoin',network:'mainnet'}]}),getChanInfo:async()=>raw,forwardingHistory:async()=>({}),listPayments:async()=>({}),listChannels:async()=>({}),subscribeChannelGraph:async()=>{},subscribeHtlcEvents:async()=>{}};
+ const source=new NativeLndSource({transport,...binding,chain:'bitcoin'});let t=Date.parse('2026-10-25T00:00:00.000Z');
+ try{
+  const collector=new NativePolicyCollector(new CanonicalModel(s.db),source,()=>new Date(t+=1000).toISOString());
+  const rows=()=>s.all("SELECT payload FROM canonical_observations WHERE kind='native_policy' ORDER BY rowid").map(r=>JSON.parse(r.payload));
+  const first=await collector.snapshot({captureId:'c0',channelIds:['1']});assert.ok(rows().every(p=>p.checksumScope==='raw_lnd_channel_info'));const before=counts(s);
+  for(let i=1;i<=3;i++){const r=await collector.snapshot({captureId:'c'+i,channelIds:['1']});assert.equal(r.checkpointId,null);assert.ok(r.receipts.every(x=>x.unchanged===true));assert.deepEqual(r.receipts.map(x=>x.observationId),first.receipts.map(x=>x.observationId));}
+  assert.deepEqual(counts(s),before);
+  // The peer's direction changes the raw checksum shared by both directions: both are re-recorded, only one has changed fields.
+  raw={...raw,node2_policy:policy(250)};const changed=await collector.snapshot({captureId:'peer',channelIds:['1']});assert.ok(changed.receipts.every(x=>x.unchanged===undefined));
+  assert.deepEqual(rows().slice(-2).map(p=>[p.direction,p.changedFields]),[['outgoing',[]],['incoming',['feeRatePpm']]]);
+  // Fields outside the policy allowlist still change the raw response checksum.
+  raw={...raw,capacity:'6000000'};await collector.snapshot({captureId:'capacity',channelIds:['1']});assert.deepEqual(rows().slice(-2).map(p=>p.changedFields),[[],[]]);
+  const steady=counts(s);await collector.snapshot({captureId:'steady',channelIds:['1']});assert.deepEqual(counts(s),steady);
+ }finally{source.shutdown();s.close();}
 });

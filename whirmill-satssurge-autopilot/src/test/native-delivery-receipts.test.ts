@@ -107,8 +107,21 @@ test('bounded immutable receipt-range continuations preserve all deliveries and 
 });
 test('unpinned failure rollups reuse one revision while unrelated coverage advances and fork for a new failure receipt',async()=>{
  const s=new Store(':memory:');try{await capture(s,[raw(),raw()]);const n=()=>Number(s.one("SELECT count(*) n FROM canonical_projection_revisions WHERE name='native_failure_delivery_rollups'").n);
- const first:any=nativeFailureRollups(s,{limit:100});assert.equal(n(),1);assert.equal(first.through,Number(s.one('SELECT max(rowid) n FROM canonical_coverage WHERE capability=?',HTLC_DELIVERY_CAPABILITY).n));
+ const first:any=nativeFailureRollups(s,{limit:100});assert.equal(n(),1);assert.equal(first.through,Number(s.one('SELECT max(rowid) n FROM canonical_coverage').n));
  for(let i=0;i<5;i++){new CanonicalModel(s.db).appendCoverage({...binding,capability:'native_htlc_events',scope:'unrelated-'+i,source:'lnd.htlc',epoch:'x',start:at,end:later,observedAt:later,status:'partial',details:{}});s.stats();assert.equal((nativeFailureRollups(s,{limit:100}) as any).revisionId,first.revisionId);}
  assert.equal(n(),1);await capture(s,[raw()],[later],{epoch:'later-subscription'});const next:any=nativeFailureRollups(s,{limit:100});assert.notEqual(next.revisionId,first.revisionId);assert.equal(next.rows.reduce((a:number,r:any)=>a+r.deliveryCount,0),3);assert.equal(n(),2);
+ }finally{s.close();}
+});
+test('truncated unpinned rollup pages keep one revision while failure receipts keep arriving, and paging still reaches the new receipts',async()=>{
+ const s=new Store(':memory:');try{
+  await capture(s,Array.from({length:40},()=>raw()),Array.from({length:40},(_,i)=>new Date(Date.parse(at)+i).toISOString()));
+  const n=()=>Number(s.one("SELECT count(*) n FROM canonical_projection_revisions WHERE name='native_failure_delivery_rollups'").n);
+  const first:any=nativeFailureRollups(s,{limit:100});assert.equal(first.nextAfter!==null,true);assert.equal(first.rows.reduce((a:number,r:any)=>a+r.deliveryCount,0),32);assert.equal(n(),1);
+  let latest:any=first;
+  for(let i=0;i<10;i++){await capture(s,[raw()],[later],{epoch:'arrival-'+i});s.stats();latest=nativeFailureRollups(s,{limit:100});assert.equal(latest.revisionId,first.revisionId);assert.ok(latest.through>first.through);}
+  assert.equal(n(),1);assert.equal(first.receiptRange.through,undefined);
+  const pinned:any=nativeFailureRollups(s,{limit:100,through:first.through});assert.equal(pinned.revisionId,first.revisionId);assert.equal(pinned.through,first.through);
+  const rest:any=nativeFailureRollups(s,{limit:100,after:latest.nextAfter,through:latest.through});assert.equal(rest.nextAfter,null);assert.equal(rest.rows.reduce((a:number,r:any)=>a+r.deliveryCount,0),18);
+  const old:any=nativeFailureRollups(s,{limit:100,after:first.nextAfter,through:first.through});assert.equal(old.rows.reduce((a:number,r:any)=>a+r.deliveryCount,0),8);
  }finally{s.close();}
 });
