@@ -86,10 +86,15 @@ export class TelegramTurns {
     admitCorrection(t:Turn,c:Correction) { this.store.tx(()=>{const current=this.get(t.jobId)!;current.correctionOrder??=[];if(!current.correctionOrder.includes(c.id))current.correctionOrder.push(c.id);this.save(current);this.saveCorrection(c);}); }
     orderedCorrections(jobId:string) { const t=this.get(jobId);return this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramCorrection:%'").map(r=>JSON.parse(r.value) as Correction).filter(c=>c.jobId===jobId).sort((a,b)=>{const rank=(c:Correction)=>{const order=t?.correctionOrder?.indexOf(c.id)??-1;return order>=0?order:Number(c.submissionId??Number.MAX_SAFE_INTEGER);};return rank(a)-rank(b)||a.id.localeCompare(b.id);}); }
     finalize(jobId:string,state:Turn['state'],details:Record<string,unknown>={}) { return this.store.tx(()=>this.finalizeInTransaction(jobId,state,details)); }
+    /** An accepted Stop targets this turn: received, or already confirmed idle. */
+    stopAccepted(jobId:string) { const t=this.get(jobId);return !!t&&(t.state==='stop_requested'||this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramStop:%'").some(r=>{const stop=JSON.parse(r.value);return stop.jobId===jobId&&stop.generation===t.generation&&['received','idle_confirmed'].includes(stop.state);})); }
+    /** Caller has observed the turn's conversation idle after the turn closed. */
+    confirmStops(jobId:string) { const t=this.get(jobId);if(!t?.closed)return;
+        for(const row of this.store.all("SELECT key,value FROM meta WHERE key LIKE 'telegramStop:%'")){const stop=JSON.parse(row.value);if(stop.jobId===jobId&&stop.generation===t.generation&&stop.state==='received')this.store.set(row.key,{...stop,state:'idle_confirmed',confirmedAt:now()});} }
     private finalizeInTransaction(jobId:string,state:Turn['state'],details:Record<string,unknown>={}) {
         const t=this.get(jobId);if(!t)return undefined;
         const existing=this.store.get('telegramTerminal:'+jobId);if(t.closed&&existing)return existing;
-        const stopped=t.state==='stop_requested'||this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramStop:%'").some(r=>{const stop=JSON.parse(r.value);return stop.jobId===jobId&&stop.generation===t.generation&&['received','idle_confirmed'].includes(stop.state);});
+        const stopped=this.stopAccepted(jobId);
         const outcome={...details,state:t.closed?t.state:stopped?'interrupted':state,at:now()};
         this.store.set('telegramTerminal:'+jobId,outcome);
         if(!t.closed){t.state=outcome.state as Turn['state'];t.closed=true;t.version++;this.save(t);}

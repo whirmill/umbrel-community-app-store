@@ -101,3 +101,15 @@ test('expired event identities prevent repeated aggregation after collection and
   s.event(row);s.retain();s.close();s=new Store(path);s.event(row);s.retain();
   assert.equal(s.all('SELECT * FROM events').length,0);assert.equal(JSON.parse(s.one('SELECT content FROM aggregates').content).events,1);assert.equal(JSON.parse(s.one('SELECT content FROM aggregates').content).amountMsat,'1000');s.close();rmSync(dir,{recursive:true});
 });
+test('Durable tool call is linked to its operation inside the reservation and never reserves a second one',async()=>{
+  const {s,p}=ready(),call={conversationId:'7',callId:'call-1',jobId:'job-1'};let sends=0;
+  const node:any={snapshot:async()=>snapshot(),invoice:async()=>({hash:'h',request:'private'}),send:async()=>{sends++;throw new Error('timeout after successful send');}};
+  await assert.rejects(new Executor(s,node).execute(p,undefined,call));
+  const operation=s.one('SELECT id FROM operations').id;assert.equal(s.operationForCall(call),operation);assert.deepEqual(s.get('operationCall:'+operation),call);
+  // The link is checked in the same transaction: a duplicate rolls the whole reservation back.
+  s.run("UPDATE operations SET state='FAILED' WHERE id=?",operation);s.run('UPDATE reservations SET active=0');
+  assert.throws(()=>s.reserve(p,f,snapshot(),now(),op=>s.linkCall(op,call)),/already has an operation/);
+  assert.equal(s.one('SELECT count(*) n FROM operations').n,1);assert.equal(s.one('SELECT count(*) n FROM reservations').n,1);assert.equal(sends,1);
+  const other={...call,callId:'call-2'};s.reserve(p,f,snapshot(),now(),op=>s.linkCall(op,other));assert.ok(s.operationForCall(other));
+  s.close();
+});

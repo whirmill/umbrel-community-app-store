@@ -35,8 +35,8 @@ function reopen(directory:string,started:Record<string,Started>,hold=false){
  };
  return {f,calls};
 }
-/** Production order: queue recovery after the process lock, Agent.open, then the scheduler. */
-async function startup(f:Fixture){f.queue.recoverAfterRestart();await f.agent.open();const scheduler=new Scheduler(f.queue,f.agent);await scheduler.pump();return scheduler;}
+/** Production order: queue recovery after the process lock, Agent.open, startup recovery, then pumps. */
+async function startup(f:Fixture){f.queue.recoverAfterRestart();await f.agent.open();const scheduler=new Scheduler(f.queue,f.agent);await scheduler.recover();await scheduler.pump();return scheduler;}
 async function settle(scheduler:Scheduler,condition:()=>boolean,ms=8000){
  const deadline=Date.now()+ms;
  while(!condition()){if(Date.now()>deadline)throw Error('recovery did not settle');await scheduler.pump();await new Promise(r=>setTimeout(r,10));}
@@ -74,26 +74,31 @@ test('native submission committed before markSubmitted is recovered without a se
    const row=opened.f.queue.get(started[name]!.jobId)!;assert.equal(row.state,'completed',name);assert.equal(row.submission_id,started[name]!.submissionId,name);
    assert.equal(opened.calls.filter(c=>c.marker===name).length,1,name);
   }
+  // Both recovered generations are attached before Durable resumes: no unowned provider request.
+  assert.ok(opened.calls.every(c=>c.owned),JSON.stringify(opened.calls));
   const conversation=await (f.agent as any).harness.conversation(Number(started.unbound!.conversationId),context),entries=await conversation.entries({},200,undefined,context);
   assert.equal(entries.items.filter((e:any)=>JSON.stringify(e).includes('marker-unbound')).length,1,'one original input, no second submission');
   assert.equal(existsSync(join(directory,'effects.jsonl')),false);
  }finally{await close(f,scheduler);rmSync(directory,{recursive:true,force:true});}
 });
 
-for(const gate of ['disabled','model_unavailable','uncertain_operation'] as const)test('recovered financial run is not continued while gated: '+gate,{timeout:30000},async()=>{
+for(const gate of ['disabled','model_unavailable','uncertain_operation','hard_deadline'] as const)test('recovered financial run the gates no longer admit is aborted natively, never replayed: '+gate,{timeout:30000},async()=>{
  const directory=mkdtempSync(join(tmpdir(),'durable-recovery-gate-'));let f:Fixture|undefined,scheduler:Scheduler|undefined;
  try{
   const started=await crash(directory,[{name:'held',kind:'autonomy'}]);
   const opened=reopen(directory,started);f=opened.f;
   if(gate==='disabled')f.store.set('enabled',false);
   if(gate==='model_unavailable')f.agent.available=async()=>false;
+  if(gate==='hard_deadline'){const key='runBudget:'+started.held!.jobId;f.store.set(key,{...f.store.get<any>(key),started:Date.now()-181000});}
   if(gate==='uncertain_operation'){f.store.run('INSERT INTO decisions VALUES(?,?,?,?,?,?)','gate-decision',now(),'{}','{}','{}','planned');f.store.run('INSERT INTO operations VALUES(?,?,?,?,?,?,?)','gate-operation','gate-decision',now(),'uncertain',null,null,'{}');}
   scheduler=await startup(f);
   for(let i=0;i<5;i++){await scheduler.pump();await new Promise(r=>setTimeout(r,20));}
+  await (f.agent as any).harness.waitForIdle(context);
   assert.deepEqual(opened.calls,[]);assert.equal(existsSync(join(directory,'effects.jsonl')),false);
   const row=f.queue.get(started.held!.jobId)!;assert.equal(row.submission_id,started.held!.submissionId);
-  // Current behaviour: the run stays held with its native submission still placed.
-  assert.equal(row.state,'waiting');assert.equal((await status(f,started.held!.submissionId)).status,'placed');
+  // Owner decision (#137): aborted before resume and finalized, no automatic replay.
+  assert.equal(row.state,'failed');assert.equal(row.error,'Run interrupted at restart; no automatic replay');
+  const native=await status(f,started.held!.submissionId);assert.equal(native.status,'unanswered');assert.equal(native.reason,'aborted');
  }finally{await close(f,scheduler);rmSync(directory,{recursive:true,force:true});}
 });
 
@@ -137,5 +142,18 @@ test('Telegram chat and /analyze sessions keep their conversations across a rest
   const chatAfter=await run('chat-after',false),researchAfter=await run('research-after',true);
   assert.equal(chatAfter.job.conversation_id,chat.job.conversation_id);assert.match(chatAfter.request,/marker-chat-before/);
   assert.equal(researchAfter.job.conversation_id,research.job.conversation_id);assert.match(researchAfter.request,/marker-research-before/);
+ }finally{await close(f,scheduler);rmSync(directory,{recursive:true,force:true});}
+});
+
+test('native work no recovered job owns is aborted before Durable resumes',{timeout:30000},async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'durable-recovery-unowned-'));let f:Fixture|undefined,scheduler:Scheduler|undefined;
+ try{
+  const started=await crash(directory,[{name:'orphan',kind:'analysis'}]);
+  const opened=reopen(directory,started);f=opened.f;
+  // The app copy no longer names this run (e.g. it was finished or cancelled), but its native work is live.
+  f.store.run("UPDATE jobs SET state='failed',error='fixture',run_token=NULL WHERE id=?",started.orphan!.jobId);
+  scheduler=await startup(f);await (f.agent as any).harness.waitForIdle(context);
+  assert.deepEqual(opened.calls,[]);
+  const native=await status(f,started.orphan!.submissionId);assert.equal(native.status,'unanswered');assert.equal(native.reason,'aborted');
  }finally{await close(f,scheduler);rmSync(directory,{recursive:true,force:true});}
 });

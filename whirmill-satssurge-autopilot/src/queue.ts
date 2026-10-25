@@ -15,6 +15,8 @@ export interface Job {
 }
 const pending="('queued','running','waiting')";
 const activeFinancial="('reserved','preparing','sending','uncertain','in_flight')";
+/** Capabilities admitted while the autopilot is paused or bootstrap is incomplete. */
+const READ_ONLY_CAPABILITIES=['read_only_chat','read_only_research','guarded_manual_proposal'];
 
 /** Queue ownership is transactional. Financial intents are owned exclusively by Executor. */
 export class Queue {
@@ -56,12 +58,36 @@ export class Queue {
       const telegramSerial=` AND (NOT EXISTS(SELECT 1 FROM meta t WHERE t.key='telegramTurn:'||jobs.id) OR (
         NOT EXISTS(SELECT 1 FROM jobs busy JOIN meta bt ON bt.key='telegramTurn:'||busy.id JOIN meta mine ON mine.key='telegramTurn:'||jobs.id WHERE busy.state='running' AND busy.id<>jobs.id AND json_extract(bt.value,'$.generation')=json_extract(mine.value,'$.generation') AND json_extract(bt.value,'$.chatId')=json_extract(mine.value,'$.chatId'))
         AND NOT EXISTS(SELECT 1 FROM jobs older JOIN meta ot ON ot.key='telegramTurn:'||older.id JOIN meta mine ON mine.key='telegramTurn:'||jobs.id WHERE older.state IN ('queued','waiting') AND older.rowid<jobs.rowid AND json_extract(ot.value,'$.generation')=json_extract(mine.value,'$.generation') AND json_extract(ot.value,'$.chatId')=json_extract(mine.value,'$.chatId'))))`;
-      const row=this.store.one(`SELECT * FROM jobs WHERE lane=? ${workFilter} ${telegramSerial} AND (state='queued' OR (state='waiting' AND wait_reason='restart_recovery')) ${uncertain?"AND kind='chat'":''} ${blocked?"AND (SELECT json_extract(value,'$') FROM meta WHERE key='jobCapability:'||jobs.id) IN ('read_only_chat','read_only_research','guarded_manual_proposal')":''}
+      const row=this.store.one(`SELECT * FROM jobs WHERE lane=? ${workFilter} ${telegramSerial} AND (state='queued' OR (state='waiting' AND wait_reason='restart_recovery')) ${uncertain?"AND kind='chat'":''} ${blocked?"AND (SELECT json_extract(value,'$') FROM meta WHERE key='jobCapability:'||jobs.id) IN ("+READ_ONLY_CAPABILITIES.map(c=>"'"+c+"'").join(',')+")":''}
         ORDER BY priority+CAST((julianday(?)-julianday(created_at))*1440/5 AS INTEGER) DESC,created_at,id LIMIT 1`,lane,at);
       if(!row)return;
-      const token=id();
-      this.store.run("UPDATE jobs SET state='running',started_at=COALESCE(started_at,?),updated_at=?,run_token=?,attempts=attempts+1,wait_reason=NULL WHERE id=? AND state IN ('queued','waiting')",at,at,token,row.id);
-      this.event(row.id,'claimed',{owner,token},at);return this.get(row.id);
+      return this.start(row.id,owner,at);
+    });
+  }
+  /** Startup recovery: claim one recovered run under the same admission gates as claim(). */
+  claimRecovered(key:string,owner:string,at=now()):Job|undefined {
+    return this.store.tx(()=>{
+      const row=this.get(key);if(row?.state!=='waiting'||row.wait_reason!=='restart_recovery')return;
+      if((this.store.get('enabled')!==true||!this.store.get('bootstrapReady'))&&!READ_ONLY_CAPABILITIES.includes(this.store.get<string>('jobCapability:'+key)??''))return;
+      if(row.lane==='coordinator'&&row.kind!=='chat'&&this.store.one(`SELECT id FROM operations WHERE state IN ${activeFinancial}`))return;
+      return this.start(key,owner,at,{recovered:true});
+    });
+  }
+  private start(key:string,owner:string,at:string,details:Record<string,unknown>={}) {
+    const token=id();
+    this.store.run("UPDATE jobs SET state='running',started_at=COALESCE(started_at,?),updated_at=?,run_token=?,attempts=attempts+1,wait_reason=NULL WHERE id=? AND state IN ('queued','waiting')",at,at,token,key);
+    this.event(key,'claimed',{owner,token,...details},at);return this.get(key);
+  }
+  /** Recovered runs left by the previous process, oldest first. */
+  recovering():Job[]{return this.store.all("SELECT * FROM jobs WHERE state='waiting' AND wait_reason='restart_recovery' ORDER BY rowid");}
+  /** Same rule as the Telegram chat lane filter of claim(). */
+  chat(job:Job){return !!this.store.get('telegramTurn:'+job.id)&&this.store.get('jobCapability:'+job.id)==='read_only_chat';}
+  /** A recovered run the gates no longer admit ends here; its native work was aborted, never replayed. */
+  abandon(key:string,error:string,at=now()) {
+    return this.store.tx(()=>{
+      const row=this.get(key);if(row?.state!=='waiting'||row.wait_reason!=='restart_recovery')return false;
+      this.store.run("UPDATE jobs SET state='failed',error=?,updated_at=?,finished_at=?,wait_reason=NULL WHERE id=?",error,at,at,key);
+      this.event(key,'failed',{error,restartRecovery:true},at);return true;
     });
   }
   finish(key:string,token:string,state:'completed'|'failed',result:unknown,at=now()) {
@@ -117,7 +143,7 @@ export class Queue {
       for(const row of this.store.all("SELECT * FROM jobs WHERE state='waiting'")) {
         if(uncertain&&row.lane==='coordinator'&&row.kind!=='chat')continue;
         if(row.wait_reason==='restart_recovery'&&row.submitted)continue; // durable runner must recover original submission, never resubmit
-        if((!this.store.get('enabled')||!this.store.get('bootstrapReady'))&&!['read_only_chat','read_only_research','guarded_manual_proposal'].includes(this.store.get<string>('jobCapability:'+row.id)??''))continue;
+        if((!this.store.get('enabled')||!this.store.get('bootstrapReady'))&&!READ_ONLY_CAPABILITIES.includes(this.store.get<string>('jobCapability:'+row.id)??''))continue;
         if(row.wait_reason==='model_unavailable'){
           const until=this.store.get<unknown>('modelUnavailableUntil');
           // Existing holds, including legacy holds without native provenance, retain their exact expiry.

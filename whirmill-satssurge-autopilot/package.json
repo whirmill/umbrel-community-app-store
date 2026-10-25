@@ -7,13 +7,12 @@
     "node": ">=24.0.0 <25.0.0"
   },
   "scripts": {
-    "build": "npm run patch:pi && tsc && tsc -p tsconfig.frontend.json && vite build",
+    "build": "tsc && tsc -p tsconfig.frontend.json && vite build",
     "start": "python3 scripts/app_launcher.py",
     "test": "npm run build && node --test dist/test/*.test.js",
     "import": "python3 scripts/app_launcher.py --import",
     "dev": "vite",
-    "typecheck": "npm run patch:pi && tsc --noEmit && tsc -p tsconfig.frontend.json",
-    "patch:pi": "node scripts/pi-scoped-stop-patch.mjs"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.frontend.json"
   },
   "dependencies": {
     "@assistant-ui/react": "0.15.26",

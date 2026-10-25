@@ -10,6 +10,8 @@ import { dirname } from 'node:path';
 import { id, now, json, hash, integer, day, MANDATE, CHANNEL_MANDATE, SCHEMA_VERSION, type Snapshot, type Proposal, type Forecast } from './domain.js';
 
 export const UI_TEXT_FRAME_RETENTION_MS=86400000;
+/** Durable tool call identity: conversation and call ID, plus the job that owned it. */
+export interface ToolCall { conversationId:string; callId:string; jobId:string }
 export class Store {
   readonly db: DatabaseSync;
   readonly canonical:CanonicalRuntime;
@@ -263,6 +265,14 @@ export class Store {
     }
     for(const row of claims)if(row.operation_id!==excludeOperation&&row.until_at>at&&(row.target===target||row.source===source))claimed+=remaining.get(row.operation_id)!;
     const demand=integer(rawDemand);return (demand>claimed?demand-claimed:0n).toString();
+  }
+  /** Durable tool call that reserved an operation: an additive meta key, written in the reservation transaction. */
+  operationForCall(call:Pick<ToolCall,'conversationId'|'callId'>):string|undefined {
+    return this.one("SELECT substr(key,15) operation FROM meta WHERE key LIKE 'operationCall:%' AND json_extract(value,'$.conversationId')=? AND json_extract(value,'$.callId')=?",call.conversationId,call.callId)?.operation;
+  }
+  linkCall(operation:string,call:ToolCall) {
+    if(this.operationForCall(call))throw new Error('Tool call already has an operation; no replay');
+    this.set('operationCall:'+operation,call);
   }
   annotateLedger(ledgerId:string,sector:'routing'|'swap'|'other'|'unknown',attribution:'verified'|'shared'|'unattributed',reason:string) {
     if(!reason.trim()||!['routing','swap','other','unknown'].includes(sector)||!['verified','shared','unattributed'].includes(attribution))throw Error('Explicit classification receipt required');

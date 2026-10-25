@@ -106,6 +106,8 @@ try {
   await collector.collect();
   intervals.push(setInterval(() => void collector!.collect(), 60000));
   scheduler = new Scheduler(queue, agent);
+  // Recovered runs are attached or aborted before Telegram, timers or pumps can resume Durable.
+  await scheduler.recover();
   telegram.setWake(()=>scheduler!.dispatchTelegram());
   intervals.push(
     setInterval(() => scheduler!.tick(), 60000),

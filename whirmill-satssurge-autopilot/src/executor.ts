@@ -1,6 +1,6 @@
 import {scopedAppControls,readAppControlContract,readAppControls,unavailableAppControls} from './app-controls.js';
 import {readInterlock,type InterlockContract} from './interlocks.js';
-import { Store } from './store.js';
+import { Store, type ToolCall } from './store.js';
 import { forecast } from './economics.js';
 import { hash, json, now, integer, terminal, MANDATE, type Proposal, type Snapshot, type PaymentOutcome } from './domain.js';
 import type { NodeClient } from './lnd.js';
@@ -18,13 +18,13 @@ export class Executor {
   private dispatchGuard(operation:string,snapshot?:Snapshot) {
     try{protectedAutomationGuard(this.store);if(snapshot)this.store.assertReservedDispatch(operation,snapshot);else this.store.assertDispatchReady();}catch(error){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});throw error;}
   }
-  async execute(p:Proposal, approval?:{validate:(snapshot:Snapshot)=>void;reserved:(operation:string)=>void}) {
+  async execute(p:Proposal, approval?:{validate:(snapshot:Snapshot)=>void;reserved:(operation:string)=>void}, call?:ToolCall) {
     // Channel kinds belong to the owner-approved ChannelLifecycle only; this path never dispatches them.
     if(!MANDATE.allowed.includes(p.kind))throw new Error('Unsupported operation');
     if(this.executing)throw new Error('Executor busy');this.executing=true;
-    try{return await this.dispatch(p,approval);}finally{this.executing=false;}
+    try{return await this.dispatch(p,approval,call);}finally{this.executing=false;}
   }
-  private async dispatch(p:Proposal, approval?:{validate:(snapshot:Snapshot)=>void;reserved:(operation:string)=>void}) {
+  private async dispatch(p:Proposal, approval?:{validate:(snapshot:Snapshot)=>void;reserved:(operation:string)=>void}, call?:ToolCall) {
     // Revalidation happens before the irreversible intent. Model-provided benefit is never used.
     p.demandKey=p.kind==='rebalance'?`${p.source}->${p.target}`:`fee:${p.target}`;
     const s=await this.node.snapshot();
@@ -37,7 +37,7 @@ export class Executor {
       }
     }
     approval?.validate(s);
-    const f=forecast(this.store,p,s),{decision,operation}=this.store.reserve(p,f,s,now(),approval?.reserved);
+    const f=forecast(this.store,p,s),{decision,operation}=this.store.reserve(p,f,s,now(),operation=>{approval?.reserved(operation);if(call)this.store.linkCall(operation,call);});
     this.store.set('fingerprint:'+decision,hash(json(p.evidenceIds.slice().sort())));
     this.store.run('UPDATE events SET pinned=1 WHERE id IN ('+p.evidenceIds.map(()=>'?').join(',')+')',...p.evidenceIds);
     try {

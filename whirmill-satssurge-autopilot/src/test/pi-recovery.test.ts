@@ -130,3 +130,13 @@ test('native PiDurable registry creates manual proposal only for explicit review
     }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
   }
 });
+
+test('execute_decision hands the executor its Durable conversation, call ID and job as the operation key',{timeout:10000},async()=>{
+  const directory=mkdtempSync(join(tmpdir(),'surge-pi-call-link-'));const f=fixture(directory,'unsafe');const calls:any[]=[];
+  try{
+    (f.agent as any).executor.execute=async(_p:unknown,approval:unknown,call:unknown)=>{calls.push({approval,call});return {status:'SUCCEEDED'};};
+    f.store.set('enabled',true);await f.agent.open();const job=f.queue.enqueue({requestId:'call-link',kind:'chat',payload:{message:'execute once'}});
+    const result=await f.agent.runJob(f.queue.claim('coordinator','owner')!);assert.match(result.answer,/terminal tool receipt/);
+    assert.deepEqual(calls,[{approval:undefined,call:{conversationId:f.queue.get(job.id)!.conversation_id,callId:'fixture-call',jobId:job.id}}]);
+  }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
+});
