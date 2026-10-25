@@ -28,22 +28,16 @@ Non serve una connessione Internet per consultare gli snapshot.
 |---|---|
 | Panoramica Pi | [README](upstream/v1.1.0/README.md) |
 | Modelli, provider, autenticazione, streaming | [Pi AI](upstream/v1.1.0/packages/ai/README.md) |
-| Loop e strumenti dell'agente in memoria | [Pi Agent Core](upstream/v1.1.0/packages/agent/README.md) |
-| CLI e host Coding Agent | [Coding Agent](upstream/v1.1.0/packages/coding-agent/README.md) |
-| SDK Coding Agent | [SDK](upstream/v1.1.0/packages/coding-agent/docs/sdk.md) |
-| Estensioni Coding Agent, API distinta da Durable | [Extensions](upstream/v1.1.0/packages/coding-agent/docs/extensions.md) |
 | Harness, strumenti, recovery e storage | [Pi Durable](upstream/v1.1.0/packages/durable/README.md) |
 | Cambiamenti della versione installata | [Durable changelog](upstream/v1.1.0/packages/durable/CHANGELOG.md) |
 | Stato, transazioni e contesti | [Chord](upstream/v1.1.0/packages/chord/README.md) |
-| Indice completo dei documenti Coding Agent | [Docs index](upstream/v1.1.0/packages/coding-agent/docs/index.md) |
-| Sicurezza dell'host Coding Agent | [Security](upstream/v1.1.0/packages/coding-agent/docs/security.md) |
-| MCP, specifico del Coding Agent | [MCP](upstream/v1.1.0/packages/coding-agent/docs/mcp.md) |
 | Specifica Durable: approfondimento, confrontare con README e tipi | [Spec](upstream/v1.1.0/packages/durable/docs/spec.md) |
 
-Sono inclusi tutti i documenti Markdown di `packages/coding-agent/docs`, le
-guide dei componenti principali, gli esempi ufficiali Durable e i tipi TypeScript
-del pacchetto Durable realmente installato. Gli esempi sono **riferimenti**:
-copiarli o eseguirli non è necessario per usare questa documentazione.
+Sono incluse solo le guide dei pacchetti che l'app usa (Durable, AI, Chord), la
+specifica e gli esempi ufficiali Durable. I tipi TypeScript sono quelli del
+pacchetto installato: `whirmill-satssurge-autopilot/node_modules/@earendil-works/pi-durable/dist/`
+dopo `npm ci`. Gli esempi sono **riferimenti**: copiarli o eseguirli non è
+necessario per usare questa documentazione.
 
 I documenti interni `pico-*` e `chord-delta-*` non sono il contratto pubblico
 dell'harness e non vengono inclusi nella raccolta. Alcuni link relativi degli
@@ -56,15 +50,6 @@ registrato nel manifest per consultarli al medesimo commit.
   acquisizione, dimensioni e SHA-256 per ogni file conservato.
 - [Licenza upstream](upstream/v1.1.0/LICENSE): MIT; gli snapshot sono copiati
   senza modificarne il contenuto.
-- `installed/pi-durable-1.1.0/`: dichiarazioni `.d.ts` del pacchetto npm locale;
-  provenienza e integrità del lockfile nel manifest, nessuna dipendenza nuova.
-- `upgrade-watch/`: changelog di un commit successivo, **non compatibilità
-  garantita con l'applicazione corrente**.
-- Verifica offline: `python3 docs/pi/scripts/snapshot.py --verify`.
-- Riacquisizione esplicita della stessa versione:
-  `python3 docs/pi/scripts/snapshot.py --refresh` dalla radice del repository.
-
-Il manifest viene rigenerato dallo script; le guide curate devono essere
-rivalutate quando cambiano versione, codice applicativo o confini di autorità.
-La verifica degli hash prova la consistenza locale, non la correttezza di ogni
-affermazione contenuta nella documentazione.
+Le guide curate vanno rivalutate quando cambiano versione, codice applicativo o
+confini di autorità. A un aggiornamento di Pi si sostituiscono gli snapshot con
+quelli della nuova versione e si aggiorna il manifest (vedi [upgrades](upgrades.md)).
