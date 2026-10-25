@@ -1068,8 +1068,11 @@ export class Agent {
       const turn = turns.get(jobId);
       if (!turn?.closed) continue;
       try {
-        const conversation = turn.conversationId ? await this.harness!.conversation(Number(turn.conversationId) as any, context) : undefined;
-        if (turn.conversationId && !conversation) continue;
+        // A turn abandoned before its first bind has no conversation copy; use the job's binding.
+        const job = this.queue.get(jobId);
+        const conversationId = turn.conversationId ?? (job ? await this.recoveredConversation(job) : undefined);
+        const conversation = conversationId ? await this.harness!.conversation(Number(conversationId) as any, context) : undefined;
+        if (conversationId && !conversation) continue;
         await conversation?.waitForIdle(context);
         if (this.store.get<any>("telegramTerminal:" + jobId)?.reason === "interrupted_at_restart")
           for (const correction of turns.orderedCorrections(jobId)) {

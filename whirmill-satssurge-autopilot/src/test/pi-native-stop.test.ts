@@ -111,3 +111,17 @@ test('a historical scoped-stop terminal stays readable and its unconfirmed Stop 
   assert.equal(opened.calls(),0);
  }finally{if(scheduler)await scheduler.drain(5000);if(f){await f.agent.close();f.store.close();}rmSync(directory,{recursive:true,force:true});}
 });
+
+test('a gated recovered turn with a Stop before its first bind is aborted, closed interrupted and confirmed after idle',{timeout:20000},async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'pi-stop-gated-unbound-'));let f:Fixture|undefined,scheduler:Scheduler|undefined;
+ try{
+  const ready=await crashed(directory,'original-before-bind-crash');const opened=reopen(directory);f=opened.f;f.agent.available=async()=>false;
+  f.queue.recoverAfterRestart();await f.agent.open();scheduler=new Scheduler(f.queue,f.agent);await scheduler.recover();await scheduler.drain(5000);scheduler=undefined;
+  const h=(f.agent as any).harness,turns=new TelegramTurns(f.store,f.queue),job=f.queue.get(ready.jobId)!;
+  assert.equal(job.state,'failed');assert.equal(job.error,'Run interrupted at restart; no automatic replay');
+  assert.equal(turns.get(ready.jobId)!.state,'interrupted');assert.equal(f.store.get<any>('telegramStop:active-crash-stop').state,'idle_confirmed');
+  const correction=turns.correction('unplaced-at-original-crash')!;assert.equal(correction.state,'withdrawn');assert.equal(correction.withdrawResult,'stop_before_native_submission');
+  const sub=await status(h,ready.submissions[0]);assert.equal(sub.status,'unanswered');assert.equal(sub.reason,'aborted');
+  assert.equal((await h.inspect(context)).tasks.length,0);assert.equal(opened.calls(),0);assert.equal(existsSync(join(directory,'effects.jsonl')),false);
+ }finally{if(scheduler)await scheduler.drain(5000);if(f){await f.agent.close();f.store.close();}rmSync(directory,{recursive:true,force:true});}
+});
