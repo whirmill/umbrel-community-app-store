@@ -18,7 +18,7 @@ COPY --from=build /app/dist ./dist
 COPY package*.json ./
 COPY --from=build /app/content ./content
 COPY --from=build /app/lnd-proto ./lnd-proto
-COPY scripts/*.py ./scripts/
+COPY scripts/*.py scripts/schema-targets.json ./scripts/
 COPY scripts/app-control-node-probe.cjs ./scripts/
 COPY --from=build /app/public ./public
 USER 1000:1000

@@ -1,7 +1,7 @@
 import {scopedAppControls} from './app-controls.js';
 import {migrateCanonical,validateCanonical,LEGACY_TABLES,archiveOriginal} from './canonical-migration.js';
 import {CanonicalRuntime} from './canonical-runtime.js';
-import {canonicalRead,unifiedDiagnostics,indexDiagnosticCapture} from './canonical-consumers.js';
+import {canonicalRead,unifiedDiagnostics,indexDiagnosticCapture,diagnosticContentDigest} from './canonical-consumers.js';
 import {channelScid} from './diagnostics.js';
 import {accountingPartition} from './accounting.js';
 import { DatabaseSync } from 'node:sqlite';
@@ -111,11 +111,13 @@ export class Store {
   get<T = any>(key: string): T | undefined { const row=this.one('SELECT value FROM meta WHERE key=?',key); return row ? JSON.parse(row.value) as T : undefined; }
   set(key: string, value: unknown) {
     const encoded=json(value);
-    // Freeze both sides of diagnostic refresh; a rotating table scan cannot preserve overwritten source captures.
+    // Freeze both sides of a diagnostic change; a rotating table scan cannot preserve overwritten source captures.
+    // Refreshes that only move timestamps are not new captures and are not archived again.
     if(key==='diagnostics'&&this.canonical){
       if(Buffer.byteLength(encoded)>16777216)throw Error('Diagnostic archive size limit');
       const save=(row:any)=>{const archived=archiveOriginal(this.db,'meta',row,{nodeId:null,network:null,sourceInstance:'satssurge-operational-originals',sourceVersion:'schema6',observedAt:now(),rowid:key});indexDiagnosticCapture(this,archived.id,JSON.parse(row.value));};
-      const previous=this.one('SELECT key,value FROM meta WHERE key=?',key);if(previous)save(previous);save({key,value:encoded});
+      const previous=this.one('SELECT key,value FROM meta WHERE key=?',key);
+      if(!previous||diagnosticContentDigest(JSON.parse(previous.value))!==diagnosticContentDigest(JSON.parse(encoded))){if(previous)save(previous);save({key,value:encoded});}
     }
     this.run('INSERT INTO meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,encoded);
   }

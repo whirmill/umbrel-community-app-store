@@ -1,3 +1,4 @@
+import {certificateTransportFailure,safeLndFailureContext} from './lnd.js';
 import { authorizeContentRequest, parseContentRequest } from './content-requests.js';
 import { ContentGeneration, type ContentSnapshot } from './content-generation.js';
 import {availabilityBlocker} from './provider-failures.js';
@@ -819,10 +820,13 @@ export class Telegram {
         const recent=this.store.get<Record<string,string>>('telegramLndTransportRecent')??{};
         if(recent[identity]&&Date.parse(at)-Date.parse(recent[identity]!)<600000)return;
         // One episode across restarts; re-pairing and renewed certificates get their own receipt.
+        const context=safeLndFailureContext(transport.failureContext);
+        const certificate=transport.failure?certificateTransportFailure(transport.failure):true;
+        const detail=certificate?`Certificato valido da ${transport.validFrom??'non disponibile'} fino a ${transport.validTo??'non disponibile'}. Ispezione certificato ${transport.inspectedAt}.`:`Acquisizione o RPC richiede attenzione.${context?` Errore ${context.failureAt}; origine ${context.origin}${context.method?`; metodo ${context.method}`:''}${context.grpcStatus!==undefined?`; stato gRPC ${context.grpcStatus}`:''}${context.reason?`; motivo ${context.reason}`:''}.`:''}`;
         const episode=randomBytes(12).toString('hex');
         this.store.tx(()=>{
             this.enqueue('lnd-transport:'+binding.generation+':'+identity+':'+episode,
-                `LND gRPC TLS: ${state}. Certificato valido da ${transport.validFrom??'non disponibile'} fino a ${transport.validTo??'non disponibile'}. Ispezione ${transport.inspectedAt}. Controlla la diagnostica web; nessun pagamento viene ritentato.`,
+                `LND gRPC${certificate?' TLS':''}: ${state}. ${detail} Controlla la diagnostica web; nessun pagamento viene ritentato.`,
                 transport.failure||transport.warning==='expired'?'critical':'operational',undefined,at,binding.generation);
             this.store.set('telegramLndTransportEpisode',{identity,episode,at});
             this.store.set('telegramLndTransportRecent',Object.fromEntries([...Object.entries(recent).filter(([key])=>key!==identity),[identity,at]].slice(-32)));

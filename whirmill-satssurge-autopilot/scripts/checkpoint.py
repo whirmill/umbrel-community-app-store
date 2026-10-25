@@ -36,17 +36,26 @@ def check(path):
 
 
 def schema_identity(path):
-    """Bind DDL as well as user_version (Durable tracks its own schema table)."""
+    """Bind DDL as well as user_version (Durable tracks its own schema table).
+
+    Metadata only: this runs on every boot and must not scan multi-GB databases."""
     connection = sqlite3.connect('file:' + str(path) + '?mode=ro', uri=True)
     try:
         rows = connection.execute("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").fetchall()
         durable = None
         if any(row[1] == 'durable_schema' for row in rows):
             durable = connection.execute('SELECT version FROM durable_schema WHERE singleton=1').fetchone()
-        return {'userVersion': check(path), 'ddlSha256': hashlib.sha256(json.dumps(rows, separators=(',', ':')).encode()).hexdigest(),
+        return {'userVersion': connection.execute('PRAGMA user_version').fetchone()[0],
+                'ddlSha256': hashlib.sha256(json.dumps(rows, separators=(',', ':')).encode()).hexdigest(),
                 'durableVersion': durable[0] if durable else None}
     finally:
         connection.close()
+
+
+def file_sha256(path):
+    # Streamed: checkpoints are as large as the databases and container memory is bounded.
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
 def capture(source, target, final_guard=None, release=None):
@@ -72,8 +81,9 @@ def capture(source, target, final_guard=None, release=None):
         os.chmod(output, 0o600)
         with output.open('rb') as stream:
             os.fsync(stream.fileno())
-        manifest['files'][name] = {'sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
-                                   'schema': check(output), 'schemaIdentity': schema_identity(output), 'bytes': output.stat().st_size}
+        identity = schema_identity(output)
+        manifest['files'][name] = {'sha256': file_sha256(output), 'schema': identity['userVersion'],
+                                   'schemaIdentity': identity, 'bytes': output.stat().st_size}
     if final_guard is not None:
         final_guard()
     atomic_json(target / 'manifest.json', manifest)
@@ -92,7 +102,7 @@ def verify(directory):
     for name in FILES:
         path = directory / name
         expected = manifest['files'][name]
-        if path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest() != expected['sha256']:
+        if path.is_symlink() or file_sha256(path) != expected['sha256']:
             raise ValueError('Checkpoint checksum mismatch')
         if expected.get('schemaIdentity') is not None and schema_identity(path) != expected['schemaIdentity']:
             raise ValueError('Checkpoint DDL identity mismatch')

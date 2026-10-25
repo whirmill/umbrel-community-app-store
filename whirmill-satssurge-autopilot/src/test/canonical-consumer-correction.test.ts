@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Store} from '../store.js';
 import {CanonicalModel,digest} from '../canonical-model.js';
-import {canonicalDiagnostics,unifiedDiagnostics} from '../canonical-consumers.js';
+import {canonicalDiagnostics,unifiedDiagnostics,captureDigestOf} from '../canonical-consumers.js';
 import {evidenceSource} from '../evidence-source.js';
 import {EvidenceViews,boundedEvidenceEnvelope} from '../evidence-views.js';
 import {diagnosticCollectionCount,canonicalHistoryUrl} from '../ui-client.js';
@@ -40,9 +40,9 @@ test('published agent wrapper accounts for escaped text, budget and continuation
 });
 test('pre-index archive search resumes with persisted keyset and distinguishes unknown from exhausted absence',()=>{
  const dir=mkdtempSync(join(tmpdir(),'canonical-capture-')),path=join(dir,'operational.sqlite');let s=new Store(path);try{
- const capture={status:'qualified',version:'0.7.7',capturedAt:at,rebalances:[{id:'old',at,status:'requested'}]};s.set('diagnostics',{at,lightningMate:capture});for(let i=0;i<205;i++)s.set('diagnostics',{at:new Date(Date.parse(at)+1000+i*1000).toISOString(),lightningMate:{status:'unavailable'}});
+ const capture={status:'qualified',version:'0.7.7',capturedAt:at,rebalances:[{id:'old',at,status:'requested'}]};s.set('diagnostics',{at,lightningMate:capture});for(let i=0;i<205;i++)s.set('diagnostics',{at:new Date(Date.parse(at)+1000+i*1000).toISOString(),lightningMate:{status:'unavailable',reason:'synthetic-refresh-'+i}});
  s.run("DELETE FROM meta WHERE key LIKE 'canonicalDiagnosticLookup:%'");const q:any={section:'diagnostics',provider:'lightningMate',collection:'rebalances'};const first:any=evidenceSource(s,q);assert.equal(first.unavailableEvidence.searching,true);assert.ok(first.unavailableEvidence.nextCall);s.close();s=new Store(path);
- s.set('diagnostics',{at:'2026-10-12T11:00:00Z',lightningMate:{status:'unavailable'}});let result:any=evidenceSource(s,first.unavailableEvidence.nextCall.query);for(let n=0;result.unavailableEvidence?.searching&&n<20;n++)result=evidenceSource(s,result.unavailableEvidence.nextCall.query);assert.equal(result.diagnostics?.lightningMate.rebalances[0].id,'old');assert.equal(result.sourceMetadata.providerCaptureDigest,digest(capture));
+ s.set('diagnostics',{at:'2026-10-12T11:00:00Z',lightningMate:{status:'unavailable'}});let result:any=evidenceSource(s,first.unavailableEvidence.nextCall.query);for(let n=0;result.unavailableEvidence?.searching&&n<20;n++)result=evidenceSource(s,result.unavailableEvidence.nextCall.query);assert.equal(result.diagnostics?.lightningMate.rebalances[0].id,'old');assert.equal(result.sourceMetadata.providerCaptureDigest,captureDigestOf(capture));
  s.run("DELETE FROM meta WHERE key LIKE 'canonicalDiagnosticLookup:%'");let missing:any=canonicalDiagnostics(s,{provider:'lightningMate',collection:'forwards'});assert.equal(missing.unavailableEvidence.searching,true);for(let n=0;missing.unavailableEvidence.searching&&n<20;n++)missing=canonicalDiagnostics(s,{provider:'lightningMate',collection:'forwards'});assert.equal(missing.unavailableEvidence.searching,undefined);assert.equal(missing.unavailableEvidence.rows,null);
  }finally{s.close();rmSync(dir,{recursive:true});}
 });
@@ -71,7 +71,7 @@ test('review R2: retained and digest pinned captures survive more than 200 unava
  s.set('diagnostics',{at,lightningMate:captured,lndg:{status:'unavailable'}});const first:any=evidenceSource(s,{section:'diagnostics',provider:'lightningMate',collection:'rebalances'});assert.ok(first.sourceMetadata.sourceNext);
  for(let i=0;i<205;i++)s.set('diagnostics',{at:new Date(Date.parse(at)+1000+i*1000).toISOString(),lightningMate:{status:'unavailable'},lndg:{status:'unavailable'}});
  const latest:any=canonicalDiagnostics(s,{provider:'lightningMate',collection:'rebalances'});assert.equal(latest.diagnostics?.lightningMate.rebalances.length,201);
- const last:any=evidenceSource(s,{section:'diagnostics',provider:'lightningMate',collection:'rebalances',sourceCursor:first.sourceMetadata.sourceNext});assert.equal(last.diagnostics?.lightningMate.rebalances.length,1);assert.equal(last.sourceMetadata.providerCaptureDigest,digest(captured));assert.equal(JSON.stringify(last).includes('synthetic-private'),false);
+ const last:any=evidenceSource(s,{section:'diagnostics',provider:'lightningMate',collection:'rebalances',sourceCursor:first.sourceMetadata.sourceNext});assert.equal(last.diagnostics?.lightningMate.rebalances.length,1);assert.equal(last.sourceMetadata.providerCaptureDigest,captureDigestOf(captured));assert.equal(JSON.stringify(last).includes('synthetic-private'),false);
  }finally{s.close();}
 });
 test('review R3: failure subtype selection happens before caps in detail and overview consumers',()=>{
@@ -119,7 +119,7 @@ test('retained collection captures keep historical metadata and rendered visibil
    assert.equal(m.captureStatus,'qualified');
    assert.equal(m.sourceLifecycle,'retained_immutable_capture');
    assert.ok(m.retainedArchiveId);
-   assert.equal(m.providerCaptureDigest,digest(captured));
+   assert.equal(m.providerCaptureDigest,captureDigestOf(captured));
    assert.equal(m.version,captured.version);
    assert.equal(m.capturedAt,captured.capturedAt);
    assert.deepEqual(m.coverage,coverage);
@@ -131,7 +131,7 @@ test('retained collection captures keep historical metadata and rendered visibil
    assert.equal(d.failures,null);
    assert.equal(d.collectionMetadata.failures.available,false);
    assert.equal(d.collectionMetadata.forwards.version,firstCapture.version);
-   assert.equal(d.collectionMetadata.forwards.providerCaptureDigest,digest(firstCapture));
+   assert.equal(d.collectionMetadata.forwards.providerCaptureDigest,captureDigestOf(firstCapture));
    const markup=renderToStaticMarkup(createElement(DiagnosticSourceRecord,{name:'lightningMate',data:d}));
    assert.match(markup,/Fonte corrente/);
    assert.match(markup,/>201</);
@@ -145,7 +145,7 @@ test('retained collection captures keep historical metadata and rendered visibil
    const tail:any=evidenceSource(s,{...query,sourceCursor:first.sourceMetadata.sourceNext});
    assert.equal(tail.diagnostics.lightningMate.rebalances.length,1);
    assert.equal(tail.diagnostics.lightningMate.rebalances[0].id,'r200');
-   assert.equal(tail.sourceMetadata.providerCaptureDigest,digest(captured));
+   assert.equal(tail.sourceMetadata.providerCaptureDigest,captureDigestOf(captured));
    assert.equal(tail.sourceMetadata.sourceNext,null);
    const outside:any=canonicalDiagnostics(s,{provider:'lightningMate',collection:'rebalances',start:'2026-10-13T00:00:00.000Z',end:'2026-10-14T00:00:00.000Z'});
    assert.deepEqual(outside.diagnostics.lightningMate.rebalances,[]);

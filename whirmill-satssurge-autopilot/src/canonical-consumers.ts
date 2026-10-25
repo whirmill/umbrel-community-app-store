@@ -58,20 +58,28 @@ export function canonicalRead(store:Store,q:CanonicalReadQuery={}){
  return {rows,scopeEvidenceUnknown:unknownDirectionRetained,temporalValidity:{streamFresh:!!heartbeat&&heartbeat.phase==='subscribed'&&Number.isFinite(age)&&age>=0&&age<=30000,streamLastEvidenceAt:heartbeat?.at??null,replayQualified:false,historicalCompleteness:false},available:true,nextAfter:next,through:high,version:digest({query:q,through:high,ids:rows.map(r=>r.id)}),coverage,complete:false,sourceHistoryComplete:false,accountingAuthority:'none',note:'Retained observations include unresolved overlaps; amounts are not deduplicated financial totals',projectionLimits:{selected:rows.length,limit,truncated:next!==null,upstreamHistoryComplete:false},filterSemantics:'directional-canonical-v1'};
 }
 
+/** Refresh timestamps alone do not make a different provider capture. */
+export function captureDigestOf(p:any):string{
+ if(!p||typeof p!=='object'||Array.isArray(p))return digest(p);
+ const {capturedAt:_capturedAt,coverage,...rest}=p;if(!coverage||typeof coverage!=='object')return digest(rest);
+ const {start:_start,end:_end,...window}=coverage;return digest({...rest,coverage:window});
+}
+/** Content identity of a whole diagnostics value; the refresh time is ignored. */
+export function diagnosticContentDigest(value:any):string{return digest(Object.fromEntries(Object.entries(value??{}).filter(([key])=>key!=='at').map(([key,p])=>[key,captureDigestOf(p)])));}
 const diagnosticProviders=['lndg','lightningMate'];
 const diagnosticCollections=['forwards','failures','failureRollups','rebalances'];
 const captureKey=(provider:string,collection:string,captureDigest?:string)=>'canonicalDiagnosticLookup:'+digest({provider,collection,captureDigest:captureDigest??null});
 /** Derived lookup only. Every hit is revalidated against the immutable original before use. */
 export function indexDiagnosticCapture(store:Store,archiveId:string,diagnostics:any){
  const archive=store.one("SELECT rowid rid FROM canonical_original_archive WHERE id=? AND original_table='meta' AND original_id='diagnostics'",archiveId);if(!archive)return;
- for(const provider of diagnosticProviders){const p=diagnostics?.[provider];if(p?.status!=='qualified')continue;const captureDigest=digest(p);
+ for(const provider of diagnosticProviders){const p=diagnostics?.[provider];if(p?.status!=='qualified')continue;const captureDigest=captureDigestOf(p);
   for(const collection of diagnosticCollections){if(!Array.isArray(p[collection]))continue;for(const key of [captureKey(provider,collection),captureKey(provider,collection,captureDigest)]){const old=store.get<any>(key);if(!old||old.rowid<=archive.rid)store.run('INSERT INTO meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,JSON.stringify({archiveId,rowid:archive.rid}));}}
  }
 }
 function retainedDiagnostic(store:Store,provider:string,collection:string,captureDigest?:string):{capture?:any;archiveId?:string;searching?:boolean;lookupProgress?:{through:number;before:number}}{
  const key=captureKey(provider,collection,captureDigest),cached=store.get<any>(key);
  const decode=(id:string)=>{const a=store.one("SELECT id,raw_row,original_digest FROM canonical_original_archive WHERE id=? AND original_table='meta' AND original_id='diagnostics'",id);if(!a)return null;if(Buffer.byteLength(a.raw_row)>16777216||digest(a.raw_row)!==a.original_digest)throw Error('Original diagnostic digest mismatch');const raw=JSON.parse(a.raw_row);const diagnostics=JSON.parse(raw.value?.[1]??'null');const p=diagnostics?.[provider];return {a,diagnostics,p};};
- const matches=(p:any)=>p?.status==='qualified'&&Array.isArray(p[collection])&&(!captureDigest||digest(p)===captureDigest);
+ const matches=(p:any)=>p?.status==='qualified'&&Array.isArray(p[collection])&&(!captureDigest||captureDigestOf(p)===captureDigest);
  if(cached?.archiveId){const decoded=decode(cached.archiveId);if(decoded&&matches(decoded.p))return {capture:decoded.p,archiveId:decoded.a.id};}
  // Older archives may predate the derived index. Resume keyset work; a budget is never absence proof.
  const high=Number(store.one("SELECT coalesce(max(rowid),0) n FROM canonical_original_archive WHERE original_table='meta' AND original_id='diagnostics'").n),progressKey=key+':scan',saved=store.get<any>(progressKey);
@@ -95,8 +103,8 @@ export function canonicalDiagnostics(store:Store,q:CanonicalReadQuery&{provider?
  if(provider!=='native'){
   const legacy=store.get<any>('diagnostics');let p=legacy?.[provider];let retainedArchiveId:string|null=null;
   if(!diagnosticProviders.includes(provider)||!diagnosticCollections.includes(collection))return {unavailableEvidence:{available:false,rows:null,nextOffset:null,note:'Retained source capability unsupported'}};
-  if(p?.status!=='qualified'||!Array.isArray(p[collection])||q.diagnosticCaptureDigest&&digest(p)!==q.diagnosticCaptureDigest){const found=retainedDiagnostic(store,provider,collection,q.diagnosticCaptureDigest);if(found.searching)return {unavailableEvidence:{available:false,searching:true,lookupProgress:found.lookupProgress,rows:null,nextOffset:null,note:'Bounded archive lookup in progress; continue the same query. No absence or completion is implied'}};if(found.capture){p=found.capture;retainedArchiveId=found.archiveId!;}}
-  if(p?.status!=='qualified'||!Array.isArray(p[collection])||q.diagnosticCaptureDigest&&digest(p)!==q.diagnosticCaptureDigest)return {unavailableEvidence:{available:false,rows:null,nextOffset:null,note:'Retained source capability unavailable; unknown is not zero'}};
+  if(p?.status!=='qualified'||!Array.isArray(p[collection])||q.diagnosticCaptureDigest&&captureDigestOf(p)!==q.diagnosticCaptureDigest){const found=retainedDiagnostic(store,provider,collection,q.diagnosticCaptureDigest);if(found.searching)return {unavailableEvidence:{available:false,searching:true,lookupProgress:found.lookupProgress,rows:null,nextOffset:null,note:'Bounded archive lookup in progress; continue the same query. No absence or completion is implied'}};if(found.capture){p=found.capture;retainedArchiveId=found.archiveId!;}}
+  if(p?.status!=='qualified'||!Array.isArray(p[collection])||q.diagnosticCaptureDigest&&captureDigestOf(p)!==q.diagnosticCaptureDigest)return {unavailableEvidence:{available:false,rows:null,nextOffset:null,note:'Retained source capability unavailable; unknown is not zero'}};
   const rows=p[collection].filter((row:any)=>{
    for(const key of ['source','target','channel'] as const)if(q[key]){const values=key==='channel'?[row.source,row.target]:[row[key]];if(!values.some(v=>{try{return channelScid(v)===channelScid(q[key]);}catch{return false;}}))return false;}
    const at=row.at??(row.day?row.day+'T00:00:00.000Z':null);return (!q.start||at&&at>=q.start)&&(!q.end||at&&at<q.end);
@@ -107,7 +115,7 @@ export function canonicalDiagnostics(store:Store,q:CanonicalReadQuery&{provider?
   const after=q.after??0,limit=q.limit??100000;if(!Number.isSafeInteger(after)||after<0||!Number.isSafeInteger(limit)||limit<1||limit>100000)throw Error('Diagnostic bounds');
   const selected=rows.slice(after,after+limit);const nextAfter=after+limit<rows.length?after+limit:null;
   const clean=selected.map((row:any)=>({...Object.fromEntries(allowed.filter(k=>row[k]!==undefined).map(k=>[k,row[k]])),provenance:{source:provider,sourceVersion:p.version??null,capturedAt:p.capturedAt??null,granularity:row.granularity??'source record',checksum:digest(row),externalIntent:collection==='rebalances'?'external_request_status':'not_applicable'}}));
-  return {diagnostics:{[provider]:{status:p.status,version:p.version,capturedAt:p.capturedAt,coverage:p.coverage,captureComplete:p.captureComplete,captureCounts:p.captureCounts,[collection]:clean}},adapterFiltered:true,sourceMetadata:{providerCaptureDigest:digest(p),nextAfter,through:rows.length,retainedArchiveId,sourceMutationTimeKnown:false,sourceLifecycle:retainedArchiveId?'retained_immutable_capture':'current_capture',source:provider,version:p.version,capturedAt:p.capturedAt,coverage:p.coverage,captureComplete:p.captureComplete,captureCounts:p.captureCounts,financialAuthority:false},projectionLimits:{selected:clean.length,limit,truncated:nextAfter!==null,upstreamHistoryComplete:p.coverage?.complete===true}};
+  return {diagnostics:{[provider]:{status:p.status,version:p.version,capturedAt:p.capturedAt,coverage:p.coverage,captureComplete:p.captureComplete,captureCounts:p.captureCounts,[collection]:clean}},adapterFiltered:true,sourceMetadata:{providerCaptureDigest:captureDigestOf(p),nextAfter,through:rows.length,retainedArchiveId,sourceMutationTimeKnown:false,sourceLifecycle:retainedArchiveId?'retained_immutable_capture':'current_capture',source:provider,version:p.version,capturedAt:p.capturedAt,coverage:p.coverage,captureComplete:p.captureComplete,captureCounts:p.captureCounts,financialAuthority:false},projectionLimits:{selected:clean.length,limit,truncated:nextAfter!==null,upstreamHistoryComplete:p.coverage?.complete===true}};
  }
  if(collection==='failureRollups'){
   const page=nativeFailureRollups(store,q);if(!page.available)return {unavailableEvidence:{available:false,rows:null,nextOffset:null,note:page.note}};
