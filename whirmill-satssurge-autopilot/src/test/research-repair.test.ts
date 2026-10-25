@@ -8,6 +8,7 @@ import {ReviewWaits} from '../review-waits.js';
 import {EvidenceViews} from '../evidence-views.js';
 import {evidenceSource} from '../evidence-source.js';
 import {Research,REQUIRED_RESEARCH} from '../research.js';
+import {stateSummary} from '../agent-state.js';
 import {publicJob} from '../public-job.js';
 import {analystFeed} from '../analysis-feed.js';
 import {accountingPartition} from '../accounting.js';
@@ -88,4 +89,25 @@ test('node automatic wait is independent of corridor deadlines; ingestion reads 
  waits.register({scope,origin:'owner',evidenceIds:[],missing:['48h'],dueAt:new Date(time+48*3600000).toISOString()});const node=a.admit('node','coordinator')!;assert.ok(node,'Corridor wait does not block first node review');terminal(s,node.id);assert.equal(a.admit(scope,'analyst'),undefined);
  time+=49*3600000;assert.equal(a.admit('node','coordinator'),undefined,'Mature corridor deadline is not a node trigger');assert.ok(a.admit(scope,'analyst'));
  const original=s.all.bind(s);s.all=(sql:string,...args:any[])=>{assert.ok(!sql.includes('FROM event_ingestion'),'Historical signal rows must never materialize');return original(sql,...args);};for(let i=0;i<10;i++)event(s,200+i);assert.ok(a.admit('node','coordinator'));s.close();
+});
+test('owner conversations do not chain background continuations; scheduler reviews still do',()=>{
+ const s=new Store(':memory:'),q=new Queue(s),r=new Research(s);
+ const p={available:true,total:103,offset:0,nextOffset:20,rows:[{id:'a'}],version:'semantic',cursor:'c'};
+ const partial=(requestId:string,kind:'chat'|'autonomy',origin:'telegram'|'owner'|'scheduler')=>{const j=q.enqueue({requestId,kind,origin,purpose:'economic',payload:{}});r.initialize(j);r.page(j,{section:'channels'},p);terminal(s,j.id);assert.equal(r.status(j.id).researchStatus,'partial');return q.get(j.id)!;};
+ try{
+  assert.equal(r.continue(q,partial('telegram-chat','chat','telegram')),undefined);
+  assert.equal(r.continue(q,partial('web-chat','chat','owner')),undefined);
+  const next=r.continue(q,partial('review','autonomy','scheduler'));assert.ok(next);assert.equal(next!.kind,'analysis');
+  assert.equal(s.one("SELECT count(*) n FROM jobs WHERE request_id LIKE 'continuation:%'").n,1);
+ }finally{s.close();}
+});
+test('chat state exposes recent autonomous review outcomes, not owner conversations',()=>{
+ const s=new Store(':memory:'),q=new Queue(s);
+ try{
+  const review=q.enqueue({requestId:'automatic:node:1',kind:'autonomy',scope:'node',origin:'scheduler',purpose:'economic',payload:{}});
+  const chat=q.enqueue({requestId:'chat-1',kind:'chat',origin:'telegram',payload:{message:'ciao'}});
+  for(const [j,answer] of [[review,'**Sintesi: raccomando di proseguire l’osservazione.**'],[chat,'Prego']] as const)s.run("UPDATE jobs SET state='completed',finished_at=?,result=? WHERE id=?",'2026-10-25T09:42:39Z',JSON.stringify({answer}),j.id);
+  const reviews=(stateSummary(s.stats()) as any).autonomousReviews.reviews;
+  assert.equal(reviews.length,1);assert.equal(reviews[0].id,review.id);assert.equal(reviews[0].scope,'node');assert.match(reviews[0].summary,/proseguire l’osservazione/);
+ }finally{s.close();}
 });
