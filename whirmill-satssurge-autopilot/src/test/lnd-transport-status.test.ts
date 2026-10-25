@@ -89,9 +89,29 @@ for(const failure of ['permission_denied','unavailable'] as const)test(`healthy 
 
 test('noncertificate failures report bounded RPC/acquisition context without implying TLS failure',()=>{
  for(const failure of ['rpc_failure','acquisition_failure'] as const){
-  const f=fixture();try{f.s.set('lndTransport',{...status('healthy'),failure,failureContext:{failureAt:'2027-01-12T21:59:00.000Z',origin:failure==='rpc_failure'?'rpc':'local_acquisition',method:'subscribeHtlcEvents',grpcStatus:2,reason:'callback_error',details:'private-secret',nodeId:'private-node'}});capture(f.t);const content=JSON.stringify(f.s.one("SELECT * FROM telegram_outbox WHERE event_id LIKE 'lnd-transport:%'"));assert.ok(content.includes('2027-01-12T21:59:00.000Z'));assert.ok(content.includes('subscribeHtlcEvents'));assert.ok(!content.includes('gRPC TLS'));assert.ok(!content.includes('Certificato'));assert.ok(!content.includes('private-secret'));assert.ok(!content.includes('private-node'));}finally{f.close();}
+  const f=fixture();try{f.s.set('lndTransport',{...status('healthy'),failure,failureContext:{failureAt:'2027-01-12T21:59:00.000Z',origin:failure==='rpc_failure'?'rpc':'local_acquisition',method:'subscribeHtlcEvents',grpcStatus:2,reason:'callback_error',details:'private-secret',nodeId:'private-node'}});capture(f.t);assert.equal(f.s.all("SELECT * FROM telegram_outbox WHERE event_id LIKE 'lnd-transport:%'").length,0);capture(f.t,'2027-01-12T22:10:00.000Z');const content=JSON.stringify(f.s.one("SELECT * FROM telegram_outbox WHERE event_id LIKE 'lnd-transport:%'"));assert.ok(content.includes('2027-01-12T21:59:00.000Z'));assert.ok(content.includes('subscribeHtlcEvents'));assert.ok(!content.includes('gRPC TLS'));assert.ok(!content.includes('Certificato'));assert.ok(!content.includes('private-secret'));assert.ok(!content.includes('private-node'));}finally{f.close();}
  }
  assert.deepEqual(safeLndFailureContext({failureAt:at,origin:'rpc',method:'private-rpc',grpcStatus:99,reason:'private-secret',details:'private-secret'}),{failureAt:at,origin:'rpc'});
  assert.equal(safeLndFailureContext({failureAt:'private-secret',origin:'rpc'}),undefined);
  assert.equal(safeLndFailureContext({failureAt:at,origin:'private-secret'}),undefined);
+});
+
+const transientRows=(f:any)=>f.s.all("SELECT event_id,text FROM telegram_outbox WHERE event_id LIKE 'lnd-transport%' ORDER BY rowid");
+test('a transient LND failure that recovers within ten minutes sends nothing',()=>{
+ const f=fixture();try{
+  f.s.set('lndTransport',{...status('healthy'),failure:'deadline',failureContext:{failureAt:at,origin:'rpc',method:'getInfo',grpcStatus:4}});capture(f.t);capture(f.t,'2027-01-12T22:05:00.000Z');
+  f.s.set('lndTransport',status('healthy'));capture(f.t,'2027-01-12T22:06:00.000Z');
+  f.s.set('lndTransport',{...status('healthy'),failure:'cancelled'});capture(f.t,'2027-01-12T22:20:00.000Z');capture(f.t,'2027-01-12T22:29:00.000Z');
+  assert.deepEqual(transientRows(f),[]);
+ }finally{f.close();}
+});
+test('a persistent transient LND failure alerts once across kinds and reports recovery once',()=>{
+ const f=fixture();try{
+  f.s.set('lndTransport',{...status('healthy'),failure:'deadline',failureContext:{failureAt:at,origin:'rpc',method:'getInfo',grpcStatus:4}});capture(f.t);
+  f.s.set('lndTransport',{...status('healthy'),failure:'rpc_failure'});capture(f.t,'2027-01-12T22:12:00.000Z');capture(f.t,'2027-01-12T22:13:00.000Z');
+  f.s.set('lndTransport',{...status('healthy'),failure:'unavailable'});capture(f.t,'2027-01-12T22:25:00.000Z');
+  let rows=transientRows(f);assert.equal(rows.length,1);assert.match(rows[0].text,/^LND non risponde correttamente da 12 minuti \(rpc_failure\)/);assert.doesNotMatch(rows[0].text,/richiede attenzione/);
+  f.s.set('lndTransport',status('healthy'));capture(f.t,'2027-01-12T22:30:00.000Z');capture(f.t,'2027-01-12T22:31:00.000Z');
+  rows=transientRows(f);assert.equal(rows.length,2);assert.equal(rows[1].text,'Collegamento a LND ripristinato dopo 30 minuti.');
+ }finally{f.close();}
 });
