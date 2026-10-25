@@ -35,7 +35,7 @@ export class Collector {
         this.store.set('appControlProof',contract?readAppControls(process.env.APP_CONTROL_FILE??'/app-controls/status.json',Date.now,contract):unavailableAppControls());
         // Scoped app absence/settings cannot prove owner-wide standalone absence.
         this.store.set('automationProof',{ok:false,at:now(),state:'unknown',source:'apps-only',reason:'Owner-wide standalone automation unknown; financial execution held'});
-      }else{const contract=this.store.get<InterlockContract>('interlockContract');this.store.set('automationProof',contract?.schema===2?readInterlock(this.gateFile,Date.now,contract):contract!==undefined?{ok:false,at:now(),state:'unknown',reason:'Unsupported protected interlock contract'}:checkInterlocks({lightningMate:this.gateFile,lndg:''}));}
+      }else{this.store.run("DELETE FROM meta WHERE key='appControlProof'");const contract=this.store.get<InterlockContract>('interlockContract');this.store.set('automationProof',contract?.schema===2?readInterlock(this.gateFile,Date.now,contract):contract!==undefined?{ok:false,at:now(),state:'unknown',reason:'Unsupported protected interlock contract'}:checkInterlocks({lightningMate:this.gateFile,lndg:''}));}
       await this.executor.reconcile();
       const s=await this.node.snapshot();if(s.identity!==this.store.get('expectedIdentity'))throw new Error('Node identity mismatch');const previous=this.store.get<Snapshot>('snapshot');
       for(const c of s.channels) {
