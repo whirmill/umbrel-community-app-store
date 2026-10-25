@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.21"
+version: "0.5.22"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,9 +27,11 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.21 stops alarm messages for brief LND hiccups: a slow or
-  cancelled LND call that recovers on its own no longer sends a Telegram alert.
-  An outage that lasts ten minutes sends one alert, and one message when LND has
-  been healthy again for five minutes. Certificate and authentication problems
-  are still reported immediately. The peer fee comparison works again with
-  LND 0.21.4 and later, including release candidates.
+  Version 0.5.22 lets the agent measure each channel and propose opening new
+  channels or cooperatively closing weak ones, to balance liquidity through
+  return routes instead of rebalancing. Every channel operation runs only after
+  you approve it in Telegram; closes are never forced; on-chain fees are capped
+  at 20,000 sats per month and new channels at 500,000-2,000,000 sats. Channel
+  features need a separate restricted LND credential (scripts/provision-channels.sh).
+  The operational database now grows far more slowly, and a retention issue that
+  could have blocked automation after 90 days is fixed.
