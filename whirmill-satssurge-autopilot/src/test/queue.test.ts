@@ -39,7 +39,7 @@ test('pool is bounded to two analysts and one coordinator during concurrent pump
   const {s,q}=ready();for(let n=0;n<3;n++)q.enqueue({requestId:'a:'+n,kind:'analysis',payload:{message:'read'}});
   q.enqueue({requestId:'chat',kind:'chat',payload:{message:'read'}});
   let release!:()=>void;const gate=new Promise<void>(r=>release=r);let analysts=0,coordinator=0;
-  const pump=new Scheduler(q,{available:async()=>true,runJob:async(_job,slot)=>{if(slot===undefined)coordinator++;else analysts++;await gate;return {answer:'done'};}});
+  const pump=new Scheduler(q,{available:async()=>true,runJob:async(job)=>{if(job.lane==='coordinator')coordinator++;else analysts++;await gate;return {answer:'done'};}});
   await Promise.all([pump.pump(),pump.pump(),pump.pump()]);assert.equal(analysts,2);assert.equal(coordinator,1);
   pump.stop();release();await new Promise(r=>setTimeout(r,10));assert.equal(q.list().filter(j=>j.state==='completed').length,3);s.close();
 });

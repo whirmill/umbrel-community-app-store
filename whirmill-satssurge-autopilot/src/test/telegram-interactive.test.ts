@@ -308,13 +308,13 @@ test('two corrections during successive Pi runs remain one app turn; reused-sess
         rmSync(dir, { recursive: true, force: true });
     }
 });
-test('production immediate Telegram dispatch uses read-only slot2 tools while financial coordinator remains owned', async () => { const { Scheduler } = await import('../scheduler.js'); const dir = mkdtempSync(join(tmpdir(), 'pi-dispatch-')), f = fixture(dir, 'state'), turns = new TelegramTurns(f.store, f.queue), control = new ApplicationControl(f.store, f.queue); const finance = held(), financeEntered = held(), chatDone = held(); let toolName = ''; f.store.set('telegramConfigured', true); f.store.set('telegramBinding', { generation: 'g', chatId: 42, userId: 42, since: now() }); f.agent.models.streamSimple = (_model, request) => { const stream = createAssistantMessageEventStream(), isFinance = JSON.stringify(request.messages).includes('hold-finance'), result = request.messages.some((m: any) => m.role === 'toolResult'); const message: any = { role: 'assistant', api: 'openai-responses', provider: 'openai', model: 'gpt-6.1-sol', timestamp: Date.now(), usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }, stopReason: isFinance || result ? 'stop' : 'toolUse', content: isFinance || result ? [{ type: 'text', text: isFinance ? 'Finance done' : 'Chat done' }] : [{ type: 'toolCall', id: 'chat-state', name: 'node_state_analyst_2', arguments: {} }] }; const emit = () => { stream.push({ type: 'start', partial: message }); stream.push({ type: 'done', reason: message.stopReason, message }); if (result)
+test('production immediate Telegram dispatch uses the read-only chat tool set while financial coordinator remains owned', async () => { const { Scheduler } = await import('../scheduler.js'); const dir = mkdtempSync(join(tmpdir(), 'pi-dispatch-')), f = fixture(dir, 'state'), turns = new TelegramTurns(f.store, f.queue), control = new ApplicationControl(f.store, f.queue); const finance = held(), financeEntered = held(), chatDone = held(); let toolName = ''; f.store.set('telegramConfigured', true); f.store.set('telegramBinding', { generation: 'g', chatId: 42, userId: 42, since: now() }); f.agent.models.streamSimple = (_model, request) => { const stream = createAssistantMessageEventStream(), isFinance = JSON.stringify(request.messages).includes('hold-finance'), result = request.messages.some((m: any) => m.role === 'toolResult'); const message: any = { role: 'assistant', api: 'openai-responses', provider: 'openai', model: 'gpt-6.1-sol', timestamp: Date.now(), usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }, stopReason: isFinance || result ? 'stop' : 'toolUse', content: isFinance || result ? [{ type: 'text', text: isFinance ? 'Finance done' : 'Chat done' }] : [{ type: 'toolCall', id: 'chat-state', name: 'node_state', arguments: {} }] }; const emit = () => { stream.push({ type: 'start', partial: message }); stream.push({ type: 'done', reason: message.stopReason, message }); if (result)
     chatDone.release(); }; if (isFinance) {
     financeEntered.release();
     void finance.promise.then(emit);
 }
 else {
-    toolName = result ? toolName : 'node_state_analyst_2';
+    toolName = result ? toolName : 'node_state';
     queueMicrotask(emit);
 } return stream; }; const scheduler = new Scheduler(f.queue, f.agent), telegram = new Telegram(f.store, control, dir, { call: async () => ({ message_id: 1 }) }); telegram.setWake(() => scheduler.dispatchTelegram()); try {
     await f.agent.open();
@@ -324,7 +324,7 @@ else {
     telegram.ingest([incoming(1, 'Read current node state')]);
     await telegram.process();
     await chatDone.promise;
-    assert.equal(toolName, 'node_state_analyst_2');
+    assert.equal(toolName, 'node_state');
     assert.equal(f.queue.get(financial.id)!.state, 'running');
     assert.equal(scheduler.status().coordinatorRunning, true);
     const chat = f.queue.list().find(j => j.id !== financial.id)!;

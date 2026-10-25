@@ -25,7 +25,7 @@ for(const status of [0,401,429])test('genuine SDK/native failure '+(status||'tru
    }});
   };
   await f.agent.open();const job=f.queue.enqueue({requestId:'original-provider-'+status,kind:'analysis',payload:{message:'read state'}}),claimed=f.queue.claim('analyst','first')!;
-  await assert.rejects(f.agent.runJob(claimed,0),/original submission terminal/);f.queue.finish(job.id,claimed.run_token!,'failed','Model unavailable; original submission terminal, no automatic replay');
+  await assert.rejects(f.agent.runJob(claimed),/original submission terminal/);f.queue.finish(job.id,claimed.run_token!,'failed','Model unavailable; original submission terminal, no automatic replay');
   const stored=f.queue.get(job.id)!,failure=f.store.get<any>('providerFailure:'+job.id);
   assert.equal(failure.kind,status===401?'authentication':status===429?'quota':'transient_stream');assert.equal(failure.source,'native_entry');
   assert.equal(failure.conversationId,stored.conversation_id);assert.equal(failure.submissionId,stored.submission_id);assert.ok(failure.taskId);assert.ok(failure.entryId);
@@ -53,7 +53,7 @@ for(const status of [0,401,429])test('genuine SDK/native failure '+(status||'tru
   assert.equal(f.queue.get(job.id)?.submission_id,stored.submission_id);
   // Advance only the fixture clock to expiry; never rewrite the original receipt or resubmit it.
   const clock=Date.now;Date.now=()=>until+1;
-  try{f.queue.releaseWaiting(new Date(until+1).toISOString());assert.equal(await f.agent.available(),true);const next=f.queue.claim('analyst','fresh',new Date(until+1).toISOString())!;assert.equal(next.id,future.id);await f.agent.runJob(next,0);assert.notEqual(f.queue.get(next.id)?.submission_id,stored.submission_id);}finally{Date.now=clock;}
+  try{f.queue.releaseWaiting(new Date(until+1).toISOString());assert.equal(await f.agent.available(),true);const next=f.queue.claim('analyst','fresh',new Date(until+1).toISOString())!;assert.equal(next.id,future.id);await f.agent.runJob(next);assert.notEqual(f.queue.get(next.id)?.submission_id,stored.submission_id);}finally{Date.now=clock;}
   assert.equal(existsSync(join(directory,'effects.jsonl')),false);
  }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
 });
@@ -70,13 +70,13 @@ test('legacy persisted expiry and missing-expiry fallback remain conservative',a
 test('pre-submission legacy hold retains expiry and cannot fabricate native or authentication proof',async()=>{
  const directory=mkdtempSync(join(tmpdir(),'surge-held-'));const f=fixture(directory,'state');
  try{const until=Date.now()+60000;f.store.set('modelUnavailableUntil',until);(f.agent as any).cooldown=until;await f.agent.open();const job=f.queue.enqueue({requestId:'held',kind:'analysis',payload:{message:'read'}}),claimed=f.queue.claim('analyst','owner')!;
- await assert.rejects(f.agent.runJob(claimed,0),/unavailable/);assert.equal(f.store.get('modelUnavailableUntil'),until);assert.equal(f.queue.get(job.id)?.submission_id,null);assert.equal(f.store.get('providerFailure:'+job.id),undefined);assert.doesNotMatch(availabilityBlocker(f.store.get<any>('agent').failure),/Autenticazione|Quota/);
+ await assert.rejects(f.agent.runJob(claimed),/unavailable/);assert.equal(f.store.get('modelUnavailableUntil'),until);assert.equal(f.queue.get(job.id)?.submission_id,null);assert.equal(f.store.get('providerFailure:'+job.id),undefined);assert.doesNotMatch(availabilityBlocker(f.store.get<any>('agent').failure),/Autenticazione|Quota/);
  }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
 });
 test('missing configured model fails before submission with truthful separate configuration receipt',async()=>{
  const directory=mkdtempSync(join(tmpdir(),'surge-model-'));const f=fixture(directory,'state');
  try{f.store.set('model',null);await f.agent.open();const job=f.queue.enqueue({requestId:'no-configured-model',kind:'analysis',payload:{message:'read'}}),claimed=f.queue.claim('analyst','owner')!;
- await assert.rejects(f.agent.runJob(claimed,0),/model/);const failure=f.store.get<any>('agent').failure;assert.equal(failure.kind,'configuration_missing');assert.equal(failure.source,'pre_submission');assert.equal(f.queue.get(job.id)?.submission_id,null);assert.equal(f.calls.thinking.length,0);assert.match(availabilityBlocker(failure),/non configurato/);
+ await assert.rejects(f.agent.runJob(claimed),/model/);const failure=f.store.get<any>('agent').failure;assert.equal(failure.kind,'configuration_missing');assert.equal(failure.source,'pre_submission');assert.equal(f.queue.get(job.id)?.submission_id,null);assert.equal(f.calls.thinking.length,0);assert.match(availabilityBlocker(failure),/non configurato/);
  }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
 });
 

@@ -8,12 +8,12 @@ export class ModelUnavailable extends Error {}
 export interface JobRunner {
   available():Promise<boolean>;
   recoverTelegramStops?():Promise<void>;
-  runJob(job:Job,analystSlot?:number):Promise<unknown>;
+  runJob(job:Job):Promise<unknown>;
 }
-/** One process, one coordinator, up to two isolated read-only conversations. */
+/** One process, one coordinator, up to two isolated read-only conversations. Slots count lane capacity only. */
 export class Scheduler {
   private pumping=false;private coordinator=false;private chat=false;private chatDispatching=false;private analysts=new Set<number>();
-  private owner=id();private stopped=false;private heartbeats=new Map<string,ReturnType<typeof setInterval>>();
+  private owner=id();private stopped=false;
   private active=new Set<Promise<void>>();
   constructor(readonly queue:Queue,private runner:JobRunner){}
   async pump() {
@@ -37,14 +37,14 @@ export class Scheduler {
     void task.finally(()=>this.active.delete(task));
   }
   private async launch(job:Job,slot?:number) {
+    // run_token fences late async work of this run; the process lock excludes other writers.
     const token=job.run_token!;
-    const timer=setInterval(()=>this.queue.renew(job.id,token),15000);this.heartbeats.set(job.id,timer);
     try {
-      const result=await this.runner.runJob(job,slot);this.queue.finish(job.id,token,'completed',result);new Research(this.queue.store).continue(this.queue,this.queue.get(job.id)!);
+      const result=await this.runner.runJob(job);this.queue.finish(job.id,token,'completed',result);new Research(this.queue.store).continue(this.queue,this.queue.get(job.id)!);
     }catch(e){
       if(e instanceof ModelUnavailable)this.queue.wait(job.id,token,'model_unavailable');
       else {this.queue.finish(job.id,token,'failed',e instanceof Error?e.message:'Task failed');new Research(this.queue.store).continue(this.queue,this.queue.get(job.id)!);}
-    }finally{clearInterval(timer);this.heartbeats.delete(job.id);if(slot===undefined)this.coordinator=false;else if(slot===2)this.chat=false;else this.analysts.delete(slot);void this.pump();}
+    }finally{if(slot===undefined)this.coordinator=false;else if(slot===2)this.chat=false;else this.analysts.delete(slot);void this.pump();}
   }
   private enqueueScheduled(input:Parameters<Queue['enqueue']>[0]) {
     try{return this.queue.enqueue(input);}
@@ -69,7 +69,7 @@ export class Scheduler {
     }
     void this.pump();
   }
-  // Stop admission immediately; retain leases while already submitted work drains.
+  // Stop admission immediately while already submitted work drains.
   // If the process is forcibly killed, original submission IDs survive recovery.
   stop(){this.stopped=true;}
   async drain(timeoutMs=25000):Promise<boolean>{

@@ -14,7 +14,7 @@ test('actual analyst registry returns current competition tail without the large
   try{
     f.store.set('competition',{status:'qualified',coverage:'Public graph only',channels:Array.from({length:10},(_,i)=>({id:String(i),alias:'peer'+i,quotes:[{ourFeeMsat:'40000'}],alternatives:Array.from({length:100},(_,j)=>({id:String(j)})),alternativesTruncated:true}))});
     await f.agent.open();f.queue.enqueue({requestId:'current-price-pages',kind:'analysis',payload:{message:'read current prices'}});
-    const result=await f.agent.runJob(f.queue.claim('analyst','owner')!,0);
+    const result=await f.agent.runJob(f.queue.claim('analyst','owner')!);
     assert.match(result.answer,/peer9/);assert.match(result.answer,/40000/);assert.match(result.answer,/availableAlternativeRows/);
     assert.doesNotMatch(result.answer,/Unknown tool|truncated by/);
     assert.equal(existsSync(join(directory,'effects.jsonl')),false);
@@ -51,7 +51,7 @@ test('real Pi registry denies financial tools to analyst conversations',{timeout
   const directory=mkdtempSync(join(tmpdir(),'surge-pi-analyst-'));const f=fixture(directory,'analyst');
   try{
     await f.agent.open();const job=f.queue.enqueue({requestId:'analyst-isolation',kind:'analysis',payload:{message:'try unavailable financial tool'}});
-    const claimed=f.queue.claim('analyst','owner')!;const result=await f.agent.runJob(claimed,0);
+    const claimed=f.queue.claim('analyst','owner')!;const result=await f.agent.runJob(claimed);
     assert.match(result.answer,/terminal tool receipt/);
     assert.equal(existsSync(join(directory,'effects.jsonl')),false);
     assert.ok(f.queue.get(job.id)?.submission_id);
@@ -91,7 +91,7 @@ test('another durable coordinator conversation cannot borrow an active job finan
     const submission=await foreign.submit({type:'input',content:'foreign caller',requestId:'foreign-caller',whenBusy:'reject'},context);
     const outcome=await submission.wait(context);assert.equal(outcome.status,'done');
     const transcript=await foreign.context(context);
-    assert.match(JSON.stringify(transcript.entries),/Lost job ownership/);
+    assert.match(JSON.stringify(transcript.entries),/No active owned run/);
     assert.equal(existsSync(join(directory,'effects.jsonl')),false);
     await ownRun;
     assert.equal(f.queue.get(job.id)?.conversation_id,ownedConversation);
@@ -106,7 +106,7 @@ test('actual fresh continuation analyst denies finance and preserves parent rece
     research.initialize(parent);research.state(parent);
     f.store.run("UPDATE jobs SET state='completed',submitted=1,conversation_id='synthetic-parent-conversation',submission_id='synthetic-parent-submission' WHERE id=?",parent.id);
     const next=research.continue(f.queue,f.queue.get(parent.id)!)!;
-    await f.agent.open();const claimed=f.queue.claim('analyst','test')!;assert.equal(claimed.id,next.id);const result=await f.agent.runJob(claimed,0);assert.match(result.answer,/terminal tool receipt/);
+    await f.agent.open();const claimed=f.queue.claim('analyst','test')!;assert.equal(claimed.id,next.id);const result=await f.agent.runJob(claimed);assert.match(result.answer,/terminal tool receipt/);
     assert.equal(existsSync(join(directory,'effects.jsonl')),false);assert.equal(f.queue.get(parent.id)!.submission_id,'synthetic-parent-submission');assert.notEqual(f.queue.get(next.id)!.submission_id,'synthetic-parent-submission');assert.notEqual(f.queue.get(next.id)!.conversation_id,'synthetic-parent-conversation');assert.equal(f.store.get('jobCapability:'+next.id),'read_only_research');
   }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
 });
@@ -122,6 +122,8 @@ test('native PiDurable registry creates manual proposal only for explicit review
       const result=await f.agent.runJob(f.queue.claim('coordinator','fixture')!);
       assert.match(result.answer,/terminal tool receipt/);
       assert.equal(f.store.all('SELECT * FROM owner_proposals').length,mode==='manual'?1:0);
+      // Manual review offers proposals without execute_decision; plain Telegram chat gets the read-only set.
+      assert.equal(f.calls.tools.includes('create_manual_proposal'),mode==='manual');assert.equal(f.calls.tools.includes('execute_decision'),false);
       assert.equal(existsSync(join(directory,'effects.jsonl')),false);
       assert.ok(f.queue.get(job.id)?.submission_id);
       assert.equal(f.store.all('SELECT * FROM operations').length,0);

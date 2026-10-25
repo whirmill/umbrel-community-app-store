@@ -15,7 +15,7 @@ if(process.argv[2]==='held-runs'){
  // The provider never answers: every run is mid-generation when the process is killed.
  f.agent.models.streamSimple=(_model,request)=>{const text=JSON.stringify(request.messages);for(const job of jobs)if(text.includes('marker-'+job.name))entered.add(job.name);return createAssistantMessageEventStream();};
  await f.agent.open();
- const started:Record<string,Started>={},markSubmitted=f.queue.markSubmitted.bind(f.queue);let analyst=0;
+ const started:Record<string,Started>={},markSubmitted=f.queue.markSubmitted.bind(f.queue);
  const until=async(condition:()=>boolean)=>{const deadline=Date.now()+5000;while(!condition()){if(Date.now()>deadline)throw Error('fixture condition timeout');await new Promise(r=>setTimeout(r,2));}};
  for(const spec of jobs){
   const message='marker-'+spec.name;
@@ -28,7 +28,7 @@ if(process.argv[2]==='held-runs'){
    if(id===job.id){started[spec.name]={jobId:job.id,conversationId:f.queue.get(job.id)!.conversation_id,submissionId:submission};process.send?.({type:'ready',started});process.kill(process.pid,'SIGSTOP');}
    return markSubmitted(id,token,submission);
   };
-  void f.agent.runJob(claimed,job.lane==='analyst'?analyst++:chat?2:undefined).catch(()=>{});
+  void f.agent.runJob(claimed).catch(()=>{});
   if(spec.unbound){await new Promise(()=>{});}
   await until(()=>entered.has(spec.name)&&f.queue.get(job.id)?.submitted===1);
   const row=f.queue.get(job.id)!;started[spec.name]={jobId:job.id,conversationId:row.conversation_id,submissionId:row.submission_id!};
