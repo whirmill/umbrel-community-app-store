@@ -37,6 +37,8 @@ export class Collector {
         this.store.set('automationProof',{ok:false,at:now(),state:'unknown',source:'apps-only',reason:'Owner-wide standalone automation unknown; financial execution held'});
       }else{this.store.run("DELETE FROM meta WHERE key='appControlProof'");const contract=this.store.get<InterlockContract>('interlockContract');this.store.set('automationProof',contract?.schema===2?readInterlock(this.gateFile,Date.now,contract):contract!==undefined?{ok:false,at:now(),state:'unknown',reason:'Unsupported protected interlock contract'}:checkInterlocks({lightningMate:this.gateFile,lndg:''}));}
       await this.executor.reconcile();
+      // Channel reconciliation leaves operations unchanged on failure and never blocks collection.
+      try{await this.executor.channels?.reconcile();}catch{}
       const s=await this.node.snapshot();if(s.identity!==this.store.get('expectedIdentity'))throw new Error('Node identity mismatch');const previous=this.store.get<Snapshot>('snapshot');
       for(const c of s.channels) {
         const old=previous?.channels.find(x=>x.id===c.id);

@@ -9,7 +9,7 @@ import { writeFileSync, readFileSync, existsSync, chmodSync, renameSync, unlinkS
 import { join } from 'node:path';
 import { ApplicationControl, requestCapability } from './application-control.js';
 import { Store } from './store.js';
-import { hash, json, now, day, scrub } from './domain.js';
+import { hash, json, now, day, scrub, channelKind } from './domain.js';
 export interface TelegramTransport {
     call(method: string, body: unknown, signal?: AbortSignal): Promise<any>;
 }
@@ -655,8 +655,17 @@ export class Telegram {
                         answer = 'Autonomia ripresa.';
                     }
                     else if (value.action === 'approve') {
-                        const result = await this.control.approve(value.id, at);
-                        answer = result.consumed ? 'Proposta accettata; verifica la ricevuta operativa nella web app.' : 'Proposta già utilizzata; nessuna seconda esecuzione.';
+                        const channel = channelKind(this.control.proposal(value.id)?.content?.kind);
+                        try {
+                            const result = await this.control.approve(value.id, at);
+                            answer = result.consumed ? (channel ? 'Operazione sul canale inviata; stato in riconciliazione da LND, mai ripetuta automaticamente.' : 'Proposta accettata; verifica la ricevuta operativa nella web app.') : 'Proposta già utilizzata; nessuna seconda esecuzione.';
+                        }
+                        catch (error) {
+                            // Channel failures are reported, never retried or forced. Only our own policy messages are shown verbatim.
+                            if (!channel) throw error;
+                            const message = String((error as Error)?.message ?? '');
+                            answer = 'Operazione sul canale non eseguita: ' + (message.startsWith('Channel: ') ? telegramText(message.slice(9)) : 'esito bloccato o incerto; verifica la ricevuta nella web app') + '. Nessun nuovo tentativo automatico e nessuna chiusura forzata.';
+                        }
                     }
                     else if (value.action === 'reject') {
                         this.control.reject(value.id);
@@ -767,7 +776,10 @@ export class Telegram {
             }
         }
     }
-    summary(p: any) { return `Proposta ${p.content.kind}: ${p.content.source || 'policy'} → ${p.content.target}. Importo ${p.content.amountSat} sat; costo massimo ${p.content.maxFeeMsat} msat${p.content.newPpm === undefined ? '' : `; nuova fee ${p.content.newPpm} ppm`}. Motivo: ${telegramText(p.content.whyAct)}. Valida per 5 minuti dalla consegna. Approva o rifiuta; restano attivi i controlli di sicurezza.`; }
+    summary(p: any) {
+        const c = p.content;
+        if (channelKind(c.kind)) return `${c.kind === 'channel_open' ? `Proposta apertura canale da ${c.amountSat} sat verso` : 'Proposta chiusura cooperativa del canale con'} ${telegramText(String(c.alias || c.peer.slice(0, 16)))}${c.channel ? ` (${c.channel})` : ''}. Fee on-chain massima ${c.maxFeeSat} sat a ${c.satPerVbyte} sat/vB; budget on-chain mensile residuo ${c.forecast?.monthlyBudget?.remainingSat ?? 'sconosciuto'} sat.${c.kind === 'channel_close' ? ' Mai chiusura forzata: se il peer è offline o rifiuta, l’operazione si ferma e viene segnalata.' : ` Riserva on-chain di ${c.forecast?.reserveSat ?? '500000'} sat protetta.`} Motivo: ${telegramText(c.whyAct)}. Valida per 5 minuti dalla consegna. Nulla viene eseguito senza la tua approvazione.`;
+        return `Proposta ${p.content.kind}: ${p.content.source || 'policy'} → ${p.content.target}. Importo ${p.content.amountSat} sat; costo massimo ${p.content.maxFeeMsat} msat${p.content.newPpm === undefined ? '' : `; nuova fee ${p.content.newPpm} ppm`}. Motivo: ${telegramText(p.content.whyAct)}. Valida per 5 minuti dalla consegna. Approva o rifiuta; restano attivi i controlli di sicurezza.`; }
     /** A read-only turn cut by a transient provider error is asked again once, as a new request linked to the original. */
     private transientRetry(j: any, at: string): { until: string } | undefined {
         if (j.state !== 'failed' || this.store.get('jobCapability:' + j.id) !== 'read_only_chat' || this.store.get('telegramLinkedRequest:' + j.id)?.retryOf) return undefined;
