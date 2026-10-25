@@ -61,10 +61,30 @@ conversation/submission, proposta, decisione, operazione e payment hash.
 Per una ripresa usare gli identificatori originali, non creare una nuova
 submission per un job che ne possiede già una.
 
+Ogni riferimento tra i database è una chiave idempotente: job → submission per
+`requestId`, sessione → conversazione per l'entry `app.conversation_binding`,
+chiamata di tool → operazione per `operationCall:<operation>`. I campi
+`conversation_id`/`submission_id` del job sono cache di queste chiavi.
+
+## Chi decide e chi esegue
+
+La coda applicativa decide **che cosa può girare e quando**: ammissione, gate
+(`enabled`, bootstrap, operazione incerta, modello, deadline), lane (un
+coordinatore finanziario, un coordinatore Telegram, due analisti), priorità e
+ordine per chat. Pi Durable esegue e recupera il run. Il `run_token` del job
+protegge da lavoro asincrono tardivo dello stesso processo; il lock di processo
+esclude altri writer, quindi non esistono lease o heartbeat. Al riavvio la
+recovery collega o abortisce ogni run prima che Durable riprenda (vedi
+[durable-patterns](durable-patterns.md#recovery-allavvio-attach-abort-resume)).
+
 ## Dove leggere il codice
 
 - [Agente e harness](../../whirmill-satssurge-autopilot/src/agent.ts): provider,
-  registry, selezione tool, storage FULL e proiezione degli eventi.
+  registry, ruoli e strumenti, recovery all'avvio, storage FULL e proiezione
+  degli eventi.
+- [Scheduler](../../whirmill-satssurge-autopilot/src/scheduler.ts) e
+  [coda](../../whirmill-satssurge-autopilot/src/queue.ts): lane, gate e
+  recovery dei run.
 - [Controlli condivisi](../../whirmill-satssurge-autopilot/src/application-control.ts):
   ammissione, pausa/ripresa e approvazioni.
 - [Executor](../../whirmill-satssurge-autopilot/src/executor.ts): prenotazione,

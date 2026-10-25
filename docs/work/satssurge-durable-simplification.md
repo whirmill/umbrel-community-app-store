@@ -228,3 +228,42 @@ Each step is a PR with tests:
 - **Telegram Stop semantics.** The owner-visible behaviour must not change: Stop ends the
   turn, queued corrections are withdrawn, and no later turn is affected. The existing
   Telegram tests plus the new recovery tests are the acceptance.
+
+## Implementation deviations (2026-10-25)
+
+Steps 0–3 and the `docs/pi` part of step 4 are implemented on
+`refactor/satssurge-durable-simplification`. Where the design was ambiguous or
+would have changed behaviour by accident, the safer option was taken:
+
+- **Registry key.** `Agent.runs` is keyed by job ID, and tools and the provider resolve a run
+  by `api.conversationId` or provider `sessionId`. A run exists before its conversation is
+  bound, so a conversation key would leave that window unowned.
+- **Role table.** `guarded_manual_proposal` keeps today's coordinator role, budget (16 calls),
+  instructions, `chat` memory and `agent` status; only its extension changes
+  (`satssurge-proposal`, no `execute_decision`). The table's analyst role would have told a
+  proposal job it can only draft for a coordinator. `read_only_qualification` and unknown
+  capabilities get `satssurge-readonly` (read tools and `analyst_results`). The chat role is
+  "Telegram turn and `read_only_chat`", the same rule as the queue's chat lane.
+- **What counts as a recovered run.** Only a `restart_recovery` job whose request has a native
+  submission in a conversation with live work is gated, attached or aborted. A job without
+  live native work (for example an already settled submission) stays on the normal queue path,
+  as today.
+- **Stopped turns at open.** A recovered turn with an accepted Stop is attached when the gates
+  admit it, its marks are committed before `resume()`, and its runner confirms the Stop after
+  idle. When the gates refuse it, it is aborted and finalized like any gated run (the turn
+  closes `interrupted`). A correction that never reached the native inbox becomes `withdrawn`
+  (`stop_before_native_submission`) inside `runJob`.
+- **Closed turns with an unconfirmed Stop** (historical receipts, or a crash between the
+  terminal and the confirmation) are confirmed after `waitForIdle` on their conversation. The
+  old patch-proof checks are gone; native idle is the proof.
+- **A run that fails before its attach barrier** owns nothing: the sweep aborts its native work
+  and the scheduler finishes the job as an ordinary failure (or `model_unavailable` wait).
+- **Gated runs** get the follow-up fallback (`interrupted_at_restart`) for economic jobs; their
+  run budget is left as it was.
+- **Call ↔ operation link.** The link is persisted and queryable (`Store.operationForCall`);
+  no reconciliation or UI report was added.
+- **Leases.** All lease writes are gone, including the `NULL` resets; values in old rows stay
+  and are stripped from the public job JSON.
+- **Startup failure.** If `Scheduler.recover()` throws, the server's bootstrap catch marks
+  `bootstrapReady=false` with the generic LND blocker text; Durable stays paused, so nothing
+  runs. The blocker text is misleading in that case.
