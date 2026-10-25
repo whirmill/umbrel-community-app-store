@@ -38,6 +38,15 @@ class CompetitionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             c.project_peer(dict(raw, channels=[edge, edge]), PEER, OWN)
 
+    def test_lnd_series_accepts_later_minor_and_release_candidates(self):
+        for image in ('lightninglabs/lnd:v0.21.3-beta@sha256:' + 'a' * 64, 'lightninglabs/lnd:v0.21.5-beta.rc1', 'lightninglabs/lnd:v0.22.0-beta'):
+            self.assertTrue(c.IMAGE.fullmatch(image), image)
+        for image in ('lightninglabs/lnd:v0.20.1-beta', 'evil/lnd:v0.21.5-beta', 'lightninglabs/lnd:v0.21.5-beta;x'):
+            self.assertIsNone(c.IMAGE.fullmatch(image), image)
+        version = c.GETINFO_VERSION.fullmatch('0.21.5-beta.rc1 commit=v0.21.5-beta.rc1')
+        self.assertEqual(version.group(1), '0.21.5-beta.rc1')
+        self.assertIsNone(c.GETINFO_VERSION.fullmatch('0.21.5-beta.rc1'))
+
 
 if __name__ == '__main__':
     unittest.main()
