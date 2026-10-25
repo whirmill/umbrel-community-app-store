@@ -153,3 +153,19 @@ test('LND sync lag after a block alerts only after 10 minutes and reports recove
   sweep(20,false);sweep(27,false);sweep(28,true);assert.equal(rows('blockers:%').length,1);assert.equal(rows('lnd-sync-recovered:%').length,1);
  }finally{f.close();}
 });
+test('transient provider failures alert only after 10 minutes of repeated failure and report recovery once',()=>{
+ const f=fixture();const minute=(m:number)=>new Date(Date.parse(at)+m*60000).toISOString();
+ const fail=(m:number,kind='transient_stream')=>f.s.set('agent',{at:minute(m),status:'unavailable',until:minute(m+1),failure:{kind}});
+ const sweep=(m:number)=>(f.t as any).capture(minute(m));
+ const rows=(like:string)=>f.s.all('SELECT * FROM telegram_outbox WHERE event_id LIKE ? ORDER BY created_at',like);
+ try{
+  fail(0);sweep(0);sweep(1);sweep(4);assert.equal(rows('blockers:%').length,0);assert.equal(f.s.get('telegramProviderPending'),null);
+  for(let m=10;m<=22;m++){fail(m,m%2?'transient_network':'transient_stream');sweep(m);}
+  const alerts=rows('blockers:%');assert.equal(alerts.length,1);assert.equal(alerts[0].text,'Intervento richiesto: Provider del modello non raggiungibile da oltre 10 minuti; nuove richieste in attesa');
+  sweep(24);assert.equal(rows('provider-recovered:%').length,0);
+  sweep(26);const recovered=rows('provider-recovered:%');assert.equal(recovered.length,1);assert.equal(recovered[0].text,'Provider del modello di nuovo raggiungibile dopo 13 minuti.');
+  sweep(27);assert.equal(rows('provider-recovered:%').length,1);
+  f.s.set('agent',{at:minute(30),status:'unavailable',until:minute(60),failure:{kind:'availability_unknown'}});sweep(30);
+  assert.match(rows('blockers:%').at(-1).text,/Servizio modello agente non disponibile/);
+ }finally{f.close();}
+});
