@@ -8,7 +8,7 @@ available in Git history and in closed PRs #106/#107.
 
 | | |
 |---|---|
-| Version | 0.5.24 |
+| Version | 0.5.25 |
 | Installed | 2026-10-25 via the supported Umbrel update |
 | Financial execution | active since 2026-10-25 10:42 (Rome) under mandate v1, after the owner's `/resume`. The first cycle chose observation only; no operations yet |
 | LND | `lightninglabs/lnd:v0.21.5-beta.rc1`, gRPC TLS healthy |
@@ -57,6 +57,7 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
 - **LND alerts (0.5.21).** Transient LND call failures (deadline, cancelled, rpc_failure, unavailable, resource_limit, acquisition_failure) alert only after 10 minutes of outage, once per outage, with one recovery message after 5 minutes of continuous health. Certificate, endpoint and authentication problems alert immediately. Before 0.5.21 single hiccups had produced 158 alerts.
 - **LND sync alerts (0.5.23, #128).** Right after a new block LND briefly reports `synced_to_chain=false`. Finance still stops at once, but Telegram alerts only after 10 minutes unsynchronized and sends one recovery message. On 2026-10-25 two blocks 29 s apart had produced a false "LND not synchronized" alert.
 - **Chat and autopilot (0.5.24, #131).** The chat sees the latest autopilot review outcomes, so it can explain an observation-only day. Partial answers to the owner no longer start hidden background continuations; "Completa le lacune" continues on request. Before 0.5.24 there were 27 such jobs on 2026-10-25.
+- **Model provider alerts (0.5.25, #134).** A dropped model stream or connection pauses requests for a minute. Telegram now alerts only after 10 minutes of repeated failures and sends one recovery message. Authentication, quota and configuration failures still alert immediately.
 - **Peer fee comparison (0.5.21).** It had been unavailable since LND left 0.21.3, because both sides pinned that exact version. It now accepts LND 0.21+ including release candidates.
 - **Database growth (0.5.22, #112).** Per-minute redundant canonical writes stopped: unchanged policies, empty history windows, rollup republishing, snapshot mirror copies and streaming frames. Simulated growth went from about 180 to about 12 MB/day. The release also fixes a latent retention bug that would have blocked financial execution about 90 days after install. `scripts/prune_redundant_history.py` removes existing redundant rollups and frames offline.
 - **Scoped mode (until 0.5.19).** The app-controls environment pointed at an unmounted `/app-controls`, and the persisted proof kept scoped mode alive. Together they held finance permanently. An orphan maintenance claim left by an agent on 2026-10-10 was released on 2026-10-25 with the app stopped and no operations active (#113, #114).
