@@ -6,6 +6,8 @@ import type {NativeHistoryBinding} from './native-history.js';
 
 export const NATIVE_POLICY_CONTRACT='lnd-572b561b-v1';
 const CALCULATION='native-policy-history-v1',SOURCE='lnd.policy';
+// Unchanged snapshot directions reuse their latest receipt; one confirmation per day bounds change intervals.
+export const POLICY_SNAPSHOT_REFRESH_MS=86400000;
 export type PolicyDirection='outgoing'|'incoming';
 export type PolicyErrorCode='unsupported_source'|'binding_mismatch'|'identity_mismatch'|'malformed_policy'|'source_error'|'stale_session'|'not_ready'|'receipt_conflict'|'concurrent_capture';
 export class NativePolicyError extends Error {constructor(readonly code:PolicyErrorCode){super('Native policy: '+code);}}
@@ -17,7 +19,7 @@ export interface RoutingPolicy {
 export interface PolicyOrigin {binding:NativeHistoryBinding;epoch:string;session:string}
 interface PolicyState extends PolicyOrigin {phase:'awaiting_ready'|'ready'|'closed';at:string}
 interface DirectionRecord {nativeEvidence?:ReturnType<typeof nativeBoundEvidence>;channelId:string;direction:PolicyDirection;policy:RoutingPolicy|null;originalDigest:string;missingFields:string[]}
-interface PolicyReceipt {observationId:string;projectionId:string;channelId:string;direction:PolicyDirection}
+interface PolicyReceipt {observationId:string;projectionId:string;channelId:string;direction:PolicyDirection;unchanged?:true}
 const object=(v:unknown):Record<string,any>=>{if(!v||typeof v!=='object'||Array.isArray(v))throw new NativePolicyError('malformed_policy');return v as Record<string,any>;};
 const label=(v:unknown):string=>{if(typeof v!=='string'||!v||v.length>128)throw new NativePolicyError('malformed_policy');return v;};
 const utc=(v:string):string=>{if(!/^\d{4}-\d\d-\d\dT.*Z$/.test(v)||!Number.isFinite(Date.parse(v)))throw new NativePolicyError('malformed_policy');return new Date(v).toISOString();};
@@ -70,18 +72,19 @@ export class NativePolicyCollector {
   const originalDigest=r.nativeEvidence?.rawSourceChecksum??r.originalDigest;
   const previous=this.prior(b,r.channelId,r.direction),old=previous?JSON.parse(previous.payload):null;
   if(previous&&end<previous.observed_at)throw new NativePolicyError('malformed_policy');
+  const scope='policy:'+digest({binding:b,channelId:r.channelId,direction:r.direction}),latest=this.model.db.prepare('SELECT id,evidence_ids FROM canonical_projection_revisions WHERE name=? AND scope=? ORDER BY rowid DESC LIMIT 1').get('native_policy_state',scope) as any;
+  if(mode==='snapshot'&&old?.mode==='snapshot'&&previous.original_digest===originalDigest&&Date.parse(end)-Date.parse(previous.observed_at)<POLICY_SNAPSHOT_REFRESH_MS&&latest&&JSON.parse(latest.evidence_ids).includes(previous.id))return {observationId:previous.id,projectionId:latest.id,channelId:r.channelId,direction:r.direction,unchanged:true};
   const changedFields=old?Object.values(fields).filter(field=>(old.policy?.[field]??null)!==(r.policy?.[field]??null)):[];
-  const policyKnown=r.policy!==null&&r.missingFields.length===0,scope='policy:'+digest({binding:b,channelId:r.channelId,direction:r.direction});
+  const policyKnown=r.policy!==null&&r.missingFields.length===0;
   const payload={contract:NATIVE_POLICY_CONTRACT,mode,channelId:r.channelId,direction:r.direction,policy:r.policy,missingFields:r.missingFields,policyKnown,operationalChannelStateQualified:false,checksumScope:r.nativeEvidence?.checksumScope??'allowlisted_original_policy_fields',allowlistedChecksum:r.nativeEvidence?.allowlistedChecksum??r.originalDigest,epochMeaning:'local_capture_or_subscription_label_not_global_graph_epoch',acquisitionInterval:{start,end},previousObservationId:previous?.id??null,changedFields,changeInterval:previous&&changedFields.length&&mode==='snapshot'&&old.mode==='snapshot'?{start:old.acquisitionInterval.start<start?old.acquisitionInterval.start:start,end}:null,remoteTimestampMeaning:'source_advertised_last_update_not_observed_mutation',sourceHistoryComplete:false,snapshotFrozen:false};
   const id=digest({binding:b,receiptId,channelId:r.channelId,direction:r.direction,originalDigest});
   this.model.observe({...b,id,kind:'native_policy',meaning:'lnd_effect',source:SOURCE,originalId:receiptId+':'+r.channelId+':'+r.direction,batchId:receiptId,occurredAt:null,observedAt:end,originalTimestamp:r.policy?.lastUpdate??null,granularity:mode==='snapshot'?'bounded_snapshot_interval':'untimestamped_graph_advertisement',calculationVersion:CALCULATION,sourceChannel:r.channelId,originalDigest,payload});
   if(previous)this.model.link({observationId:id,referenceTable:'canonical_observations',referenceId:previous.id,relation:'original',method:CALCULATION,details:{predecessor:true}});
   const coverageId=this.coverage(b,'native_policy_evidence',scope,epoch,start,end,'partial',{mode,policyKnown,missingFields:r.missingFields,sourceHistoryComplete:false,snapshotFrozen:false,remoteMutationTimeQualified:false,replayQualified:false});
-  const latest=this.model.db.prepare('SELECT id FROM canonical_projection_revisions WHERE name=? AND scope=? ORDER BY rowid DESC LIMIT 1').get('native_policy_state',scope) as any;
   const projectionId=this.model.publishProjectionInTransaction({name:'native_policy_state',scope,epoch,calculationVersion:CALCULATION,observationIds:[id,...(previous?[previous.id]:[])],coverageIds:[coverageId],supersedes:latest?.id??null,result:payload});
   return {observationId:id,projectionId,channelId:r.channelId,direction:r.direction};
  }
- async snapshot(request:{captureId:string;channelIds:string[];beforeCheckpoint?:()=>void}):Promise<{receipts:PolicyReceipt[];checkpointId:string;sourceHistoryComplete:false;snapshotFrozen:false}> {
+ async snapshot(request:{captureId:string;channelIds:string[];beforeCheckpoint?:()=>void}):Promise<{receipts:PolicyReceipt[];checkpointId:string|null;sourceHistoryComplete:false;snapshotFrozen:false}> {
   const captureId=label(request.captureId);if(!Array.isArray(request.channelIds)||request.channelIds.length<1||request.channelIds.length>100)throw new NativePolicyError('malformed_policy');
   const channels=request.channelIds.map(uint64);if(new Set(channels).size!==channels.length)throw new NativePolicyError('malformed_policy');
   const b=await this.readBinding(),scope='policy_snapshot:'+digest({binding:b,captureId}),query={binding:b,channels,contract:NATIVE_POLICY_CONTRACT},old=this.checkpoint('native_policy_snapshot_checkpoint',scope);
@@ -93,6 +96,8 @@ export class NativePolicyCollector {
   return this.model.transaction(()=>{
    if(this.checkpoint('native_policy_snapshot_checkpoint',scope))throw new NativePolicyError('concurrent_capture');
    const receipts=records.map(r=>this.persist(b,r,captureId,captureId,start,end,'snapshot'));
+   // A capture that only confirms retained receipts writes nothing; retrying it simply refetches.
+   if(receipts.every(r=>r.unchanged))return {receipts,checkpointId:null,sourceHistoryComplete:false as const,snapshotFrozen:false as const};
    const detail={query,result:{receipts,checkpointId:'',sourceHistoryComplete:false as const,snapshotFrozen:false as const}};
    // ID is explicit to retain an idempotent result without a self-referential digest.
    const checkpointId=digest({capability:'native_policy_snapshot_checkpoint',scope,captureId});detail.result.checkpointId=checkpointId;

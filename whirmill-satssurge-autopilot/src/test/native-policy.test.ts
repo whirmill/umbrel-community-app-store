@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {CanonicalModel} from '../canonical-model.js';
 import {migrateCanonical} from './native-canonical-fixture.js';
-import {NativePolicyCollector,decodeRoutingPolicy,NATIVE_POLICY_CONTRACT,type NativePolicySource} from '../native-policy.js';
+import {NativePolicyCollector,decodeRoutingPolicy,NATIVE_POLICY_CONTRACT,POLICY_SNAPSHOT_REFRESH_MS,type NativePolicySource} from '../native-policy.js';
 const local='02'+'a'.repeat(64),peer='03'+'b'.repeat(64),other='02'+'c'.repeat(64),at='2026-10-10T12:00:00.000Z';
 const binding={nodeId:local,network:'mainnet',sourceVersion:'0.21.3-beta',sourceInstance:'adapter-A'};
 const stamp=(ms=0)=>new Date(Date.parse(at)+ms).toISOString();
@@ -37,7 +37,7 @@ test('absent, neither or both local endpoints reject the snapshot instead of nod
 test('every field-only change creates an immutable successor including CLTV disabled inbound min max and remote time',async()=>{
  const f=fixture();try{await f.collector.snapshot({captureId:'baseline',channelIds:['1']});const first=observations(f.db)[0],before={...first};
  const changes=[['time_lock_delta',41,'timeLockDelta'],['disabled',true,'disabled'],['inbound_fee_base_msat',-11,'inboundFeeBaseMsat'],['inbound_fee_rate_milli_msat',-1,'inboundFeeRatePpm'],['min_htlc','1','minHtlcMsat'],['max_htlc_msat','9000','maxHtlcMsat'],['fee_base_msat','1001','feeBaseMsat'],['fee_rate_milli_msat','251','feeRatePpm'],['last_update',1,'lastUpdate']] as const;
- let accumulated:any={};for(const [i,[key,value,field]] of changes.entries()){accumulated={...accumulated,[key]:value};f.setRaw(edge({node1_policy:policy(accumulated)}));f.setTime(stamp(i+1));await f.collector.snapshot({captureId:'change-'+i,channelIds:['1']});const row=observations(f.db).at(-2),payload=JSON.parse(row.payload);assert.deepEqual(payload.changedFields,[field]);assert.equal(payload.changeInterval.end,stamp(i+1));assert.equal(row.original_timestamp,String(accumulated.last_update??0));}
+ let accumulated:any={};for(const [i,[key,value,field]] of changes.entries()){accumulated={...accumulated,[key]:value};f.setRaw(edge({node1_policy:policy(accumulated)}));f.setTime(stamp(i+1));await f.collector.snapshot({captureId:'change-'+i,channelIds:['1']});const row=observations(f.db).at(-1),payload=JSON.parse(row.payload);assert.equal(payload.direction,'outgoing');assert.deepEqual(payload.changedFields,[field]);assert.equal(payload.changeInterval.end,stamp(i+1));assert.equal(row.original_timestamp,String(accumulated.last_update??0));}
  assert.deepEqual({...f.model.observation(first.id)},before);assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length,0);assert.throws(()=>f.db.prepare('UPDATE canonical_observations SET payload=? WHERE id=?').run('{}',first.id),/Immutable/);
  }finally{f.close();}
 });
@@ -110,5 +110,17 @@ test('graph change detection does not fabricate a remote mutation interval from 
 
 test('multi-channel snapshots remain bounded non-atomic acquisitions with both directions for every channel',async()=>{
  const f=fixture();try{let calls=0;f.source.getChanInfo=async channel=>{calls++;f.setTime(stamp(calls*10));return edge({channel_id:channel,node1_policy:policy({fee_base_msat:String(calls)})});};const result=await f.collector.snapshot({captureId:'two-channels',channelIds:['1','2']});assert.equal(result.receipts.length,4);assert.equal(calls,2);assert.equal(f.collector.policyState(binding,'1','outgoing').policy?.feeBaseMsat,'1');assert.equal(f.collector.policyState(binding,'2','outgoing').policy?.feeBaseMsat,'2');for(const row of observations(f.db)){const payload=JSON.parse(row.payload);assert.deepEqual(payload.acquisitionInterval,{start:at,end:stamp(20)});assert.equal(payload.snapshotFrozen,false);assert.equal(payload.sourceHistoryComplete,false);}
+ }finally{f.close();}
+});
+test('unchanged snapshot directions reuse their receipts without new evidence until a change or the daily confirmation',async()=>{
+ const f=fixture();try{const first=await f.collector.snapshot({captureId:'c0',channelIds:['1']}),before=snapshot(f.db),receipts=(r:any)=>r.receipts.map((x:any)=>[x.direction,x.observationId,x.projectionId]);
+ for(let i=1;i<=5;i++){f.setTime(stamp(i*60000));const r=await f.collector.snapshot({captureId:'c'+i,channelIds:['1']});assert.equal(r.checkpointId,null);assert.deepEqual(receipts(r),receipts(first));assert.ok(r.receipts.every(x=>x.unchanged===true));}
+ assert.deepEqual(snapshot(f.db),before);const calls=f.calls();await f.collector.snapshot({captureId:'c5',channelIds:['1']});assert.equal(f.calls(),calls+1);assert.deepEqual(snapshot(f.db),before);
+ f.setTime(stamp(6*60000));f.setRaw(edge({node1_policy:policy({fee_rate_milli_msat:'251'})}));const changed=await f.collector.snapshot({captureId:'change',channelIds:['1']});assert.notEqual(changed.checkpointId,null);
+ const [out,incoming]=changed.receipts;assert.equal(out!.unchanged,undefined);assert.equal(incoming!.unchanged,true);assert.equal(incoming!.observationId,first.receipts[1]!.observationId);
+ const payload=JSON.parse(f.model.observation(out!.observationId).payload);assert.deepEqual(payload.changedFields,['feeRatePpm']);assert.equal(payload.previousObservationId,first.receipts[0]!.observationId);assert.deepEqual(payload.changeInterval,{start:at,end:stamp(6*60000)});
+ assert.equal(f.collector.policyState(binding,'1','outgoing').policy?.feeRatePpm,'251');assert.equal(f.collector.policyState(binding,'1','incoming').policy?.feeBaseMsat,'2000');
+ f.setTime(stamp(6*60000+POLICY_SNAPSHOT_REFRESH_MS));const daily=await f.collector.snapshot({captureId:'daily',channelIds:['1']});assert.ok(daily.receipts.every(x=>x.unchanged===undefined));assert.deepEqual(JSON.parse(f.model.observation(daily.receipts[0]!.observationId).payload).changedFields,[]);
+ assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length,0);
  }finally{f.close();}
 });
