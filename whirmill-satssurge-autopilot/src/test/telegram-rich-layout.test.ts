@@ -82,7 +82,7 @@ test('new rich metadata records format and conservative block/depth bounds', asy
     const f = fixture(async()=>({message_id:13})); try {
         const source = '# Stato\n\nTesto pubblico.\n\n- Primo\n- Secondo', job = f.complete(source); f.telegram.capture(at);
         const meta = f.store.get<any>('telegramRichFinal:answer:'+job.id), stats=htmlStats(telegramRichHtml(source));
-        assert.equal(meta.format,'rich-blocks-v1'); assert.equal(meta.blocks,stats.blocks); assert.ok(meta.depth>=stats.maxDepth); assert.ok(meta.depth<=16); assert.ok(meta.blocks<=500);
+        assert.equal(meta.format,'rich-blocks-v2'); assert.equal(meta.blocks,stats.blocks); assert.ok(meta.depth>=stats.maxDepth); assert.ok(meta.depth<=16); assert.ok(meta.blocks<=500);
         assert.equal(meta.htmlBytes,Buffer.byteLength(telegramRichHtml(source),'utf8')); await f.telegram.deliver(at);
     } finally { f.close(); }
 });

@@ -6,6 +6,7 @@ import {join} from 'node:path';
 import {fixture as piFixture} from './pi-fixture.js';
 import {createAssistantMessageEventStream} from '@earendil-works/pi-ai/utils/event-stream';
 import {stateSummary,statePage,STATE_PAGE_BYTES} from '../agent-state.js';
+import {Store} from '../store.js';
 function fixture(){return {enabled:false,budget:{remainingMsat:'19294831'},pnl30:{netMsat:'-8391975'},partial:true,snapshot:{at:'2026-10-09T00:00:00Z',identity:'node',synced:true,confirmedSat:'502858',channels:Array.from({length:10},(_,i)=>({id:String(i),localSat:'250000'}))},diagnostics:{at:'now',lndg:{status:'qualified',coverage:{complete:false},failures:Array.from({length:201},(_,i)=>({id:String(i),distinctPaymentsUnknown:true,amountMsat:'900719925474099300'}))},lightningMate:{status:'unavailable'}},competition:{status:'qualified',coverage:'graph only',channels:Array.from({length:10},(_,i)=>({id:String(i),alias:'peer'+i,status:'partial',quotes:[{amountSat:'100000',ourFeeMsat:'40000'}],alternativesTruncated:true,alternatives:Array.from({length:100},(_,j)=>({id:String(j),ppm:'200'}))}))},decisions:[],operations:[],evaluations:[],evaluationWindows:[],coverage:[],claims:[],holds:[]};}
 test('large live-shaped state retains accounting and coverage with bounded discoverable details',()=>{
   const s=fixture(),summary:any=stateSummary(s);
@@ -72,4 +73,17 @@ test('actual analyst node_state reads stored transport through its public projec
 test('owner transport context projects only closed diagnostic fields',()=>{
  const s:any=fixture();s.lndTransport={failure:'acquisition_failure',failureContext:{failureAt:'2027-01-12T21:59:00.000Z',origin:'local_acquisition',method:'subscribeHtlcEvents',reason:'callback_error',grpcStatus:99,details:'private-secret',nodeId:'private-node'}};
  const transport=(stateSummary(s) as any).lndTransport;assert.deepEqual(transport.failureContext,{failureAt:'2027-01-12T21:59:00.000Z',origin:'local_acquisition',method:'subscribeHtlcEvents',reason:'callback_error'});assert.ok(!JSON.stringify(transport).includes('private'));
+});
+
+test('agent state separates routing from owner-classified startup costs over 30 days',()=>{
+ const s=new Store(':memory:');try{
+  const at=new Date().toISOString(),add=(id:string,classification:string,category:string,msat:string)=>s.run('INSERT INTO ledger VALUES(?,?,?,?,?,?,?,?)',id,at,classification,msat,category,null,null,'{}');
+  add('fee-1','revenue','routing','1452662');add('rebalance-1','expense','manual_rebalance','3787035');add('txfee-1','expense','historical','6209134');
+  s.annotateLedger('rebalance-1','other','verified','Owner manual initial balancing at startup');s.annotateLedger('txfee-1','other','verified','Owner channel opens and liquidity purchase at startup');
+  const summary:any=stateSummary(s.stats());
+  assert.equal(summary.pnl30.netMsat,'-8543507');
+  assert.deepEqual(summary.accounting30.sectors.routing,{revenueMsat:'1452662',costMsat:'0',netMsat:'1452662'});
+  assert.equal(summary.accounting30.sectors.other.costMsat,'9996169');
+  assert.equal(summary.accounting30.unassignedCosts,false);
+ }finally{s.close();}
 });
