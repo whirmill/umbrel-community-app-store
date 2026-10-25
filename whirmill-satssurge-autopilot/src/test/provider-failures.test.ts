@@ -13,7 +13,7 @@ import {RuntimeImprovements} from '../runtime-improvements.js';
 import {hash,now} from '../domain.js';
 import {BACKGROUND_CONTEXT as context} from '@earendil-works/chord/context';
 const sdk=await import(new URL('./api/openai-responses.js',import.meta.resolve('@earendil-works/pi-ai')).href);
-for(const status of [0,401,429])test('genuine SDK/native failure '+(status||'truncated stream')+' is qualified without replay',{timeout:15000},async()=>{
+for(const status of [0,401,429])test('genuine SDK/native failure '+(status||'truncated stream')+' is qualified without replay',{timeout:40000},async()=>{
  const directory=mkdtempSync(join(tmpdir(),'surge-provider-'));let f=fixture(directory,'state');
  try{
   const original=f.agent.models.streamSimple.bind(f.agent.models);let requests=0,tools=0;
@@ -42,7 +42,8 @@ for(const status of [0,401,429])test('genuine SDK/native failure '+(status||'tru
    assert.deepEqual(f.store.get('providerFailure:'+job.id),failure);
    assert.equal(f.queue.get(job.id)?.submission_id,stored.submission_id);assert.equal(f.store.all('SELECT * FROM operations').length,0);
   }finally{telegram.stop();}
-  assert.equal(failure.cooldownMs,status?1800000:60000);assert.equal(requests,1);assert.equal(tools,1);assert.equal(existsSync(join(directory,'effects.jsonl')),false);
+  // Durable retries the generation request (3 retries, 2-8 s backoff) except for authentication; the app never resubmits.
+  assert.equal(failure.cooldownMs,status?1800000:60000);assert.equal(requests,status===401?1:4);assert.equal(tools,1);assert.equal(existsSync(join(directory,'effects.jsonl')),false);
   assert.doesNotMatch(JSON.stringify(f.store.get('agent')),/private-provider-body|fixture-no-network/);
   console.log('provider-native-proof',JSON.stringify({status,job:job.id,conversation:failure.conversationId,submission:failure.submissionId,task:failure.taskId,entry:failure.entryId,kind:failure.kind}));
   const harness=(f.agent as any).harness,submission=await harness.submission(Number(stored.submission_id),context);assert.equal((await submission.status(context)).status,'unanswered');
@@ -117,7 +118,7 @@ test('closed native network and qualified auth/quota codes validate only with ma
  }
 });
 
-test('genuine placed correction SDK stream failure binds its accepted turn ledger, preserves both submissions and suppresses only proven advisory', {timeout:15000},async()=>{
+test('genuine placed correction SDK stream failure binds its accepted turn ledger, preserves both submissions and suppresses only proven advisory', {timeout:40000},async()=>{
  const directory=mkdtempSync(join(tmpdir(),'surge-correction-provider-')),f=fixture(directory,'state');
  let releaseFirst!:()=>void,enteredFirst!:()=>void,releaseProvider!:()=>void,enteredProvider!:()=>void;
  const firstHeld=new Promise<void>(r=>releaseFirst=r),firstStarted=new Promise<void>(r=>enteredFirst=r),providerHeld=new Promise<void>(r=>releaseProvider=r),providerStarted=new Promise<void>(r=>enteredProvider=r);
@@ -140,7 +141,7 @@ test('genuine placed correction SDK stream failure binds its accepted turn ledge
   releaseProvider();await assert.rejects(running,/original submission terminal/);f.queue.finish(job.id,claimed.run_token!,'failed','Model unavailable; original submission terminal, no automatic replay');
   const original=f.queue.get(job.id)!,failure=f.store.get<any>('providerFailure:'+job.id),accepted=turns.correction(correction.id)!,closedTurn=turns.get(job.id)!;
   assert.equal(failure.kind,'transient_stream');assert.equal(failure.source,'native_entry');assert.equal(failure.submissionId,correctionId);assert.equal(original.submission_id,initialId);assert.equal(accepted.submissionId,correctionId);assert.equal(accepted.state,'failed');assert.ok(closedTurn.correctionOrder!.includes(correction.id));
-  assert.equal((await nativeCorrection.status(context)).status,'unanswered');assert.equal(requests,1);assert.equal(existsSync(join(directory,'effects.jsonl')),false);
+  assert.equal((await nativeCorrection.status(context)).status,'unanswered');assert.equal(requests,4);assert.equal(existsSync(join(directory,'effects.jsonl')),false);
   const telegram=new Telegram(f.store,control,directory,{call:async()=>{throw Error('No live Telegram');}});
   try{
    telegram.capture();const runtime=new RuntimeImprovements(f.store);assert.equal(runtime.issues()[0]!.revisions[0]!.observation.classification,'upstream_transient');assert.equal(f.store.one("SELECT count(*) n FROM telegram_outbox WHERE event_id LIKE 'advisory:%'").n,0);
