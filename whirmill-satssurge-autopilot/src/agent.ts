@@ -13,6 +13,8 @@ import { ReviewWaits } from "./review-waits.js";
 import { EvidenceViews,boundedEvidenceEnvelope } from "./evidence-views.js";
 import { RunBudget } from "./run-budget.js";
 import { analystFeed, provenance } from "./analysis-feed.js";
+import { channelPerformance } from "./channel-measurement.js";
+import { candidateView } from "./channels.js";
 import { summaryDelta, summaryPrefix } from "./public-reasoning.js";
 import {
   Harness,
@@ -693,6 +695,24 @@ export class Agent {
           return result(new RuntimeImprovements(self.store).reportEvidence(args.source, args.reference));
         },
       });
+      const performance = defineTool({
+        name: 'channel_performance' + label,
+        description: 'Read-only 30-day per-channel measurement: forwards in/out, earned fees, local-share min/avg/max/current, active-flag history, rebalance source/target counts and utilisation (volume ÷ capacity). Incomplete coverage is reported as unknown, never zero. Page with offset.',
+        parameters: Type.Object({ offset: Type.Optional(Type.Integer({ minimum: 0 })) }, { additionalProperties: false }), replay: 'safe',
+        async execute(a, api) {
+          limit(api.conversationId); const stop = exhausted(); if (stop) return stop;
+          return result(channelPerformance(self.store, now(), a.offset ?? 0));
+        },
+      });
+      const candidate = defineTool({
+        name: 'channel_candidate' + label,
+        description: 'Read-only candidate peer analysis from LND GetNodeInfo with channels: capacity, channel count, fee policy, and direct channels to the peers of our depleted channels (routes back). Unavailable without the channel credential. Public gossip does not prove liquidity.',
+        parameters: Type.Object({ peer: Type.String({ pattern: '^0[23][0-9a-f]{64}$' }) }, { additionalProperties: false }), replay: 'safe',
+        async execute(a, api) {
+          limit(api.conversationId); const stop = exhausted(); if (stop) return stop;
+          return result(await candidateView(self.executor.channels, a.peer));
+        },
+      });
       if (slot === undefined) {
         const proposals = defineTool({
           name: "analyst_results",
@@ -780,6 +800,8 @@ export class Agent {
             detail,
             runtimeEvidence,
             runtimeReport,
+            performance,
+            candidate,
             ...(self.store.get('contentArtifactsEnabled')===true?exportTools:[]),
             proposals,
             manualProposal,
@@ -849,6 +871,8 @@ export class Agent {
             detail,
             runtimeEvidence,
             runtimeReport,
+            performance,
+            candidate,
             ...(self.store.get('contentArtifactsEnabled')===true?exportTools:[]),
             propose,
             proposeChannel,

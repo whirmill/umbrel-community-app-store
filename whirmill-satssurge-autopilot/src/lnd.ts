@@ -41,7 +41,12 @@ export interface ChannelRpc {
   pendingChannels():Promise<{opens:{peer:string;point:string;capacitySat:string}[];closing:{peer:string;point:string;txid:string}[]}>;
   closedChannels():Promise<{point:string;peer:string;txid:string;type:string}[]>;
   nodeInfo(peer:string):Promise<{alias:string;channels:number;capacitySat:string;addresses:string[]}>;
+  nodeGraph(peer:string):Promise<{alias:string;channels:number;capacitySat:string;edges:ChannelEdgeView[];truncated:boolean}>;
 }
+export type EdgePolicy={baseMsat:string;ppm:number;cltv:number;disabled:boolean};
+/** One public edge of a candidate, oriented from the candidate: outgoing is the candidate's policy toward peer. */
+export type ChannelEdgeView={channelId:string;peer:string;capacitySat:string;outgoing:EdgePolicy|null;incoming:EdgePolicy|null};
+const MAX_CANDIDATE_EDGES=5000;
 // BIP173 mainnet P2WSH vector, sized like a funding output. Used only to price EstimateFee; nothing is ever sent to it.
 const ESTIMATE_ADDRESS='bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3';
 /** Closed, read-credential-only acquisition capability. No target, credentials or generic RPC method. */
@@ -235,6 +240,12 @@ export class Lnd implements NodeClient {
         return {opens:r.pending_open_channels.map((p:any)=>({peer:String(p.channel?.remote_node_pub),point:String(p.channel?.channel_point),capacitySat:String(p.channel?.capacity)})),closing:r.waiting_close_channels.map((p:any)=>({peer:String(p.channel?.remote_node_pub),point:String(p.channel?.channel_point),txid:String(p.closing_txid)}))};
       },
       closedChannels:async()=>{const r=await this.unary('lightning','closedChannels',{},'channel');if(!Array.isArray(r.channels))throw new Error('Invalid closed channels');return r.channels.map((c:any)=>({point:String(c.channel_point),peer:String(c.remote_pubkey),txid:String(c.closing_tx_hash),type:String(c.close_type)}));},
+      nodeGraph:async(peer:string)=>{
+        const r=await this.unary('lightning','getNodeInfo',{pub_key:pubkey(peer),include_channels:true},'channel');if(!Array.isArray(r.channels))throw new Error('Invalid node graph');
+        const policy=(p:any):EdgePolicy|null=>p?{baseMsat:String(p.fee_base_msat),ppm:Number(p.fee_rate_milli_msat),cltv:Number(p.time_lock_delta),disabled:p.disabled===true}:null;
+        const edges=r.channels.slice(0,MAX_CANDIDATE_EDGES).map((e:any)=>{const out=e.node1_pub===peer;return {channelId:String(e.channel_id),peer:String(out?e.node2_pub:e.node1_pub),capacitySat:String(e.capacity),outgoing:policy(out?e.node1_policy:e.node2_policy),incoming:policy(out?e.node2_policy:e.node1_policy)};});
+        return {alias:String(r.node?.alias??''),channels:Number(r.num_channels),capacitySat:String(r.total_capacity),edges,truncated:r.channels.length>MAX_CANDIDATE_EDGES};
+      },
       nodeInfo:async(peer:string)=>{const r=await this.unary('lightning','getNodeInfo',{pub_key:pubkey(peer),include_channels:false},'channel');return {alias:String(r.node?.alias??''),channels:Number(r.num_channels),capacitySat:String(r.total_capacity),addresses:(r.node?.addresses??[]).map((a:any)=>String(a.addr))};},
     });
   }

@@ -1,6 +1,7 @@
 import { protectedAutomationGuard } from './executor.js';
 import type { Store } from './store.js';
 import type { NodeClient, ChannelRpc } from './lnd.js';
+import { channelCandidate } from './channel-measurement.js';
 import { id, now, json, hash, integer, month, channelKind, CHANNEL_MANDATE, type ChannelProposal, type Snapshot } from './domain.js';
 
 export type ChannelState = 'reserved'|'sending'|'uncertain'|'pending'|'confirmed'|'failed';
@@ -8,13 +9,14 @@ export interface ChannelOperation {
   id:string; proposalId:string; kind:ChannelProposal['kind']; at:string; month:string; state:ChannelState;
   peer:string; channel?:string; point?:string; amountSat:string; satPerVbyte:string; maxFeeSat:string;
   // Approved fee cap charged to the monthly on-chain budget until an outcome proves nothing was broadcast. Actual fee is not measured.
-  feeChargedSat:string; txid?:string; closeType?:string; rejected?:boolean; reason?:string;
+  feeChargedSat:string; txid?:string; closeType?:string; rejected?:boolean; reason?:string; ownerResolved?:boolean;
   history:{at:string;state:ChannelState;reason?:string}[];
 }
 const LIVE:ChannelState[]=['reserved','sending','uncertain','pending'];
 const DISPATCHING:ChannelState[]=['reserved','sending','uncertain'];
 const PEER=/^0[23][0-9a-f]{64}$/;
 
+const lateClose=(o:ChannelOperation,at:string)=>o.ownerResolved===true&&o.kind==='channel_close'&&o.state==='failed'&&Date.parse(at)-Date.parse(o.at)<14*86400_000;
 export function channelOperations(store:Store):ChannelOperation[] {
   return store.all("SELECT value FROM meta WHERE key LIKE 'channelOperation:%'").map(r=>JSON.parse(r.value) as ChannelOperation).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id));
 }
@@ -30,11 +32,17 @@ export function channelApprovalState(s:Snapshot,p:ChannelProposal) {
   return hash(json({identity:s.identity,synced:s.synced,kind:p.kind,peer:p.peer,...(p.kind==='channel_open'?{confirmedSat:s.confirmedSat,peerChannels:s.channels.filter(c=>c.peer===p.peer).map(c=>c.id)}:{channel:c?{id:c.id,point:c.point,peer:c.peer,capacitySat:c.capacitySat,active:c.active}:null})}));
 }
 
+/** Candidate graph for analysts; unavailable without the channel credential or when LND cannot answer. */
+export async function candidateView(channels:ChannelLifecycle|undefined,peer:string) {
+  if(!channels)return {available:false,reason:'Channel credential not provisioned; candidate graph unavailable'};
+  try{return await channels.candidate(peer);}catch{return {available:false,reason:'LND node graph unavailable for this peer; unknown, not absent'};}
+}
 /** Owner-approved channel opens and cooperative closes. Nothing here dispatches without a consumed owner approval. */
 export class ChannelLifecycle {
   private busy=false;
   constructor(private store:Store,private node:NodeClient,private rpc:ChannelRpc){}
   operations(){return channelOperations(this.store);}
+  candidate(peer:string){return channelCandidate(this.store,this.rpc,peer);}
   budget(at=now()){return channelBudget(this.store,at);}
   /** Policy shared by proposal creation, owner approval and the intent transaction. */
   check(p:ChannelProposal,s:Snapshot,at=now()) {
@@ -128,7 +136,8 @@ export class ChannelLifecycle {
   /** Moves live operations from LND evidence only. Unknown stays uncertain; nothing is re-sent. */
   async reconcile(at=now()) {
     if(this.busy)return;
-    const live=this.operations().filter(o=>LIVE.includes(o.state));if(!live.length)return;
+    // A close the owner marked failed may still complete if the peer later finishes a persisted shutdown; keep watching it for 14 days.
+    const live=this.operations().filter(o=>LIVE.includes(o.state)||lateClose(o,at));if(!live.length)return;
     this.busy=true;try {
       // A reserved intent never reached its dispatch marker; no RPC could have occurred.
       for(const op of live.filter(o=>o.state==='reserved'))this.transition(op,'failed',{feeChargedSat:'0',reason:'Interrupted before dispatch; never replayed'},at);
@@ -146,13 +155,29 @@ export class ChannelLifecycle {
           else if(op.state==='sending')this.transition(op,'uncertain',{reason:'Dispatch interrupted; outcome unknown, never replayed'},at);
         } else {
           const done=closed.find(c=>c.point===op.point),waiting=pending.closing.find(c=>c.point===op.point),channel=s.channels.find(c=>c.point===op.point);
-          if(done)this.transition(op,'confirmed',{txid:done.txid,closeType:done.type},at);
+          if(op.state==='failed'){if(done||waiting)this.transition(op,done?'confirmed':'pending',{txid:done?.txid??waiting!.txid,closeType:done?.type,feeChargedSat:op.maxFeeSat,reason:'Close completed after the owner marked it failed; recorded, never re-sent'},at);}
+          else if(done)this.transition(op,'confirmed',{txid:done.txid,closeType:done.type},at);
           else if(waiting){if(op.state!=='pending'||op.txid!==waiting.txid)this.transition(op,'pending',{txid:waiting.txid},at);}
           // An active link proves no shutdown is in progress: the peer was offline or refused. Reported, never retried or forced.
           else if(op.state!=='pending'&&channel?.active)this.transition(op,'failed',{feeChargedSat:'0',reason:'Cooperative close not in progress; peer offline or refused. No retry, no force close'},at);
           else if(op.state==='sending')this.transition(op,'uncertain',{reason:'Dispatch interrupted; outcome unknown, never replayed'},at);
         }
       }
+    } finally {this.busy=false;}
+  }
+  /** Owner close-out of an uncertain operation, allowed only when LND shows no trace of it. Never re-dispatches. */
+  async ownerMarkFailed(operationId:string,at=now()) {
+    if(this.busy)throw Error('Channel: executor busy; retry shortly');this.busy=true;
+    try {
+      const uncertain=()=>{const op=this.store.get<ChannelOperation>('channelOperation:'+operationId);if(op?.state!=='uncertain')throw Error('Channel: operation is not uncertain');return op;};
+      const op=uncertain(),s=await this.node.snapshot(),pending=await this.rpc.pendingChannels(),closed=await this.rpc.closedChannels();
+      if(op.kind==='channel_open'){
+        const ours=(c:{peer:string;point:string;capacitySat:string})=>op.point?c.point===op.point:c.peer===op.peer&&c.capacitySat===op.amountSat;
+        if(s.channels.some(ours)||pending.opens.some(ours)||(op.point&&closed.some(c=>c.point===op.point)))throw Error('Channel: LND still shows this channel; it stays in reconciliation');
+      } else if(pending.closing.some(c=>c.point===op.point)||closed.some(c=>c.point===op.point))throw Error('Channel: LND shows this close in progress or done; it stays in reconciliation');
+      const current=uncertain();
+      this.transition(current,'failed',{feeChargedSat:'0',ownerResolved:true,reason:'Owner marked failed after LND showed no pending or open channel; never re-sent'},at);
+      return current;
     } finally {this.busy=false;}
   }
   private transition(op:ChannelOperation,state:ChannelState,patch:Partial<ChannelOperation>={},at=now()) {

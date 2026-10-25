@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { ApplicationControl, requestCapability } from './application-control.js';
 import { Store } from './store.js';
 import { hash, json, now, day, scrub, channelKind } from './domain.js';
+import { channelOperations, type ChannelOperation } from './channels.js';
 export interface TelegramTransport {
     call(method: string, body: unknown, signal?: AbortSignal): Promise<any>;
 }
@@ -26,6 +27,11 @@ const graphemes = new Intl.Segmenter('it', { granularity: 'grapheme' });
 interface RichFinal {
     generation: string; chatId: number; botGeneration: unknown; checksum: string; htmlBytes: number;
     format?: string; blocks?: number; depth?: number;
+}
+const CHANNEL_STATE_TEXT: Record<string, string> = { pending: 'in attesa di conferma on-chain', confirmed: 'confermata', failed: 'fallita', uncertain: 'esito incerto: nessun nuovo invio; riconciliazione da LND in corso. Puoi segnarla come fallita solo se LND non mostra canali aperti o in attesa' };
+export function channelOperationText(o: ChannelOperation, h: { state: string; reason?: string }) {
+    const what = o.kind === 'channel_open' ? `Apertura canale da ${o.amountSat} sat verso ${o.peer.slice(0, 16)}` : `Chiusura cooperativa del canale ${o.channel ?? o.point ?? ''}`;
+    return `${what}: ${CHANNEL_STATE_TEXT[h.state] ?? h.state}.${o.txid && h.state !== 'failed' ? ` Transazione ${o.txid}.` : ''}${h.reason ? ` Motivo: ${telegramText(h.reason)}.` : ''} Fee on-chain massima approvata ${o.maxFeeSat} sat. Nessuna chiusura forzata.`;
 }
 export function telegramText(text: string) { return telegramClean(text).slice(0, 3500); }
 export function telegramClean(text: string) { return String(scrub(text)).replace(/\b\d{6,12}:[A-Za-z0-9_-]{20,}\b/g, '[REDACTED]').replace(/\blnbc[a-z0-9]+\b/gi, '[REDACTED]'); }
@@ -667,6 +673,11 @@ export class Telegram {
                             answer = 'Operazione sul canale non eseguita: ' + (message.startsWith('Channel: ') ? telegramText(message.slice(9)) : 'esito bloccato o incerto; verifica la ricevuta nella web app') + '. Nessun nuovo tentativo automatico e nessuna chiusura forzata.';
                         }
                     }
+                    else if (value.action === 'channel_fail') {
+                        // Allowed only when LND shows no pending or open channel for the operation; never re-sends.
+                        try { const op = await this.control.channels().ownerMarkFailed(value.id!, at); answer = `Operazione sul canale ${op.id.slice(0, 8)} segnata come fallita: LND non mostra canali aperti o in attesa. Nessun nuovo invio.`; }
+                        catch (error) { const message = String((error as Error)?.message ?? ''); answer = 'Non segnata come fallita: ' + (message.startsWith('Channel: ') ? telegramText(message.slice(9)) : 'verifica LND non disponibile; riprova più tardi') + '.'; }
+                    }
                     else if (value.action === 'reject') {
                         this.control.reject(value.id);
                         answer = 'Proposta rifiutata.';
@@ -825,6 +836,7 @@ export class Telegram {
         }
         for (const o of this.store.all("SELECT id,state FROM operations WHERE at>=? AND state IN ('SUCCEEDED','FAILED','uncertain','in_flight')", this.store.get('telegramBinding').since))
             this.enqueue('operation:' + o.id + ':' + o.state, `Operation ${o.id}: ${o.state}. Dettagli nella web app.`, o.state === 'uncertain' ? 'critical' : 'ordinary', undefined, at);
+        this.captureChannelOperations(at);
         this.captureLndTransport(at);
         const blockers = [this.store.get('integrityBlocker'), this.store.get('agent')?.status === 'unavailable' ? availabilityBlocker(this.store.get('agent')?.failure) : null, this.store.one("SELECT id FROM operations WHERE state='uncertain'") ? 'Esito finanziario incerto; richiesta riconciliazione, nessun replay' : null, ...(this.store.get<any[]>('blockers') ?? [])].filter(Boolean).map(telegramText);
         this.store.tx(() => {
@@ -861,6 +873,18 @@ export class Telegram {
                     this.store.run("UPDATE telegram_outbox SET status='aggregated' WHERE kind='ordinary' AND status='pending' AND created_at<=?", at);
                 });
         }
+    }
+    /** One message per reached channel state, deduplicated by outbox event id. Uncertain carries the owner close-out button. */
+    private captureChannelOperations(at: string) {
+        const binding = this.store.get('telegramBinding');
+        for (const o of channelOperations(this.store))
+            for (const h of o.history) {
+                if (!['pending', 'confirmed', 'failed', 'uncertain'].includes(h.state) || h.at < binding.since) continue;
+                const event = 'channel-operation:' + o.id + ':' + h.state;
+                if (this.store.one('SELECT event_id FROM telegram_outbox WHERE event_id=?', event)) continue;
+                if (h.state === 'uncertain' && o.state === 'uncertain') this.attachButtons(event, [{ text: 'Segna come fallita', value: { action: 'channel_fail', id: o.id } }], binding.generation);
+                this.enqueue(event, channelOperationText(o, h), ['failed', 'uncertain'].includes(h.state) ? 'critical' : 'operational', undefined, at);
+            }
     }
     private captureLndTransport(at:string) {
         const binding=this.store.get('telegramBinding');const transport=this.store.get('lndTransport');
