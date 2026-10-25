@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.19"
+version: "0.5.20"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,11 +27,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.19 re-enables financial execution under the existing mandate. The
-  app no longer runs in scoped app-controls mode, so the host interlock
-  (LightningMate, LNDg and Loop automations must be off, refreshed every 30
-  seconds) decides whether fee changes and rebalances may be dispatched.
-  Autonomy still starts paused: the owner resumes it with /resume in Telegram.
-  Mandate unchanged: 30,000 sat total, 1,500 sat per day, 100 sat per attempt,
-  500,000 sat on-chain reserve. Includes the 0.5.18 fixes for updates with
-  large databases and for diagnostics archive growth.
+  Version 0.5.20 retries a Telegram answer once, automatically, when the model
+  connection drops for a moment (read-only questions only). Tables in answers
+  are now shown as readable lists instead of raw text. The agent now sees
+  routing results separately from startup, capital and swap costs, so manual
+  setup expenses no longer look like routing losses. Financial execution,
+  mandate and the owner /resume control are unchanged.
