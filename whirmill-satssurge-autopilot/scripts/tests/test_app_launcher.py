@@ -93,15 +93,36 @@ class LifecycleTests(unittest.TestCase):
         with contextlib.closing(sqlite3.connect(self.data / state['baseline'] / FILES[0])) as db:
             self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 1)
 
-    def test_capture_failure_never_bootstraps(self):
+    def test_interrupted_capture_is_discarded_and_retried(self):
+        transition(self.data, self.data, 'a', self.migrate)
+        def partial(source, target, **kwargs):
+            target.mkdir(parents=True)
+            (target / FILES[0]).write_bytes(b'partial')
+            raise MemoryError('synthetic OOM')
+        with patch('app_launcher.capture', side_effect=partial):
+            with self.assertRaises(MemoryError):
+                transition(self.data, self.data, 'b', self.migrate)
+        interrupted = json.loads((self.data / 'lifecycle.json').read_text())
+        self.assertEqual((interrupted['phase'], self.calls), ('capturing', 1))
+        state = transition(self.data, self.data, 'b', self.migrate)
+        self.assertEqual((state['phase'], self.calls), ('ready', 2))
+        self.assertFalse((self.data / interrupted['baseline']).exists())
+        self.assertTrue((self.data / state['baseline'] / 'manifest.json').is_file())
+
+    def test_interrupted_capture_can_return_to_source_release(self):
         transition(self.data, self.data, 'a', self.migrate)
         with patch('app_launcher.capture', side_effect=OSError('disk full')):
             with self.assertRaises(OSError):
                 transition(self.data, self.data, 'b', self.migrate)
-        self.assertEqual(self.calls, 1)
-        with self.assertRaises(ValueError):
-            transition(self.data, self.data, 'b', self.migrate)
-        self.assertEqual(self.calls, 1)
+        state = transition(self.data, self.data, 'a', self.migrate)
+        self.assertEqual((state['phase'], state['destination'], self.calls), ('ready', 'a', 1))
+
+    def test_code_only_release_skips_baseline(self):
+        transition(self.data, self.data, 'a', self.migrate)
+        current = {name: {'userVersion': 1, 'durableVersion': None} for name in FILES}
+        state = transition(self.data, self.data, 'b', self.migrate, targets=current)
+        self.assertEqual((state['phase'], state['baseline'], self.calls), ('ready', None, 2))
+        self.assertFalse((self.data / 'checkpoints').exists())
 
     def test_legacy_requires_exact_qualified_baseline(self):
         self.migrate()
@@ -170,15 +191,20 @@ time.sleep(30)
                 with lock_file(self.data, 'executor.lock') as executor:
                     acquire(executor, fcntl.LOCK_EX, timeout=3)
 
-    def test_repeated_compatible_release_cycle_keeps_separate_baselines(self):
-        states = [transition(self.data, self.data, release, self.migrate) for release in ('a', 'b', 'a', 'b')]
+    def test_release_cycle_keeps_newest_two_baselines_and_manual_checkpoints(self):
+        states = [transition(self.data, self.data, 'a', self.migrate)]
+        manual = self.data / 'checkpoints' / 'pre-021-manual'
+        manual.mkdir(parents=True)
+        (manual / 'manifest.json').write_text('{"capturedAt": "2000-01-01T00:00:00.000Z"}')
+        states += [transition(self.data, self.data, release, self.migrate) for release in ('b', 'a', 'b')]
         paths = [state['baseline'] for state in states if state['baseline']]
-        self.assertEqual(len(paths), 3)
         self.assertEqual(len(set(paths)), 3)
-        original = [(self.data / path / 'manifest.json').read_bytes() for path in paths]
+        self.assertEqual([(self.data / path).exists() for path in paths], [False, True, True])
+        self.assertTrue(manual.exists())
+        kept = (self.data / paths[-1] / 'manifest.json').read_bytes()
         retry = transition(self.data, self.data, 'b', self.migrate)
         self.assertEqual(retry['transitionId'], states[-1]['transitionId'])
-        self.assertEqual([(self.data / path / 'manifest.json').read_bytes() for path in paths], original)
+        self.assertEqual((self.data / paths[-1] / 'manifest.json').read_bytes(), kept)
         self.assertEqual(self.calls, 4)
 
     def test_sigterm_during_actual_main_migration_forwards_reaps_and_releases(self):

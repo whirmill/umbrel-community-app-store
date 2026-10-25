@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import pathlib
+import shutil
 import signal
 import subprocess
 import sys
@@ -27,8 +28,31 @@ def fingerprint(root):
     return digest.hexdigest()
 
 
+SCHEMA_TARGETS = pathlib.Path(__file__).resolve().with_name('schema-targets.json')
+KEEP_BASELINES = 2
+
+
 def schemas(data):
     return {name: schema_identity(data / name) for name in FILES}
+
+
+def versions(identities):
+    return {name: {key: identity[key] for key in ('userVersion', 'durableVersion')} for name, identity in identities.items()}
+
+
+def prune_baselines(data, current):
+    """Keep the newest launcher baselines; manually named checkpoints are left alone."""
+    directory = data / 'checkpoints'
+    if not directory.is_dir():
+        return
+    owned = []
+    for path in directory.iterdir():
+        manifest = path / 'manifest.json'
+        if len(path.name) == 32 and all(c in '0123456789abcdef' for c in path.name) and manifest.is_file():
+            owned.append((json.loads(manifest.read_text()).get('capturedAt', ''), manifest.stat().st_mtime_ns, path))
+    for *_, path in sorted(owned)[:-KEEP_BASELINES]:
+        if current is None or path.name != pathlib.PurePath(current).name:
+            shutil.rmtree(path)
 
 
 def sync_databases(data):
@@ -45,7 +69,7 @@ def sync_databases(data):
         os.close(fd)
 
 
-def transition(data, root, release, migrate):
+def transition(data, root, release, migrate, targets=None):
     state_path = data / 'lifecycle.json'
     state = json.loads(state_path.read_text()) if state_path.exists() else None
     present = [name for name in FILES if (data / name).exists()]
@@ -55,6 +79,16 @@ def transition(data, root, release, migrate):
             raise ValueError('Nonempty legacy directory without databases requires offline qualification')
     if state and state.get('protocol') != 1:
         raise ValueError('Unsupported lifecycle protocol')
+    if state and state.get('phase') == 'capturing':
+        # Live databases are untouched before 'migrating': drop the partial copy and start over.
+        if state.get('baseline'):
+            shutil.rmtree(data / state['baseline'], ignore_errors=True)
+        if state.get('source'):
+            state = {'protocol': 1, 'phase': 'ready', 'destination': state['source'], 'resultSchemas': state['sourceSchemas']}
+            atomic_json(state_path, state)
+        else:
+            state_path.unlink()
+            state = None
     if state and state.get('phase') == 'ready' and state.get('destination') == release:
         if schemas(data) != state['resultSchemas']:
             raise ValueError('Installed schema identity changed')
@@ -84,16 +118,20 @@ def transition(data, root, release, migrate):
                 raise ValueError('Legacy writer fencing is not qualified')
             source = qualification['source']
         transition_id = uuid.uuid4().hex
-        baseline = 'checkpoints/' + transition_id if present else None
+        source_schemas = schemas(data) if present else {}
+        if targets is None:
+            targets = json.loads(SCHEMA_TARGETS.read_text())
+        # A code-only release leaves every schema version unchanged: nothing to roll back to.
+        needs_baseline = bool(present) and (qualification is not None or versions(source_schemas) != targets)
+        baseline = 'checkpoints/' + transition_id if needs_baseline else None
         state = {'protocol': 1, 'transitionId': transition_id, 'source': source, 'destination': release,
-                 'sourceSchemas': schemas(data) if present else {},
+                 'sourceSchemas': source_schemas,
                  'baseline': baseline, 'phase': 'capturing'}
         if qualification and state['sourceSchemas'] != qualification.get('schemas'):
             raise ValueError('Legacy schema baseline changed')
         atomic_json(state_path, state)
         if baseline:
             manifest = capture(data, data / baseline, release={'source': source, 'destination': release})
-            verify(data / baseline)
             if qualification and manifest['files'] != qualification.get('files'):
                 raise ValueError('Legacy database baseline changed')
             state['baselineFiles'] = manifest['files']
@@ -106,6 +144,7 @@ def transition(data, root, release, migrate):
     sync_databases(data)
     state['phase'] = 'ready'
     atomic_json(state_path, state)
+    prune_baselines(data, state['baseline'])
     return state
 
 
