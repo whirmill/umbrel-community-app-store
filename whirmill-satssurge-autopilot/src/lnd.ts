@@ -7,7 +7,7 @@ import { loadSync } from '@grpc/proto-loader';
 import { now, integer, type Channel, type Snapshot, type PaymentOutcome } from './domain.js';
 
 export type TransportFailure = 'certificate_missing'|'certificate_invalid'|'certificate_expired'|'certificate_not_yet_valid'|'endpoint_mismatch'|'authentication'|'permission_denied'|'deadline'|'cancelled'|'unavailable'|'resource_limit'|'rpc_failure'|'acquisition_failure';
-const RPC_METHODS=['getInfo','walletBalance','listChannels','getChanInfo','forwardingHistory','listPayments','addInvoice','updateChannelPolicy','sendPaymentV2','trackPaymentV2','subscribeHtlcEvents','subscribeChannelGraph'] as const;
+const RPC_METHODS=['getInfo','walletBalance','listChannels','getChanInfo','forwardingHistory','listPayments','addInvoice','updateChannelPolicy','sendPaymentV2','trackPaymentV2','subscribeHtlcEvents','subscribeChannelGraph','listPeers','connectPeer','estimateFee','openChannelSync','closeChannel','pendingChannels','closedChannels','getNodeInfo'] as const;
 const ACQUISITION_REASONS=['malformed_response','binding_mismatch','callback_error','not_subscribed','size_limit','invalid_request','invalid_config'] as const;
 export type LndFailureContext={failureAt:string;origin:'rpc'|'local_acquisition'|'transport';method?:typeof RPC_METHODS[number];grpcStatus?:number;reason?:typeof ACQUISITION_REASONS[number]};
 /** Only closed labels and a timestamp cross owner diagnostics boundaries. */
@@ -26,10 +26,29 @@ export interface NodeClient {
   track(hash:string):Promise<PaymentOutcome | undefined>;
   updateFee(channel:Channel,ppm:number):Promise<void>;
   htlc(onEvent:(e:any)=>void,signal:AbortSignal):Promise<void>;
+  channelRpc?():ChannelRpc|undefined;
   transportStatus?():LndTransportStatus;
   beginCollection?():()=>void;
   close?():void;
 }
+/** Channel lifecycle under the separate channel credential. Close is cooperative only: no force argument exists. */
+export interface ChannelRpc {
+  listPeers():Promise<string[]>;
+  connectPeer(peer:string,host:string):Promise<void>;
+  estimateFee(amountSat:string,targetConf:number):Promise<{feeSat:string;satPerVbyte:string}>;
+  openChannel(peer:string,amountSat:string,satPerVbyte:string):Promise<{txid:string;outputIndex:number}>;
+  closeChannel(point:string,satPerVbyte:string):Promise<{txid:string}>;
+  pendingChannels():Promise<{opens:{peer:string;point:string;capacitySat:string}[];closing:{peer:string;point:string;txid:string}[]}>;
+  closedChannels():Promise<{point:string;peer:string;txid:string;type:string}[]>;
+  nodeInfo(peer:string):Promise<{alias:string;channels:number;capacitySat:string;addresses:string[]}>;
+  nodeGraph(peer:string):Promise<{alias:string;channels:number;capacitySat:string;edges:ChannelEdgeView[];truncated:boolean}>;
+}
+export type EdgePolicy={baseMsat:string;ppm:number;cltv:number;disabled:boolean};
+/** One public edge of a candidate, oriented from the candidate: outgoing is the candidate's policy toward peer. */
+export type ChannelEdgeView={channelId:string;peer:string;capacitySat:string;outgoing:EdgePolicy|null;incoming:EdgePolicy|null};
+const MAX_CANDIDATE_EDGES=5000;
+// BIP173 mainnet P2WSH vector, sized like a funding output. Used only to price EstimateFee; nothing is ever sent to it.
+const ESTIMATE_ADDRESS='bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3';
 /** Closed, read-credential-only acquisition capability. No target, credentials or generic RPC method. */
 export interface NativeReadLimits {deadlineMs:number;bodyBytes:number;frameBytes:number;streamBytes:number;frames:number;idleMs:number}
 export interface NativeLndRead {
@@ -66,7 +85,7 @@ function category(error:any):TransportFailure {
 export class Lnd implements NodeClient {
   private channels:ChannelLease[]=[];
   private current?:ChannelLease;
-  private readToken:string;private writeToken:string;
+  private readToken:string;private writeToken:string;private channelToken?:string;
   private endpoint:{target:string;host:string};
   private closed=false;
   private activeCancellations=new Set<()=>void>();
@@ -111,7 +130,7 @@ export class Lnd implements NodeClient {
     this.current.active++;return this.current;
   }
   private release(c:ChannelLease){c.active--;this.reap();}
-  private metadata(write:boolean){const metadata=new grpc.Metadata();metadata.set('macaroon',write?this.writeToken:this.readToken);return metadata;}
+  private metadata(write:boolean|'channel'){const metadata=new grpc.Metadata();metadata.set('macaroon',write==='channel'?this.channelToken!:write?this.writeToken:this.readToken);return metadata;}
   private success(){if(this.status.warning!=='unavailable'&&this.status.warning!=='expired')this.status={...this.status,failure:undefined,failureContext:undefined};}
   beginCollection(){const epoch=this.failureEpoch;return ()=>{if(epoch===this.failureEpoch)this.success();};}
   private fail(error:any,method?:string,localAcquisition=false){
@@ -120,7 +139,7 @@ export class Lnd implements NodeClient {
     const failureContext=error instanceof TransportError&&error.failureContext?error.failureContext:safeLndFailureContext({failureAt:now(),origin:localAcquisition?'local_acquisition':error instanceof TransportError?'transport':'rpc',method,grpcStatus:localAcquisition?undefined:error?.code,reason});
     this.status={...this.status,failure,failureContext};return new TransportError(failure,failureContext);
   }
-  private async unary(service:'lightning'|'router',method:string,request:any,write=false,signal?:AbortSignal,limits?:NativeReadLimits):Promise<any> {
+  private async unary(service:'lightning'|'router',method:string,request:any,write:boolean|'channel'=false,signal?:AbortSignal,limits?:NativeReadLimits):Promise<any> {
     const c=this.lease();return new Promise((resolve,reject)=>{
       let call:grpc.ClientUnaryCall|undefined,settled=false;
       const finish=(error?:unknown,result?:unknown,localBoundary=false)=>{if(settled)return;settled=true;signal?.removeEventListener('abort',abort);this.activeCancellations.delete(abort);this.release(c);if(error)reject(localBoundary?error:this.fail(error,method));else resolve(result);};
@@ -193,6 +212,54 @@ export class Lnd implements NodeClient {
         signal?.addEventListener('abort',abort,{once:true});
         call!.on('data',row=>{if(settled)return;try {rows++;bytes+=Buffer.byteLength(JSON.stringify(row));if(rows>100000||(!onEvent&&bytes>this.limits.streamBytes))throw new TransportError('resource_limit');last=row;onEvent?.(row);}catch(e){call?.cancel();finish(e);}});
         call!.on('error',(error:grpc.ServiceError)=>finish(error));call!.on('end',()=>finish());
+      }catch(e){finish(e);}
+    });
+  }
+  /** Optional third credential. Absent or unreadable means channel lifecycle is unavailable; other paths are unaffected. */
+  enableChannels(file:string):boolean {try{const token=readFileSync(file).toString('hex');if(token)this.channelToken=token;}catch{}return this.channelToken!==undefined;}
+  channelRpc():ChannelRpc|undefined {
+    if(!this.channelToken)return undefined;
+    const txid=(bytes:unknown)=>{const hex=Buffer.from(String(bytes),'base64').reverse().toString('hex');if(!/^[0-9a-f]{64}$/.test(hex))throw new Error('Invalid transaction id');return hex;};
+    const pubkey=(v:string)=>{if(!/^0[23][0-9a-f]{64}$/.test(v))throw new Error('Invalid peer public key');return v;};
+    const rate=(v:string)=>{const n=integer(v);if(n<1n||n>1000n)throw new Error('Invalid fee rate');return n.toString();};
+    const chanPoint=(v:string)=>{const m=/^([0-9a-f]{64}):([0-9]{1,6})$/.exec(v);if(!m)throw new Error('Invalid channel point');return {funding_txid_str:m[1],output_index:Number(m[2])};};
+    return Object.freeze({
+      listPeers:async()=>{const r=await this.unary('lightning','listPeers',{},'channel');if(!Array.isArray(r.peers))throw new Error('Invalid peer list');return r.peers.map((p:any)=>String(p.pub_key));},
+      connectPeer:async(peer:string,host:string)=>{if(!/^(\[[0-9a-fA-F:]+\]|[a-zA-Z0-9](?:[a-zA-Z0-9.-]{0,251}[a-zA-Z0-9])?):[0-9]{1,5}$/.test(host))throw new Error('Invalid peer address');await this.unary('lightning','connectPeer',{addr:{pubkey:pubkey(peer),host},perm:false,timeout:'15'},'channel');},
+      estimateFee:async(amountSat:string,targetConf:number)=>{
+        const r=await this.unary('lightning','estimateFee',{AddrToAmount:{[ESTIMATE_ADDRESS]:integer(amountSat).toString()},target_conf:targetConf,min_confs:1,spend_unconfirmed:false},'channel');
+        if(!/^[0-9]+$/.test(String(r.fee_sat))||!/^[0-9]+$/.test(String(r.sat_per_vbyte)))throw new Error('Invalid fee estimate');return {feeSat:String(r.fee_sat),satPerVbyte:String(r.sat_per_vbyte)};
+      },
+      openChannel:async(peer:string,amountSat:string,satPerVbyte:string)=>{
+        const r=await this.unary('lightning','openChannelSync',{node_pubkey:Buffer.from(pubkey(peer),'hex'),local_funding_amount:integer(amountSat).toString(),push_sat:'0',sat_per_vbyte:rate(satPerVbyte),private:false,min_confs:1,spend_unconfirmed:false},'channel');
+        return {txid:r.funding_txid_bytes?txid(r.funding_txid_bytes):String(r.funding_txid_str),outputIndex:Number(r.output_index)};
+      },
+      closeChannel:(point:string,satPerVbyte:string)=>this.cooperativeClose({channel_point:chanPoint(point),force:false,sat_per_vbyte:rate(satPerVbyte),max_fee_per_vbyte:rate(satPerVbyte),no_wait:false},txid),
+      pendingChannels:async()=>{
+        const r=await this.unary('lightning','pendingChannels',{},'channel');if(!Array.isArray(r.pending_open_channels)||!Array.isArray(r.waiting_close_channels))throw new Error('Invalid pending channels');
+        return {opens:r.pending_open_channels.map((p:any)=>({peer:String(p.channel?.remote_node_pub),point:String(p.channel?.channel_point),capacitySat:String(p.channel?.capacity)})),closing:r.waiting_close_channels.map((p:any)=>({peer:String(p.channel?.remote_node_pub),point:String(p.channel?.channel_point),txid:String(p.closing_txid)}))};
+      },
+      closedChannels:async()=>{const r=await this.unary('lightning','closedChannels',{},'channel');if(!Array.isArray(r.channels))throw new Error('Invalid closed channels');return r.channels.map((c:any)=>({point:String(c.channel_point),peer:String(c.remote_pubkey),txid:String(c.closing_tx_hash),type:String(c.close_type)}));},
+      nodeGraph:async(peer:string)=>{
+        const r=await this.unary('lightning','getNodeInfo',{pub_key:pubkey(peer),include_channels:true},'channel');if(!Array.isArray(r.channels))throw new Error('Invalid node graph');
+        const policy=(p:any):EdgePolicy|null=>p?{baseMsat:String(p.fee_base_msat),ppm:Number(p.fee_rate_milli_msat),cltv:Number(p.time_lock_delta),disabled:p.disabled===true}:null;
+        const edges=r.channels.slice(0,MAX_CANDIDATE_EDGES).map((e:any)=>{const out=e.node1_pub===peer;return {channelId:String(e.channel_id),peer:String(out?e.node2_pub:e.node1_pub),capacitySat:String(e.capacity),outgoing:policy(out?e.node1_policy:e.node2_policy),incoming:policy(out?e.node2_policy:e.node1_policy)};});
+        return {alias:String(r.node?.alias??''),channels:Number(r.num_channels),capacitySat:String(r.total_capacity),edges,truncated:r.channels.length>MAX_CANDIDATE_EDGES};
+      },
+      nodeInfo:async(peer:string)=>{const r=await this.unary('lightning','getNodeInfo',{pub_key:pubkey(peer),include_channels:false},'channel');return {alias:String(r.node?.alias??''),channels:Number(r.num_channels),capacitySat:String(r.total_capacity),addresses:(r.node?.addresses??[]).map((a:any)=>String(a.addr))};},
+    });
+  }
+  /** Returns at the first close_pending (or chan_close) update and cancels the stream. One request; never re-sent. */
+  private cooperativeClose(request:any,txid:(bytes:unknown)=>string):Promise<{txid:string}> {
+    if(request.force!==false)throw new Error('Force close is not permitted');
+    const c=this.lease();return new Promise((resolve,reject)=>{
+      let call:grpc.ClientReadableStream<any>|undefined,settled=false;
+      const finish=(error?:unknown,result?:{txid:string})=>{if(settled)return;settled=true;clearTimeout(timer);call?.cancel();this.release(c);if(error)reject(this.fail(error,'closeChannel'));else resolve(result!);};
+      const timer=setTimeout(()=>finish(new TransportError('deadline')),this.limits.paymentMs);
+      try {
+        call=(c.lightning as any).closeChannel(request,this.metadata('channel'),{deadline:Date.now()+this.limits.paymentMs+1000,waitForReady:false});
+        call!.on('data',(u:any)=>{if(settled)return;try{if(u?.close_pending?.txid)finish(undefined,{txid:txid(u.close_pending.txid)});else if(u?.chan_close?.closing_txid)finish(undefined,{txid:txid(u.chan_close.closing_txid)});}catch(e){finish(e);}});
+        call!.on('error',(error:grpc.ServiceError)=>finish(error));call!.on('end',()=>finish(new TransportError('rpc_failure')));
       }catch(e){finish(e);}
     });
   }

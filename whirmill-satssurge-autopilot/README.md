@@ -67,6 +67,11 @@ These limits are built into the app and cannot be changed from chat.
    sh scripts/provision.sh /home/umbrel/umbrel/app-data/whirmill-satssurge-autopilot
    ```
 
+   Optional, with the owner's approval: `scripts/provision-channels.sh` (same
+   argument) bakes a separate channel macaroon. Without it, channel open/close
+   proposals stay unavailable and everything else works unchanged. With it,
+   each open or cooperative close still runs only after the owner approves it.
+
 3. **Install the host timers**, as `umbrel`:
 
    ```sh

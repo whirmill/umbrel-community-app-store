@@ -4,7 +4,8 @@ import { randomBytes } from 'node:crypto';
 import { Store } from './store.js';
 import { Queue } from './queue.js';
 import { Executor } from './executor.js';
-import { hash, json, now, scrub, type Proposal, type Snapshot } from './domain.js';
+import { hash, json, now, scrub, channelKind, type Proposal, type ChannelProposal, type Snapshot } from './domain.js';
+import { channelApprovalState } from './channels.js';
 /** Snapshot timestamps are excluded; every material approved endpoint field is bound. */
 export function approvalState(s: Snapshot, p: Proposal) {
     return hash(json({ identity: s.identity, synced: s.synced, confirmedSat: s.confirmedSat, channels: s.channels.filter(c => [p.source, p.target].includes(c.id)).sort((a, b) => a.id.localeCompare(b.id)) }));
@@ -66,11 +67,25 @@ export class ApplicationControl {
         const snapshot = this.store.get<Snapshot>('snapshot');
         if (!snapshot)
             throw Error('Snapshot unavailable');
+        return this.record(p, jobId, approvalState(snapshot, p), at);
+    }
+    /** Channel opens/closes are priced now and execute only after the owner's approve action. */
+    async createChannelProposal(p: ChannelProposal, jobId: string, at = now()) {
+        if (this.store.get('jobCapability:' + jobId) !== 'guarded_manual_proposal')
+            throw Error('Manual proposal capability required');
+        const snapshot = this.store.get<Snapshot>('snapshot');
+        if (!snapshot)
+            throw Error('Snapshot unavailable');
+        const priced = await this.channels().price(p, snapshot, at);
+        return this.record(priced, jobId, channelApprovalState(snapshot, priced), at);
+    }
+    channels() { const channels = this.executor?.channels; if (!channels) throw Error('Channel operations unavailable: channel credential not provisioned'); return channels; }
+    private record(p: Proposal | ChannelProposal, jobId: string, stateDigest: string, at: string) {
         const content = json(scrub(p)), digest = hash(content), key = hash(jobId + ':' + digest);
         const originGeneration=this.store.get('jobTelegramGeneration:'+jobId);
         if(originGeneration&&originGeneration!==this.store.get('telegramBinding')?.generation)throw Error('Proposal request authority revoked');
         this.store.tx(()=>{
-            const inserted=this.store.run("INSERT OR IGNORE INTO owner_proposals VALUES(?,?,?,?,?,'pending',?,NULL,NULL,NULL,?)", key, at, content, digest, approvalState(snapshot, p), new Date(Date.parse(at) + 300000).toISOString(), jobId);
+            const inserted=this.store.run("INSERT OR IGNORE INTO owner_proposals VALUES(?,?,?,?,?,'pending',?,NULL,NULL,NULL,?)", key, at, content, digest, stateDigest, new Date(Date.parse(at) + 300000).toISOString(), jobId);
             if(inserted.changes===1)this.store.set('proposalAuthority:'+key,{generation:this.store.get('telegramBinding')?.generation??null});
         });
         return this.proposal(key);
@@ -81,11 +96,13 @@ export class ApplicationControl {
         const r = this.proposal(key);
         const authority=this.store.get('proposalAuthority:'+key);
         if(!authority||authority.generation!==(this.store.get('telegramBinding')?.generation??null))throw Error('Proposal authority revoked');
-        if (!r || !['pending', 'executing'].includes(r.status) || r.content_digest !== hash(json(r.content)) || !r.expires_at || r.expires_at <= at || r.state_digest !== approvalState(s, r.content))
+        const channel = channelKind(r?.content?.kind);
+        if (!r || !['pending', 'executing'].includes(r.status) || r.content_digest !== hash(json(r.content)) || !r.expires_at || r.expires_at <= at || r.state_digest !== (channel ? channelApprovalState(s, r.content) : approvalState(s, r.content)))
             throw Error('Proposal expired or conditions changed; create a fresh proposal');
         this.store.assertDispatchReady(at);
         if(!s.synced||!Number.isFinite(Date.parse(s.at))||Date.parse(s.at)>Date.parse(at)||Date.parse(at)-Date.parse(s.at)>60000)throw Error('Fresh synchronized snapshot required');
-        this.store.reserve(r.content,forecast(this.store,r.content,s),s,at,undefined,true);
+        if(channel)this.channels().check(r.content,s,at);
+        else this.store.reserve(r.content,forecast(this.store,r.content,s),s,at,undefined,true);
     }
     reject(key: string) { return this.store.run("UPDATE owner_proposals SET status='rejected' WHERE id=? AND status='pending'", key).changes === 1; }
     async approve(key: string, at = now()) {
@@ -111,7 +128,8 @@ export class ApplicationControl {
             return { consumed: false, proposal: this.proposal(key) };
         const p = this.proposal(key)!.content;
         try {
-            const result = await this.executor.execute(p, { validate: s => this.validate(key, s), reserved: operation => this.store.run('UPDATE owner_proposals SET operation_id=? WHERE id=?', operation, key) });
+            const approval = { validate: (s: Snapshot) => this.validate(key, s), reserved: (operation: string) => { this.store.run('UPDATE owner_proposals SET operation_id=? WHERE id=?', operation, key); } };
+            const result = channelKind(p.kind) ? await this.channels().execute(key, approval) : await this.executor.execute(p, approval);
             this.store.run("UPDATE owner_proposals SET status='executed',result=? WHERE id=?", json(result), key);
             return { consumed: true, result };
         }

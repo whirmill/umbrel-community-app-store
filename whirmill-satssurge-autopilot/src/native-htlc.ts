@@ -137,7 +137,7 @@ export class NativeHtlcCollector {
   const uncertainty=contradiction?'conflicting_duplicate':circuitConflict?'contradictory_circuit':crossEpoch?'cross_epoch_circuit':null;
   const cached=native.variant==='forward_fail'?this.cachedForward(native,processing):null;
   const delta=native.incomingMsat!==null&&native.outgoingMsat!==null?(BigInt(native.incomingMsat)-BigInt(native.outgoingMsat)).toString():null;
-  let nextCache=state.cache.filter(e=>e.circuitKey!==key);const id=digest({eventKey,checksum}),next:EpochState={...state,lastProcessingAt:processing,cache:currentEntry&&(circuitConflict||contradiction)?[...nextCache,{...currentEntry,ambiguous:true}].slice(-this.cacheLimit):nextCache};
+  let nextCache=state.cache.filter(e=>e.circuitKey!==key&&(e.ambiguous||Date.parse(processing)-Date.parse(e.processingAt)<=this.cacheTtlMs));const id=digest({eventKey,checksum}),next:EpochState={...state,lastProcessingAt:processing,cache:currentEntry&&(circuitConflict||contradiction)?[...nextCache,{...currentEntry,ambiguous:true}].slice(-this.cacheLimit):nextCache};
   const writeDelivery=(observationId:string)=>{
    if(!deliveryId||!delivery)return;
    const diagnostic=lndgFailureProjection(native,{binding:state.binding,epoch:state.epoch,processingAt:processing},{snapshot:options.liquiditySnapshot,snapshotMaxAgeMs:options.snapshotMaxAgeMs,cachedForward:cached??undefined});

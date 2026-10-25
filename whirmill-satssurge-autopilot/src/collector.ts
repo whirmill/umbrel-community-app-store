@@ -21,8 +21,10 @@ export function checkInterlocks(paths:{lightningMate:string;lndg:string}) {
   if(config.schema!==1 || !Number.isFinite(Date.parse(config.at)) || Date.parse(config.at)>Date.now() || Date.now()-Date.parse(config.at)>90000 || keys.some(k=>config[k]!==false) || config.lsp!==false || config.lndgAF!==false || config.lndgAR!==false || config.lndgAutopilot!==false || config.loop!==false) return {ok:false,at:now(),reason:'Other automation settings unknown, enabled or stale'};
   return {ok:true,at:now(),reason:'Live operator interlock verified',source:paths.lightningMate};
 }
+// Each retention batch appends immutable checkpoints; 90-day expiry needs no per-minute cadence.
+export const RETENTION_INTERVAL_MS=15*60_000;
 export class Collector {
-  busy=false;
+  busy=false;private retainedAt=0;
   constructor(private store:Store,private node:NodeClient,private executor:Executor,private gateFile:string,private native?:NativeCollection){}
   async collect() {
     if(this.busy)return;this.busy=true;
@@ -37,6 +39,8 @@ export class Collector {
         this.store.set('automationProof',{ok:false,at:now(),state:'unknown',source:'apps-only',reason:'Owner-wide standalone automation unknown; financial execution held'});
       }else{this.store.run("DELETE FROM meta WHERE key='appControlProof'");const contract=this.store.get<InterlockContract>('interlockContract');this.store.set('automationProof',contract?.schema===2?readInterlock(this.gateFile,Date.now,contract):contract!==undefined?{ok:false,at:now(),state:'unknown',reason:'Unsupported protected interlock contract'}:checkInterlocks({lightningMate:this.gateFile,lndg:''}));}
       await this.executor.reconcile();
+      // Channel reconciliation leaves operations unchanged on failure and never blocks collection.
+      try{await this.executor.channels?.reconcile();}catch{}
       const s=await this.node.snapshot();if(s.identity!==this.store.get('expectedIdentity'))throw new Error('Node identity mismatch');const previous=this.store.get<Snapshot>('snapshot');
       for(const c of s.channels) {
         const old=previous?.channels.find(x=>x.id===c.id);
@@ -85,7 +89,7 @@ export class Collector {
         this.store.run('INSERT OR REPLACE INTO coverage VALUES(?,?,?,?,?,?)','forwards',start,end,'LND forwards',1,json({pagesComplete:true,events:forwards.length}));
       });
       recovered?.();
-      evaluate(this.store,end);this.store.retain();
+      evaluate(this.store,end);if(Date.now()-this.retainedAt>=RETENTION_INTERVAL_MS){this.store.retain();this.retainedAt=Date.now();}
       await this.native?.tick();
       this.persistTransport();
       this.store.set('operationalReadiness',{at:now(),ready:s.synced&&!this.store.get('lndTransport')?.failure,appControls:scoped?(this.store.get('appControlProof')?.ok===true?'qualified':'unknown'):'not-configured',standalone:scoped?'unknown':'separate-interlock',financialEligible:scoped?false:this.store.get('automationProof')?.ok===true});

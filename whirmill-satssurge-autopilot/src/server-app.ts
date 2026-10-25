@@ -18,6 +18,7 @@ import {NativeCollection} from "./native-collection.js";
 import {canonicalRead} from "./canonical-consumers.js";
 import { Lnd } from "./lnd.js";
 import { Executor } from "./executor.js";
+import { ChannelLifecycle } from "./channels.js";
 import { Collector } from "./collector.js";
 import { Queue } from "./queue.js";
 import { Scheduler } from "./scheduler.js";
@@ -89,6 +90,8 @@ try {
   const source=new NativeLndSource({transport:node.nativeRead(),nodeId:expected,network:info.chains[0].network,chain:info.chains[0].chain,sourceVersion:info.version,sourceInstance:randomBytes(24).toString('hex')});
   native=new NativeCollection(store,source);
   const executor = new Executor(store, node);
+  // Channel lifecycle needs the separate channel credential; without it channel features stay unavailable.
+  if (node.enableChannels("/credentials/channel.macaroon")) executor.channels = new ChannelLifecycle(store, node, node.channelRpc()!);
   control = new ApplicationControl(store, queue, executor);
   Object.assign(telegram, {control});
   collector = new Collector(

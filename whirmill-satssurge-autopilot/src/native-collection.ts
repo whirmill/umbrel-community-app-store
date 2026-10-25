@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {CanonicalModel,digest} from './canonical-model.js';
-import {LEGACY_TABLES,OriginalArchiveCapacityError} from './canonical-migration.js';
+import {OriginalArchiveCapacityError} from './canonical-migration.js';
+import {RUNTIME_ARCHIVE_TABLES} from './canonical-runtime.js';
 import {NativeHistoryCollector,type NativeHistorySource} from './native-history.js';
 import {NativeHtlcCollector} from './native-htlc.js';
 import {NativePolicyCollector,type NativePolicySource} from './native-policy.js';
@@ -14,6 +15,8 @@ export interface CollectionSource extends NativeHistorySource,NativePolicySource
 }
 // Ordinary runtime archives include large retained state rows; generic migration/retention limits stay unchanged.
 export const NATIVE_ARCHIVE_MAX_BYTES=4*1024*1024;
+// Once caught up, each kind waits for this much new history: an empty minute window still costs immutable receipts.
+export const NATIVE_HISTORY_MIN_WINDOW_SECONDS=900n;
 /** Bounded persisted windows survive restart; client instance labels never attest database epochs. */
 export class NativeCollection {
  readonly model:CanonicalModel;readonly history:NativeHistoryCollector;readonly htlc:NativeHtlcCollector;readonly policy:NativePolicyCollector;
@@ -25,11 +28,11 @@ export class NativeCollection {
   if(this.busy)return;this.busy=true;
   try{
    // Archive one original table batch per tick, including every retained financial receipt.
-   const index=this.store.get<number>('canonicalArchiveTable')??0,table=LEGACY_TABLES[index%LEGACY_TABLES.length]!,archiveAt=this.clock();
+   const index=this.store.get<number>('canonicalArchiveTable')??0,table=RUNTIME_ARCHIVE_TABLES[index%RUNTIME_ARCHIVE_TABLES.length]!,archiveAt=this.clock();
    let archiveReady=true;
    try{
     const page=this.store.canonical!.scan(table,{limit:200,maxBytes:NATIVE_ARCHIVE_MAX_BYTES,observedAt:archiveAt});
-    this.store.set('canonicalArchiveTable',(index+1)%LEGACY_TABLES.length);
+    this.store.set('canonicalArchiveTable',(index+1)%RUNTIME_ARCHIVE_TABLES.length);
     this.store.set('canonicalArchiveProgress',{at:archiveAt,table,ok:true,...page,sourceHistoryComplete:false,sourceMutationTimeKnown:false});
    }catch(error){
     // Capacity holds this exact table/cursor; integrity and transaction failures still fail closed.
@@ -49,7 +52,7 @@ export class NativeCollection {
     const key='nativeWindow:'+kind;let window=this.store.get<{captureId:string;startTime:string;endTime:string;done:boolean}>(key);
     if(!window||window.done){
      const end=BigInt(Math.floor(Date.parse(this.clock())/1000)-60),initial=BigInt(Math.floor(Date.parse(this.store.get<string>('historyStart')??this.store.get<string>('installedAt')??this.clock())/1000));
-     const start=window?BigInt(window.endTime)+(kind==='payments'?1n:0n):initial;if(start>=end)continue;
+     const start=window?BigInt(window.endTime)+(kind==='payments'?1n:0n):initial;if(start>=end||window&&end-start<NATIVE_HISTORY_MIN_WINDOW_SECONDS)continue;
      // Fixed one-hour windows bound subsequent work even on long histories.
      window={captureId:randomUUID(),startTime:String(start),endTime:String(start+3600n<end?start+3600n:end),done:false};this.store.set(key,window);
     }

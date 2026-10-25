@@ -146,3 +146,9 @@ test('same-session HTLC diagnostics and cache remain usable without asserting un
  f.end('disconnect',stamp(3));f.open('e1',stamp(4));f.ack('e1',stamp(4));const repeated=f.observe(smallForward(),stamp(5));assert.notEqual(repeated.observationId,first.observationId);assert.equal(repeated.reason,'cross_epoch_circuit');assert.equal(repeated.financialQualified,false);assert.ok(f.model.effects({...binding,kind:'native_htlc'}).entities!.every((e:any)=>e.financialQualified===false));
  }finally{f.close();}
 });
+test('epoch checkpoints drop expired forward cache entries instead of carrying them in every receipt',()=>{
+ const f=fixture(':memory:',{cacheTtlMs:10});try{f.open();f.ack();for(let i=0;i<5;i++)f.observe(event({outgoing_htlc_id:String(i),timestamp_ns:String(1000000000000000123n+BigInt(i))}),stamp(i));
+ const cache=()=>JSON.parse((f.db.prepare("SELECT details FROM canonical_coverage WHERE capability='htlc_epoch_checkpoint' ORDER BY rowid DESC LIMIT 1").get() as any).details).cache;assert.equal(cache().length,5);
+ f.observe(event({outgoing_htlc_id:'9',timestamp_ns:'1000000000000000200'}),stamp(100));assert.equal(cache().length,1);assert.equal(observations(f.db).length,6);
+ }finally{f.close();}
+});
