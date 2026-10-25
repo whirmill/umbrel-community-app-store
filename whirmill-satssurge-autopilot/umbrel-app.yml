@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.6.0"
+version: "0.6.1"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,9 +27,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.6.0 simplifies how the agent runs on Pi Durable. The app no longer
-  patches the Durable library, its tools are defined once per permission, and
-  failed model requests are retried by Durable itself. After a restart,
-  interrupted agent runs resume only when they would be allowed to start now;
-  otherwise they are closed and never repeated. Each financial operation now
-  records the agent step that started it.
+  Version 0.6.1 makes Telegram messages clearer. The /stop confirmation now
+  names the answer it would interrupt, and a correction sent during an answer
+  is acknowledged in plain words.
