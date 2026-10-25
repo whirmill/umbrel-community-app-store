@@ -9,6 +9,7 @@ import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { id, now, json, hash, integer, day, MANDATE, SCHEMA_VERSION, type Snapshot, type Proposal, type Forecast } from './domain.js';
 
+export const UI_TEXT_FRAME_RETENTION_MS=86400000;
 export class Store {
   readonly db: DatabaseSync;
   readonly canonical:CanonicalRuntime;
@@ -284,6 +285,11 @@ export class Store {
       claims:this.all('SELECT * FROM claims ORDER BY at DESC LIMIT 25'), holds:this.all('SELECT * FROM channel_holds'),
       projectionLimits:{operations:50,decisions:50,evaluations:30,evaluationWindows:60,coverage:20,claims:25,upstreamHistoryComplete:false},agent:this.get('agent')??{},importReport:this.get('importReport')??{}, roadmap:['M1–M2.1 · Fondamenti, diagnostica e interfaccia web','M2.2 · Conversazione quotidiana su Telegram','M2.3 · Stabilizzazione del core — in corso','M2.4 · Prompt consultivi sui problemi del runtime — da qualificare','M3 · Raccolta nativa e storico unificato — da qualificare','M4 · Documenti, immagini ed export — da qualificare','M5 · Integrazioni opzionali RoboSats, Amboss e Magma — da qualificare']};
   }
-  retain(at=now()) {return this.canonical.retain(at);}
+  retain(at=now()) {const result=this.canonical.retain(at);this.pruneUiEvents(at);return result;}
+  /** Streaming text frames are transient; a finished job keeps its latest public text, tool records, messages and receipts. */
+  pruneUiEvents(at=now(),limit=5000) {
+    const cutoff=new Date(Date.parse(at)-UI_TEXT_FRAME_RETENTION_MS).toISOString();
+    return Number(this.run("DELETE FROM ui_events WHERE id IN (SELECT e.id FROM ui_events e JOIN jobs j ON j.id=e.job_id WHERE e.type='text' AND j.state IN ('completed','failed','cancelled') AND j.finished_at<? AND EXISTS(SELECT 1 FROM ui_events n WHERE n.job_id=e.job_id AND n.type='text' AND n.id>e.id) LIMIT ?)",cutoff,limit).changes);
+  }
   close() {this.db.close();}
 }

@@ -105,3 +105,10 @@ test('bounded immutable receipt-range continuations preserve all deliveries and 
   assert.equal(s.one('PRAGMA user_version').user_version,7);
  }finally{views.release('delivery-fixture');s.close();}
 });
+test('unpinned failure rollups reuse one revision while unrelated coverage advances and fork for a new failure receipt',async()=>{
+ const s=new Store(':memory:');try{await capture(s,[raw(),raw()]);const n=()=>Number(s.one("SELECT count(*) n FROM canonical_projection_revisions WHERE name='native_failure_delivery_rollups'").n);
+ const first:any=nativeFailureRollups(s,{limit:100});assert.equal(n(),1);assert.equal(first.through,Number(s.one('SELECT max(rowid) n FROM canonical_coverage WHERE capability=?',HTLC_DELIVERY_CAPABILITY).n));
+ for(let i=0;i<5;i++){new CanonicalModel(s.db).appendCoverage({...binding,capability:'native_htlc_events',scope:'unrelated-'+i,source:'lnd.htlc',epoch:'x',start:at,end:later,observedAt:later,status:'partial',details:{}});s.stats();assert.equal((nativeFailureRollups(s,{limit:100}) as any).revisionId,first.revisionId);}
+ assert.equal(n(),1);await capture(s,[raw()],[later],{epoch:'later-subscription'});const next:any=nativeFailureRollups(s,{limit:100});assert.notEqual(next.revisionId,first.revisionId);assert.equal(next.rows.reduce((a:number,r:any)=>a+r.deliveryCount,0),3);assert.equal(n(),2);
+ }finally{s.close();}
+});

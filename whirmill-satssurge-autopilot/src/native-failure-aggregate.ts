@@ -10,13 +10,16 @@ export const NATIVE_DELIVERY_ROLLUP_VERSION='native-htlc-delivery-receipt-range-
 export const DELIVERY_ROLLUP_INPUT_LIMIT=32;
 export function nativeFailureRollups(store:Store,q:CanonicalReadQuery={}){
  const after=q.after??0,limit=q.limit??200;
- const through=q.through??Number(store.one('SELECT coalesce(max(rowid),0) n FROM canonical_coverage').n);
- if(!Number.isSafeInteger(after)||after<0||!Number.isSafeInteger(through)||through<after||!Number.isSafeInteger(limit)||limit<1||limit>10000)throw Error('Bounded native delivery range required');
- const filters=['rowid>?','rowid<=?',"capability=?","status='partial'","json_extract(details,'$.schema')=?","json_extract(details,'$.record.variant') IN ('link_fail','forward_fail')"],args:any[]=[after,through,HTLC_DELIVERY_CAPABILITY,HTLC_DELIVERY_SCHEMA];
+ const filters=["capability=?","status='partial'","json_extract(details,'$.schema')=?","json_extract(details,'$.record.variant') IN ('link_fail','forward_fail')"],args:any[]=[HTLC_DELIVERY_CAPABILITY,HTLC_DELIVERY_SCHEMA];
  for(const key of ['start','end'] as const)if(q[key]){if(!Number.isFinite(Date.parse(q[key]!)))throw Error('Invalid delivery interval');filters.push('observed_at'+(key==='start'?'>=':'<')+'?');args.push(new Date(q[key]!).toISOString());}
  if(q.start&&q.end&&Date.parse(q.start)>Date.parse(q.end))throw Error('Inverted delivery interval');
  for(const key of ['source','target'] as const)if(q[key]){filters.push("json_extract(details,'$."+(key==='source'?'sourceChannel':'targetChannel')+"')=?");args.push(channelScid(q[key]));}
  if(q.channel){filters.push("(json_extract(details,'$.sourceChannel')=? OR json_extract(details,'$.targetChannel')=?)");args.push(channelScid(q.channel),channelScid(q.channel));}
+ // An unpinned range ends at the newest matching receipt, not the coverage high-water:
+ // unrelated coverage appends would otherwise fork an identical revision on every read.
+ const through=q.through??Math.max(after,Number(store.one('SELECT coalesce(max(rowid),0) n FROM canonical_coverage WHERE '+filters.join(' AND '),...args).n));
+ if(!Number.isSafeInteger(after)||after<0||!Number.isSafeInteger(through)||through<after||!Number.isSafeInteger(limit)||limit<1||limit>10000)throw Error('Bounded native delivery range required');
+ filters.unshift('rowid>?','rowid<=?');args.unshift(after,through);
  const inputLimit=Math.min(limit,DELIVERY_ROLLUP_INPUT_LIMIT),selected=store.all('SELECT rowid cursor,* FROM canonical_coverage WHERE '+filters.join(' AND ')+' ORDER BY rowid LIMIT ?',...args,inputLimit+1),receipts=selected.slice(0,inputLimit);
  if(!receipts.length)return {available:false,rows:null,nextAfter:null,through,note:'No committed native failure delivery receipts in this range; historical absence remains unknown',sourceHistoryComplete:false};
  const nextAfter=selected.length>inputLimit?Number(receipts.at(-1)!.cursor):null;

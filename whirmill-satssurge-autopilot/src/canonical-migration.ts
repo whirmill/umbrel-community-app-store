@@ -80,15 +80,15 @@ export function ingestLegacyBatch(db:DatabaseSync,o:LegacyBatchOptions):{read:nu
    if(checkpoint?.cycleComplete){cycle++;cursor=null;upperBound=undefined;}
    if(upperBound===undefined){const highwater=db.prepare(`SELECT coalesce(max(rowid),0) highwater FROM ${o.table}`);highwater.setReadBigInts(true);upperBound=String(highwater.get()!.highwater);}
    const page=boundedOriginalPage(db,o.table,cursor===null?'rowid>=? AND rowid<=?':'rowid>? AND rowid<=?',[cursor===null?-9223372036854775808n:BigInt(cursor),BigInt(upperBound)],'rowid',limit,o.maxBytes??1048576),rows=page.rows;
-   let inserted=0,encodedBytes=0;const rowDigests:string[]=[],previousDigest=checkpoint?.cycleComplete?null:checkpoint?.scanDigest??null;let scanDigest=previousDigest??digest({table:o.table,cycle,upperBound});let scannedRows=checkpoint?.cycleComplete?0:checkpoint?.scannedRows??0;
-   for(const raw of rows){const {__canonical_rowid__,...row}=raw;cursor=String(__canonical_rowid__);const rowDigest=digest(encodeOriginal(row));rowDigests.push(rowDigest);scanDigest=digest({previous:scanDigest,rowid:cursor,rowDigest});scannedRows++;
+   let inserted=0,encodedBytes=0;const previousDigest=checkpoint?.cycleComplete?null:checkpoint?.scanDigest??null;let scanDigest=previousDigest??digest({table:o.table,cycle,upperBound});let scannedRows=checkpoint?.cycleComplete?0:checkpoint?.scannedRows??0;
+   for(const raw of rows){const {__canonical_rowid__,...row}=raw;cursor=String(__canonical_rowid__);const rowDigest=digest(encodeOriginal(row));scanDigest=digest({previous:scanDigest,rowid:cursor,rowDigest});scannedRows++;
      encodedBytes+=Buffer.byteLength(encodeOriginal(row));if(encodedBytes>(o.maxBytes??1048576))throw Error('Original archive byte limit exceeded; original rows retained');
      inserted+=archiveOriginal(db,o.table,row,{sourceInstance:o.sourceInstance,sourceVersion:o.sourceVersion,observedAt:o.observedAt,nodeId:o.nodeId,network:o.network,rowid:cursor}).inserted;
 
    }
    const cycleComplete=page.exhausted||(cursor!==null&&BigInt(cursor)>=BigInt(upperBound));
    o.beforeCheckpoint?.();
-   const checkpointId=model.appendCoverage({nodeId:o.nodeId,network:o.network,capability:'legacy_ingestion',scope,source,epoch:String(cycle),start:o.observedAt,end:o.observedAt,observedAt:o.observedAt,status:'checkpoint',supersedes:old?.id??null,details:{table:o.table,cycle,cursor,upperBound,cycleComplete,boundedByBytes:page.boundedByBytes,read:rows.length,scannedRows,scanDigest,rowDigests,frozenHighWaterComplete:cycleComplete,sourceMutationTimeKnown:false}});
+   const checkpointId=model.appendCoverage({nodeId:o.nodeId,network:o.network,capability:'legacy_ingestion',scope,source,epoch:String(cycle),start:o.observedAt,end:o.observedAt,observedAt:o.observedAt,status:'checkpoint',supersedes:old?.id??null,details:{table:o.table,cycle,cursor,upperBound,cycleComplete,boundedByBytes:page.boundedByBytes,read:rows.length,scannedRows,scanDigest,frozenHighWaterComplete:cycleComplete,sourceMutationTimeKnown:false}});
    return {read:rows.length,inserted,cursor,cycle,cycleComplete,boundedByBytes:page.boundedByBytes,scannedRows,scanDigest,upperBound,checkpointId};
  });
 }

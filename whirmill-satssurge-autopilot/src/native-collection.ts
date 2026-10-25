@@ -14,6 +14,8 @@ export interface CollectionSource extends NativeHistorySource,NativePolicySource
 }
 // Ordinary runtime archives include large retained state rows; generic migration/retention limits stay unchanged.
 export const NATIVE_ARCHIVE_MAX_BYTES=4*1024*1024;
+// Once caught up, each kind waits for this much new history: an empty minute window still costs immutable receipts.
+export const NATIVE_HISTORY_MIN_WINDOW_SECONDS=900n;
 /** Bounded persisted windows survive restart; client instance labels never attest database epochs. */
 export class NativeCollection {
  readonly model:CanonicalModel;readonly history:NativeHistoryCollector;readonly htlc:NativeHtlcCollector;readonly policy:NativePolicyCollector;
@@ -49,7 +51,7 @@ export class NativeCollection {
     const key='nativeWindow:'+kind;let window=this.store.get<{captureId:string;startTime:string;endTime:string;done:boolean}>(key);
     if(!window||window.done){
      const end=BigInt(Math.floor(Date.parse(this.clock())/1000)-60),initial=BigInt(Math.floor(Date.parse(this.store.get<string>('historyStart')??this.store.get<string>('installedAt')??this.clock())/1000));
-     const start=window?BigInt(window.endTime)+(kind==='payments'?1n:0n):initial;if(start>=end)continue;
+     const start=window?BigInt(window.endTime)+(kind==='payments'?1n:0n):initial;if(start>=end||window&&end-start<NATIVE_HISTORY_MIN_WINDOW_SECONDS)continue;
      // Fixed one-hour windows bound subsequent work even on long histories.
      window={captureId:randomUUID(),startTime:String(start),endTime:String(start+3600n<end?start+3600n:end),done:false};this.store.set(key,window);
     }
