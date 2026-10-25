@@ -50,8 +50,9 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
 - **Diagnostics archive.** Before 0.5.18 every 30 s diagnostics refresh archived two ~257 KB copies; 7,170 duplicates (1.85 GB) were removed with `scripts/prune_diagnostics_archive.py`. 0.5.18 archives only content changes.
 - **Host-level timers.** These run outside the Umbrel app as `umbrel` user systemd timers:
   - `satssurge-autopilot-{diagnostics,interlock,lnd-cert}`: about every 30–60 s;
-  - `-competition`: every 3 minutes;
-  - `satssurge-collect`: daily.
+  - `-competition`: every 3 minutes.
+
+  The pre-app `satssurge-collect` daily report and the Lightning Mate backfill were retired on 2026-10-25. The collector's past reports remain in `~/.local/share/satssurge` (#126).
 - **Startup costs.** The owner's manual startup operations of 3–8 October are annotated in `ledger_annotations`: 45 entries as `other` (channel opens and closes, funding, Magma liquidity, initial balancing) and 2 as `swap` (RoboSats fees). The budget still counts them, as mandate v1 requires. Since 0.5.20 the agent sees the 30-day partition. On 2026-10-25 it showed routing at +1,452.7 sat, other at −9,872.7 sat and swap at +1,834.5 sat.
 - **LND alerts (0.5.21).** Transient LND call failures (deadline, cancelled, rpc_failure, unavailable, resource_limit, acquisition_failure) alert only after 10 minutes of outage, once per outage, with one recovery message after 5 minutes of continuous health. Certificate, endpoint and authentication problems alert immediately. Before 0.5.21 single hiccups had produced 158 alerts.
 - **Peer fee comparison (0.5.21).** It had been unavailable since LND left 0.21.3, because both sides pinned that exact version. It now accepts LND 0.21+ including release candidates.

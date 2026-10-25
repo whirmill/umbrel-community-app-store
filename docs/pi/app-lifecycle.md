@@ -11,12 +11,10 @@ the application.
 The launcher owns the executor lock for its entire application child lifetime.
 All legitimate database writers acquire the stable admission inode exclusively,
 then the stable `maintenance.lock` inode in shared mode. Runtime retains the
-shared lock; `lm_backfill.py` acquires it before its existing writer lock and
-before opening operational SQLite. The backfill installer copies the shared
-module together with its consumers; `install-backfill.sh <app> --helpers-only`
-updates helpers without creating, enabling or starting a unit. Checkpoint/migration takes maintenance
-exclusively. Lock order is executor (application/checkpoint only), admission,
-maintenance, backfill writer (backfill only). Deadlines are 15 seconds for lock
+shared lock; offline maintenance scripts take the executor lock. Checkpoint/migration
+takes maintenance exclusively. Lock order is executor, admission, maintenance.
+The host Lightning Mate backfill (`lm_backfill.py`), which also took the shared
+lock, was retired: masked on 2026-10-11, removed on 2026-10-25. Deadlines are 15 seconds for lock
 acquisition and 60 seconds for isolated migration. These inodes must never be
 unlinked, replaced or restored from a checkpoint.
 
@@ -84,7 +82,7 @@ This is a one-time, controlled legacy transition, not a mandatory permanent
 Umbreld owner/catalogue/provider integration. Prefer the smallest independently
 qualified host procedure that establishes the facts below. Do not patch global
 Umbreld lifecycle operations merely to implement graceful app shutdown. The
-known external SQLite writer is host `lm_backfill.py`; diagnostics/interlock/
+known external SQLite writer was host `lm_backfill.py` (now removed); diagnostics/interlock/
 competition write projections and the collector's separate history scope must
 not be mislabeled as writers of all three databases. M3 retires LM/LNDg and
 legacy helpers only after native collection and consumer semantic parity; a
