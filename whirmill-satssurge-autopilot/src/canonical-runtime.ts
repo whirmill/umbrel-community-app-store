@@ -1,6 +1,6 @@
 import type {DatabaseSync} from 'node:sqlite';
 import {CanonicalModel} from './canonical-model.js';
-import {archiveOriginal,boundedOriginalRows,ingestLegacyBatch,validateCanonical,type LegacyTable,LEGACY_TABLES} from './canonical-migration.js';
+import {archiveOriginal,boundedOriginalPage,encodeOriginal,ingestLegacyBatch,validateCanonical,OriginalArchiveCapacityError,type LegacyTable,LEGACY_TABLES} from './canonical-migration.js';
 
 /** LIMIT binds candidates before eligibility predicates; every link probe uses TEXT expression equality. */
 export function retentionCandidateSQL(table:'events'|'snapshots',hasCursor:boolean):string {
@@ -10,6 +10,8 @@ export function retentionCandidateSQL(table:'events'|'snapshots',hasCursor:boole
  if(table==='events')return `SELECT rowid rid,occurred_at stamp,pinned,(${size}) bytes FROM events WHERE ${range} ORDER BY rowid LIMIT ?`;
  return `WITH candidates AS MATERIALIZED (SELECT rowid rid,at stamp,(${size}) bytes FROM snapshots WHERE ${range} ORDER BY rowid LIMIT ?) SELECT c.*,CASE WHEN c.bytes*2>? THEN 0 ELSE coalesce(json_extract(s.content,'$.pinned'),0) END pinned,EXISTS(SELECT 1 FROM operations INDEXED BY canonical_retention_operation_snapshot WHERE CAST(json_extract(details,'$.snapshotId') AS TEXT)=CAST(s.id AS TEXT)) linked FROM candidates c JOIN snapshots s ON s.rowid=c.rid ORDER BY c.rid`;
 }
+// Minute snapshots are archived by retention immediately before their deletion, not mirrored every minute.
+export const RUNTIME_ARCHIVE_TABLES=LEGACY_TABLES.filter(table=>table!=='snapshots');
 /** Private operational archive. Client provenance is deliberately independent of LND incarnation. */
 export class CanonicalRuntime {
  constructor(readonly db:DatabaseSync){validateCanonical(db);}
@@ -20,7 +22,7 @@ export class CanonicalRuntime {
   const checkpoints=this.db.prepare("SELECT scope,details FROM canonical_coverage c WHERE capability='legacy_ingestion' AND status='checkpoint' AND rowid=(SELECT max(rowid) FROM canonical_coverage WHERE capability='legacy_ingestion' AND scope=c.scope AND status='checkpoint') ORDER BY scope").all();
   const tables=checkpoints.map(row=>{const d=JSON.parse(String(row.details));const completed=this.db.prepare("SELECT details FROM canonical_coverage WHERE capability='legacy_ingestion' AND scope=? AND json_extract(details,'$.frozenHighWaterComplete')=1 ORDER BY rowid DESC LIMIT 1").get(String(row.scope));const c=completed?JSON.parse(String(completed.details)):null;return {table:d.table,cycle:d.cycle,cursor:d.cursor,upperBound:d.upperBound,scannedRows:d.scannedRows??null,scanDigest:d.scanDigest??null,frozenHighWaterComplete:!!c,completedHighWater:c?{cycle:c.cycle,upperBound:c.upperBound,scannedRows:c.scannedRows,scanDigest:c.scanDigest}:null,currentCycleComplete:d.frozenHighWaterComplete===true,sourceMutationTimeKnown:false};});
   const initial=this.db.prepare("SELECT scope,details FROM canonical_coverage WHERE capability='migration_original_freeze' ORDER BY scope").all().map(r=>({table:String(r.scope),...JSON.parse(String(r.details))}));
-  return {schema:7,initialFreeze:{tables:initial,complete:initial.length===LEGACY_TABLES.length&&initial.every(t=>t.contentsFrozenInMigrationTransaction===true&&t.frozenHighWaterComplete===true)},archiveRecords:Number(this.db.prepare('SELECT count(*) n FROM canonical_original_archive').get()!.n),observationRecords:Number(this.db.prepare('SELECT count(*) n FROM canonical_observations').get()!.n),tables,archiveComplete:initial.length===LEGACY_TABLES.length&&initial.every(t=>t.contentsFrozenInMigrationTransaction===true&&t.frozenHighWaterComplete===true),runtimeScansComplete:tables.length===LEGACY_TABLES.length&&tables.every(t=>t.frozenHighWaterComplete),financialAuthorityUnchanged:true,limits:{maxRows:1000,maxBytes:16777216},nativeCompletenessQualified:false};
+  return {schema:7,initialFreeze:{tables:initial,complete:initial.length===LEGACY_TABLES.length&&initial.every(t=>t.contentsFrozenInMigrationTransaction===true&&t.frozenHighWaterComplete===true)},archiveRecords:Number(this.db.prepare('SELECT count(*) n FROM canonical_original_archive').get()!.n),observationRecords:Number(this.db.prepare('SELECT count(*) n FROM canonical_observations').get()!.n),tables,archiveComplete:initial.length===LEGACY_TABLES.length&&initial.every(t=>t.contentsFrozenInMigrationTransaction===true&&t.frozenHighWaterComplete===true),runtimeScansComplete:RUNTIME_ARCHIVE_TABLES.every(table=>tables.some(t=>t.table===table&&t.frozenHighWaterComplete)),financialAuthorityUnchanged:true,limits:{maxRows:1000,maxBytes:16777216},nativeCompletenessQualified:false};
  }
  /** One bounded atomic batch per invocation. Any archive/limit failure preserves every original. */
  retain(at:string,options:{limit?:number;maxBytes?:number;beforeDelete?:()=>void}={}){
@@ -28,7 +30,7 @@ export class CanonicalRuntime {
   if(!Number.isSafeInteger(limit)||limit<1||limit>1000||!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>16777216)throw Error('Bounded retention options required');
   const cutoff=new Date(Date.parse(at)-90*86400_000).toISOString();
   return new CanonicalModel(this.db).transaction(()=>{
-   const model=new CanonicalModel(this.db);
+   const model=new CanonicalModel(this.db);let budget=maxBytes;
    const batches=(['events','snapshots'] as const).map(table=>{
     const old=this.db.prepare("SELECT id,details FROM canonical_coverage WHERE capability='original_retention' AND scope=? AND status='checkpoint' ORDER BY rowid DESC LIMIT 1").get(table);
     const checkpoint=old?JSON.parse(String(old.details)):null;
@@ -39,9 +41,14 @@ export class CanonicalRuntime {
     const args=[cursor===null?-9223372036854775808n:BigInt(cursor),BigInt(upperBound),limit,...(table==='snapshots'?[maxBytes]:[])];
     const candidates=statement.all(...args) as any[];
     const eligible=candidates.filter(row=>row.stamp<cutoff&&row.pinned===0n&&!row.linked);
-    const rows=eligible.length?boundedOriginalRows(this.db,table,`rowid IN (${eligible.map(()=>'?').join(',')})`,eligible.map(row=>row.rid),'rowid',eligible.length,maxBytes):[];
-    if(candidates.length)cursor=String(candidates.at(-1).rid);
-    const cycleComplete=candidates.length<limit||(cursor!==null&&BigInt(cursor)>=BigInt(upperBound));
+    // Both tables share one archive byte budget. A byte-bounded prefix resumes after its last archived
+    // row; a lone row larger than a full budget stays in its original table and is passed over.
+    const available=budget;let rows:any[]=[];
+    if(eligible.length&&available>0)try{rows=boundedOriginalPage(this.db,table,`rowid IN (${eligible.map(()=>'?').join(',')})`,eligible.map(row=>row.rid),'rowid',eligible.length,available).rows;}catch(error){if(!(error instanceof OriginalArchiveCapacityError))throw error;}
+    for(const raw of rows){const {__canonical_rowid__,...row}=raw;budget-=Buffer.byteLength(encodeOriginal(row));}
+    const truncated=rows.length<eligible.length;
+    if(candidates.length)cursor=!truncated?String(candidates.at(-1).rid):rows.length?String(rows.at(-1).__canonical_rowid__):available===maxBytes?String(eligible[0].rid):cursor;
+    const cycleComplete=!truncated&&(candidates.length<limit||(cursor!==null&&BigInt(cursor)>=BigInt(upperBound)));
     return {table,rows,examined:candidates.length,checkpoint:{cycle,cursor,upperBound,cycleComplete},supersedes:old?String(old.id):null};
    });
    const events=batches[0]!.rows,snapshots=batches[1]!.rows;

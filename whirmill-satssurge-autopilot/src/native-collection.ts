@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {CanonicalModel,digest} from './canonical-model.js';
-import {LEGACY_TABLES,OriginalArchiveCapacityError} from './canonical-migration.js';
+import {OriginalArchiveCapacityError} from './canonical-migration.js';
+import {RUNTIME_ARCHIVE_TABLES} from './canonical-runtime.js';
 import {NativeHistoryCollector,type NativeHistorySource} from './native-history.js';
 import {NativeHtlcCollector} from './native-htlc.js';
 import {NativePolicyCollector,type NativePolicySource} from './native-policy.js';
@@ -27,11 +28,11 @@ export class NativeCollection {
   if(this.busy)return;this.busy=true;
   try{
    // Archive one original table batch per tick, including every retained financial receipt.
-   const index=this.store.get<number>('canonicalArchiveTable')??0,table=LEGACY_TABLES[index%LEGACY_TABLES.length]!,archiveAt=this.clock();
+   const index=this.store.get<number>('canonicalArchiveTable')??0,table=RUNTIME_ARCHIVE_TABLES[index%RUNTIME_ARCHIVE_TABLES.length]!,archiveAt=this.clock();
    let archiveReady=true;
    try{
     const page=this.store.canonical!.scan(table,{limit:200,maxBytes:NATIVE_ARCHIVE_MAX_BYTES,observedAt:archiveAt});
-    this.store.set('canonicalArchiveTable',(index+1)%LEGACY_TABLES.length);
+    this.store.set('canonicalArchiveTable',(index+1)%RUNTIME_ARCHIVE_TABLES.length);
     this.store.set('canonicalArchiveProgress',{at:archiveAt,table,ok:true,...page,sourceHistoryComplete:false,sourceMutationTimeKnown:false});
    }catch(error){
     // Capacity holds this exact table/cursor; integrity and transaction failures still fail closed.

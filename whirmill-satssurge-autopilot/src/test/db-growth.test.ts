@@ -9,6 +9,8 @@ import {CanonicalModel} from '../canonical-model.js';
 import {NativeCollection} from '../native-collection.js';
 import {NATIVE_POLICY_CONTRACT} from '../native-policy.js';
 import {NATIVE_DELIVERY_ROLLUP_VERSION} from '../native-failure-aggregate.js';
+import {RUNTIME_ARCHIVE_TABLES} from '../canonical-runtime.js';
+import {decodeOriginal} from '../canonical-migration.js';
 const identity='02'+'a'.repeat(64),peer=(i:number)=>'03'+i.toString(16).padStart(64,'0');
 const binding={nodeId:identity,network:'mainnet',sourceVersion:'0.21.4-beta',sourceInstance:'synthetic-growth'};
 const channels=Array.from({length:12},(_,i)=>String(800000000000000000n+BigInt(i)));
@@ -93,4 +95,40 @@ test('offline prune removes only redundant revisions and stale frames, keeps gua
   assert.throws(()=>s.run('DELETE FROM canonical_projection_revisions WHERE id=?',kept),/Immutable/);
   assert.deepEqual(run('dry'),{rollupRevisionsRemoved:0,emptyHistoryCaptureRevisionsRemoved:0,revisionBytesRemoved:0,uiTextFramesRemoved:0,uiTextBytesRemoved:0,applied:false});
  }finally{s.close();rmSync(dir,{recursive:true,force:true});}
+});
+
+test('retention archives every node-sized snapshot byte-exactly before deleting it and keeps pinned, linked, recent and oversized ones',()=>{
+ const s=new Store(':memory:');try{
+  const at='2026-10-25T00:00:00.000Z',t0=Date.parse('2026-06-01T00:00:00.000Z'),inserted=new Map<string,string>();
+  const snapshotRow=(i:number,extra:any={})=>JSON.stringify({at:new Date(t0+i*60000).toISOString(),identity,synced:true,confirmedSat:'900000',channels:channels.map((id,k)=>({id,point:'00'.repeat(32)+':'+k,peer:peer(k),alias:'peer-'+k,active:true,capacitySat:'5000000',localSat:String(2500000+i),remoteSat:'2400000',reserveSat:'50000',pendingSat:'0',baseMsat:'0',ppm:100,cltv:80,minMsat:'1000',maxMsat:'990000000'})),...extra});
+  for(let i=0;i<450;i++){const content=snapshotRow(i);inserted.set('s'+i,content);s.run('INSERT INTO snapshots VALUES(?,?,?)','s'+i,new Date(t0+i*60000).toISOString(),content);}
+  assert.ok(Number(s.one('SELECT avg(length(content)) n FROM snapshots').n)>4000);
+  s.run('INSERT INTO snapshots VALUES(?,?,?)','pinned',new Date(t0).toISOString(),snapshotRow(0,{pinned:true}));
+  s.run('INSERT INTO snapshots VALUES(?,?,?)','linked',new Date(t0).toISOString(),snapshotRow(0));s.run("INSERT INTO decisions VALUES('d',?,'{}','{}','{}','observing')",at);s.run("INSERT INTO operations VALUES('o','d',?,'SUCCEEDED',NULL,NULL,'{\"snapshotId\":\"linked\"}')",at);
+  s.run('INSERT INTO snapshots VALUES(?,?,?)','recent',at,snapshotRow(1));
+  for(let i=0;i<500;i++)s.event({id:'e'+i,at:new Date(t0).toISOString(),type:'external_forward',source:'1',target:'2',amountMsat:'1000',feeMsat:'1',details:{note:'x'.repeat(800)}});
+  const archived=()=>new Map(s.all("SELECT original_id,raw_row FROM canonical_original_archive WHERE original_table='snapshots'").map(r=>[r.original_id,r.raw_row]));
+  for(let call=0;call<30;call++){
+   s.retain(at);
+   // Invariant after every batch: a snapshot is either still in place or archived with its exact original row.
+   const present=new Set(s.all('SELECT id FROM snapshots').map(r=>r.id)),copies=archived();
+   for(const [id,content] of inserted)if(!present.has(id)){assert.ok(copies.has(id),id);const original=decodeOriginal(copies.get(id)!);assert.equal(original.content,content);assert.equal(original.id,id);}
+  }
+  assert.deepEqual(s.all('SELECT id FROM snapshots ORDER BY id').map(r=>r.id),['linked','pinned','recent']);assert.equal(archived().size,450);assert.equal(s.one('SELECT count(*) n FROM events').n,0);
+  s.run('INSERT INTO snapshots VALUES(?,?,?)','huge',new Date(t0).toISOString(),snapshotRow(2,{padding:'y'.repeat(60000)}));s.run('INSERT INTO snapshots VALUES(?,?,?)','after-huge',new Date(t0).toISOString(),snapshotRow(3));
+  for(let call=0;call<4;call++)s.canonical.retain(at,{maxBytes:50000});
+  assert.ok(s.one("SELECT id FROM snapshots WHERE id='huge'"));assert.equal(archived().has('huge'),false);assert.equal(s.one("SELECT id FROM snapshots WHERE id='after-huge'"),undefined);assert.ok(archived().has('after-huge'));
+ }finally{s.close();}
+});
+
+test('the minute archive scan leaves snapshots to retention and still reaches every other original table',async()=>{
+ const s=new Store(':memory:');try{
+  s.set('historyStart','2026-10-25T00:00:00.000Z');const n=node(s,'2026-10-25T01:00:00.000Z');
+  for(let i=0;i<RUNTIME_ARCHIVE_TABLES.length*2;i++)await n.tick();
+  const scopes=s.all("SELECT DISTINCT json_extract(details,'$.table') t FROM canonical_coverage WHERE capability='legacy_ingestion'").map(r=>r.t).sort();
+  assert.deepEqual(scopes,[...RUNTIME_ARCHIVE_TABLES].sort());
+  assert.equal(s.one("SELECT count(*) n FROM canonical_original_archive WHERE original_table='snapshots' AND source_instance='satssurge-operational-originals'").n,0);
+  assert.ok(Number(s.one('SELECT count(*) n FROM snapshots').n)>=RUNTIME_ARCHIVE_TABLES.length*2);
+  assert.equal(s.canonical.summary().runtimeScansComplete,true);
+ }finally{s.close();}
 });
