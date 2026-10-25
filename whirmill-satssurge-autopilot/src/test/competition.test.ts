@@ -26,3 +26,8 @@ test('bounds, missing policies and incomplete graph stay explicit instead of inv
   assert.equal(qualifyCompetition(raw,snapshot,'2026-10-09T04:06:00Z').status,'unavailable');
   raw.peers[0]!.policies=[edge('1','100'),edge('1','300')];assert.equal(qualifyCompetition(raw,snapshot,at).status,'unavailable');
 });
+
+test('graph captures from later LND 0.21+ releases and release candidates qualify; older series stay unavailable',()=>{
+  for(const version of ['0.21.3-beta','0.21.5-beta.rc1','0.22.0-beta'])assert.notEqual(qualifyCompetition({...source(),version},snapshot,at).status,'unavailable',version);
+  for(const version of ['0.20.1-beta','0.21.5','private'])assert.equal(qualifyCompetition({...source(),version},snapshot,at).status,'unavailable',version);
+});

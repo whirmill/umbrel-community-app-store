@@ -10,7 +10,11 @@ import subprocess
 
 from diagnostics import atomic_json, utc
 
-IMAGE = 'lightninglabs/lnd:v0.21.3-beta@sha256:d29074335f3bffb2ac0e789b0d023c24fbb85ce67ecbfb7d677399842fe0535c'
+# LND 0.21 and later minor releases, including release candidates. Graph shapes are validated field by field below,
+# so a format change still fails closed instead of pinning one exact build.
+LND_VERSION = r'0\.(?:2[1-9]|[3-9][0-9])\.[0-9]+-beta(?:\.rc[0-9]+)?'
+IMAGE = re.compile(r'lightninglabs/lnd:v' + LND_VERSION + r'(?:@sha256:[0-9a-f]{64})?')
+GETINFO_VERSION = re.compile('(' + LND_VERSION + r') commit=v' + LND_VERSION)
 
 
 def natural(value):
@@ -75,11 +79,12 @@ def capture(app):
     result = subprocess.run(['docker', 'inspect', '--format', '{{json .Config.Image}} {{json .State.Running}}', 'lightning_lnd_1'],
                             check=True, capture_output=True, text=True, timeout=8)
     image, running = result.stdout.strip().split()
-    if json.loads(image) != IMAGE or running != 'true':
+    if not IMAGE.fullmatch(json.loads(image)) or running != 'true':
         raise ValueError('LND image unqualified')
     expected = pubkey((app / 'credentials/node-pubkey').read_text().strip())
     info = read(['getinfo'])
-    if info['identity_pubkey'] != expected or info['version'] != '0.21.3-beta commit=v0.21.3-beta' or info['synced_to_graph'] is not True:
+    version = GETINFO_VERSION.fullmatch(str(info.get('version', '')))
+    if info['identity_pubkey'] != expected or not version or info['synced_to_graph'] is not True:
         raise ValueError('Node binding, version or graph synchronization unqualified')
     channels = read(['listchannels'])['channels']
     if not isinstance(channels, list) or len(channels) > 100:
@@ -99,7 +104,7 @@ def capture(app):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
         reports = list(pool.map(fetch, peers))
-    return {'schema': 1, 'identity': expected, 'version': '0.21.3-beta',
+    return {'schema': 1, 'identity': expected, 'version': version.group(1),
             'capturedAt': utc(dt.datetime.now(dt.timezone.utc).isoformat()), 'peers': reports,
             'note': 'Public announced direct-to-peer policies only. No balances, executed rival routes or rival traffic inferred.'}
 

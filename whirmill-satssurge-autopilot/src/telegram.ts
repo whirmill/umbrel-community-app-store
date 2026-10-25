@@ -21,6 +21,7 @@ const RICH_FINAL_HTML_BYTES = 65536;
 const RICH_BLOCK_LIMIT = 500;
 const RICH_DEPTH_LIMIT = 16;
 // v2 adds tables; finals recorded as v1 are re-rendered with the v1 grammar.
+const LND_TRANSIENT_FAILURES = ['deadline', 'cancelled', 'unavailable', 'resource_limit', 'rpc_failure', 'acquisition_failure'], LND_TRANSIENT_ALERT_MS = 600000, LND_TRANSIENT_RECOVERY_MS = 300000, LND_TRANSIENT_GAP_MS = 300000;
 const RICH_FORMAT = 'rich-blocks-v2', RICH_FORMATS: Record<string, boolean> = { 'rich-blocks-v1': false, 'rich-blocks-v2': true };
 const graphemes = new Intl.Segmenter('it', { granularity: 'grapheme' });
 interface RichFinal {
@@ -814,7 +815,7 @@ export class Telegram {
         for (const o of this.store.all("SELECT id,state FROM operations WHERE at>=? AND state IN ('SUCCEEDED','FAILED','uncertain','in_flight')", this.store.get('telegramBinding').since))
             this.enqueue('operation:' + o.id + ':' + o.state, `Operation ${o.id}: ${o.state}. Dettagli nella web app.`, o.state === 'uncertain' ? 'critical' : 'ordinary', undefined, at);
         this.captureLndTransport(at);
-        const blockers = [this.store.get('integrityBlocker'), this.store.get('agent')?.status === 'unavailable' ? availabilityBlocker(this.store.get('agent')?.failure) : null, this.store.one("SELECT id FROM operations WHERE state='uncertain'") ? 'Esito finanziario incerto; richiesta riconciliazione, nessun replay' : null, ...(this.store.get<any[]>('blockers') ?? [])].filter(Boolean).map(telegramText);
+        const blockers = [this.store.get('integrityBlocker'), this.store.get('agent')?.status === 'unavailable' ? availabilityBlocker(this.store.get('agent')?.failure) : null, this.store.one("SELECT id FROM operations WHERE state='uncertain'") ? 'Esito finanziario incerto; richiesta riconciliazione, nessun replay' : null, ...(this.store.get<any[]>('blockers') ?? []).filter(b => !(b === 'Native LND gRPC/acquisition requires attention' && LND_TRANSIENT_FAILURES.includes(this.store.get('lndTransport')?.failure)))].filter(Boolean).map(telegramText);
         this.store.tx(() => {
             const generation = this.store.get('telegramBinding').generation;
             const previous = this.store.get('telegramIncident');
@@ -854,8 +855,28 @@ export class Telegram {
         const binding=this.store.get('telegramBinding');const transport=this.store.get('lndTransport');
         if(!binding||!transport)return;
         const state=transport.failure??transport.warning;
-        if(!state||state==='healthy'){this.store.set('telegramLndTransportEpisode',null);return;}
-        const identity=hash(json([binding.generation,transport.certificateDigest??null,state]));
+        // A transient outage lasts from its first failure until LND has been healthy for a while, so a
+        // single slow call is no incident and an intermittent one is neither silent nor a storm.
+        const transient=!!transport.failure&&LND_TRANSIENT_FAILURES.includes(transport.failure),pending=this.store.get('telegramLndTransportPending');
+        let since:string|undefined;
+        if(transient){
+            // An observation gap (app stopped) starts a new outage instead of counting as downtime.
+            const current=pending?.since&&Date.parse(at)-Date.parse(pending.seen??pending.since)<=LND_TRANSIENT_GAP_MS?{since:pending.since,seen:at}:{since:at,seen:at};
+            this.store.set('telegramLndTransportPending',current);
+            if(Date.parse(at)-Date.parse(current.since)<LND_TRANSIENT_ALERT_MS)return;
+            since=current.since;
+        }else if(pending&&!transport.failure){
+            const healthySince=pending.healthySince??at,episode=this.store.get('telegramLndTransportEpisode');
+            if(Date.parse(at)-Date.parse(healthySince)<LND_TRANSIENT_RECOVERY_MS){if(!pending.healthySince)this.store.set('telegramLndTransportPending',{...pending,healthySince});if(episode?.transient)return;}
+            else this.store.tx(()=>{
+                if(episode?.transient)this.enqueue('lnd-transport-recovered:'+episode.episode,`Collegamento a LND ripristinato dopo ${Math.max(1,Math.round((Date.parse(healthySince)-Date.parse(pending.since))/60000))} minuti.`,'critical',undefined,at,binding.generation);
+                // Restore the episode the outage replaced, so an active certificate warning is not sent again.
+                if(episode?.transient)this.store.set('telegramLndTransportEpisode',episode.previous??null);
+                this.store.set('telegramLndTransportPending',null);
+            });
+        }else if(transport.failure)this.store.set('telegramLndTransportPending',null);
+        if(!state||state==='healthy'){if(!this.store.get('telegramLndTransportEpisode')?.transient)this.store.set('telegramLndTransportEpisode',null);return;}
+        const identity=hash(json([binding.generation,transport.certificateDigest??null,transient?'transient':state]));
         const prior=this.store.get('telegramLndTransportEpisode');
         if(prior?.identity===identity)return;
         // Bound recurring/flapping episodes, without delaying a new certificate or warning stage.
@@ -864,13 +885,15 @@ export class Telegram {
         // One episode across restarts; re-pairing and renewed certificates get their own receipt.
         const context=safeLndFailureContext(transport.failureContext);
         const certificate=transport.failure?certificateTransportFailure(transport.failure):true;
-        const detail=certificate?`Certificato valido da ${transport.validFrom??'non disponibile'} fino a ${transport.validTo??'non disponibile'}. Ispezione certificato ${transport.inspectedAt}.`:`Acquisizione o RPC richiede attenzione.${context?` Errore ${context.failureAt}; origine ${context.origin}${context.method?`; metodo ${context.method}`:''}${context.grpcStatus!==undefined?`; stato gRPC ${context.grpcStatus}`:''}${context.reason?`; motivo ${context.reason}`:''}.`:''}`;
+        const minutes=since?Math.round((Date.parse(at)-Date.parse(since))/60000):0;
+        const detail=certificate?`Certificato valido da ${transport.validFrom??'non disponibile'} fino a ${transport.validTo??'non disponibile'}. Ispezione certificato ${transport.inspectedAt}.`:`${transient?(context?'Ultimo errore:':''):'Acquisizione o RPC richiede attenzione.'}${context?` Errore ${context.failureAt}; origine ${context.origin}${context.method?`; metodo ${context.method}`:''}${context.grpcStatus!==undefined?`; stato gRPC ${context.grpcStatus}`:''}${context.reason?`; motivo ${context.reason}`:''}.`:''}`;
         const episode=randomBytes(12).toString('hex');
         this.store.tx(()=>{
             this.enqueue('lnd-transport:'+binding.generation+':'+identity+':'+episode,
-                `LND gRPC${certificate?' TLS':''}: ${state}. ${detail} Controlla la diagnostica web; nessun pagamento viene ritentato.`,
+                transient?`LND non risponde correttamente da ${minutes} minuti (${state}). ${detail?detail+' ':''}SatsSurge riprova a ogni ciclo e non ritenta pagamenti; se continua, controlla il nodo Lightning.`
+                    :`LND gRPC${certificate?' TLS':''}: ${state}. ${detail} Controlla la diagnostica web; nessun pagamento viene ritentato.`,
                 transport.failure||transport.warning==='expired'?'critical':'operational',undefined,at,binding.generation);
-            this.store.set('telegramLndTransportEpisode',{identity,episode,at});
+            this.store.set('telegramLndTransportEpisode',{identity,episode,at,transient,...(transient?{previous:prior?.transient?prior.previous??null:prior??null}:{})});
             this.store.set('telegramLndTransportRecent',Object.fromEntries([...Object.entries(recent).filter(([key])=>key!==identity),[identity,at]].slice(-32)));
         });
     }
