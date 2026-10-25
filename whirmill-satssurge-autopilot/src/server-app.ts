@@ -71,6 +71,7 @@ let agent: Agent | undefined,
 const intervals: ReturnType<typeof setInterval>[] = [];
 const streamAbort = new AbortController();
 let closing = false;
+let startupStage = "lnd";
 let streamRetry: ReturnType<typeof setTimeout> | undefined;
 let nativeRetry: ReturnType<typeof setTimeout> | undefined;
 let graphRetry: ReturnType<typeof setTimeout> | undefined;
@@ -107,7 +108,9 @@ try {
   intervals.push(setInterval(() => void collector!.collect(), 60000));
   scheduler = new Scheduler(queue, agent);
   // Recovered runs are attached or aborted before Telegram, timers or pumps can resume Durable.
+  startupStage = "recovery";
   await scheduler.recover();
+  startupStage = "running";
   telegram.setWake(()=>scheduler!.dispatchTelegram());
   intervals.push(
     setInterval(() => scheduler!.tick(), 60000),
@@ -127,7 +130,9 @@ try {
 } catch {
   store.set("bootstrapReady", false);
   store.set("blockers", [
-    "LND credentials/configuration unavailable; provision dedicated restricted macaroons",
+    startupStage === "recovery"
+      ? "Agent run recovery at startup failed; no agent work runs until the app restarts"
+      : "LND credentials/configuration unavailable; provision dedicated restricted macaroons",
   ]);
 }
 void telegram.loop();
