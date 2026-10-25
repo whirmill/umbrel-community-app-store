@@ -23,6 +23,7 @@ const RICH_BLOCK_LIMIT = 500;
 const RICH_DEPTH_LIMIT = 16;
 // v2 adds tables; finals recorded as v1 are re-rendered with the v1 grammar.
 const LND_TRANSIENT_FAILURES = ['deadline', 'cancelled', 'unavailable', 'resource_limit', 'rpc_failure', 'acquisition_failure'], LND_TRANSIENT_ALERT_MS = 600000, LND_TRANSIENT_RECOVERY_MS = 300000, LND_TRANSIENT_GAP_MS = 300000;
+const LND_SYNC_BLOCKER = 'LND not synchronized', LND_SYNC_ALERT_MS = 600000, LND_SYNC_ALERT_TEXT = 'LND non sincronizzato da oltre 10 minuti';
 const RICH_FORMAT = 'rich-blocks-v2', RICH_FORMATS: Record<string, boolean> = { 'rich-blocks-v1': false, 'rich-blocks-v2': true };
 const graphemes = new Intl.Segmenter('it', { granularity: 'grapheme' });
 interface RichFinal {
@@ -844,7 +845,8 @@ export class Telegram {
             this.enqueue('operation:' + o.id + ':' + o.state, `Operation ${o.id}: ${o.state}. Dettagli nella web app.`, o.state === 'uncertain' ? 'critical' : 'ordinary', undefined, at);
         this.captureChannelOperations(at);
         this.captureLndTransport(at);
-        const blockers = [this.store.get('integrityBlocker'), this.store.get('agent')?.status === 'unavailable' ? availabilityBlocker(this.store.get('agent')?.failure) : null, this.store.one("SELECT id FROM operations WHERE state='uncertain'") ? 'Esito finanziario incerto; richiesta riconciliazione, nessun replay' : null, ...(this.store.get<any[]>('blockers') ?? []).filter(b => !(b === 'Native LND gRPC/acquisition requires attention' && LND_TRANSIENT_FAILURES.includes(this.store.get('lndTransport')?.failure)))].filter(Boolean).map(telegramText);
+        const syncAlert = this.captureLndSync(at);
+        const blockers = [this.store.get('integrityBlocker'), this.store.get('agent')?.status === 'unavailable' ? availabilityBlocker(this.store.get('agent')?.failure) : null, this.store.one("SELECT id FROM operations WHERE state='uncertain'") ? 'Esito finanziario incerto; richiesta riconciliazione, nessun replay' : null, ...(this.store.get<any[]>('blockers') ?? []).filter(b => !(b === 'Native LND gRPC/acquisition requires attention' && LND_TRANSIENT_FAILURES.includes(this.store.get('lndTransport')?.failure)) && !(b === LND_SYNC_BLOCKER && !syncAlert)).map(b => b === LND_SYNC_BLOCKER ? LND_SYNC_ALERT_TEXT : b)].filter(Boolean).map(telegramText);
         this.store.tx(() => {
             const generation = this.store.get('telegramBinding').generation;
             const previous = this.store.get('telegramIncident');
@@ -891,6 +893,22 @@ export class Telegram {
                 if (h.state === 'uncertain' && o.state === 'uncertain') this.attachButtons(event, [{ text: 'Segna come fallita', value: { action: 'channel_fail', id: o.id } }], binding.generation);
                 this.enqueue(event, channelOperationText(o, h), ['failed', 'uncertain'].includes(h.state) ? 'critical' : 'operational', undefined, at);
             }
+    }
+    private captureLndSync(at:string) {
+        // New blocks briefly report LND as unsynchronized: finance stops at once, the owner is told only if it lasts.
+        const pending=this.store.get('telegramLndSyncPending');
+        if((this.store.get<any[]>('blockers')??[]).includes(LND_SYNC_BLOCKER)){
+            // An observation gap (app stopped) starts a new episode instead of counting as downtime.
+            const current=pending?.since&&Date.parse(at)-Date.parse(pending.seen)<=LND_TRANSIENT_GAP_MS?{...pending,seen:at}:{since:at,seen:at};
+            if(Date.parse(at)-Date.parse(current.since)>=LND_SYNC_ALERT_MS)current.alerted=true;
+            this.store.set('telegramLndSyncPending',current);
+            return current.alerted===true;
+        }
+        if(pending)this.store.tx(()=>{
+            if(pending.alerted)this.enqueue('lnd-sync-recovered:'+pending.since,`LND di nuovo sincronizzato dopo ${Math.max(1,Math.round((Date.parse(at)-Date.parse(pending.since))/60000))} minuti.`,'critical',undefined,at,this.store.get('telegramBinding').generation);
+            this.store.set('telegramLndSyncPending',null);
+        });
+        return false;
     }
     private captureLndTransport(at:string) {
         const binding=this.store.get('telegramBinding');const transport=this.store.get('lndTransport');
