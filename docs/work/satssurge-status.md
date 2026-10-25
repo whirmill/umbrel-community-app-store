@@ -8,9 +8,9 @@ available in Git history and in closed PRs #106/#107.
 
 | | |
 |---|---|
-| Version | 0.5.18 (`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.18@sha256:58ec79cf…`) |
+| Version | 0.5.19 (`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.19@sha256:76cc160f…`) |
 | Installed | 2026-10-25 via the supported Umbrel update |
-| Financial execution | disabled (`enabled=false`, all interlock flags false) |
+| Financial execution | ready under mandate v1; interlock verified, no blockers. Autonomy runs only after the owner sends `/resume` in Telegram |
 | LND | `lightninglabs/lnd:v0.21.5-beta.rc1`, gRPC TLS healthy |
 | Databases | operational ≈ 1.16 GB after pruning; durable and oauth unchanged |
 
@@ -51,10 +51,27 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - `satssurge-autopilot-{diagnostics,interlock,lnd-cert}`: about every 30–60 s;
   - `-competition`: every 3 minutes;
   - `satssurge-collect`: daily.
-- **README.** `whirmill-satssurge-autopilot/README.md` is still a long historical log and should be rewritten as user documentation.
+- **Scoped mode (until 0.5.19).** The app-controls environment pointed at an unmounted `/app-controls`, and the persisted proof kept scoped mode alive. Together they held finance permanently. An orphan maintenance claim left by an agent on 2026-10-10 was released on 2026-10-25 with the app stopped and no operations active (#113, #114).
 
-## Open decisions
+## Roadmap
 
-- When and how to re-enable financial execution.
-- Which parts of the former M3–M5 roadmap are still worth doing.
-- What to do with the unmerged branches `codex/satssurge-m5-api-continuation` (optional integrations, wiring held) and `codex/satssurge-voice-noise-guard`.
+Selected on 2026-10-25 from the former M2.3–M5 plan. The goal is a routing
+agent that earns fees safely; everything else waits for a concrete need.
+
+1. **Watch the first autonomous decisions.** Check that operations, budgets and
+   accounting match LND after `/resume`. Fix only what real operations expose.
+2. **Telegram polish found in use:**
+   - Markdown tables (#115);
+   - a single automatic retry after transient provider errors (#116).
+3. **Database growth:** measure over 24 h and bound the canonical tables (#112).
+4. **Native collection (former M3), trimmed.** It keeps running as it is. There
+   is no project to retire LNDg/LightningMate and no further canonical-model work
+   until there is a concrete reason.
+
+Dropped:
+- runtime-improvement prompts sent by the bot (M2.4);
+- HTML/PDF/XLSX export rendering (M4);
+- RoboSats/Amboss/Magma integrations (M5).
+
+The unwired M5 branch was deleted (last commits `e7446d0`, `e0d1932`). The
+`voice-noise-guard` branch was deleted because its fix shipped in #98.
