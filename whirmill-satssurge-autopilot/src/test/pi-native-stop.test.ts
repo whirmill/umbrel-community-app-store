@@ -96,13 +96,13 @@ test('a crash after startup abort marks and before resume recovers the same Stop
  }finally{if(scheduler)await scheduler.drain(5000);if(f){await f.agent.close();f.store.close();}rmSync(directory,{recursive:true,force:true});}
 });
 
-test('a turn closed before its Stop receipt was confirmed is confirmed once its conversation is idle',{timeout:20000},async()=>{
+test('a historical scoped-stop terminal stays readable and its unconfirmed Stop is confirmed once the conversation is idle',{timeout:20000},async()=>{
  const directory=mkdtempSync(join(tmpdir(),'pi-stop-closed-'));let f:Fixture|undefined,scheduler:Scheduler|undefined;
  try{
   const ready=await crashed(directory);let opened=reopen(directory);f=opened.f;f.queue.recoverAfterRestart();await f.agent.open();
   // Previous binary: native idle reached and the app terminal committed, then a crash before the receipt.
   let h=(f.agent as any).harness;for(const t of (await h.inspect(context)).tasks)await h.abortTask(t.record.id,context);h.resume();await h.waitForIdle(context);
-  const turns=new TelegramTurns(f.store,f.queue);turns.finalize(ready.jobId,'interrupted',{reason:'owner_stop_native_idle',submissionIds:ready.submissions});
+  const turns=new TelegramTurns(f.store,f.queue);turns.finalize(ready.jobId,'interrupted',{reason:'owner_stop_native_idle',submissionIds:ready.submissions,nativeCancellation:{patch:'satssurge-scoped-stop-v1',taskIds:[],remoteCancellationUnknown:[]},remoteCancellation:'not_required'});
   const terminal=f.store.get('telegramTerminal:'+ready.jobId);assert.equal(f.store.get<any>('telegramStop:active-crash-stop').state,'received');
   await f.agent.close();f.store.close();
   opened=reopen(directory);f=opened.f;f.queue.recoverAfterRestart();await f.agent.open();scheduler=new Scheduler(f.queue,f.agent);await scheduler.recover();await scheduler.drain(5000);scheduler=undefined;
