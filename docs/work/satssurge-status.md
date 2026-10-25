@@ -8,9 +8,9 @@ available in Git history and in closed PRs #106/#107.
 
 | | |
 |---|---|
-| Version | 0.5.19 (`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.19@sha256:76cc160f…`) |
+| Version | 0.5.20 (`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.20@sha256:99705c77…`) |
 | Installed | 2026-10-25 via the supported Umbrel update |
-| Financial execution | ready under mandate v1; interlock verified, no blockers. Autonomy runs only after the owner sends `/resume` in Telegram |
+| Financial execution | active since 2026-10-25 10:42 (Rome) under mandate v1, after the owner's `/resume`. The first cycle chose observation only; no operations yet |
 | LND | `lightninglabs/lnd:v0.21.5-beta.rc1`, gRPC TLS healthy |
 | Databases | operational ≈ 1.16 GB after pruning; durable and oauth unchanged |
 
@@ -51,6 +51,7 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - `satssurge-autopilot-{diagnostics,interlock,lnd-cert}`: about every 30–60 s;
   - `-competition`: every 3 minutes;
   - `satssurge-collect`: daily.
+- **Startup costs.** The owner's manual startup operations of 3–8 October are annotated in `ledger_annotations`: 45 entries as `other` (channel opens and closes, funding, Magma liquidity, initial balancing) and 2 as `swap` (RoboSats fees). The budget still counts them, as mandate v1 requires. Since 0.5.20 the agent sees the 30-day partition. On 2026-10-25 it showed routing at +1,452.7 sat, other at −9,872.7 sat and swap at +1,834.5 sat.
 - **Scoped mode (until 0.5.19).** The app-controls environment pointed at an unmounted `/app-controls`, and the persisted proof kept scoped mode alive. Together they held finance permanently. An orphan maintenance claim left by an agent on 2026-10-10 was released on 2026-10-25 with the app stopped and no operations active (#113, #114).
 
 ## Roadmap
@@ -60,13 +61,13 @@ agent that earns fees safely; everything else waits for a concrete need.
 
 1. **Watch the first autonomous decisions.** Check that operations, budgets and
    accounting match LND after `/resume`. Fix only what real operations expose.
-2. **Telegram polish found in use:**
-   - Markdown tables (#115);
-   - a single automatic retry after transient provider errors (#116).
-3. **Database growth:** measure over 24 h and bound the canonical tables (#112).
+2. **Database growth:** measure over 24 h and bound the canonical tables (#112).
+3. **Channel opens and closes proposed by the agent (#118).** The owner approves each one with a tap. On-chain fees are capped at 20,000 sat/month, new channels are 500k–2M sat, and closes are cooperative only.
 4. **Native collection (former M3), trimmed.** It keeps running as it is. There
    is no project to retire LNDg/LightningMate and no further canonical-model work
    until there is a concrete reason.
+
+Done: Telegram tables (#115) and one automatic retry after transient provider errors (#116), both in 0.5.20.
 
 Dropped:
 - runtime-improvement prompts sent by the bot (M2.4);
