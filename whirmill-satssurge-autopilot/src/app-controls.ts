@@ -12,7 +12,8 @@ const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 /** Unknown evidence keeps its acquisition time; observing it never grants freshness. */
 export function unavailableAppControls(at:string|null=null):AppControlProof{return {schema:1,scope:'apps-only',ok:false,at,endedAt:null,apps:APP_CONTROL_IDS.map(id=>({id,state:'unknown',reason:'unavailable'})),standalone:'unknown',financialEligible:false,reason:'Four-app controls unavailable; owner-wide standalone automation unknown'};}
 /** Separate mode can only narrow financial authority, including malformed contracts. */
-export function scopedAppControls(store:{get<T=any>(key:string):T|undefined}):boolean{return (store.get('appControlContract')!==undefined||store.get('appControlProof')!==undefined)||!!process.env.APP_CONTROL_CONTRACT_FILE||!!process.env.APP_CONTROL_FILE;}
+// An explicit contract or environment selects scoped mode; a persisted proof is only its output and must not keep the mode alive.
+export function scopedAppControls(store:{get<T=any>(key:string):T|undefined}):boolean{return store.get('appControlContract')!==undefined||!!process.env.APP_CONTROL_CONTRACT_FILE||!!process.env.APP_CONTROL_FILE;}
 function protectedBytes(path:string):Buffer {
  if(!isAbsolute(path)||normalize(path)!==path)throw Error('Protected absolute path required');
  const descriptors:number[]=[];let parent=dirname(path);
