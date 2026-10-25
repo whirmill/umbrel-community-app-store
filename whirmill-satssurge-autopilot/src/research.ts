@@ -87,7 +87,7 @@ export class Research {
   const status=!missing.length?'complete':terminal&&(!advanced||r.segmentIndex>=2||aggregate.calls>=72||aggregate.elapsedMs>=540000)?'blocked':'partial';
   const outcome=this.store.get<any>('followUpOutcome:'+jobId);
   const blockers=this.store.get<any[]>('blockers')??[];
-  const projection={followUpState:blockers.length?'operational_blocked':status==='complete'&&outcome?.outcome==='wait'?'observation_wait':'research_partial',triggerDetails:{dueAt:outcome?.dueAt??null,newExternalForwards:10,newManualEvent:true,newBlocker:true},economicEligible:r.forecast?.eligible===true,economicReasons:r.forecast?.reasons??['trusted_forecast_not_computed'],operationOutcome:this.store.get('jobOperationOutcome:'+jobId)??null,researchStatus:status,researchProgress:{researchId:r.researchId,revisionId:r.revisionId,segmentIndex:r.segmentIndex,parentReceipt:r.parentReceipt,requiredSections:required,sections:r.sections,progress:r.progress,calls:r.calls,aggregate,start:r.start,end:r.end},researchGaps:[...missing.map(section=>({section,reason:'required section not processed'})),...gaps],nextTrigger:blockers.length?'new blocker resolution':status==='blocked'?'specific new material facts':status==='partial'?'bounded read-only continuation':outcome?.outcome==='wait'?'due '+outcome.dueAt+' or 10 new forwards, manual intervention or changed blocker':null};
+  const projection={followUpState:blockers.length?'operational_blocked':status==='complete'&&outcome?.outcome==='wait'?'observation_wait':'research_partial',triggerDetails:{dueAt:outcome?.dueAt??null,newExternalForwards:10,newManualEvent:true,newBlocker:true},economicEligible:r.forecast?.eligible===true,economicReasons:r.forecast?.reasons??['trusted_forecast_not_computed'],operationOutcome:this.store.get('jobOperationOutcome:'+jobId)??null,researchStatus:status,researchProgress:{researchId:r.researchId,revisionId:r.revisionId,segmentIndex:r.segmentIndex,parentReceipt:r.parentReceipt,requiredSections:required,sections:r.sections,progress:r.progress,calls:r.calls,aggregate,start:r.start,end:r.end},researchGaps:[...missing.map(section=>({section,reason:'required section not processed'})),...gaps],nextTrigger:blockers.length?'new blocker resolution':status==='blocked'?'specific new material facts':status==='partial'?(this.conversational(r)?'owner request to complete the gaps':'bounded read-only continuation'):outcome?.outcome==='wait'?'due '+outcome.dueAt+' or 10 new forwards, manual intervention or changed blocker':null};
   // Semantic projection freshness is independent of the queue lifecycle clock.
   // The single process persists this monotonic per-job receipt atomically via one meta upsert.
   const digest=hash(json(projection)),key='researchProjection:'+jobId;
@@ -96,9 +96,15 @@ export class Research {
   if(previous?.digest!==digest)this.store.set(key,{version,digest});
   return {...projection,researchProjectionVersion:version};
  }
+ private conversational(r:any){
+  const origin=JSON.parse(this.store.one("SELECT details FROM job_events WHERE job_id=? AND type='accepted'",r.researchId)?.details??'{}').origin;
+  return origin==='telegram'||origin==='owner';
+ }
  continue(queue:Queue,job:Job){
   const status=this.status(job.id),r=this.get(job.id);
   if(!r||status.researchStatus!=='partial'||!['completed','failed'].includes(job.state))return;
+  // Owner conversations continue only on request ("Completa le lacune"); background chains stay for scheduler reviews.
+  if(this.conversational(r))return;
   return this.store.tx(()=>{
    const existing=this.store.get<string>('researchContinuation:'+job.id);if(existing)return queue.get(existing);
    const next=queue.enqueueWithinTransaction({requestId:'continuation:'+job.id,kind:'analysis',scope:job.scope,origin:'scheduler',purpose:'economic',payload:{researchParent:job.id,message:'Read-only continuation of research '+r.researchId+'. Frozen interval '+r.start+' to '+r.end+'. Resume saved queries, versions and offsets; do not repeat completed pages. Missing sections '+json(status.researchGaps)+'. Previous progress '+json(r.sections)}});
