@@ -19,6 +19,20 @@ export const MANDATE = Object.freeze({
   maxAttempts: 3, maxObservationDays: 7,
   allowed: ['fee_change', 'rebalance'], economicView: 'net-operating-30-days', timezone: 'Europe/Rome'
 });
+export const month = (at: string) => day(at).slice(0, 7);
+/** Mandate v2 adds owner-approved channel lifecycle on top of v1; v1 fee/rebalance caps and receipts are unchanged. */
+export const CHANNEL_MANDATE = Object.freeze({
+  version: 2, base: MANDATE.version, allowed: ['channel_open', 'channel_close'], approval: 'owner_each_operation',
+  onchainMonthlyFeeSat: '20000', minOpenSat: '500000', maxOpenSat: '2000000', reserveSat: MANDATE.reserveSat,
+  maxSatPerVbyte: 50, targetConf: 6, closeVbytes: 250, close: 'cooperative_only', timezone: 'Europe/Rome'
+});
+export interface ChannelProposal {
+  kind: 'channel_open' | 'channel_close'; peer: string; address?: string; channel?: string; amountSat: string;
+  evidenceIds: string[]; problem: string; evidence: string; whyAct: string; alternatives: string; verify: string; hypothesis: string;
+  // Bound at proposal creation from EstimateFee and the snapshot; the owner approves exactly these values.
+  point?: string; alias?: string; satPerVbyte?: string; maxFeeSat?: string; forecast?: Record<string, unknown>;
+}
+export const channelKind = (kind: unknown): kind is ChannelProposal['kind'] => kind === 'channel_open' || kind === 'channel_close';
 
 export interface Channel {
   id: string; point: string; peer: string; alias: string; active: boolean; capacitySat: string;
