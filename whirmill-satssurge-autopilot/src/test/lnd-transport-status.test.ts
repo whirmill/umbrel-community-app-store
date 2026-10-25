@@ -141,3 +141,15 @@ test('a transient LND failure does not raise the immediate blocker message; auth
   assert.match(f.s.one("SELECT text FROM telegram_outbox WHERE event_id LIKE 'blockers:%'").text,/Native LND gRPC/);
  }finally{f.close();}
 });
+test('LND sync lag after a block alerts only after 10 minutes and reports recovery once',()=>{
+ const f=fixture();const minute=(m:number)=>new Date(Date.parse(at)+m*60000).toISOString();const sweep=(m:number,synced:boolean)=>{f.s.set('blockers',synced?[]:['LND not synchronized']);(f.t as any).capture(minute(m));};
+ const rows=(like:string)=>f.s.all('SELECT * FROM telegram_outbox WHERE event_id LIKE ? ORDER BY created_at',like);
+ try{
+  sweep(0,false);sweep(1,true);assert.equal(rows('blockers:%').length,0);assert.equal(rows('lnd-sync-recovered:%').length,0);assert.equal(f.s.get('telegramLndSyncPending'),null);
+  for(const m of [2,5,9])sweep(m,false);assert.equal(rows('blockers:%').length,0);
+  sweep(12,false);sweep(13,false);const alerts=rows('blockers:%');assert.equal(alerts.length,1);assert.equal(alerts[0].text,'Intervento richiesto: LND non sincronizzato da oltre 10 minuti');
+  sweep(14,true);const recovered=rows('lnd-sync-recovered:%');assert.equal(recovered.length,1);assert.equal(recovered[0].text,'LND di nuovo sincronizzato dopo 12 minuti.');
+  sweep(15,true);assert.equal(rows('lnd-sync-recovered:%').length,1);
+  sweep(20,false);sweep(27,false);sweep(28,true);assert.equal(rows('blockers:%').length,1);assert.equal(rows('lnd-sync-recovered:%').length,1);
+ }finally{f.close();}
+});
