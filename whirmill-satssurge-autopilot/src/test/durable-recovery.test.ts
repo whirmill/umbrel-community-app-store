@@ -157,3 +157,18 @@ test('native work no recovered job owns is aborted before Durable resumes',{time
   const native=await status(f,started.orphan!.submissionId);assert.equal(native.status,'unanswered');assert.equal(native.reason,'aborted');
  }finally{await close(f,scheduler);rmSync(directory,{recursive:true,force:true});}
 });
+test('a failed startup recovery stops the scheduler: nothing resumes Durable and the blocker stays',{timeout:15000},async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'durable-recovery-failed-'));const f=fixture(directory,'state');let calls=0;
+ try{
+  f.agent.models.streamSimple=()=>{calls++;throw Error('no provider request expected');};
+  f.queue.recoverAfterRestart();await f.agent.open();
+  (f.agent as any).recover=async()=>{throw Error('fixture recovery failure');};
+  const scheduler=new Scheduler(f.queue,f.agent);
+  await assert.rejects(scheduler.recover(),/fixture recovery failure/);
+  assert.ok(f.store.get('agentRecoveryFailed'));
+  const job=f.queue.enqueue({requestId:'after-failed-recovery',kind:'analysis',payload:{message:'read state'}});
+  await scheduler.pump();await scheduler.dispatchTelegram();scheduler.tick();
+  assert.equal(f.queue.get(job.id)!.state,'queued');assert.equal(calls,0);
+  assert.equal(scheduler.status().stopped,true);
+ }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
+});

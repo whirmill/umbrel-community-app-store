@@ -1067,6 +1067,11 @@ export class Agent {
     for (const jobId of jobs) {
       const turn = turns.get(jobId);
       if (!turn?.closed) continue;
+      // Settled history is not re-checked at every start.
+      const restartInterrupted = this.store.get<any>("telegramTerminal:" + jobId)?.reason === "interrupted_at_restart";
+      const openCorrections = restartInterrupted && turns.orderedCorrections(jobId).some((c) => ["admitted", "placed"].includes(c.state));
+      const openStop = !!this.store.one("SELECT 1 FROM meta WHERE key LIKE 'telegramStop:%' AND json_extract(value,'$.state')='received' AND json_extract(value,'$.jobId')=?", jobId);
+      if (!openCorrections && !openStop) continue;
       try {
         // A turn abandoned before its first bind has no conversation copy; use the job's binding.
         const job = this.queue.get(jobId);

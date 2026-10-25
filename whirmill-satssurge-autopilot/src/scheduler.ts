@@ -34,6 +34,10 @@ export class Scheduler {
       });
       for(const run of recovered.runs)this.start(run.job,slots.get(run.job.id),run.done);
       this.active.add(recovered.settling);void recovered.settling.finally(()=>this.active.delete(recovered.settling));
+      this.queue.store.set('agentRecoveryFailed',null);
+    }catch(e){
+      // Durable may hold marks or unowned work that was never swept: nothing may resume it before a restart.
+      this.stopped=true;this.queue.store.set('agentRecoveryFailed',{at:now()});throw e;
     }finally{this.recovering=false;}
   }
   async pump() {

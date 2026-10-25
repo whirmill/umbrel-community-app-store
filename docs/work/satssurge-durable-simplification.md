@@ -264,6 +264,8 @@ would have changed behaviour by accident, the safer option was taken:
   no reconciliation or UI report was added.
 - **Leases.** All lease writes are gone, including the `NULL` resets; values in old rows stay
   and are stripped from the public job JSON.
-- **Startup failure.** If `Scheduler.recover()` throws, the server's bootstrap catch marks
-  `bootstrapReady=false` with the generic LND blocker text; Durable stays paused, so nothing
-  runs. The blocker text is misleading in that case.
+- **Startup failure.** If `Scheduler.recover()` throws, the scheduler stops for good:
+  `pump`, `dispatchTelegram` and `tick` return early, so no submit or wait can resume Durable
+  over unswept work. `agentRecoveryFailed` is persisted, and the collector keeps the blocker
+  "Agent run recovery at startup failed; no agent work runs until the app restarts" until a
+  later start recovers successfully. The fix and its test were added after the code review.

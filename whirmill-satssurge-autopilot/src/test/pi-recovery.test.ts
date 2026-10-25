@@ -7,6 +7,7 @@ import {join} from 'node:path';
 import {fork} from 'node:child_process';
 import {once} from 'node:events';
 import {fixture} from './pi-fixture.js';
+import {Scheduler} from '../scheduler.js';
 import {BACKGROUND_CONTEXT as context} from '@earendil-works/chord/context';
 
 test('actual analyst registry returns current competition tail without the large alternative arrays',{timeout:10000},async()=>{
@@ -44,6 +45,32 @@ test('real Pi Durable recovers a killed unsafe tool without a second effect or s
       assert.equal(readFileSync(join(directory,'effects.jsonl'),'utf8').trim().split('\n').length,1);
       assert.ok(f.calls.thinking.every(level=>level==='high'));
     }finally{await f.agent.close();f.store.close();}
+  }finally{if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');rmSync(directory,{recursive:true,force:true});}
+});
+
+test('startup recovery path: a killed unsafe tool settles interrupted without a second effect or submission',{timeout:20000},async()=>{
+  const directory=mkdtempSync(join(tmpdir(),'surge-pi-crash-startup-'));
+  const child=fork(new URL('./pi-fixture.js',import.meta.url),['crash-fixture',directory],{stdio:['ignore','ignore','pipe','ipc']});
+  let errors='';child.stderr?.on('data',d=>errors+=d.toString());
+  try{
+    await new Promise<void>((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('Fixture did not reach effect: '+errors)),7000);
+      child.on('message',(m:any)=>{if(m.type==='effect'){clearTimeout(timer);resolve();}});
+      child.once('exit',code=>{clearTimeout(timer);reject(new Error('Fixture exited '+code+': '+errors));});
+    });
+    const exited=once(child,'exit');child.kill('SIGKILL');await exited;
+    const f=fixture(directory,'unsafe');const scheduler=new Scheduler(f.queue,f.agent);
+    try{
+      // Production order (server-app): queue recovery, Agent.open, Scheduler.recover, then pumps.
+      f.queue.recoverAfterRestart();const before=f.queue.list()[0]!;assert.ok(before.submission_id);
+      await f.agent.open();await scheduler.recover();
+      const deadline=Date.now()+10000;
+      while(!['completed','failed'].includes(f.queue.get(before.id)!.state)){if(Date.now()>deadline)throw Error('recovered run did not settle');await scheduler.pump();await new Promise(r=>setTimeout(r,10));}
+      const after=f.queue.get(before.id)!;
+      assert.equal(after.state,'completed');assert.match(JSON.parse(after.result!).answer,/terminal tool receipt/);
+      assert.equal(after.submission_id,before.submission_id);assert.equal(after.conversation_id,before.conversation_id);
+      assert.equal(readFileSync(join(directory,'effects.jsonl'),'utf8').trim().split('\n').length,1);
+    }finally{await scheduler.drain(5000);await f.agent.close();f.store.close();}
   }finally{if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');rmSync(directory,{recursive:true,force:true});}
 });
 

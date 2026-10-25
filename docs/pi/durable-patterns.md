@@ -158,9 +158,8 @@ successivo. Il ledger applicativo e la transazione di binding Pi sono distinti:
 tra i due database. I futuri turni non vengono pre-inseriti in `pi.inbox`, così
 un abort del turno corrente non li ritira.
 
-Le ricevute Stop rimangono `stop_requested` durante la recovery waiting; al
-riavvio la recovery le applica con marcature native prima del `resume()` (vedi
-sotto). Gli osservatori proiettano soltanto entry
+Uno Stop accettato prima di un riavvio viene applicato dalla recovery con
+marcature native prima del `resume()` (vedi sotto). Gli osservatori proiettano soltanto entry
 successive al baseline persistito del turno; non diventano outbox e non sono
 usati per riconciliare effetti finanziari. Per la sessione riutilizzata, usage
 cumulativo e delta per turno sono entrambi distinti dal budget del turno.
