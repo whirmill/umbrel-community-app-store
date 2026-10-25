@@ -8,7 +8,7 @@ available in Git history and in closed PRs #106/#107.
 
 | | |
 |---|---|
-| Version | 0.5.20 (`ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.20@sha256:99705c77…`) |
+| Version | 0.5.22 |
 | Installed | 2026-10-25 via the supported Umbrel update |
 | Financial execution | active since 2026-10-25 10:42 (Rome) under mandate v1, after the owner's `/resume`. The first cycle chose observation only; no operations yet |
 | LND | `lightninglabs/lnd:v0.21.5-beta.rc1`, gRPC TLS healthy |
@@ -21,7 +21,8 @@ available in Git history and in closed PRs #106/#107.
    `cp -a ~/umbrel/app-data/whirmill-satssurge-autopilot ~/satssurge-backups/pre-<version>-<date>`.
    Compare the file count and total bytes of the copy with the original.
 3. Update: `umbreld client apps.update.mutate --appId whirmill-satssurge-autopilot` or the dashboard button.
-4. Check:
+4. If the release changed a host script (`scripts/diagnostics.py`, `competition.py`, `interlock.py`, `sync-lnd-public-cert.py`), rerun its installer as `umbrel` from the node's store copy, e.g. `sh ~/umbrel/app-stores/whirmill-umbrel-community-app-store-github-*/whirmill-satssurge-autopilot/scripts/install-diagnostics.sh ~/umbrel/app-data/whirmill-satssurge-autopilot`. The Umbrel update replaces the image and compose, not these host copies.
+5. Check:
    - the container is `healthy` with no restarts;
    - `umbrel-app.yml` shows the new version;
    - `data/lifecycle.json` is in `phase: ready`;
@@ -52,6 +53,9 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - `-competition`: every 3 minutes;
   - `satssurge-collect`: daily.
 - **Startup costs.** The owner's manual startup operations of 3–8 October are annotated in `ledger_annotations`: 45 entries as `other` (channel opens and closes, funding, Magma liquidity, initial balancing) and 2 as `swap` (RoboSats fees). The budget still counts them, as mandate v1 requires. Since 0.5.20 the agent sees the 30-day partition. On 2026-10-25 it showed routing at +1,452.7 sat, other at −9,872.7 sat and swap at +1,834.5 sat.
+- **LND alerts (0.5.21).** Transient LND call failures (deadline, cancelled, rpc_failure, unavailable, resource_limit, acquisition_failure) alert only after 10 minutes of outage, once per outage, with one recovery message after 5 minutes of continuous health. Certificate, endpoint and authentication problems alert immediately. Before 0.5.21 single hiccups had produced 158 alerts.
+- **Peer fee comparison (0.5.21).** It had been unavailable since LND left 0.21.3, because both sides pinned that exact version. It now accepts LND 0.21+ including release candidates.
+- **Database growth (0.5.22, #112).** Per-minute redundant canonical writes stopped: unchanged policies, empty history windows, rollup republishing, snapshot mirror copies and streaming frames. Simulated growth went from about 180 to about 12 MB/day. The release also fixes a latent retention bug that would have blocked financial execution about 90 days after install. `scripts/prune_redundant_history.py` removes existing redundant rollups and frames offline.
 - **Scoped mode (until 0.5.19).** The app-controls environment pointed at an unmounted `/app-controls`, and the persisted proof kept scoped mode alive. Together they held finance permanently. An orphan maintenance claim left by an agent on 2026-10-10 was released on 2026-10-25 with the app stopped and no operations active (#113, #114).
 
 ## Roadmap
@@ -61,8 +65,12 @@ agent that earns fees safely; everything else waits for a concrete need.
 
 1. **Watch the first autonomous decisions.** Check that operations, budgets and
    accounting match LND after `/resume`. Fix only what real operations expose.
-2. **Database growth:** measure over 24 h and bound the canonical tables (#112).
-3. **Channel opens and closes proposed by the agent (#118).** The owner approves each one with a tap. On-chain fees are capped at 20,000 sat/month, new channels are 500k–2M sat, and closes are cooperative only.
+2. **Database growth (#112):** fixes shipped in 0.5.22. Confirm with a 24 h `dbstat` measurement on the node.
+3. **Channel opens and closes (#118):** shipped in 0.5.22.
+   - The agent measures channels (`channel_performance`) and candidates (`channel_candidate`, routes back to depleted channels) and proposes opens or cooperative closes.
+   - Every operation runs only after the owner approves it with a tap.
+   - Limits: on-chain fees ≤ 20,000 sat/month, new channels 500k–2M sat, and the 500,000 sat reserve stays protected.
+   - It needs the separate channel macaroon from `scripts/provision-channels.sh`. Without it, channel features are unavailable.
 4. **Native collection (former M3), trimmed.** It keeps running as it is. There
    is no project to retire LNDg/LightningMate and no further canonical-model work
    until there is a concrete reason.
