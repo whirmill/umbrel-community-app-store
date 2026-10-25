@@ -20,7 +20,8 @@ const RICH_FINAL_TEXT_LIMIT = 32768;
 const RICH_FINAL_HTML_BYTES = 65536;
 const RICH_BLOCK_LIMIT = 500;
 const RICH_DEPTH_LIMIT = 16;
-const RICH_FORMAT = 'rich-blocks-v1';
+// v2 adds tables; finals recorded as v1 are re-rendered with the v1 grammar.
+const RICH_FORMAT = 'rich-blocks-v2', RICH_FORMATS: Record<string, boolean> = { 'rich-blocks-v1': false, 'rich-blocks-v2': true };
 const graphemes = new Intl.Segmenter('it', { granularity: 'grapheme' });
 interface RichFinal {
     generation: string; chatId: number; botGeneration: unknown; checksum: string; htmlBytes: number;
@@ -41,7 +42,16 @@ function richInline(text: string) {
     }
     return html + richEscape(text.slice(cursor));
 }
-function richLayout(clean: string) {
+const tableRow = (line: string) => /^[ ]{0,3}\|.*\|[\t ]*$/.test(line);
+const tableSeparator = (line: string) => /^[ ]{0,3}\|?[\t ]*:?-{3,}:?[\t ]*(\|[\t ]*:?-{3,}:?[\t ]*)*\|?[\t ]*$/.test(line);
+const tableCells = (line: string) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim());
+/** Telegram has no table block: each row becomes a list item, first cell bold, other cells labelled by their header. */
+function richTableRow(headers: string[], cells: string[]) {
+    const [first = '', ...rest] = cells;
+    const details = rest.map((cell, k) => cell ? (headers[k + 1] ? richInline(headers[k + 1]!) + ': ' : '') + richInline(cell) : '').filter(Boolean).join(' · ');
+    return '<li><p><b>' + richInline(first.replace(/^\*\*(.*)\*\*$/, '$1')) + '</b>' + (details ? ' — ' + details : '') + '</p></li>';
+}
+function richLayout(clean: string, tables = true) {
     const lines = clean.split(/\r?\n/), output: string[] = []; let paragraph: string[] = [], list: 'ul'|'ol'|undefined, blocks = 0, depth = 0;
     const flushParagraph = () => { if (paragraph.length) { output.push('<p>' + paragraph.map(richInline).join('<br>') + '</p>'); blocks++; depth = Math.max(depth, 2); paragraph = []; } };
     const flushList = () => { if (list) { output.push('</' + list + '>'); list = undefined; } };
@@ -52,6 +62,14 @@ function richLayout(clean: string) {
             while (end < lines.length && !/^```[\t ]*$/.test(lines[end]!)) end++;
             const code = lines.slice(i + 1, end).join('\n') + (end < lines.length && end > i + 1 ? '\n' : '');
             output.push('<pre><code>' + richEscape(code) + '</code></pre>'); blocks++; depth = Math.max(depth, 2); i = end; continue;
+        }
+        if (tables && tableRow(line) && i + 1 < lines.length && tableSeparator(lines[i + 1]!)) {
+            flushParagraph(); flushList(); const headers = tableCells(line); let end = i + 2;
+            while (end < lines.length && tableRow(lines[end]!)) end++;
+            const rows = lines.slice(i + 2, end).map(tableCells);
+            if (rows.length) { output.push('<ul>' + rows.map(row => richTableRow(headers, row)).join('') + '</ul>'); blocks += 1 + 2 * rows.length; depth = Math.max(depth, 4); }
+            else { output.push('<p>' + headers.map(richInline).join(' · ') + '</p>'); blocks++; depth = Math.max(depth, 2); }
+            i = end - 1; continue;
         }
         const heading = /^(#{1,6}) (.+)$/.exec(line), item = /^[ ]{0,3}([-+*]|\d{1,9}[.)])[\t ]+(.+)$/.exec(line);
         if (heading) {
@@ -73,8 +91,8 @@ export function telegramRichHtml(text: string) { return richLayout(telegramClean
 function finalLayout(text: string, rich: RichFinal) {
     // No format means the immutable 0.5.11 serializer, not today's renderer.
     if (rich.format === undefined) return { html: telegramHtml(text) };
-    if (rich.format !== RICH_FORMAT) return undefined;
-    const layout = richLayout(telegramClean(text));
+    if (!(rich.format in RICH_FORMATS)) return undefined;
+    const layout = richLayout(telegramClean(text), RICH_FORMATS[rich.format]);
     return layout.blocks <= RICH_BLOCK_LIMIT && layout.depth <= RICH_DEPTH_LIMIT && layout.blocks === rich.blocks && layout.depth === rich.depth ? layout : undefined;
 }
 function textBoundary(text: string, limit: number) {
@@ -750,6 +768,27 @@ export class Telegram {
         }
     }
     summary(p: any) { return `Proposta ${p.content.kind}: ${p.content.source || 'policy'} → ${p.content.target}. Importo ${p.content.amountSat} sat; costo massimo ${p.content.maxFeeMsat} msat${p.content.newPpm === undefined ? '' : `; nuova fee ${p.content.newPpm} ppm`}. Motivo: ${telegramText(p.content.whyAct)}. Valida per 5 minuti dalla consegna. Approva o rifiuta; restano attivi i controlli di sicurezza.`; }
+    /** A read-only turn cut by a transient provider error is asked again once, as a new request linked to the original. */
+    private transientRetry(j: any, at: string): { until: string } | undefined {
+        if (j.state !== 'failed' || this.store.get('jobCapability:' + j.id) !== 'read_only_chat' || this.store.get('telegramLinkedRequest:' + j.id)?.retryOf) return undefined;
+        const f = this.store.get('providerFailure:' + j.id);
+        if (f?.source !== 'native_entry' || f.jobId !== j.id || !['transient_network', 'transient_stream'].includes(f.kind)) return undefined;
+        // Only fresh failures: an older one has already been answered and possibly re-asked by the owner.
+        if (!(Date.parse(at) - Date.parse(f.at) <= 600000)) return undefined;
+        return { until: f.until };
+    }
+    private admitRetry(j: any, at: string) {
+        const requestId = 'telegram-retry:' + j.id, binding = this.store.get('telegramBinding');
+        if (this.store.one('SELECT id FROM jobs WHERE request_id=?', requestId)) return;
+        this.store.tx(() => {
+            const message = JSON.parse(j.payload ?? '{}').message ?? '';
+            const admitted = this.control.admitWithinTransaction(requestId, message, 'telegram', j.kind === 'analysis');
+            this.store.set('jobTelegramGeneration:' + admitted.id, binding.generation);
+            this.turns().attach(admitted, binding.generation, binding.chatId);
+            this.store.set('telegramLinkedRequest:' + admitted.id, { priorTurn: j.id, retryOf: j.id });
+        });
+        void this.wake?.().catch(() => { });
+    }
     capture(at = now()) {
         this.turns().reconcile();
         if (!this.store.get('telegramBinding'))
@@ -757,6 +796,8 @@ export class Telegram {
         for (const j of this.store.all("SELECT j.* FROM jobs j JOIN job_events e ON e.job_id=j.id AND e.type='accepted' WHERE json_extract(e.details,'$.origin')='telegram' AND j.created_at>=? AND j.state IN ('completed','failed')", this.store.get('telegramBinding').since)) {
             if (this.store.get('jobTelegramGeneration:' + j.id) !== this.store.get('telegramBinding').generation)
                 continue;
+            const retry = this.transientRetry(j, at);
+            if (retry && Date.parse(retry.until) <= Date.parse(at)) this.admitRetry(j, at);
             if (this.answerExists('answer:' + j.id)) continue;
             const result = JSON.parse(j.result ?? '{}');
             const source=JSON.parse(j.payload??'{}').message??'';
@@ -766,7 +807,8 @@ export class Telegram {
             if(!greeting&&j.state==='completed')cta.push({text:'Dettagli stato',value:{action:'details',id:j.id}});
             if(cta.length)this.attachButtons('answer:'+j.id,cta,this.store.get('telegramBinding').generation);
             const partial=this.store.one("SELECT data FROM ui_events WHERE job_id=? AND type='text' ORDER BY id DESC LIMIT 1",j.id);
-            const finalText=j.state==='completed'?telegramClean(result.answer??'Richiesta completata; dettagli nella web app.'):((partial?JSON.parse(partial.data).text+'\n\n':'')+'Risposta interrotta o non completata. Il testo è parziale; puoi chiedere un nuovo approfondimento.');
+            const failedNote=retry?'Connessione al modello interrotta. Riprovo automaticamente una volta tra circa un minuto.':'Risposta interrotta o non completata. Il testo è parziale; puoi chiedere un nuovo approfondimento.';
+            const finalText=j.state==='completed'?telegramClean(result.answer??'Richiesta completata; dettagli nella web app.'):((partial?JSON.parse(partial.data).text+'\n\n':'')+failedNote);
             this.enqueueAnswer('answer:'+j.id,finalText,at);
         }
         for (const o of this.store.all("SELECT id,state FROM operations WHERE at>=? AND state IN ('SUCCEEDED','FAILED','uncertain','in_flight')", this.store.get('telegramBinding').since))
