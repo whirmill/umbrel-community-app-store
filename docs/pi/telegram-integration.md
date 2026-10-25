@@ -114,15 +114,16 @@ preesistente continua a restituire la ricevuta originale. Nessuna cronologia o
 submission precedente viene eliminata.
 
 La chat libera sveglia immediatamente `Scheduler.dispatchTelegram`, senza
-attendere il ciclo di manutenzione. Il coordinatore Telegram usa gli strumenti
-read-only dello slot 2; il coordinatore finanziario e i due analisti restano
+attendere il ciclo di manutenzione. Il coordinatore Telegram usa il ruolo chat
+con gli strumenti read-only; il coordinatore finanziario e i due analisti restano
 indipendenti. La mailbox applicativa conserva soltanto i turni futuri e ne
 permette l'annullamento. Per una stessa generazione/chat, chat, analisi e bridge
 verso proposta sono serializzati in ordine d'ammissione, anche se hanno lane
 interne diverse. Le analisi automatiche non diventano turni Telegram.
 
 Una sessione read-only può conservare il contesto di chat nella stessa
-associazione/capability/slot; non viene promossa a capability finanziaria. Una
+associazione/capability e la stessa chiave di sessione (chat `:2`, ricerca `:0`);
+non viene promossa a capability finanziaria. Una
 richiesta esplicita di proposta crea un job separato `guarded_manual_proposal`.
 Le proposte sono ricevute commesse, approvate una sola volta con i controlli e la
 scadenza esistenti. La conversazione non rinnova mandato o budget.
@@ -153,8 +154,13 @@ cancella la risposta o un altro turno. Una correzione tardiva offre una nuova
 richiesta collegata, senza eseguirla automaticamente.
 
 Stop conserva target turn/generation/version e conferma prima la ricezione,
-poi l'assenza di task ordinari con `Conversation.abort` e `waitForIdle`. La
-ripartenza ridispatcha l'intento Stop conservato anche durante `waiting`. Stop
+poi l'assenza di task ordinari con `Conversation.abort` e `waitForIdle`. Uno
+Stop accettato prima di un riavvio è applicato dalla recovery con
+`abortTask`/`abortSubmission` prima del `resume()`: il turno non fa altre
+richieste al provider e una correzione mai inviata a Pi diventa `withdrawn`
+(`stop_before_native_submission`). Un turno recuperato riceve il proprio runner,
+quindi Stop, correzioni e ritiri arrivati dopo il riavvio funzionano come dal
+vivo. Stop
 vecchi/duplicati non si applicano al turno successivo. L'evento nativo Telegram
 `stopped_message_generation`, privo di sender, richiede la mappa durevole
 `draft_id → turn/generation/version` e la stessa chat privata associata. Stop

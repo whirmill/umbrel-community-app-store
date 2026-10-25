@@ -99,6 +99,7 @@ export class Collector {
       if(!s.synced)blockers.push('LND not synchronized');
       if(!this.store.get('historicalLedgerImported'))blockers.push('Historical ledger not imported');
       if(this.store.get('automationProof')?.ok!==true)blockers.push('Live automation interlock unavailable');
+      if(this.store.get('agentRecoveryFailed'))blockers.push('Agent run recovery at startup failed; no agent work runs until the app restarts');
       if(integer(s.confirmedSat)<500000n)blockers.push('Protected reserve below 500,000 sat');
       this.store.set('bootstrapReady',!blockers.length);this.store.set('blockers',blockers);this.store.set('collector',{at:now(),ok:true});
     }catch{this.store.set('operationalReadiness',{at:now(),ready:false,appControls:'unknown',standalone:'unknown',financialEligible:false});this.store.set('bootstrapReady',false);this.store.set('collector',{at:now(),ok:false,error:'Collection/reconciliation failed; no new AI action'});}finally{this.persistTransport();this.busy=false;}

@@ -38,7 +38,7 @@ misurata e migrazione qualificata. QUALIFY è un candidato ancora incompleto.
 
 | Complemento | Decisione attuale | Primitiva nativa e prova | Confine che resta / condizione di sostituzione |
 |---|---|---|---|
-| Admission, coda globale, priorità, slot coordinator/analyst | KEEP | `requestId` deduplica nella singola conversazione; inbox ordina gli input busy | Limiti globali, capability, rate, fairness, budget, identità job e recovery tra DB restano nella coda applicativa. Una nuova conversazione con lo stesso requestId non è un duplicato nativo. |
+| Admission, coda globale, priorità, lane coordinator/analyst | KEEP | `requestId` deduplica nella singola conversazione; inbox ordina gli input busy | Limiti globali, capability, rate, fairness, budget, identità job e recovery tra DB restano nella coda applicativa. Una nuova conversazione con lo stesso requestId non è un duplicato nativo. |
 | Piani di ricerca e checkpoint delle pagine | QUALIFY | `defineDoc` rewindable e `defineTask` commettono fase/documento nella stessa transazione; SIGKILL preserva la fase e non ripete la preparazione | `Research` conserva intervallo congelato, research/revision/job ID, parent receipt, query/cursor/version/offset, coverage e continuazioni cross-store. La fixture non migra questi dati né prova l'equivalenza dei consumer. |
 | Stato JSON locale della conversazione | THIN ADAPTER | Documento tipizzato con versione, storico e fork; snapshot/reopen del documento qualificati | Buon candidato per stato conversazionale senza autorità di dominio. Nessuna sostituzione dello Store condiviso o della transazione finanziaria. Fork/schema upgrade/migrazione dei documenti applicativi restano da qualificare. |
 | Task di continuazione | QUALIFY | Fase persistente e stato terminale del task nativo sono qualificati dopo crash/Stop | Occorrono migrazione degli ID originali, massimo numero segmenti, coalescenza, trigger, priorità, budget e reconciliation con job operativi. Un task nativo non rimpiazza la ricevuta job da solo. |
@@ -53,8 +53,8 @@ misurata e migrazione qualificata. QUALIFY è un candidato ancora incompleto.
 Nessun REPLACE applicato in questa freeze: le prove consentono di evitare
 un'ulteriore pipeline di compaction o usage, ma non dimostrano una migrazione
 equivalente dei complementi di dominio. Non è misurato alcun risparmio di codice,
-costo o affidabilità. La patch applicativa scoped Stop resta distinta da stock
-1.1.0; vedere [durable-patterns](durable-patterns.md#recovered-stop-offline-application-patch-v1).
+costo o affidabilità. Lo Stop recuperato all'avvio usa soltanto API stock
+1.1.0; vedere [durable-patterns](durable-patterns.md#recovery-allavvio-attach-abort-resume).
 
 ## Qualificazione nativa isolata
 

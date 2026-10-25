@@ -5,21 +5,45 @@ import { Queue, type Job } from './queue.js';
 import { id, now, hash } from './domain.js';
 
 export class ModelUnavailable extends Error {}
+export interface RecoveredRuns {runs:{job:Job;done:Promise<unknown>}[];settling:Promise<void>}
 export interface JobRunner {
   available():Promise<boolean>;
-  recoverTelegramStops?():Promise<void>;
-  runJob(job:Job,analystSlot?:number):Promise<unknown>;
+  /** Startup only: attach admitted recovered runs, abort all other native work, then resume. */
+  recover?(claim:(job:Job)=>Job|undefined):Promise<RecoveredRuns>;
+  runJob(job:Job):Promise<unknown>;
 }
-/** One process, one coordinator, up to two isolated read-only conversations. */
+/** One process, one coordinator, up to two isolated read-only conversations. Slots count lane capacity only. */
 export class Scheduler {
   private pumping=false;private coordinator=false;private chat=false;private chatDispatching=false;private analysts=new Set<number>();
-  private owner=id();private stopped=false;private heartbeats=new Map<string,ReturnType<typeof setInterval>>();
+  private owner=id();private stopped=false;private recovering=false;
   private active=new Set<Promise<void>>();
   constructor(readonly queue:Queue,private runner:JobRunner){}
-  async pump() {
-    if(this.stopped||this.pumping)return;this.pumping=true;
+  /** Startup only, before any pump: every recovered run is attached to its lane or aborted before Durable resumes. */
+  async recover() {
+    if(this.stopped||!this.runner.recover)return;this.recovering=true;
     try {
-      if(this.runner.recoverTelegramStops)await this.runner.recoverTelegramStops();this.queue.reconcileTelegramTerminals();this.queue.releaseWaiting();if(!await this.runner.available()||this.stopped)return;
+      this.queue.reconcileTelegramTerminals();
+      const slots=new Map<string,number|undefined>();
+      const recovered=await this.runner.recover(job=>{
+        // A restart recovers at most what was running before it; a lane conflict fails closed.
+        const slot=job.lane==='analyst'?[0,1].find(n=>!this.analysts.has(n)):this.queue.chat(job)?2:undefined;
+        if(job.lane==='analyst'?slot===undefined:slot===2?this.chat:this.coordinator)return undefined;
+        const claimed=this.queue.claimRecovered(job.id,this.owner);if(!claimed)return undefined;
+        if(job.lane==='analyst')this.analysts.add(slot!);else if(slot===2)this.chat=true;else this.coordinator=true;
+        slots.set(job.id,slot);return claimed;
+      });
+      for(const run of recovered.runs)this.start(run.job,slots.get(run.job.id),run.done);
+      this.active.add(recovered.settling);void recovered.settling.finally(()=>this.active.delete(recovered.settling));
+      this.queue.store.set('agentRecoveryFailed',null);
+    }catch(e){
+      // Durable may hold marks or unowned work that was never swept: nothing may resume it before a restart.
+      this.stopped=true;this.queue.store.set('agentRecoveryFailed',{at:now()});throw e;
+    }finally{this.recovering=false;}
+  }
+  async pump() {
+    if(this.stopped||this.pumping||this.recovering)return;this.pumping=true;
+    try {
+      this.queue.reconcileTelegramTerminals();this.queue.releaseWaiting();if(!await this.runner.available()||this.stopped)return;
       for(let slot=0;slot<2;slot++)if(!this.analysts.has(slot)){
         const job=this.queue.claim('analyst',this.owner);if(job){this.analysts.add(slot);this.start(job,slot);}
       }
@@ -28,23 +52,23 @@ export class Scheduler {
     }finally{this.pumping=false;}
   }
   /** Telegram coordinator dispatches immediately; future turns stay durably admitted. */
-  async dispatchTelegram(){if(this.stopped||this.chat||this.chatDispatching)return;this.chatDispatching=true;
-    try{if(this.runner.recoverTelegramStops)await this.runner.recoverTelegramStops();this.queue.reconcileTelegramTerminals();if(!await this.runner.available()||this.stopped)return;const job=this.queue.claim('coordinator',this.owner,now(),'chat');if(job){this.chat=true;this.start(job,2);}}
+  async dispatchTelegram(){if(this.stopped||this.recovering||this.chat||this.chatDispatching)return;this.chatDispatching=true;
+    try{this.queue.reconcileTelegramTerminals();if(!await this.runner.available()||this.stopped)return;const job=this.queue.claim('coordinator',this.owner,now(),'chat');if(job){this.chat=true;this.start(job,2);}}
     finally{this.chatDispatching=false;}
   }
-  private start(job:Job,slot?:number){
-    const task=this.launch(job,slot);this.active.add(task);
+  private start(job:Job,slot?:number,run?:Promise<unknown>){
+    const task=this.launch(job,slot,run);this.active.add(task);
     void task.finally(()=>this.active.delete(task));
   }
-  private async launch(job:Job,slot?:number) {
+  private async launch(job:Job,slot?:number,run?:Promise<unknown>) {
+    // run_token fences late async work of this run; the process lock excludes other writers.
     const token=job.run_token!;
-    const timer=setInterval(()=>this.queue.renew(job.id,token),15000);this.heartbeats.set(job.id,timer);
     try {
-      const result=await this.runner.runJob(job,slot);this.queue.finish(job.id,token,'completed',result);new Research(this.queue.store).continue(this.queue,this.queue.get(job.id)!);
+      const result=await (run??this.runner.runJob(job));this.queue.finish(job.id,token,'completed',result);new Research(this.queue.store).continue(this.queue,this.queue.get(job.id)!);
     }catch(e){
       if(e instanceof ModelUnavailable)this.queue.wait(job.id,token,'model_unavailable');
       else {this.queue.finish(job.id,token,'failed',e instanceof Error?e.message:'Task failed');new Research(this.queue.store).continue(this.queue,this.queue.get(job.id)!);}
-    }finally{clearInterval(timer);this.heartbeats.delete(job.id);if(slot===undefined)this.coordinator=false;else if(slot===2)this.chat=false;else this.analysts.delete(slot);void this.pump();}
+    }finally{if(slot===undefined)this.coordinator=false;else if(slot===2)this.chat=false;else this.analysts.delete(slot);void this.pump();}
   }
   private enqueueScheduled(input:Parameters<Queue['enqueue']>[0]) {
     try{return this.queue.enqueue(input);}
@@ -69,7 +93,7 @@ export class Scheduler {
     }
     void this.pump();
   }
-  // Stop admission immediately; retain leases while already submitted work drains.
+  // Stop admission immediately while already submitted work drains.
   // If the process is forcibly killed, original submission IDs survive recovery.
   stop(){this.stopped=true;}
   async drain(timeoutMs=25000):Promise<boolean>{

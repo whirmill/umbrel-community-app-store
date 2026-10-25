@@ -150,12 +150,12 @@ test("actual Pi watcher records public final text and safe read-only tool receip
       payload: { message: "read competition" },
     });
     const job = f.queue.claim("analyst", "test")!;
-    await f.agent.runJob(job, 0);
+    await f.agent.runJob(job);
     const events = new UiEvents(f.store).after(0);
     assert.ok(
       events.some(
         (e) =>
-          e.type === "tool_call" && e.data.toolName === "state_page_analyst_0",
+          e.type === "tool_call" && e.data.toolName === "state_page",
       ),
     );
     assert.ok(

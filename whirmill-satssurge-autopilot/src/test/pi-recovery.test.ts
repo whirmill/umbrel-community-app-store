@@ -7,6 +7,7 @@ import {join} from 'node:path';
 import {fork} from 'node:child_process';
 import {once} from 'node:events';
 import {fixture} from './pi-fixture.js';
+import {Scheduler} from '../scheduler.js';
 import {BACKGROUND_CONTEXT as context} from '@earendil-works/chord/context';
 
 test('actual analyst registry returns current competition tail without the large alternative arrays',{timeout:10000},async()=>{
@@ -14,7 +15,7 @@ test('actual analyst registry returns current competition tail without the large
   try{
     f.store.set('competition',{status:'qualified',coverage:'Public graph only',channels:Array.from({length:10},(_,i)=>({id:String(i),alias:'peer'+i,quotes:[{ourFeeMsat:'40000'}],alternatives:Array.from({length:100},(_,j)=>({id:String(j)})),alternativesTruncated:true}))});
     await f.agent.open();f.queue.enqueue({requestId:'current-price-pages',kind:'analysis',payload:{message:'read current prices'}});
-    const result=await f.agent.runJob(f.queue.claim('analyst','owner')!,0);
+    const result=await f.agent.runJob(f.queue.claim('analyst','owner')!);
     assert.match(result.answer,/peer9/);assert.match(result.answer,/40000/);assert.match(result.answer,/availableAlternativeRows/);
     assert.doesNotMatch(result.answer,/Unknown tool|truncated by/);
     assert.equal(existsSync(join(directory,'effects.jsonl')),false);
@@ -47,11 +48,37 @@ test('real Pi Durable recovers a killed unsafe tool without a second effect or s
   }finally{if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');rmSync(directory,{recursive:true,force:true});}
 });
 
+test('startup recovery path: a killed unsafe tool settles interrupted without a second effect or submission',{timeout:20000},async()=>{
+  const directory=mkdtempSync(join(tmpdir(),'surge-pi-crash-startup-'));
+  const child=fork(new URL('./pi-fixture.js',import.meta.url),['crash-fixture',directory],{stdio:['ignore','ignore','pipe','ipc']});
+  let errors='';child.stderr?.on('data',d=>errors+=d.toString());
+  try{
+    await new Promise<void>((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('Fixture did not reach effect: '+errors)),7000);
+      child.on('message',(m:any)=>{if(m.type==='effect'){clearTimeout(timer);resolve();}});
+      child.once('exit',code=>{clearTimeout(timer);reject(new Error('Fixture exited '+code+': '+errors));});
+    });
+    const exited=once(child,'exit');child.kill('SIGKILL');await exited;
+    const f=fixture(directory,'unsafe');const scheduler=new Scheduler(f.queue,f.agent);
+    try{
+      // Production order (server-app): queue recovery, Agent.open, Scheduler.recover, then pumps.
+      f.queue.recoverAfterRestart();const before=f.queue.list()[0]!;assert.ok(before.submission_id);
+      await f.agent.open();await scheduler.recover();
+      const deadline=Date.now()+10000;
+      while(!['completed','failed'].includes(f.queue.get(before.id)!.state)){if(Date.now()>deadline)throw Error('recovered run did not settle');await scheduler.pump();await new Promise(r=>setTimeout(r,10));}
+      const after=f.queue.get(before.id)!;
+      assert.equal(after.state,'completed');assert.match(JSON.parse(after.result!).answer,/terminal tool receipt/);
+      assert.equal(after.submission_id,before.submission_id);assert.equal(after.conversation_id,before.conversation_id);
+      assert.equal(readFileSync(join(directory,'effects.jsonl'),'utf8').trim().split('\n').length,1);
+    }finally{await scheduler.drain(5000);await f.agent.close();f.store.close();}
+  }finally{if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');rmSync(directory,{recursive:true,force:true});}
+});
+
 test('real Pi registry denies financial tools to analyst conversations',{timeout:10000},async()=>{
   const directory=mkdtempSync(join(tmpdir(),'surge-pi-analyst-'));const f=fixture(directory,'analyst');
   try{
     await f.agent.open();const job=f.queue.enqueue({requestId:'analyst-isolation',kind:'analysis',payload:{message:'try unavailable financial tool'}});
-    const claimed=f.queue.claim('analyst','owner')!;const result=await f.agent.runJob(claimed,0);
+    const claimed=f.queue.claim('analyst','owner')!;const result=await f.agent.runJob(claimed);
     assert.match(result.answer,/terminal tool receipt/);
     assert.equal(existsSync(join(directory,'effects.jsonl')),false);
     assert.ok(f.queue.get(job.id)?.submission_id);
@@ -91,7 +118,7 @@ test('another durable coordinator conversation cannot borrow an active job finan
     const submission=await foreign.submit({type:'input',content:'foreign caller',requestId:'foreign-caller',whenBusy:'reject'},context);
     const outcome=await submission.wait(context);assert.equal(outcome.status,'done');
     const transcript=await foreign.context(context);
-    assert.match(JSON.stringify(transcript.entries),/Lost job ownership/);
+    assert.match(JSON.stringify(transcript.entries),/No active owned run/);
     assert.equal(existsSync(join(directory,'effects.jsonl')),false);
     await ownRun;
     assert.equal(f.queue.get(job.id)?.conversation_id,ownedConversation);
@@ -106,7 +133,7 @@ test('actual fresh continuation analyst denies finance and preserves parent rece
     research.initialize(parent);research.state(parent);
     f.store.run("UPDATE jobs SET state='completed',submitted=1,conversation_id='synthetic-parent-conversation',submission_id='synthetic-parent-submission' WHERE id=?",parent.id);
     const next=research.continue(f.queue,f.queue.get(parent.id)!)!;
-    await f.agent.open();const claimed=f.queue.claim('analyst','test')!;assert.equal(claimed.id,next.id);const result=await f.agent.runJob(claimed,0);assert.match(result.answer,/terminal tool receipt/);
+    await f.agent.open();const claimed=f.queue.claim('analyst','test')!;assert.equal(claimed.id,next.id);const result=await f.agent.runJob(claimed);assert.match(result.answer,/terminal tool receipt/);
     assert.equal(existsSync(join(directory,'effects.jsonl')),false);assert.equal(f.queue.get(parent.id)!.submission_id,'synthetic-parent-submission');assert.notEqual(f.queue.get(next.id)!.submission_id,'synthetic-parent-submission');assert.notEqual(f.queue.get(next.id)!.conversation_id,'synthetic-parent-conversation');assert.equal(f.store.get('jobCapability:'+next.id),'read_only_research');
   }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
 });
@@ -122,9 +149,21 @@ test('native PiDurable registry creates manual proposal only for explicit review
       const result=await f.agent.runJob(f.queue.claim('coordinator','fixture')!);
       assert.match(result.answer,/terminal tool receipt/);
       assert.equal(f.store.all('SELECT * FROM owner_proposals').length,mode==='manual'?1:0);
+      // Manual review offers proposals without execute_decision; plain Telegram chat gets the read-only set.
+      assert.equal(f.calls.tools.includes('create_manual_proposal'),mode==='manual');assert.equal(f.calls.tools.includes('execute_decision'),false);
       assert.equal(existsSync(join(directory,'effects.jsonl')),false);
       assert.ok(f.queue.get(job.id)?.submission_id);
       assert.equal(f.store.all('SELECT * FROM operations').length,0);
     }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
   }
+});
+
+test('execute_decision hands the executor its Durable conversation, call ID and job as the operation key',{timeout:10000},async()=>{
+  const directory=mkdtempSync(join(tmpdir(),'surge-pi-call-link-'));const f=fixture(directory,'unsafe');const calls:any[]=[];
+  try{
+    (f.agent as any).executor.execute=async(_p:unknown,approval:unknown,call:unknown)=>{calls.push({approval,call});return {status:'SUCCEEDED'};};
+    f.store.set('enabled',true);await f.agent.open();const job=f.queue.enqueue({requestId:'call-link',kind:'chat',payload:{message:'execute once'}});
+    const result=await f.agent.runJob(f.queue.claim('coordinator','owner')!);assert.match(result.answer,/terminal tool receipt/);
+    assert.deepEqual(calls,[{approval:undefined,call:{conversationId:f.queue.get(job.id)!.conversation_id,callId:'fixture-call',jobId:job.id}}]);
+  }finally{await f.agent.close();f.store.close();rmSync(directory,{recursive:true,force:true});}
 });

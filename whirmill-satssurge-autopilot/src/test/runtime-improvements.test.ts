@@ -316,12 +316,12 @@ test('actual Pi slot2 advisory tools correlate persisted evidence, obey authorit
                 const hasResult = request.messages.some((m: any) => m.role === 'toolResult');
                 if (first && mode === 'revoked') f.store.set('telegramBinding', null);
                 if (first && mode === 'exhausted') { const budget = f.store.get('runBudget:' + owner.id); assert.ok(budget); /* next invocation consumes the remaining research budget */ }
-                const content: any[] = hasResult ? [{ type: 'text', text: 'Segnalazione consultiva conclusa' }] : mode === 'exhausted' ? Array.from({ length: 26 }, (_, i) => ({ type: 'toolCall', id: 'report-' + i, name: 'report_runtime_improvement_analyst_2', arguments: { source: 'job', reference: source.id } })) : [{ type: 'toolCall', id: 'report', name: 'report_runtime_improvement_analyst_2', arguments: { source: 'job', reference: mode === 'invented' ? hash('invented') : source.id } }];
+                const content: any[] = hasResult ? [{ type: 'text', text: 'Segnalazione consultiva conclusa' }] : mode === 'exhausted' ? Array.from({ length: 26 }, (_, i) => ({ type: 'toolCall', id: 'report-' + i, name: 'report_runtime_improvement', arguments: { source: 'job', reference: source.id } })) : [{ type: 'toolCall', id: 'report', name: 'report_runtime_improvement', arguments: { source: 'job', reference: mode === 'invented' ? hash('invented') : source.id } }];
                 first = false;
                 const message: any = { role: 'assistant', api: 'openai-responses', provider: 'openai', model: 'gpt-6.1-sol', timestamp: Date.now(), usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }, stopReason: hasResult ? 'stop' : 'toolUse', content };
                 queueMicrotask(() => { stream.push({ type: 'start', partial: message }); stream.push({ type: 'done', reason: message.stopReason, message }); }); return stream;
             };
-            await f.agent.open(); const running = f.agent.runJob(f.queue.claim('coordinator', 'owned')!, 2);
+            await f.agent.open(); const running = f.agent.runJob(f.queue.claim('coordinator', 'owned')!);
             if (mode === 'exhausted') await assert.rejects(running, /Absolute tool limit/); else await running;
             const issues = new RuntimeImprovements(f.store).issues();
             assert.equal(issues.length, ['invented','revoked'].includes(mode) ? 0 : 1, mode);

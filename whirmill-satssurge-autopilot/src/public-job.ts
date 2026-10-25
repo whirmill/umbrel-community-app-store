@@ -3,7 +3,8 @@ import { provenance } from "./analysis-feed.js";
 import { Store } from "./store.js";
 export const PUBLIC_BODY_BYTES = 128 * 1024;
 export function publicJob(store: Store, row: any) {
-  const { run_token, lease_owner, payload_digest, ...job } = row;
+  // Lease columns are legacy and never written; they stay out of the public shape.
+  const { run_token, lease_owner, lease_until, payload_digest, ...job } = row;
   let result: any;
   try {
     result = JSON.parse(job.result ?? "{}");

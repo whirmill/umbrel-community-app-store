@@ -54,6 +54,23 @@ L'esempio non concede accesso a LND né modifica le estensioni di produzione.
 La registry selection limita ciò che il modello vede; i controlli dentro il
 tool restano necessari perché configurazioni e ownership possono cambiare.
 
+SatsSurge registra ogni tool una sola volta, senza suffissi di slot. Il tool
+risolve il run da `api.conversationId` e ricontrolla job in esecuzione,
+`run_token`, conversazione, autorità Telegram e capability. Il ruolo deriva da
+lane e capability e sceglie estensione, budget, istruzioni e proiezioni:
+
+| Capability | Ruolo | Estensione | Budget |
+|---|---|---|---|
+| `financial_guarded` | coordinator | `satssurge`: lettura, `analyst_results`, proposte, `execute_decision` | coordinator |
+| `guarded_manual_proposal` | coordinator | `satssurge-proposal`: lettura, `analyst_results`, proposte manuali e di canale | coordinator |
+| `read_only_qualification` (o sconosciuta) | coordinator | `satssurge-readonly`: lettura, `analyst_results` | coordinator |
+| `read_only_research` (lane analyst, `/analyze`) | analyst | `satssurge-analyst`: lettura, `propose`, `propose_channel` | analyst |
+| `read_only_chat` (turno Telegram) | chat | `satssurge-analyst` | analyst |
+
+Le chiavi di sessione Telegram mantengono i suffissi storici: chat `:2`,
+ricerca `:0` (una sessione `/analyze` legata a `:1` riparte una volta). Le
+risposte Telegram restano fuori dalla memoria `chat` del proprietario.
+
 ## Replay ed effetti esterni
 
 Il task del tool commette l'intento prima di chiamare `execute`.
@@ -66,6 +83,10 @@ Il task del tool commette l'intento prima di chiamare `execute`.
 | Invio Telegram | Outbox applicativa, esito incerto distinto | Non dedurre una mancata consegna da un timeout |
 
 `replay: "unsafe"` non rende atomico il pagamento rispetto al commit locale.
+`execute_decision` passa all'executor conversazione, `callId` e job: la
+prenotazione scrive `operationCall:<operation>` nella stessa transazione e
+rifiuta un `callId` che possiede già un'operazione. La chiamata Durable
+interrotta e l'operazione sono così collegate esattamente.
 SatsSurge deve registrare operazione e payment hash prima dell'invio, e usare
 `TrackPaymentV2` per gli esiti incerti. Non trasformare un risultato sconosciuto
 in fallimento per consentire un nuovo invio. Il successo tecnico non certifica
@@ -137,8 +158,8 @@ successivo. Il ledger applicativo e la transazione di binding Pi sono distinti:
 tra i due database. I futuri turni non vengono pre-inseriti in `pi.inbox`, così
 un abort del turno corrente non li ritira.
 
-Le ricevute Stop rimangono `stop_requested` durante la recovery waiting e sono
-ridispatchate sul target originale. Gli osservatori proiettano soltanto entry
+Uno Stop accettato prima di un riavvio viene applicato dalla recovery con
+marcature native prima del `resume()` (vedi sotto). Gli osservatori proiettano soltanto entry
 successive al baseline persistito del turno; non diventano outbox e non sono
 usati per riconciliare effetti finanziari. Per la sessione riutilizzata, usage
 cumulativo e delta per turno sono entrambi distinti dal budget del turno.
@@ -147,65 +168,50 @@ Telegram terminal closure is one operational-store transaction with the accepted
 
 Committed Telegram terminal receipts include the bounded public scheduler result. Recovery projects that result before provider availability, native configuration, cumulative usage, or budget initialization; the scheduler also projects queued/waiting terminal receipts before its availability gate. Consequently cooldown/accounting failure cannot turn committed completion into failure or postpone a known interrupted outcome. Completion rereads the full durable admitted ledger at the final fence, including correction placement rejected before a native ID exists. Intentional late choices are not required submissions.
 
-## Recovered Stop offline: application patch v1
+## Recovery all'avvio: attach, abort, resume
 
-Stock Pi Durable 1.1.0 `Conversation.abort()` and `waitForIdle()` enable the
-whole scheduler. They therefore cannot qualify an offline recovered Stop that
-must leave unrelated pending work, including existing abort marks, untouched.
-SatsSurge applies **`satssurge-scoped-stop-v1`**, a separate, pinned application
-patch. The npm package version, lockfile integrity, upstream snapshots and
-built-in generation/tool definitions remain the upstream 1.1.0 contract.
+SatsSurge usa Pi Durable 1.1.0 stock, senza patch. `Harness.open` lascia lo
+scheduler in pausa; `Conversation.submit`, `Submission.wait`, `Conversation.abort`
+e `waitForIdle` lo riattivano globalmente, mentre `Harness.inspect`,
+`abortTask` e `abortSubmission` commettono soltanto (`dist/harness/harness.js`).
+L'app decide quindi tutto il lavoro recuperato prima del primo `resume()`.
 
-`whirmill-satssurge-autopilot/scripts/pi-scoped-stop-patch.mjs` verifies the exact
-1.1.0 version, original or already-patched SHA-256 of scheduler/harness, and six
-unchanged native contract files before any write. Unsupported inputs fail the
-build. `build`, `test` (through build), and `typecheck` invoke it explicitly, so
-`npm ci --ignore-scripts` is supported. Docker copies both patch files before
-building; the resulting patched dependency is carried into the final image.
-Patch manifest SHA-256:
-`283b864ad348dc0bf979de7c1b6095b0a67e3b0d4585b65b0d9489302b0974d2`;
-script SHA-256:
-`8fc51a4418e9e073b64dcadd90f0c64ec9b8d910888823253ff1e53f30e81be8`.
+`Scheduler.recover()` gira una sola volta dopo `Agent.open()` e prima di pump,
+Telegram e timer; durante la recovery pump e dispatch Telegram non partono.
 
-The additional `cancelConversationScoped` entry point requires an open paused
-scheduler. One native transaction marks the exact ordinary ownership scope and
-withdraws its queued inbox inputs before dispatch. Only that captured set of
-abort-marked tasks can be reserved while global scheduling stays paused. Native
-abort handlers run bottom-up, preserving their real task/submission outcomes;
-no registry substitution, filtered storage or invented terminal state is used.
-The scheduler's scoped idle wait does not call `resume`. Global resume is refused
-while scoped cancellation is preparing or still has live target work.
+1. Per ogni job `waiting/restart_recovery`, qualunque sia `submitted`, la
+   conversazione è `jobs.conversation_id` oppure il binding
+   `conversationIntent:<job>` → `app.conversation_binding`; la submission è
+   `submissionByRequest(conversation, request_id)`. Il job è un run recuperato
+   solo se `inspect()` mostra lavoro vivo in quella conversazione.
+2. Gate: `Queue.claimRecovered` applica `enabled`/`bootstrapReady` per capability
+   e l'operazione incerta per il coordinatore finanziario; l'agente verifica
+   credenziali, cooldown, modello configurato e tempo residuo della deadline.
+   Un run non ammesso termina `failed` con "Run interrupted at restart; no
+   automatic replay" (turno Telegram chiuso, `interrupted` se c'era uno Stop).
+3. Un run ammesso riceve token e lane dalla coda ed esegue la prima metà di
+   `runJob` fino a una barriera: binding, `configure` (anche le conversazioni
+   con estensioni di versioni precedenti), watch e baseline. Prima della barriera
+   non avviene submit, wait, abort o waitForIdle.
+4. Uno Stop accettato prima del crash commette subito `abortTask` sui task vivi
+   della conversazione e `abortSubmission` sugli input in coda.
+5. Sweep: ogni task vivo e input in coda che non appartiene a un run attaccato
+   viene marcato abortito. Poi `resume()` e rilascio delle barriere: gli abort
+   handler nativi girano bottom-up (anche i `ToolTask` figli) senza eseguire o
+   ripetere tool e senza richieste al provider.
+6. La seconda metà di `runJob` lega il runner Telegram (steer/stop/withdraw),
+   ridispatcha gli Stop pendenti, attende la submission e finalizza. Dopo il
+   resume, i turni chiusi con Stop `received` vengono confermati
+   `idle_confirmed` quando la conversazione è idle.
 
-Deferred provider cancellation is skipped in this offline lane. A bounded
-`app.scoped_stop_remote_uncertainty` entry commits the task identity and unknown
-remote status before native cancellation. The original generation abort handler
-still commits its native local outcome; remote execution is **unknown**, never
-reported stopped. This uncertainty survives a crash after native terminal state
-and before the application terminal receipt. It requires provider-side
-reconciliation when access returns; cancellation does not authorize replay.
+Gli Stop live usano `Conversation.abort()` e `waitForIdle()` come prima. Le
+ricevute storiche con `nativeCancellation`/`stopProof` restano leggibili ma non
+vengono più scritte. Un generation in fase `poll` (provider deferred) usa il
+`cancelDeferred` nativo; il provider OpenAI 1.1.0 non produce quella fase.
 
-Agent recovery runs before availability and before budget/normal run admission,
-serialized across scheduler pump and immediate Telegram dispatch. It checks the
-existing binding, generation, turn version, capability, original request and
-submission/conversation IDs again after awaits. If app binding fields are absent,
-it resolves only the persisted conversation intent, immutable native binding
-entries and the original native request-ID receipt; exactly one matching proof
-may bind the existing operational job under the same fence. An admitted correction
-with no native receipt is withdrawn explicitly as `stop_before_native_submission`
-after scoped idle. Recovery creates/configures/submits
-nothing. Active runners retain their existing live path. Unknown bindings,
-stale ownership, an unsupported scheduler state, or a two-second native wait
-timeout leave Stop pending. Only genuine native scoped idle permits application
-closure. Future application turns remain queued outside the native inbox.
-
-Disposable native fixtures cover SIGKILL during an active correction, offline
-reopen, original submit-before-app-bind recovery, unrelated financial/analyst generations and a preexisting abort mark,
-stale versions, unknown bindings, a bounded application wait failure, deferred
-uncertainty, and a second SIGKILL after native idle before app closure. Their
-preservation baseline is taken after Harness.open recovery normalization. They
-check native tasks/submissions/transcript/documents and operational financial
-receipts, original IDs, queued future work, zero provider/effect calls and
-idempotent terminal readback. The wait failure uses an injected unresponsive
-scoped-wait boundary; it does not certify cancellation of an arbitrary hung
-extension abort handler. No real provider or financial action is qualified by
-these local tests.
+Prove locali: `src/test/durable-recovery.test.ts` (Stop prima del SIGKILL senza
+richieste al provider, submit prima di `markSubmitted` accanto a un altro run,
+run bloccati da gate, Stop tardivo dopo il riavvio, lavoro non posseduto,
+sessioni Telegram) e `src/test/pi-native-stop.test.ts` (figli `ToolTask`,
+crash tra marcatura e resume, ricevute storiche). Nessuna azione finanziaria o
+provider reale è qualificata da questi test.

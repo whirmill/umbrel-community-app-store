@@ -831,11 +831,7 @@ test("concurrent real Harness provider summaries bind distinct conversations and
   provider.streamSimple = (model, transcript, options) => {
     const stream = createAssistantMessageEventStream(),
       text = JSON.stringify(transcript.messages),
-      suffix = text.includes("node_state_analyst_0")
-        ? "_analyst_0"
-        : text.includes("node_state_analyst_1")
-          ? "_analyst_1"
-          : "";
+      analyst = text.includes("You are a read-only analyst");
     const done = transcript.messages.some((m: any) => m.role === "toolResult");
     const message: any = {
       role: "assistant",
@@ -853,12 +849,12 @@ test("concurrent real Harness provider summaries bind distinct conversations and
       },
       stopReason: done ? "stop" : "toolUse",
       content: done
-        ? [{ type: "text", text: "Qualified readonly final " + suffix }]
+        ? [{ type: "text", text: "Qualified readonly final " + (analyst ? "analyst" : "coordinator") }]
         : [
             {
               type: "toolCall",
               id: "review-call",
-              name: "review_wait" + suffix,
+              name: "review_wait",
               arguments: {
                 scope: "qualification-scope",
                 dueAt: new Date(Date.now() + 48 * 3600000).toISOString(),
@@ -869,7 +865,7 @@ test("concurrent real Harness provider summaries bind distinct conversations and
             {
               type: "toolCall",
               id: "write-call",
-              name: suffix ? "propose" + suffix : "execute_decision",
+              name: analyst ? "propose" : "execute_decision",
               arguments: mockProposal,
             },
           ],
@@ -931,7 +927,7 @@ test("concurrent real Harness provider summaries bind distinct conversations and
       q.claim("analyst", "test")!,
     ];
     await Promise.all(
-      jobs.map((job, i) => agent.runJob(job, i === 0 ? undefined : i - 1)),
+      jobs.map((job) => agent.runJob(job)),
     );
     assert.equal(effects, 0);
     assert.equal(new ReviewWaits(store).all().length, 0);

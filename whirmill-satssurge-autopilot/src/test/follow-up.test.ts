@@ -47,7 +47,7 @@ for (const scenario of [
       effects = 0;
     const payloads: any[] = [];
     const analyst = scenario === "analyst_threshold";
-    const closureName = "follow_up_outcome" + (analyst ? "_analyst_0" : "");
+    const closureName = "follow_up_outcome";
     const scope = analyst ? "a->b" : "node";
     const threshold = analyst ? 12 : 16;
     const dueAt = new Date(Date.now() + 48 * 3600000).toISOString();
@@ -165,7 +165,7 @@ for (const scenario of [
           content = Array.from({ length: threshold }, (_, i) => ({
             type: "toolCall",
             id: "research" + i,
-            name: "node_state" + (analyst ? "_analyst_0" : ""),
+            name: "node_state",
             arguments: {},
           }));
         else
@@ -260,9 +260,9 @@ for (const scenario of [
           "duplicate_closure",
         ].includes(scenario)
       )
-        await assert.rejects(agent.runJob(job, analyst ? 0 : undefined));
+        await assert.rejects(agent.runJob(job));
       else {
-        const final = await agent.runJob(job, analyst ? 0 : undefined);
+        const final = await agent.runJob(job);
         if (scenario === "early_no_wait")
           assert.equal(final.thinkingLevel, "low");
       }
@@ -349,9 +349,9 @@ for (const scenario of [
           ].includes(scenario)
         )
           await assert.rejects(
-            agent.runJob(recovered, analyst ? 0 : undefined),
+            agent.runJob(recovered),
           );
-        else await agent.runJob(recovered, analyst ? 0 : undefined);
+        else await agent.runJob(recovered);
         assert.equal(requests, requestCount);
         assert.equal(queue.get(job.id)!.submission_id, originalSubmission);
         assert.equal(
@@ -545,9 +545,9 @@ for (const changedPreference of ["invalid-current-model", "gpt-6-luna"])
         store.set("model", changedPreference);
         store.set("thinkingLevel", "high");
         const run = agent.runJob(queue.get(claimed.id)!);
-        for (let i = 0; i < 100 && (agent as any).sessions.size === 0; i++)
+        for (let i = 0; i < 100 && ![...(agent as any).runs.values()].some((r: any) => r.sessionId); i++)
           await new Promise((r) => setTimeout(r, 1));
-        assert.equal((agent as any).sessions.size, 1);
+        assert.equal([...(agent as any).runs.values()].filter((r: any) => r.sessionId).length, 1);
         release();
         const result: any = await run;
         assert.equal(result.answer, "Original legacy answer");
@@ -593,3 +593,54 @@ for (const changedPreference of ["invalid-current-model", "gpt-6-luna"])
       }
     },
   );
+test("economic run in the Telegram chat role is offered its closure tool under the shared name", async () => {
+  const { TelegramTurns } = await import("../telegram-turns.js");
+  const dir = mkdtempSync(join(tmpdir(), "followup-chat-role-")),
+    store = new Store(join(dir, "op.sqlite")),
+    queue = new Queue(store),
+    provider = openaiProvider(),
+    offered: string[][] = [];
+  store.set("bootstrapReady", true);
+  store.set("model", "gpt-6.1-sol");
+  store.set("telegramBinding", { generation: "g", chatId: 42, userId: 42, since: new Date().toISOString() });
+  provider.streamSimple = (model, transcript, options) => {
+    const stream = createAssistantMessageEventStream();
+    queueMicrotask(async () => {
+      const payload: any = await options!.onPayload!(
+        { tools: getDeclaredTools(transcript.messages).map((t) => ({ ...t, type: "function" })), tool_choice: "auto" },
+        model,
+      );
+      offered.push(payload.tools.map((t: any) => t.name));
+      const closed = transcript.messages.some((m: any) => m.role === "toolResult");
+      const message: any = {
+        role: "assistant", api: model.api, provider: model.provider, model: model.id, timestamp: Date.now(), usage,
+        stopReason: closed ? "stop" : "toolUse",
+        content: closed
+          ? [{ type: "text", text: "Chiusura registrata." }]
+          : [{ type: "toolCall", id: "closure", name: "follow_up_outcome", arguments: { outcome: "no_wait", scope: "node", evidenceIds: [], missing: [] } }],
+      };
+      stream.push({ type: "start", partial: message });
+      stream.push({ type: "done", reason: message.stopReason, message });
+    });
+    return stream;
+  };
+  const agent = new Agent(store, { execute: async () => ({}) } as any, dir, queue, provider);
+  agent.credentials.read = async () => ({ type: "oauth" }) as any;
+  try {
+    await agent.open();
+    // Owner economic provenance on the chat lane: formerly slot 2, whose closure tool was suffixed.
+    const job = queue.enqueue({ requestId: "chat-role-closure", kind: "chat", origin: "owner", purpose: "economic", payload: { message: "fixture" } });
+    store.set("jobCapability:" + job.id, "read_only_chat");
+    new TelegramTurns(store, queue).attach(job, "g", 42);
+    await agent.runJob(queue.claim("coordinator", "test", new Date().toISOString(), "chat")!);
+    assert.ok(offered[0]!.includes("follow_up_outcome"));
+    assert.ok(!offered[0]!.includes("execute_decision"));
+    const outcome = new FollowUps(store).get(job.id);
+    assert.equal(outcome.outcome, "no_wait");
+    assert.notEqual(outcome.cause, "closure_tool_unavailable_in_original_context");
+  } finally {
+    await agent.close();
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
