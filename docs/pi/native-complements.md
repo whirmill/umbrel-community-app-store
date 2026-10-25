@@ -18,7 +18,7 @@ Letti gli articoli indicati dal proprietario:
   effetti, segnala i limiti dello storage e descrive compaction come un esempio.
 
 Il contratto eseguibile resta il [README fissato](upstream/v1.1.0/packages/durable/README.md),
-i [tipi installati](installed/pi-durable-1.1.0/) e il runtime locale npm.
+i tipi del pacchetto installato in `node_modules` e il runtime locale npm.
 La 1.1.0 ha compaction **built-in**, task persistenti e configurazione delle
 soglie; la panoramica secondaria non è sufficiente per scegliere le API.
 L'articolo Earendil mostra `defineDoc`, `defineTask`, `configure`, `api.commit`,

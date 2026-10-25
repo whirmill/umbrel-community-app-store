@@ -125,7 +125,7 @@ che un writer sia fermo.
 
 Gli esempi ufficiali in `upstream/v1.1.0/packages/durable/test/examples/`
 coprono recovery, stato di estensione, eventi, subagent, child task, plan mode e
-reload. Leggerli insieme ai tipi locali in `installed/pi-durable-1.1.0/`.
+reload. Leggerli insieme ai tipi del pacchetto installato in `node_modules`.
 
 ## Turni applicativi e inbox (coordinatore Telegram)
 
