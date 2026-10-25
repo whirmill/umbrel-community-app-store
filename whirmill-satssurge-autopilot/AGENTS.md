@@ -29,6 +29,20 @@ changes read [Telegram integration](../docs/pi/telegram-integration.md).
   three-database checkpoints. A schema bump requires preservation/reopen tests.
   An older binary must refuse newer schemas.
 
+## Working rules
+
+- Current state, update and rollback steps live in
+  [docs/work/satssurge-status.md](../docs/work/satssurge-status.md). Keep it short
+  and current; do not append session logs to it or to the README.
+- Keep checks proportionate to a real risk. Do not build bespoke capture, epoch
+  or freeze protocols around releases: an update is a copy of app-data, the
+  supported Umbrel update and the checks listed on the status page.
+- Test lifecycle and storage changes with production-size data under the real
+  container limits (`mem_limit: 768m`, read-only rootfs), not only fixtures.
+- A schema change bumps the database version and updates
+  `scripts/schema-targets.json`; the launcher takes a checkpoint only then.
+- Node actions (stop, update, restore, data changes) need the owner's approval.
+
 The Telegram-first release preserves the current fee/rebalance mandate. Native
 LND diagnostics, channel lifecycle, HTLC policies, discovery and optional
 RoboSats/Amboss/Magma integrations are separate future work.
