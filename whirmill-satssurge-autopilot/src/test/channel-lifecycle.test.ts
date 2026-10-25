@@ -11,6 +11,7 @@ import { Executor } from '../executor.js';
 import { ApplicationControl } from '../application-control.js';
 import { ChannelLifecycle, channelBudget, channelApprovalState, type ChannelOperation } from '../channels.js';
 import { Lnd, lndPackage } from '../lnd.js';
+import { stateSummary } from '../agent-state.js';
 import { now, month, json, hash, type Snapshot, type Channel, type ChannelProposal } from '../domain.js';
 
 const self = '02' + '00'.repeat(32), peerA = '02' + 'aa'.repeat(32), peerB = '03' + 'bb'.repeat(32), fresh = '03' + 'cc'.repeat(32), other = '02' + 'dd'.repeat(32);
@@ -124,6 +125,7 @@ test('reconciliation moves opens and closes from pending to confirmed from LND e
   await f.executor.channels!.reconcile(); assert.equal(read(closeId).state, 'confirmed'); assert.equal(read(closeId).closeType, 'COOPERATIVE_CLOSE');
   assert.deepEqual(read(closeId).history.map(h => h.state), ['reserved', 'sending', 'pending', 'confirmed']);
   assert.equal(channelBudget(f.s).spentSat, '5000'); assert.equal(channelBudget(f.s).pendingObligationsSat, '0');
+  const visible = stateSummary(f.s.stats()) as any; assert.deepEqual(visible.channelOperations.map((o: any) => o.state), ['confirmed', 'confirmed']); assert.equal(visible.channelMandate.onchainMonthlyFeeSat, '20000');
   assert.equal(f.effects().filter(x => x[0] !== 'connectPeer').length, 2); f.s.close();
 });
 

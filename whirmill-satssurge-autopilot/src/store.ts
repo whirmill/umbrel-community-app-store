@@ -7,7 +7,7 @@ import {accountingPartition} from './accounting.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { id, now, json, hash, integer, day, MANDATE, SCHEMA_VERSION, type Snapshot, type Proposal, type Forecast } from './domain.js';
+import { id, now, json, hash, integer, day, MANDATE, CHANNEL_MANDATE, SCHEMA_VERSION, type Snapshot, type Proposal, type Forecast } from './domain.js';
 
 export class Store {
   readonly db: DatabaseSync;
@@ -279,6 +279,7 @@ export class Store {
       accounting:accountingPartition(ledger,this.all('SELECT * FROM ledger_annotations')),
       accounting30:accountingPartition(ledger.filter(r=>r.at>=since),this.all('SELECT * FROM ledger_annotations')),
       operations:this.all('SELECT id,decision_id,at,state,payment_hash,details FROM operations ORDER BY at DESC LIMIT 50'),
+      channelMandate:CHANNEL_MANDATE,channelOperations:this.all("SELECT value FROM meta WHERE key LIKE 'channelOperation:%' ORDER BY json_extract(value,'$.at') DESC LIMIT 20").map(r=>JSON.parse(r.value)),
       decisions:this.all('SELECT * FROM decisions ORDER BY at DESC LIMIT 50').map(r=>({...r,proposal:JSON.parse(r.proposal),forecast:JSON.parse(r.forecast)})),
       evaluations:this.all('SELECT * FROM evaluations ORDER BY at DESC LIMIT 30'),evaluationWindows:this.all('SELECT * FROM evaluation_windows ORDER BY at DESC LIMIT 60').map(r=>({...r,result:JSON.parse(r.result)})),coverage:this.all('SELECT * FROM coverage ORDER BY end DESC LIMIT 20'),
       claims:this.all('SELECT * FROM claims ORDER BY at DESC LIMIT 25'), holds:this.all('SELECT * FROM channel_holds'),
