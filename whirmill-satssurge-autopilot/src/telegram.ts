@@ -624,7 +624,7 @@ export class Telegram {
                             // choice; arbitrary changed correction bytes remain ineligible.
                             if(anchor?.state==='pending'&&anchor.correctionId===value.id&&anchor.correctionHash===hash(beforeChoice.value)&&c.state==='choice_pending'&&after?.value===json({...c,state:'late'}))this.store.set(anchorKey,{...anchor,correctionHash:hash(after.value)});
                         });
-                        answer = state === 'late' ? 'Questa risposta è già chiusa. Puoi inviare il testo come nuova richiesta.' : state === 'failed' ? 'Correzione non inserita; ricevuta conservata per verifica.' : 'Correzione ammessa. Pi la applica al prossimo confine utile; la ricevuta non certifica che il modello abbia seguito il testo.';
+                        answer = state === 'late' ? 'Questa risposta è già chiusa. Puoi inviare il testo come nuova richiesta.' : state === 'failed' ? 'Correzione non inserita; ricevuta conservata per verifica.' : 'Correzione inviata: entra nella risposta in corso appena il bot finisce il passo attuale. Non è garantito che la segua alla lettera.';
                         if (['admitted', 'placed'].includes(state))
                             this.attachButtons(event, [{ text: 'Ritira correzione', value: { action: 'withdraw', id: value.id } }], binding.generation);
                         if (state === 'late')
@@ -696,8 +696,9 @@ export class Telegram {
                         // A generic command carries no turn identity. Telegram's date
                         // records server receipt and can follow a client-side delay.
                         // Only the owner's exact job/version callback may request Stop.
-                        answer = 'Non posso collegare /stop con certezza alla risposta che intendevi interrompere. Nessuna risposta è stata interrotta. Usa Stop nella risposta oppure scegli il pulsante per confermare l’interruzione di questa risposta specifica.';
-                        this.attachButtons(event, [{ text: 'Interrompi questa risposta', value: { action: 'stop', id: active.jobId, version: active.version } }], binding.generation);
+                        const question = telegramText(String(JSON.parse(this.store.one('SELECT payload FROM jobs WHERE id=?', active.jobId)?.payload ?? '{}').message ?? '')).replace(/\s+/g, ' ').trim();
+                        answer = `Interrompere la risposta in corso${question ? ` a «${question.length > 80 ? question.slice(0, 79) + '…' : question}»` : ''}? Finché non premi il pulsante la risposta continua.`;
+                        this.attachButtons(event, [{ text: 'Interrompi', value: { action: 'stop', id: active.jobId, version: active.version } }], binding.generation);
                     }
                     else
                         answer = 'Nessuna risposta attiva da interrompere.';

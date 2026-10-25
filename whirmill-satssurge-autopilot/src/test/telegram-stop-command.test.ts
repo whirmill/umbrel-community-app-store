@@ -41,7 +41,7 @@ for (const [label, telegramDate] of [
         assert.deepEqual([f.queue.get(old.job.id), f.turns.get(old.job.id), f.queue.get(current.job.id), f.turns.get(current.job.id), f.queue.get(future.id), f.turns.get(future.id)], before);
         assert.deepEqual(f.stopped, []); assert.equal(f.store.get('telegramStop:update:1'), undefined);
         assert.equal(f.store.one('SELECT body FROM telegram_updates WHERE update_id=1').body, body);
-        assert.match(f.store.one("SELECT text FROM telegram_outbox WHERE event_id='update:1'").text, /Nessuna risposta è stata interrotta.*Usa Stop/);
+        assert.match(f.store.one("SELECT text FROM telegram_outbox WHERE event_id='update:1'").text, /^Interrompere la risposta in corso a «Spiega lo stato»\? Finché non premi il pulsante la risposta continua\.$/);
         assert.equal(f.store.one("SELECT event_id FROM telegram_outbox WHERE event_id='update:1:stopped'"), undefined);
         const callback = f.store.get<any>('telegramButtons:update:1').inline_keyboard[0][0].callback_data;
         assert.equal(f.store.get<any>('telegramCallback:' + callback).id, current.job.id);
@@ -102,7 +102,7 @@ for (const [label, date, started] of [
         const update = command(3, date); if (date === undefined) delete (update.message as any).date;
         f.telegram.ingest([update]); await f.telegram.process(iso(sent + 3)); await settled();
         assert.deepEqual(f.stopped, []); assert.equal(f.turns.get(job.id)!.state, 'running'); assert.equal(f.queue.get(job.id)!.state, 'running');
-        assert.equal(f.store.get('telegramStop:update:3'), undefined); assert.match(f.store.one("SELECT text FROM telegram_outbox WHERE event_id='update:3'").text, /Non posso collegare \/stop/);
+        assert.equal(f.store.get('telegramStop:update:3'), undefined); assert.match(f.store.one("SELECT text FROM telegram_outbox WHERE event_id='update:3'").text, /^Interrompere la risposta in corso a «Spiega lo stato»\? Finché non premi il pulsante la risposta continua\.$/);
     } finally { f.close(); }
 });
 
