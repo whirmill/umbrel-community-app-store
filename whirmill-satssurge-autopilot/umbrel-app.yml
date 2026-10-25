@@ -2,24 +2,19 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.5.18"
+version: "0.5.19"
 tagline: An evidence-driven Lightning routing agent
 description: >-
-  Pi Durable agent for Lightning fee experiments and circular rebalances, using
-  a ChatGPT/Codex subscription. Private SQLite accounting, historical evidence,
-  durable intent tracking and deterministic budget controls. Protects 500,000
-  on-chain sats. Mainnet POC: maximum 30,000 sats cumulative including history,
-  1,500 sats daily rebalance costs and 100 sats per attempt. Requires initial
-  restricted LND credential provisioning and successful reconciliation. App-control
-  evidence remains unknown; financial autonomy stays suspended under the existing
-  maintenance claim. Installation does not require host helpers or attestations.
-  Paired-owner Telegram conversation with read-only coordination, streaming
-  drafts, correction choices, targeted Stop, guarded pause/resume, proposal review,
-  accounting notifications and explicit review of recoverable historical requests.
-  Web settings retain configuration and read-only history. Native LND collection
-  and unified history preserve original records and report coverage gaps;
-  their live qualification remains in progress. Agent-generated HTML/DLS exports
-  (M4) and optional RoboSats/Amboss/Magma integrations (M5) remain future milestones.
+  Lightning routing agent for your LND node, driven from Telegram and using a
+  ChatGPT/Codex subscription model. It analyses forwards, liquidity and fees,
+  proposes and (when autonomy is resumed) executes bounded fee changes and
+  circular rebalances, and keeps private SQLite accounting with durable intent
+  tracking so no payment is ever repeated. Hard mandate: 30,000 sats total
+  spend, 1,500 sats per day, 100 sats per attempt, and 500,000 confirmed
+  on-chain sats always protected. Financial actions are dispatched only while
+  other fee/rebalance automations (LightningMate, LNDg, Loop) are off. Requires
+  one-time restricted LND credential provisioning and the host interlock timer;
+  see the README.
 developer: whirmill
 website: https://github.com/whirmill/umbrel-community-app-store
 repo: https://github.com/whirmill/umbrel-community-app-store
@@ -32,24 +27,11 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.5.18 fixes updates with large databases: a database checkpoint is
-  taken only when a release changes the schema, checkpoint hashing no longer
-  loads whole files into memory, and an interrupted checkpoint is retried
-  instead of blocking startup. Diagnostics refreshes are archived only when their
-  content changes, which stops the operational database from growing every 30
-  seconds. LND diagnostics distinguish RPC, local acquisition and transport
-  failures. TLS verification and restricted credentials remain enforced. Telegram audio and voice messages receive an
-  explicit unsupported reply; use text or phone-keyboard dictation. No audio
-  decoder, transcription worker or model is installed.
-  Native gRPC TLS collection, reconciliation and owner read-only tools require
-  no host-helper bootstrap or host-attestation mount.
-  App-control evidence remains unknown, and scoped mode keeps financial execution
-  held independently of legacy interlock files. This packaging does not qualify
-  other apps or owner-wide standalone automation. Restricted LND credentials,
-  the original maintenance claim, mandate, budgets and reserve remain preserved.
-  Schema 7 retains all 19 original legacy tables in immutable archives. Pi Durable,
-  Pi AI and Chord remain 1.1.0; OAuth and original identifiers are preserved.
-  The amd64/arm64 image index is immutable. Agent-generated HTML/DLS remains
-  disabled pending M3 and separate rendering/Telegram attachment acceptance.
-  Native parity, app-control observations, live web/Telegram acceptance and
-  controlled legacy retirement remain separate roadmap gates.
+  Version 0.5.19 re-enables financial execution under the existing mandate. The
+  app no longer runs in scoped app-controls mode, so the host interlock
+  (LightningMate, LNDg and Loop automations must be off, refreshed every 30
+  seconds) decides whether fee changes and rebalances may be dispatched.
+  Autonomy still starts paused: the owner resumes it with /resume in Telegram.
+  Mandate unchanged: 30,000 sat total, 1,500 sat per day, 100 sat per attempt,
+  500,000 sat on-chain reserve. Includes the 0.5.18 fixes for updates with
+  large databases and for diagnostics archive growth.

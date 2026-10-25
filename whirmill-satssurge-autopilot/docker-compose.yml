@@ -4,7 +4,7 @@ services:
       APP_HOST: whirmill-satssurge-autopilot_server_1
       APP_PORT: 8080
   server:
-    image: ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.18@sha256:58ec79cf5ef1c0f824edfc195d3c8e19d36565b88e7448e8132b5a6eb505ce72
+    image: ghcr.io/whirmill/umbrel-satssurge-autopilot:0.5.19@sha256:76cc160fe27be66911a0421411e8589c86a139e7b62eafcb4d24e12039a14727
     container_name: whirmill-satssurge-autopilot_server_1
     restart: on-failure
     init: true
@@ -15,9 +15,6 @@ services:
       INTERLOCK_FILE: /interlock/status.json
       DIAGNOSTICS_FILE: /diagnostics/status.json
       COMPETITION_FILE: /diagnostics/competition.json
-      # Missing optional app-control evidence stays unknown and holds financial dispatch.
-      APP_CONTROL_CONTRACT_FILE: /app-controls/contract.json
-      APP_CONTROL_FILE: /app-controls/status.json
       LND_GRPC_TARGET: ${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_GRPC_PORT}
       LND_URL: https://${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_REST_PORT}
       PORT: "8080"
