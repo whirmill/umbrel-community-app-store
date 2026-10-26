@@ -5,7 +5,9 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fixture as piFixture} from './pi-fixture.js';
 import {createAssistantMessageEventStream} from '@earendil-works/pi-ai/utils/event-stream';
-import {stateSummary,statePage,STATE_PAGE_BYTES} from '../agent-state.js';
+import {stateSummary,statePage,STATE_PAGE_BYTES,datedEvidence} from '../agent-state.js';
+import {APP_VERSION} from '../version.js';
+import {readFileSync} from 'node:fs';
 import {Store} from '../store.js';
 function fixture(){return {enabled:false,budget:{remainingMsat:'19294831'},pnl30:{netMsat:'-8391975'},partial:true,snapshot:{at:'2026-10-09T00:00:00Z',identity:'node',synced:true,confirmedSat:'502858',channels:Array.from({length:10},(_,i)=>({id:String(i),localSat:'250000'}))},diagnostics:{at:'now',lndg:{status:'qualified',coverage:{complete:false},failures:Array.from({length:201},(_,i)=>({id:String(i),distinctPaymentsUnknown:true,amountMsat:'900719925474099300'}))},lightningMate:{status:'unavailable'}},competition:{status:'qualified',coverage:'graph only',channels:Array.from({length:10},(_,i)=>({id:String(i),alias:'peer'+i,status:'partial',quotes:[{amountSat:'100000',ourFeeMsat:'40000'}],alternativesTruncated:true,alternatives:Array.from({length:100},(_,j)=>({id:String(j),ppm:'200'}))}))},decisions:[],operations:[],evaluations:[],evaluationWindows:[],coverage:[],claims:[],holds:[]};}
 test('large live-shaped state retains accounting and coverage with bounded discoverable details',()=>{
@@ -86,4 +88,13 @@ test('agent state separates routing from owner-classified startup costs over 30 
   assert.equal(summary.accounting30.sectors.other.costMsat,'9996169');
   assert.equal(summary.accounting30.unassignedCosts,false);
  }finally{s.close();}
+});
+
+test('node state names the app and its package version; historical evidence carries its date',()=>{
+  const summary:any=stateSummary(fixture());
+  assert.deepEqual(summary.app,{name:'SatsSurge Autopilot',version:APP_VERSION});
+  assert.equal(APP_VERSION,JSON.parse(readFileSync(new URL('../../package.json',import.meta.url),'utf8')).version);
+  const rows=datedEvidence([{source:'historical:history:satssurge-autopilot-implementation.md',acquired_at:'2026-10-08T19:50:33.274Z'},{source:'lnd:receipt',acquired_at:'2026-10-20T10:00:00.000Z'}]) as any[];
+  assert.match(rows[0].note,/^Documento storico importato il 2026-10-08: .*non lo stato attuale/);
+  assert.equal(rows[1].note,undefined);
 });
