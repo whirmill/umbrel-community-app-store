@@ -81,3 +81,19 @@ test('a chart is queued once with frozen data and goes out as a photo; /grafico 
     assert.match(s.one("SELECT text FROM telegram_outbox WHERE event_id='update:4'").text, /Grafico non disponibile: Canale non trovato: nessuno/);
   } finally { t.stop(); s.close(); rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('the payback chart keeps a drain within the hour: every snapshot in short windows', async () => {
+  await chartsReady();
+  const s = new Store(':memory:'), MIN = 60000, done = end - 90 * MIN;
+  try {
+    // 16:45 +250k, used by forwards within seven minutes, as on 26 Oct.
+    for (let t = done - 10 * MIN; t <= end; t += MIN) s.saveSnapshot(snapshotAt(t, t <= done ? 17363 : t < done + 5 * MIN ? 267363 : t < done + 8 * MIN ? 42241 : 22240));
+    s.run('INSERT INTO decisions VALUES(?,?,?,?,?,?)', 'decision-fast', new Date(done).toISOString(), JSON.stringify({ kind: 'rebalance', source: '200', target: '100', amountSat: '250000' }), '{}', '{}', 'observing');
+    s.run('INSERT INTO operations VALUES(?,?,?,?,?,?,?)', 'op-fast', 'decision-fast', new Date(done).toISOString(), 'SUCCEEDED', null, null, JSON.stringify({ feeMsat: '284482', completedAt: new Date(done + 30000).toISOString() }));
+    for (const [i, amount, fee] of [[1, 144869144, 57947], [2, 80252080, 32100], [3, 20001020, 8000]] as const) s.event({ id: 'fast:' + i, at: new Date(done + (3 + i) * MIN).toISOString(), type: 'external_forward', source: '300', target: '100', amountMsat: String(amount), feeMsat: String(fee) });
+    const data = chartData(s, { kind: 'rebalance' }, new Date(end).toISOString());
+    assert.equal(Math.max(...(data as any).balance.map((p: number[]) => p[1])), 267363);
+    assert.match(chartCaption(data), /: 98,0 sat \(34% del costo\)\. Saldo locale subito dopo 267k sat, ora 22k sat\.$/);
+    if (process.env.CHART_PREVIEW_DIR) writeFileSync(join(process.env.CHART_PREVIEW_DIR, 'rebalance-fast.png'), chartPng(data));
+  } finally { s.close(); }
+});
