@@ -9,7 +9,7 @@ import { writeFileSync, readFileSync, existsSync, chmodSync, renameSync, unlinkS
 import { join } from 'node:path';
 import { ApplicationControl } from './application-control.js';
 import { Store } from './store.js';
-import { hash, json, now, day, scrub, channelKind, telegramChat } from './domain.js';
+import { hash, json, now, day, scrub, channelKind, telegramChat, terminal, type Proposal, type Snapshot } from './domain.js';
 import { channelOperations, OPEN_EVIDENCE_MS, type ChannelOperation } from './channels.js';
 export interface TelegramTransport {
     call(method: string, body: unknown, signal?: AbortSignal): Promise<any>;
@@ -22,6 +22,27 @@ const RICH_BLOCK_LIMIT = 500;
 const RICH_DEPTH_LIMIT = 16;
 // v2 adds tables; finals recorded as v1 are re-rendered with the v1 grammar.
 const LND_TRANSIENT_FAILURES = ['deadline', 'cancelled', 'unavailable', 'resource_limit', 'rpc_failure', 'acquisition_failure'], LND_TRANSIENT_ALERT_MS = 600000, LND_TRANSIENT_RECOVERY_MS = 300000, LND_TRANSIENT_GAP_MS = 300000;
+const UNCERTAIN_ALERT_MS = 600000;
+const FAILURE_REASONS: Record<string, string> = {
+    FAILURE_REASON_NO_ROUTE: 'nessun percorso entro il costo massimo', FAILURE_REASON_TIMEOUT: 'tempo scaduto senza un percorso riuscito',
+    FAILURE_REASON_INSUFFICIENT_BALANCE: 'saldo insufficiente sul canale di partenza', FAILURE_REASON_INCORRECT_PAYMENT_DETAILS: 'pagamento rifiutato dalla destinazione',
+    FAILURE_REASON_ERROR: 'errore di LND', FAILURE_REASON_CANCELED: 'pagamento annullato',
+};
+const thousands = (n: string | number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+const msatText = (msat: string) => { const n = BigInt(msat || '0'), sat = n / 1000n, rest = n % 1000n; return thousands(sat.toString()) + (rest ? ',' + rest.toString().padStart(3, '0').replace(/0+$/, '') : '') + ' sat'; };
+/** Italian outcome of one fee/rebalance operation, named by channel alias. */
+export function operationText(p: Proposal, state: string, details: any, snapshot: Snapshot | undefined, stale = false) {
+    const name = (id: string) => telegramText(snapshot?.channels.find(c => c.id === id)?.alias || id);
+    if (p.kind === 'fee_change') {
+        const what = `fee di ${name(p.target)} a ${p.newPpm} ppm`;
+        return state === 'SUCCEEDED' ? `Fee aggiornata: ${what}.` : state === 'FAILED' ? `Modifica della ${what} non applicata.`
+            : `Modifica della ${what}: esito non ancora verificato${stale ? ' dopo 10 minuti' : ''}. Verifico senza ripeterla.`;
+    }
+    const what = `${thousands(p.amountSat)} sat da ${name(p.source)} verso ${name(p.target)}`;
+    if (state === 'SUCCEEDED') return `Rebalance riuscito: ${what}, costo ${msatText(String(details.feeMsat ?? '0'))}.`;
+    if (state === 'FAILED') return `Rebalance non riuscito: ${what}${FAILURE_REASONS[details.reason] ? ` (${FAILURE_REASONS[details.reason]}, limite ${msatText(p.maxFeeMsat)})` : ''}. Nessun costo e saldi invariati.`;
+    return `Rebalance di ${what}: pagamento inviato, esito non ancora confermato da LND${stale ? ' dopo 10 minuti' : ''}. Verifico senza ripeterlo e ti scrivo l'esito.`;
+}
 const LND_SYNC_BLOCKER = 'LND not synchronized', LND_SYNC_ALERT_MS = 600000, LND_SYNC_ALERT_TEXT = 'LND non sincronizzato da oltre 10 minuti';
 const PROVIDER_TRANSIENT_FAILURES = ['transient_stream', 'transient_network'], PROVIDER_ALERT_MS = 600000, PROVIDER_COOLDOWN_GRACE_MS = 120000, PROVIDER_ALERT_TEXT = 'Provider del modello non raggiungibile da oltre 10 minuti; nuove richieste in attesa';
 const RICH_FORMAT = 'rich-blocks-v2', RICH_FORMATS: Record<string, boolean> = { 'rich-blocks-v1': false, 'rich-blocks-v2': true };
@@ -671,16 +692,26 @@ export class Telegram {
                         answer = 'Autonomia ripresa.';
                     }
                     else if (value.action === 'approve') {
-                        const channel = channelKind(this.control.proposal(value.id)?.content?.kind);
+                        const proposal = this.control.proposal(value.id), channel = channelKind(proposal?.content?.kind);
+                        // The payment can take up to two minutes: acknowledge the tap before it starts.
+                        if (proposal?.status === 'pending') this.store.tx(() => this.enqueue(event + ':accepted', 'Approvazione ricevuta: ricontrollo i dati e invio a LND. Ti scrivo l\'esito appena arriva.', 'reply', undefined, at, binding.generation));
                         try {
                             const result = await this.control.approve(value.id, at);
-                            answer = result.consumed ? (channel ? 'Operazione sul canale inviata; stato in riconciliazione da LND, mai ripetuta automaticamente.' : 'Proposta accettata; verifica la ricevuta operativa nella web app.') : 'Proposta già utilizzata; nessuna seconda esecuzione.';
+                            const operation = !channel && result.consumed ? (result as any).result?.operation : undefined;
+                            if (operation) this.store.tx(() => this.reportOperation(operation, at));
+                            answer = !result.consumed ? this.usedProposal(result.proposal) : channel ? 'Operazione sul canale inviata; stato in riconciliazione da LND, mai ripetuta automaticamente.' : operation ? '' : 'Proposta accettata; verifica la ricevuta operativa nella web app.';
                         }
                         catch (error) {
+                            if (!channel) {
+                                // The proposal status says whether anything reached LND: never "blocked" for a sent payment.
+                                const after = this.control.proposal(value.id), message = String((error as Error)?.message ?? '');
+                                if (after?.operation_id) { this.store.tx(() => this.reportOperation(after.operation_id, at)); answer = ''; }
+                                else answer = 'Proposta non eseguita, nessun pagamento inviato: ' + telegramText(message).slice(0, 200) + '. Chiedine una nuova se serve.';
+                            } else {
                             // Channel failures are reported, never retried or forced. Only our own policy messages are shown verbatim.
-                            if (!channel) throw error;
                             const message = String((error as Error)?.message ?? '');
                             answer = 'Operazione sul canale non eseguita: ' + (message.startsWith('Channel: ') ? telegramText(message.slice(9)) : 'esito bloccato o incerto; verifica la ricevuta nella web app') + '. Nessun nuovo tentativo automatico e nessuna chiusura forzata.';
+                            }
                         }
                     }
                     else if (value.action === 'channel_fail') {
@@ -689,8 +720,7 @@ export class Telegram {
                         catch (error) { const message = String((error as Error)?.message ?? ''); answer = 'Non segnata come fallita: ' + (message.startsWith('Channel: ') ? telegramText(message.slice(9)) : 'verifica LND non disponibile; riprova più tardi') + '.'; }
                     }
                     else if (value.action === 'reject') {
-                        this.control.reject(value.id);
-                        answer = 'Proposta rifiutata.';
+                        answer = this.control.reject(value.id) ? 'Proposta rifiutata.' : this.usedProposal(this.control.proposal(value.id));
                     }
                 }
                 else if (u.text === '/stop') {
@@ -781,6 +811,27 @@ export class Telegram {
             }
         }
     }
+    /** Why a proposal tap did nothing: it was already used, refused, expired or revoked. */
+    private usedProposal(p: any) {
+        const status = p?.status;
+        return status === 'executing' || status === 'reconcile_required' ? 'Proposta già approvata: esito in verifica, nessun secondo invio.'
+            : status === 'executed' || status === 'failed' ? 'Proposta già eseguita; nessuna seconda esecuzione.'
+            : status === 'rejected' ? 'Proposta già rifiutata.'
+            : status === 'expired' || status === 'invalidated' ? 'Proposta scaduta o non più valida: chiedine una nuova.'
+            : 'Proposta non più disponibile.';
+    }
+    /**
+     * One message per operation state. Owner-approved results go out at once; autonomous ones keep
+     * the digest. An unsettled payment alerts only after ten minutes: LND usually settles it sooner.
+     */
+    private reportOperation(id: string, at: string) {
+        const o = this.store.one('SELECT o.id,o.at,o.state,o.details,d.proposal FROM operations o JOIN decisions d ON d.id=o.decision_id WHERE o.id=?', id);
+        if (!o) return;
+        const owner = !!this.store.one('SELECT id FROM owner_proposals WHERE operation_id=?', id), settled = terminal(o.state);
+        if (!settled && Date.parse(at) - Date.parse(o.at) < UNCERTAIN_ALERT_MS && !owner) return;
+        const stale = !settled && Date.parse(at) - Date.parse(o.at) >= UNCERTAIN_ALERT_MS;
+        this.enqueue('operation:' + id + ':' + (stale ? o.state + ':stale' : o.state), operationText(JSON.parse(o.proposal), o.state, JSON.parse(o.details ?? '{}'), this.store.get<Snapshot>('snapshot'), stale), stale ? 'critical' : owner ? 'reply' : 'ordinary', undefined, at);
+    }
     summary(p: any) {
         const c = p.content;
         // The pubkey is the identity the owner approves; the alias is gossip the peer controls and can impersonate anyone.
@@ -807,11 +858,13 @@ export class Telegram {
             this.enqueueAnswer('answer:'+j.id,finalText,at);
         }
         for (const o of this.store.all("SELECT id,state FROM operations WHERE at>=? AND state IN ('SUCCEEDED','FAILED','uncertain','in_flight')", this.store.get('telegramBinding').since))
-            this.enqueue('operation:' + o.id + ':' + o.state, `Operation ${o.id}: ${o.state}. Dettagli nella web app.`, o.state === 'uncertain' ? 'critical' : 'ordinary', undefined, at);
+            this.reportOperation(o.id, at);
+        // A delivered proposal past its five minutes can no longer be approved.
+        this.store.run("UPDATE owner_proposals SET status='expired' WHERE status='pending' AND expires_at IS NOT NULL AND expires_at<=?", at);
         this.captureChannelOperations(at);
         this.captureLndTransport(at);
         const syncAlert = this.captureLndSync(at), provider = this.captureProviderAvailability(at);
-        const blockers = [this.store.get('integrityBlocker'), this.store.get('agent')?.status !== 'unavailable' ? null : provider.transient ? (provider.alert ? PROVIDER_ALERT_TEXT : null) : availabilityBlocker(this.store.get('agent')?.failure), this.store.one("SELECT id FROM operations WHERE state='uncertain'") ? 'Esito finanziario incerto; richiesta riconciliazione, nessun replay' : null, ...(this.store.get<any[]>('blockers') ?? []).filter(b => !(b === 'Native LND gRPC/acquisition requires attention' && LND_TRANSIENT_FAILURES.includes(this.store.get('lndTransport')?.failure)) && !(b === LND_SYNC_BLOCKER && !syncAlert)).map(b => b === LND_SYNC_BLOCKER ? LND_SYNC_ALERT_TEXT : b)].filter(Boolean).map(telegramText);
+        const blockers = [this.store.get('integrityBlocker'), this.store.get('agent')?.status !== 'unavailable' ? null : provider.transient ? (provider.alert ? PROVIDER_ALERT_TEXT : null) : availabilityBlocker(this.store.get('agent')?.failure), this.store.one("SELECT id FROM operations WHERE state='uncertain' AND at<=?", new Date(Date.parse(at) - UNCERTAIN_ALERT_MS).toISOString()) ? 'Esito finanziario incerto da oltre 10 minuti; richiesta riconciliazione, nessun replay' : null, ...(this.store.get<any[]>('blockers') ?? []).filter(b => !(b === 'Native LND gRPC/acquisition requires attention' && LND_TRANSIENT_FAILURES.includes(this.store.get('lndTransport')?.failure)) && !(b === LND_SYNC_BLOCKER && !syncAlert)).map(b => b === LND_SYNC_BLOCKER ? LND_SYNC_ALERT_TEXT : b)].filter(Boolean).map(telegramText);
         this.store.tx(() => {
             const generation = this.store.get('telegramBinding').generation;
             const previous = this.store.get('telegramIncident');

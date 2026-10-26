@@ -76,6 +76,10 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - **Version.** `node_state` now reports the app name and version.
   - **Historical documents.** `evidence_search` marks documents imported on 8 Oct with their date and as not current.
   - **One-off curation, owner-approved on 26 Oct.** 59 superseded pre-app documents left the search index: plans, proposals, qualifications, market studies, snapshots, point-in-time reports, a session audit and an implementation checkpoint. Their evidence rows stay. The 23 receipts and registers remain searchable.
+- **Approval feedback (0.7.5, #165).** On 26 Oct the owner approved a 250k sat rebalance to LNMarkets (max fee 100 sat). LND failed it at no cost after reconciliation.
+  - **What the owner saw.** No message for 45 s, then "Richiesta bloccata o scaduta", although the payment had been sent, then a critical "esito incerto" alert.
+  - **Now.** Approva is acknowledged at once. The outcome comes in Italian with LND's failure reason and the cost. A second tap says what happened to the proposal, and proposal status follows the operation (`executed`/`failed`/`expired`).
+  - **Alerts and timeout.** Unsettled payments alert only after 10 minutes. The app now waits 120 s for `SendPaymentV2` instead of 45 s.
 - **Telegram chat proposals (0.7.4, #162).**
   - **Problem.** On 26 Oct "Fai il rebalance verso LNMarkets" was answered in read-only mode from general principles: a keyword regex chose the turn permission, and proposal turns lost the conversation.
   - **One chat profile.** Every Telegram text is a `telegram_chat` turn that answers from data and can prepare proposals (`create_manual_proposal`, `create_channel_proposal`). It never executes. The owner's Approva tap runs the proposal with the usual rechecks. The persistent conversation and `/reset` are unchanged; web requests keep the old routing.

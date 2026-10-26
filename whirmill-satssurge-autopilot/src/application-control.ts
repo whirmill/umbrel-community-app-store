@@ -140,11 +140,14 @@ export class ApplicationControl {
         try {
             const approval = { validate: (s: Snapshot) => this.validate(key, s), reserved: (operation: string) => { this.store.run('UPDATE owner_proposals SET operation_id=? WHERE id=?', operation, key); } };
             const result = channelKind(p.kind) ? await this.channels().execute(key, approval) : await this.executor.execute(p, approval);
-            this.store.run("UPDATE owner_proposals SET status='executed',result=? WHERE id=?", json(result), key);
+            // A fee/rebalance proposal records its operation's outcome: a failed payment is not "executed".
+            const state = channelKind(p.kind) ? 'SUCCEEDED' : this.store.one('SELECT state FROM operations WHERE id=?', (result as any).operation)?.state;
+            this.store.run("UPDATE owner_proposals SET status=?,result=? WHERE id=?", state === 'SUCCEEDED' ? 'executed' : state === 'FAILED' ? 'failed' : 'reconcile_required', json(result), key);
             return { consumed: true, result };
         }
         catch (error) {
-            this.store.run("UPDATE owner_proposals SET status=CASE WHEN operation_id IS NULL THEN 'invalidated' ELSE 'reconcile_required' END,result=? WHERE id=?", json({ error: 'Execution blocked or requires reconciliation; inspect operation receipt' }), key);
+            // A settled operation keeps the status Executor.finish gave it; an unsettled one awaits reconciliation.
+            this.store.run("UPDATE owner_proposals SET status=CASE WHEN operation_id IS NULL THEN 'invalidated' WHEN status IN ('executed','failed') THEN status ELSE 'reconcile_required' END,result=? WHERE id=?", json({ error: 'Execution blocked or requires reconciliation; inspect operation receipt' }), key);
             throw error;
         }
     }
