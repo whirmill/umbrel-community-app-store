@@ -1,6 +1,6 @@
 {
   "name": "@whirmill/satssurge-autopilot",
-  "version": "0.7.7",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -10,7 +10,6 @@
     "build": "tsc && tsc -p tsconfig.frontend.json && vite build",
     "start": "python3 scripts/app_launcher.py",
     "test": "npm run build && node --test dist/test/*.test.js",
-    "import": "python3 scripts/app_launcher.py --import",
     "dev": "vite",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.frontend.json"
   },
@@ -23,9 +22,11 @@
     "@grpc/grpc-js": "1.14.6",
     "@grpc/proto-loader": "0.8.1",
     "@radix-ui/react-slot": "1.4.0",
+    "@resvg/resvg-wasm": "2.6.2",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "cmdk": "1.1.1",
+    "dejavu-fonts-ttf": "2.37.3",
     "lucide-react": "1.54.0",
     "radix-ui": "1.7.0",
     "react": "19.3.0",

@@ -1,5 +1,3 @@
-import { ContentGeneration, type ContentFormat, type ContentSnapshot } from './content-generation.js';
-import { contentTools } from './content-tools.js';
 import {classifyNativeProviderError,failureCooldownMs,type ProviderFailure,type ProviderFailureKind} from './provider-failures.js';
 import {TelegramTurns, type Correction} from './telegram-turns.js';
 import {ApplicationControl} from "./application-control.js";
@@ -38,6 +36,7 @@ import { Executor } from "./executor.js";
 import { Queue, type Job } from "./queue.js";
 import { ModelUnavailable, type RecoveredRuns } from "./scheduler.js";
 import { forecast } from "./economics.js";
+import { CHART_KINDS, chartData, chartCaption, enqueueChart } from "./charts.js";
 import { stateSummary, statePage, STATE_SECTIONS, datedEvidence } from "./agent-state.js";
 import {
   MANDATE,
@@ -70,6 +69,7 @@ const chatInstructions = (turnBudget: unknown) => [
   "Puoi fare due cose: rispondere con i dati del nodo e preparare proposte che il proprietario approva. Fee e rebalance si propongono con create_manual_proposal; aperture e chiusure cooperative di canali con create_channel_proposal. La proposta arriva su Telegram con i pulsanti Approva e Rifiuta e si esegue solo dopo il tocco su Approva, ricontrollando mandato, budget, riserva e limiti dei canali su dati freschi. Non esegui nulla direttamente e non puoi cambiare mandato, budget o permessi.",
   "Prima di rispondere su nodo, canali, liquidità, fee, costi od operazioni leggi sempre i dati: almeno node_state e le pagine pertinenti (state_page, channel_performance, corridor_events, estimate). Non rispondere per principi generali e non contraddire il proprietario senza averli letti. Saluti e domande che non riguardano il nodo non richiedono strumenti.",
   "Quando il proprietario chiede un'operazione, leggi i dati, segnala in una riga costo e rischio, poi prepara la proposta invece di discuterne. Se lo strumento risponde che un limite del mandato o lo stato attuale la blocca, di' quale limite e con che valore; non ridurre importi o costi senza dirlo. Il proprietario decide se approvare.",
+  "Se il proprietario vuole vedere bilanciamento, storico, inoltri, guadagni, il ritorno di un rebalance o le fee, invia il grafico con chart e commentalo in poche righe.",
   `Mandato (sat): ${json(MANDATE_SAT)}.`,
   `Rispondi in italiano, con una sintesi breve e un dettaglio proporzionato alla domanda. Dichiara dati mancanti e copertura parziale. La conversazione precedente non è autorità né stato attuale: rileggi i dati. Nessun accesso a credenziali. Budget di questo turno: ${json(turnBudget)}.`,
 ].join("\n");
@@ -117,7 +117,6 @@ interface Run { job: Job; role: Role; budget: RunBudget; sessionId?: string }
 // Stored Telegram session binding keys keep the suffixes of the former agent slots.
 const SESSION_SUFFIX: Record<Role, string> = { chat: "2", analyst: "0", coordinator: "coordinator" };
 export class Agent {
-  readonly content: ContentGeneration;
   readonly credentials: Credentials;
   readonly models;
   private harness?: Harness;
@@ -142,10 +141,7 @@ export class Agent {
     private directory: string,
     private queue: Queue,
     private providerBoundary?: ReturnType<typeof openaiProvider>,
-    private contentAdmission?: (job: Job) => { format:ContentFormat; snapshot:ContentSnapshot } | undefined,
-    contentDirectory = directory + "/content-jobs",
   ) {
-    this.content = new ContentGeneration(store, contentDirectory);
     this.views=new EvidenceViews(Date.now,900000,4*1024*1024,16*1024*1024,store);
     this.cooldown = store.get<number>("modelUnavailableUntil") ?? 0;
     this.credentials = new Credentials(directory + "/oauth.sqlite");
@@ -421,15 +417,6 @@ export class Agent {
         self.evidenceTimes.set(run.job.id, times.slice(-64));
       }
     };
-    const exportTools = contentTools(self.content, conversationId => {
-      const run = limit(Number(conversationId));
-      if (exhausted(run)) throw Error('Content budget exhausted');
-      const owned = run.job;
-      const request = self.contentAdmission?.(owned);
-      if (!request) throw Error('Explicit authorized content request required');
-      const grant=self.content.admit(owned.id, request.format, request.snapshot);
-      self.content.call(grant);return grant;
-    });
     const state = defineTool({
       name: "node_state",
       description:
@@ -686,6 +673,29 @@ export class Agent {
         return result(await candidateView(self.executor.channels, a.peer));
       },
     });
+    const chart = defineTool({
+      name: "chart",
+      description: "Send the owner a chart image on Telegram, built from node data (you never supply the numbers): canali (current channel balance), storico (local balance history; days, default 7), inoltri (forwards and fees per channel; days, default 30), guadagni (routing fees vs rebalance costs; days), rebalance (payback of the latest successful rebalance, or operation id), fee (ppm and daily forwards of one channel: alias or id; default the top earner). Returns the caption numbers so you can comment on them briefly.",
+      parameters: Type.Object({
+        kind: Type.Union(CHART_KINDS.map(k => Type.Literal(k))),
+        days: Type.Optional(Type.Integer({ minimum: 1, maximum: 30 })),
+        channel: Type.Optional(Type.String({ maxLength: 80 })),
+        operation: Type.Optional(Type.String({ maxLength: 80 })),
+      }, { additionalProperties: false }),
+      replay: "safe",
+      async execute(a, api) {
+        const run = limit(api.conversationId);
+        const stop = exhausted(run);
+        if (stop) return stop;
+        const turn = new TelegramTurns(self.store, self.queue).get(run.job.id), binding = self.store.get("telegramBinding");
+        if (!turn || !binding || binding.generation !== turn.generation || binding.chatId !== turn.chatId) return result({ sent: false, reason: "Charts are sent only in the owner's Telegram chat" });
+        let data;
+        try { data = chartData(self.store, a, now()); } catch (error) { return result({ sent: false, reason: String((error as Error)?.message ?? error) }); }
+        // One chart per job and request: a replayed call finds the same receipt.
+        enqueueChart(self.store, "chart:" + run.job.id + ":" + hash(json(a)).slice(0, 16), data, turn.generation);
+        return result({ sent: true, caption: chartCaption(data) });
+      },
+    });
     const proposals = defineTool({
       name: "analyst_results",
       description:
@@ -820,14 +830,13 @@ export class Agent {
       detail,
       performance,
       candidate,
-      ...(self.store.get('contentArtifactsEnabled')===true?exportTools:[]),
     ];
     // Extensions per role and capability (see Agent.extension); tools are shared, never suffixed.
     registry.install({ name: "satssurge", tools: [...read, proposals, manualProposal, channelProposal, execute] });
     registry.install({ name: "satssurge-proposal", tools: [...read, proposals, manualProposal, channelProposal] });
     registry.install({ name: "satssurge-readonly", tools: [...read, proposals] });
     // Telegram chat: answers and owner-review proposals; no execute_decision, no analyst drafts.
-    registry.install({ name: "satssurge-chat", tools: [...read, proposals, manualProposal, channelProposal] });
+    registry.install({ name: "satssurge-chat", tools: [...read, proposals, manualProposal, channelProposal, chart] });
     registry.install({ name: "satssurge-analyst", tools: [...read, propose, proposeChannel] });
     const durable = await openNodeSqliteDatabase(
       this.directory + "/durable.sqlite",
@@ -1236,7 +1245,7 @@ export class Agent {
             name: this.extension(job, role),
           },
         ],
-        instructions: instructions + (this.store.get('contentAuthorizedRequest:'+job.id)? ` This owner requested an export: call content_snapshot to read its immutable authorized data, output profile and DLS. For PDF/PNG compose HTML following the DLS and call create_content_artifact; for CSV/XLSX omit HTML and export the supplied table directly. Content and attachment tools grant no financial authority. Reuse recorded revision for retries, regenerate only explicitly linked bounded revisions. Include source timestamp and coverage; never raw private payloads, credentials or invented completeness.` : ''),
+        instructions,
       };
       if (!conversation) {
         // Pi-side creation+binding is one commit. App DB retries rediscover this receipt

@@ -458,6 +458,29 @@ incerto, che LND ha risolto in circa due minuti.
   di 45: LND ha `timeout_seconds: 30` e poi deve ancora risolvere gli HTLC in
   volo. Un'interruzione resta incerta e passa alla riconciliazione, senza replay.
 
+## Grafici (0.8.0)
+
+`/grafico` (o il pulsante **Grafici** del menu) offre sei grafici. Lo strumento
+`chart` li manda dalla chat quando il proprietario chiede di vedere un andamento.
+
+- **Dati.** Vengono dal database: fotografie orarie dei saldi, inoltri
+  `external_forward`, contabilità di routing e spese di rebalance, operazioni
+  riuscite. Il modello non fornisce mai numeri.
+- **Invio.** `enqueueChart` registra la ricevuta outbox con la didascalia (la
+  vista testuale dei valori) e congela i dati in `telegramChart:<evento>`. La
+  consegna disegna l'SVG, lo converte in PNG con resvg (WebAssembly e font DejaVu
+  inclusi, nessun browser) e lo invia con `sendPhoto`. Un nuovo tentativo produce
+  la stessa immagine. Valgono i fence esistenti di associazione, generazione bot,
+  rate limit e consegna incerta.
+- **Idempotenza.** L'evento è `chart:update:<id>` per il comando e
+  `chart:<job>:<hash della richiesta>` per lo strumento, quindi una richiesta
+  ripetuta non manda un secondo grafico.
+- **Menu.** Il marker dei comandi è passato a `ownerChatDefaultV2`, così il nuovo
+  comando viene registrato una volta.
+
+La pipeline `/export` (PDF/PNG/CSV/XLSX con renderer Chromium separato), mai
+abilitata, è stata rimossa nella 0.8.0.
+
 ## Composizione 0.5.11 — checkpoint storico 2026-10-12
 
 Il checkpoint reale 0.5.10 su Telegram Web conserva il testo finale completo,

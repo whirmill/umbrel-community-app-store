@@ -14,7 +14,7 @@ import { unsolicitedFixture } from './telegram-unsolicited-fixture.js';
 
 const at = new Date().toISOString();
 
-const commandNames = ['status','analyze','proposals','pause','resume','stop','queue','recover','reset','menu','help'];
+const commandNames = ['status','analyze','grafico','proposals','pause','resume','stop','queue','recover','reset','menu','help'];
 function fixture(call: (method: string, body: any) => Promise<any> = async method => method === 'getMe' ? { username: 'satssurge_bot' } : true) {
     const directory = mkdtempSync(join(tmpdir(), 'rich-layout-')), store = new Store(':memory:'), queue = new Queue(store);
     const unsolicited = unsolicitedFixture(store);
@@ -55,7 +55,7 @@ test('cached old menu upgrades owner default and Italian scopes while preserving
         assert.equal(writes[0].body.language_code, undefined); assert.equal(writes[1].body.language_code, 'it');
         assert.deepEqual(writes[0].body.commands.map((c: any) => c.command), commandNames);
         assert.deepEqual(scopes.get('default'), ['global']); assert.deepEqual(scopes.get('all_private_chats'), ['legacy']); assert.deepEqual(scopes.get('chat:43'), ['unrelated']);
-        assert.equal(calls.length, 4); assert.equal(f.store.get(key + ':ownerChatDefaultV1:42'), true);
+        assert.equal(calls.length, 4); assert.equal(f.store.get(key + ':ownerChatDefaultV2:42'), true);
     } finally { f.close(); }
 });
 
@@ -131,19 +131,19 @@ test('simultaneous menu requests commit one migration and repeated calls do not 
 
 for(const during of [1,2,3,4])for(const change of ['revoke','rebind','chat','bot','rate'])test('menu '+change+' during ACK '+during+' fences subsequent calls and durable completion',async()=>{
     let calls=0;const f=fixture(async method=>{if(++calls===during){if(change==='revoke')f.telegram.revoke();else if(change==='rate')f.store.set('telegramRateLimitUntil',Date.now()+60000);else if(change==='bot')f.store.set('telegramBotGeneration','replacement');else f.store.set('telegramBinding',{...f.store.get<any>('telegramBinding'),...(change==='chat'?{chatId:43}:{generation:'replacement'})});}return method==='getMe'?{username:'satssurge_bot'}:true;});
-    try{await f.telegram.menu();assert.equal(calls,during);assert.equal(f.store.get('telegramMenu:layout-owner:null:ownerChatDefaultV1:42'),undefined);assert.equal(f.store.get('telegramUsername'),undefined);}finally{f.close();}
+    try{await f.telegram.menu();assert.equal(calls,during);assert.equal(f.store.get('telegramMenu:layout-owner:null:ownerChatDefaultV2:42'),undefined);assert.equal(f.store.get('telegramUsername'),undefined);}finally{f.close();}
 });
 
 for(const during of [1,2,3,4])test('menu missing ACK '+during+' does not mark migration complete and retries idempotent registration',async()=>{
     const calls:any[]= [];let reject=true;const f=fixture(async(method,body)=>{calls.push({method,body});if(reject&&calls.length===during)return {};return method==='getMe'?{username:'satssurge_bot'}:true;});try{
-        await assert.rejects(f.telegram.menu(),/acknowledgement missing/);assert.equal(calls.length,during);assert.equal(f.store.get('telegramMenu:layout-owner:null:ownerChatDefaultV1:42'),undefined);
-        reject=false;await f.telegram.menu();assert.equal(calls.length,during+4);assert.equal(f.store.get('telegramMenu:layout-owner:null:ownerChatDefaultV1:42'),true);
+        await assert.rejects(f.telegram.menu(),/acknowledgement missing/);assert.equal(calls.length,during);assert.equal(f.store.get('telegramMenu:layout-owner:null:ownerChatDefaultV2:42'),undefined);
+        reject=false;await f.telegram.menu();assert.equal(calls.length,during+4);assert.equal(f.store.get('telegramMenu:layout-owner:null:ownerChatDefaultV2:42'),true);
     }finally{f.close();}
 });
 
 test('menu 429 preserves global rate epoch, stops migration and resumes owner scopes only after cooldown',async()=>{
     const calls:any[]=[];let rejected=false;const f=fixture(async(method,body)=>{calls.push({method,body});if(!rejected&&calls.length===2){rejected=true;throw Object.assign(Error('known rate rejection'),{rejected:true,apiCode:429,retryAfter:120});}return method==='getMe'?{username:'satssurge_bot'}:true;});try{
-        await assert.rejects(f.telegram.menu(),/rate rejection/);assert.equal(calls.length,2);assert.ok(f.store.get<number>('telegramRateLimitUntil')!>Date.now());assert.equal(f.store.get('telegramMenu:layout-owner:null:ownerChatDefaultV1:42'),undefined);
+        await assert.rejects(f.telegram.menu(),/rate rejection/);assert.equal(calls.length,2);assert.ok(f.store.get<number>('telegramRateLimitUntil')!>Date.now());assert.equal(f.store.get('telegramMenu:layout-owner:null:ownerChatDefaultV2:42'),undefined);
         await f.telegram.menu();assert.equal(calls.length,2);f.store.set('telegramRateLimitUntil',Date.now()-1);await f.telegram.menu();assert.equal(calls.length,6);assert.ok(calls.filter(c=>c.method==='setMyCommands').every(c=>c.body.scope.type==='chat'&&c.body.scope.chat_id===42));
     }finally{f.close();}
 });

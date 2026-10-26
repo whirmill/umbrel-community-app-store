@@ -4,9 +4,8 @@ Production startup (`npm start`, image CMD) runs `scripts/app_launcher.py` as
 UID 1000. The image bundles Debian Bookworm's standard-library Python 3 runtime
 and the existing SQLite checkpoint helper. Node remains the pinned Node 24
 image. No Docker socket, elevated capability, sudo or hook success is required.
-`npm run import -- <history>` uses the same launcher and fences while importing
-into `operational.sqlite`; it is an offline operation and cannot run alongside
-the application.
+The historical import (`npm run import`) was removed in 0.8.0; the data it
+imported on 8 October stays in `operational.sqlite`.
 
 The launcher owns the executor lock for its entire application child lifetime.
 All legitimate database writers acquire the stable admission inode exclusively,

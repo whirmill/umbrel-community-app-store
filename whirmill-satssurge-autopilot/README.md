@@ -131,13 +131,10 @@ every value is the default below.
    sh scripts/install-diagnostics.sh "$APP"
    ```
 
-4. **Optional history import.** Copy receipt files (`expenses.json`,
-   reconciliation JSON) into `$APP/history/`. The import is repeatable and stops
-   on conflicting amounts.
-5. **Sign in** to the web UI from the Umbrel dashboard with the password in
+4. **Sign in** to the web UI from the Umbrel dashboard with the password in
    `data/owner.secret`. Complete the ChatGPT OAuth login there and pick a model.
    Never paste credentials into the chat.
-6. **Connect Telegram.** In the web settings, enter the bot token and generate a
+5. **Connect Telegram.** In the web settings, enter the bot token and generate a
    pairing code, then send `/start <code>` to the bot within five minutes. Only
    the paired owner can talk to it.
 
@@ -150,6 +147,7 @@ data and buttons for follow-ups. Analysis never changes anything.
 |---|---|
 | `/status` | Autonomy, node readiness and pending requests |
 | `/analyze` | Full node analysis |
+| `/grafico` | Charts as images: channel balance, balance history, forwards and fees, fees vs costs, payback of a rebalance, fee and traffic of one channel |
 | `/proposals` | Proposals waiting for your approval |
 | `/pause` | Stop autonomy; collection and reconciliation keep running |
 | `/resume` | Show a summary and resume autonomy after you confirm |

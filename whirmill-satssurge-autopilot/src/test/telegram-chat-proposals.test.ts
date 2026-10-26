@@ -92,7 +92,7 @@ test('Telegram chat without keywords prepares an Approva/Rifiuta proposal from d
         const first = await turn(1, 'Fai il rebalance verso LNMarkets');
         assert.equal(f.store.get('jobCapability:' + first.id), 'telegram_chat');
         assert.equal(turns.get(first.id)!.capability, 'telegram_chat');
-        assert.ok(declared[0]!.includes('create_manual_proposal') && declared[0]!.includes('create_channel_proposal') && declared[0]!.includes('node_state'));
+        assert.ok(declared[0]!.includes('create_manual_proposal') && declared[0]!.includes('create_channel_proposal') && declared[0]!.includes('node_state') && declared[0]!.includes('chart'));
         for (const absent of ['execute_decision', 'propose', 'propose_channel']) assert.equal(declared[0]!.includes(absent), false, absent);
         assert.match(prompts[0]!, /assistente del proprietario/);
         assert.match(prompts[0]!, /node_state/);

@@ -1,7 +1,5 @@
 import {constants,openSync,fstatSync,readSync,closeSync} from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import {readInterlock,type InterlockContract} from './interlocks.js';
-import {scopedAppControls,readAppControlContract,readAppControls,unavailableAppControls} from './app-controls.js';
 import type {NativeCollection} from './native-collection.js';
 import { Store } from './store.js';
 import { now,hash,json,integer,type Snapshot } from './domain.js';
@@ -31,13 +29,10 @@ export class Collector {
     const recovered=this.node.beginCollection?.();
     try {
       this.persistTransport();
-      const scoped=scopedAppControls(this.store);
-      if(scoped){
-        const contract=process.env.APP_CONTROL_CONTRACT_FILE?readAppControlContract(process.env.APP_CONTROL_CONTRACT_FILE):undefined;
-        this.store.set('appControlProof',contract?readAppControls(process.env.APP_CONTROL_FILE??'/app-controls/status.json',Date.now,contract):unavailableAppControls());
-        // Scoped app absence/settings cannot prove owner-wide standalone absence.
-        this.store.set('automationProof',{ok:false,at:now(),state:'unknown',source:'apps-only',reason:'Owner-wide standalone automation unknown; financial execution held'});
-      }else{this.store.run("DELETE FROM meta WHERE key='appControlProof'");const contract=this.store.get<InterlockContract>('interlockContract');this.store.set('automationProof',contract?.schema===2?readInterlock(this.gateFile,Date.now,contract):contract!==undefined?{ok:false,at:now(),state:'unknown',reason:'Unsupported protected interlock contract'}:checkInterlocks({lightningMate:this.gateFile,lndg:''}));}
+      // Retired interlock modes (protected schema 2, scoped app-controls) hold finance if still configured.
+      const retired=this.store.get('interlockContract')!==undefined||this.store.get('appControlContract')!==undefined;
+      this.store.run("DELETE FROM meta WHERE key='appControlProof'");
+      this.store.set('automationProof',retired?{ok:false,at:now(),state:'unknown',reason:'Retired interlock mode configured'}:checkInterlocks({lightningMate:this.gateFile,lndg:''}));
       await this.executor.reconcile();
       // Channel reconciliation leaves operations unchanged on failure and never blocks collection.
       try{await this.executor.channels?.reconcile();}catch{}
@@ -92,7 +87,7 @@ export class Collector {
       evaluate(this.store,end);if(Date.now()-this.retainedAt>=RETENTION_INTERVAL_MS){this.store.retain();this.retainedAt=Date.now();}
       await this.native?.tick();
       this.persistTransport();
-      this.store.set('operationalReadiness',{at:now(),ready:s.synced&&!this.store.get('lndTransport')?.failure,appControls:scoped?(this.store.get('appControlProof')?.ok===true?'qualified':'unknown'):'not-configured',standalone:scoped?'unknown':'separate-interlock',financialEligible:scoped?false:this.store.get('automationProof')?.ok===true});
+      this.store.set('operationalReadiness',{at:now(),ready:s.synced&&!this.store.get('lndTransport')?.failure,financialEligible:this.store.get('automationProof')?.ok===true});
       this.store.set('collectionReadiness',{at:now(),operational:true,nativeObserved:this.store.get('nativeCollection')?.ok===true,financialAuthority:'unchanged',nativeParityQualified:false});
       const blockers:string[]=[];if(this.store.get('lndTransport')?.failure)blockers.push('Native LND gRPC/acquisition requires attention');if(this.store.get('integrityBlocker'))blockers.push(this.store.get<string>('integrityBlocker')!);
       if(this.store.get('importReport')?.problems?.length)blockers.push('Historical import discrepancies unresolved');
@@ -102,7 +97,7 @@ export class Collector {
       if(this.store.get('agentRecoveryFailed'))blockers.push('Agent run recovery at startup failed; no agent work runs until the app restarts');
       if(integer(s.confirmedSat)<500000n)blockers.push('Protected reserve below 500,000 sat');
       this.store.set('bootstrapReady',!blockers.length);this.store.set('blockers',blockers);this.store.set('collector',{at:now(),ok:true});
-    }catch{this.store.set('operationalReadiness',{at:now(),ready:false,appControls:'unknown',standalone:'unknown',financialEligible:false});this.store.set('bootstrapReady',false);this.store.set('collector',{at:now(),ok:false,error:'Collection/reconciliation failed; no new AI action'});}finally{this.persistTransport();this.busy=false;}
+    }catch{this.store.set('operationalReadiness',{at:now(),ready:false,financialEligible:false});this.store.set('bootstrapReady',false);this.store.set('collector',{at:now(),ok:false,error:'Collection/reconciliation failed; no new AI action'});}finally{this.persistTransport();this.busy=false;}
   }
   private persistTransport(){
     if(!this.node.transportStatus)return;

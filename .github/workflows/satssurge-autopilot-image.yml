@@ -20,12 +20,10 @@ jobs:
       - name: Verify host diagnostic adapter
         working-directory: whirmill-satssurge-autopilot
         run: python3 -m unittest discover -s scripts/tests -v
-      - name: Verify disabled content renderer policy
-        working-directory: whirmill-satssurge-autopilot/renderer
-        run: npm ci --ignore-scripts && npm test
-      - name: Verify content renderer isolation fixtures
-        working-directory: whirmill-satssurge-autopilot/renderer
-        run: python3 -m unittest discover -s tests -v
+      - name: Build the image and render a chart under the container limits
+        run: |
+          docker build -t satssurge-ci whirmill-satssurge-autopilot
+          docker run --rm --read-only --memory 768m --user 1000:1000 --entrypoint node satssurge-ci --input-type=module -e "const m=await import('/app/dist/charts.js');await m.chartsReady();const png=m.chartPng({kind:'canali',at:new Date().toISOString(),rows:[{alias:'a',localSat:1,remoteSat:1,capacitySat:2}]});if(png.length<5000)process.exit(1);console.log('chart bytes',png.length)"
   publish:
     if: startsWith(github.ref, 'refs/tags/')
     needs: build

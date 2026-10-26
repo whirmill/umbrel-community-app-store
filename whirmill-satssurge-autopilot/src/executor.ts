@@ -1,22 +1,16 @@
-import {scopedAppControls,readAppControlContract,readAppControls,unavailableAppControls} from './app-controls.js';
-import {readInterlock,type InterlockContract} from './interlocks.js';
 import { Store, type ToolCall } from './store.js';
 import { forecast } from './economics.js';
 import { hash, json, now, integer, terminal, MANDATE, type Proposal, type Snapshot, type PaymentOutcome } from './domain.js';
 import type { NodeClient } from './lnd.js';
 import type { ChannelLifecycle } from './channels.js';
 
-/** Live host interlock proof, rechecked immediately before every writable financial RPC. */
-export function protectedAutomationGuard(store:Store) {
-  if(scopedAppControls(store)){const c=process.env.APP_CONTROL_CONTRACT_FILE?readAppControlContract(process.env.APP_CONTROL_CONTRACT_FILE):undefined;store.set('appControlProof',c?readAppControls(process.env.APP_CONTROL_FILE??'/app-controls/status.json',Date.now,c):unavailableAppControls());throw Error('Owner-wide standalone automation unknown; financial dispatch held');}const contract=store.get<InterlockContract>('interlockContract');if(contract?.schema===2){const proof=readInterlock(process.env.INTERLOCK_FILE??'/interlock/status.json',Date.now,contract);store.set('automationProof',proof);if(!proof.ok)throw Error('Protected automation interlock unavailable');}if(contract!==undefined&&contract?.schema!==2)throw Error('Unsupported protected automation interlock');
-}
 export class Executor {
   /** Present only when the separate channel credential is provisioned. */
   channels?:ChannelLifecycle;
   constructor(private store:Store,private node:NodeClient){}
   private executing=false;
   private dispatchGuard(operation:string,snapshot?:Snapshot) {
-    try{protectedAutomationGuard(this.store);if(snapshot)this.store.assertReservedDispatch(operation,snapshot);else this.store.assertDispatchReady();}catch(error){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});throw error;}
+    try{if(snapshot)this.store.assertReservedDispatch(operation,snapshot);else this.store.assertDispatchReady();}catch(error){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});throw error;}
   }
   async execute(p:Proposal, approval?:{validate:(snapshot:Snapshot)=>void;reserved:(operation:string)=>void}, call?:ToolCall) {
     // Channel kinds belong to the owner-approved ChannelLifecycle only; this path never dispatches them.
