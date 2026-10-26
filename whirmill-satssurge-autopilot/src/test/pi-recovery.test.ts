@@ -1,4 +1,5 @@
 import {ApplicationControl} from '../application-control.js';
+import {TelegramTurns} from '../telegram-turns.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,readFileSync,existsSync,rmSync} from 'node:fs';
@@ -139,18 +140,20 @@ test('actual fresh continuation analyst denies finance and preserves parent rece
 });
 
 
-test('native PiDurable registry creates manual proposal only for explicit review job and rejects plain Telegram effects',{timeout:10000},async()=>{
+test('native PiDurable registry: web review job gets proposal tools, Telegram chat never execute_decision',{timeout:10000},async()=>{
   for(const mode of ['manual','unsafe'] as const){
     const directory=mkdtempSync(join(tmpdir(),'surge-pi-telegram-')),f=fixture(directory,mode);
     try{
       f.store.set('snapshot',{at:new Date().toISOString(),identity:'fixture',synced:true,confirmedSat:'500001',channels:[]});
+      f.store.set('telegramBinding',{generation:'g',chatId:42,userId:42,since:new Date().toISOString()});
       await f.agent.open();
-      const control=new ApplicationControl(f.store,f.queue),job=control.admit('telegram-native',mode==='manual'?'proponimi un rebalance da approvare':'Send a rebalance immediately','telegram');
+      const control=new ApplicationControl(f.store,f.queue),job=mode==='manual'?control.admit('web-review','proponimi un rebalance da approvare','owner'):control.admit('telegram-native','Send a rebalance immediately','telegram');
+      if(mode==='unsafe'){f.store.set('jobTelegramGeneration:'+job.id,'g');new TelegramTurns(f.store,f.queue).attach(job,'g',42);}
       const result=await f.agent.runJob(f.queue.claim('coordinator','fixture')!);
       assert.match(result.answer,/terminal tool receipt/);
-      assert.equal(f.store.all('SELECT * FROM owner_proposals').length,mode==='manual'?1:0);
-      // Manual review offers proposals without execute_decision; plain Telegram chat gets the read-only set.
-      assert.equal(f.calls.tools.includes('create_manual_proposal'),mode==='manual');assert.equal(f.calls.tools.includes('execute_decision'),false);
+      // The fixture's draft has no evidence: the approval-time check refuses it before the owner sees it.
+      assert.equal(f.store.all('SELECT * FROM owner_proposals').length,0);
+      assert.equal(f.calls.tools.includes('create_manual_proposal'),true);assert.equal(f.calls.tools.includes('execute_decision'),false);
       assert.equal(existsSync(join(directory,'effects.jsonl')),false);
       assert.ok(f.queue.get(job.id)?.submission_id);
       assert.equal(f.store.all('SELECT * FROM operations').length,0);

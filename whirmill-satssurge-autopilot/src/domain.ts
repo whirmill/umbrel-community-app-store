@@ -33,6 +33,10 @@ export interface ChannelProposal {
   point?: string; alias?: string; satPerVbyte?: string; maxFeeSat?: string; forecast?: Record<string, unknown>;
 }
 export const channelKind = (kind: unknown): kind is ChannelProposal['kind'] => kind === 'channel_open' || kind === 'channel_close';
+/** Telegram chat turns; `read_only_chat` is the pre-0.7.4 id of the same profile. */
+export const telegramChat=(capability:unknown)=>capability==='telegram_chat'||capability==='read_only_chat';
+/** Capabilities that may record owner-review proposals; none may dispatch them. */
+export const proposalCapability=(capability:unknown)=>capability==='guarded_manual_proposal'||telegramChat(capability);
 
 export interface Channel {
   id: string; point: string; peer: string; alias: string; active: boolean; capacitySat: string;

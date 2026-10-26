@@ -7,9 +7,9 @@ import { TelegramTurns } from './telegram-turns.js';
 import { randomBytes } from 'node:crypto';
 import { writeFileSync, readFileSync, existsSync, chmodSync, renameSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { ApplicationControl, requestCapability } from './application-control.js';
+import { ApplicationControl } from './application-control.js';
 import { Store } from './store.js';
-import { hash, json, now, day, scrub, channelKind } from './domain.js';
+import { hash, json, now, day, scrub, channelKind, telegramChat } from './domain.js';
 import { channelOperations, OPEN_EVIDENCE_MS, type ChannelOperation } from './channels.js';
 export interface TelegramTransport {
     call(method: string, body: unknown, signal?: AbortSignal): Promise<any>;
@@ -374,10 +374,11 @@ export class Telegram {
         });
         void this.wake?.().catch(() => { }); return job;
     }
-    private delayedReadOnly(u:any):boolean {
+    /** Chat text and read-only commands; resuming one needs the owner's explicit choice. */
+    private delayedRecoverable(u:any):boolean {
         if(u.voice||u.audio||u.unsupportedAttachment||u.callbackId||u.callback||u.stoppedDraft||u.codeDigest||u.edited||u.topic||typeof u.text!=='string')return false;
         if(['/status','/help','/queue','/menu'].includes(u.text))return true;
-        return !!u.text.trim()&&!u.text.startsWith('/')&&requestCapability(u.text,'telegram')==='read_only_chat';
+        return !!u.text.trim()&&!u.text.startsWith('/');
     }
     // Legacy bodies lack botGeneration: retained pairing generation is the proof.
     // configure() revokes that binding and deletes the old input namespace first.
@@ -395,7 +396,7 @@ export class Telegram {
                 let u:any;try{u=JSON.parse(row.body);}catch{continue;}
                 if(!u||typeof u!=='object'||Array.isArray(u))continue;
                 const key='telegramIngressRecovery:'+row.update_id;
-                if(!this.store.get(key)&&this.delayedReadOnly(u)&&this.currentIncoming(u,b,at)){
+                if(!this.store.get(key)&&this.delayedRecoverable(u)&&this.currentIncoming(u,b,at)){
                     const original={updateId:row.update_id,body:row.body,status:row.status,error:row.error};
                     if(!this.store.get('telegramIngressRecoveryOriginal:'+row.update_id))this.store.set('telegramIngressRecoveryOriginal:'+row.update_id,original);
                     this.store.set(key,{state:'review_required',updateId:row.update_id,date:u.date,generation:b.generation,botGeneration:bot,chatId:b.chatId,bodyHash:hash(row.body),requestId:'telegram:'+(bot??'initial')+':'+row.update_id,eventId:'update:'+row.update_id,at});
@@ -419,7 +420,7 @@ export class Telegram {
         for(const record of [...legacy,...matured]){
             const r=JSON.parse(record.value),id=Number(record.key.slice(24)),key='telegramIngressRecoveryReview:'+id,row=this.store.one('SELECT * FROM telegram_updates WHERE update_id=?',id);
             let u:any;try{u=row&&JSON.parse(row.body);}catch{}
-            if(this.store.get(key)||!u||!this.delayedReadOnly(u)||u.text.startsWith('/')||r.generation!==b.generation||r.botGeneration!==bot||hash(row.body)!==r.bodyHash||!this.currentIncoming(u,b,at))continue;
+            if(this.store.get(key)||!u||!this.delayedRecoverable(u)||u.text.startsWith('/')||r.generation!==b.generation||r.botGeneration!==bot||hash(row.body)!==r.bodyHash||!this.currentIncoming(u,b,at))continue;
             const original=this.store.one('SELECT id FROM jobs WHERE request_id=?',r.requestId),choice=this.turns().correction(b.generation+':'+id),followup=this.store.one('SELECT id FROM jobs WHERE request_id=?','telegram-followup:'+b.generation+':'+id);
             const expiredChoice=choice&&!choice.submissionId&&(choice.state==='late'||choice.state==='choice_pending'&&choice.expires<=at);
             if(original||followup)continue;
@@ -443,7 +444,7 @@ export class Telegram {
             // The origin can itself be the canonical review. A distinct additive
             // view preserves that receipt and pins this exact lineage on retry.
             const reviewKey=this.store.get(canonicalReviewKey)?canonicalReviewKey+':maturity:'+hash(json([anchor.originalRecoveryKey,anchor.originalRecoveryHash])):canonicalReviewKey;
-            const valid=record&&hash(record.value)===anchor.originalRecoveryHash&&r.state==='choice_pending'&&this.recoveryOriginValid(r)&&r.generation===b.generation&&r.botGeneration===bot&&r.chatId===b.chatId&&row?.status==='ignored'&&row.error==='Stale incoming command'&&hash(row.body)===r.bodyHash&&u&&this.currentIncoming(u,b,at)&&this.delayedReadOnly(u)&&!u.text.startsWith('/')&&choiceRow&&hash(choiceRow.value)===anchor.correctionHash&&choice.id===anchor.correctionId&&choice.generation===b.generation&&!choice.submissionId&&(choice.state==='late'||choice.state==='choice_pending'&&choice.expires<=at)&&!this.store.one('SELECT id FROM jobs WHERE request_id IN (?,?)',r.requestId,'telegram-followup:'+b.generation+':'+anchor.updateId)&&!this.store.get(reviewKey);
+            const valid=record&&hash(record.value)===anchor.originalRecoveryHash&&r.state==='choice_pending'&&this.recoveryOriginValid(r)&&r.generation===b.generation&&r.botGeneration===bot&&r.chatId===b.chatId&&row?.status==='ignored'&&row.error==='Stale incoming command'&&hash(row.body)===r.bodyHash&&u&&this.currentIncoming(u,b,at)&&this.delayedRecoverable(u)&&!u.text.startsWith('/')&&choiceRow&&hash(choiceRow.value)===anchor.correctionHash&&choice.id===anchor.correctionId&&choice.generation===b.generation&&!choice.submissionId&&(choice.state==='late'||choice.state==='choice_pending'&&choice.expires<=at)&&!this.store.one('SELECT id FROM jobs WHERE request_id IN (?,?)',r.requestId,'telegram-followup:'+b.generation+':'+anchor.updateId)&&!this.store.get(reviewKey);
             if(valid)this.store.set(reviewKey,{...r,state:'review_required',outcome:'current_unconsumed_choice_matured',originalRecoveryKey:anchor.originalRecoveryKey,originalRecoveryHash:anchor.originalRecoveryHash,forceFutureRequest:true,correctionId:choice.id,correctionHash:anchor.correctionHash});
             this.store.set(candidate.key,{...anchor,state:valid?'reviewed':'closed',outcome:valid?'explicit_review_required':'original_choice_or_authority_changed'});
         });
@@ -452,12 +453,12 @@ export class Telegram {
             const recovery=JSON.parse(record.value),id=recovery.updateId??Number(record.key.slice('telegramIngressRecovery:'.length));
             const row=this.store.one('SELECT * FROM telegram_updates WHERE update_id=?',id);
             let u:any;try{u=row&&JSON.parse(row.body);}catch{}
-            if(!this.recoveryOriginValid(recovery)||!row||row.status!=='ignored'||row.error!=='Stale incoming command'||hash(row.body)!==recovery.bodyHash||!u||!this.currentIncoming(u,b,at)||!this.delayedReadOnly(u)||recovery.generation!==b.generation||recovery.botGeneration!==bot){
+            if(!this.recoveryOriginValid(recovery)||!row||row.status!=='ignored'||row.error!=='Stale incoming command'||hash(row.body)!==recovery.bodyHash||!u||!this.currentIncoming(u,b,at)||!this.delayedRecoverable(u)||recovery.generation!==b.generation||recovery.botGeneration!==bot){
                 this.store.set(record.key,{...recovery,state:'expired',outcome:'authority_or_original_receipt_changed'});continue;
             }
             const job=this.store.one('SELECT * FROM jobs WHERE request_id=?',recovery.requestId);
             if(job){
-                if(this.store.get('jobTelegramGeneration:'+job.id)!==b.generation||this.store.get('jobCapability:'+job.id)!=='read_only_chat'){
+                if(this.store.get('jobTelegramGeneration:'+job.id)!==b.generation||!telegramChat(this.store.get('jobCapability:'+job.id))){
                     this.store.set(record.key,{...recovery,state:'expired',outcome:'original_admission_authority_mismatch'});continue;
                 }
                 this.store.set(record.key,{...recovery,state:['completed','failed','cancelled'].includes(job.state)?'settled':'admitted',outcome:'original_job_'+job.state,jobId:job.id});
@@ -518,11 +519,11 @@ export class Telegram {
                     const b=this.store.get('telegramBinding'),bot=this.store.get('telegramBotGeneration')??null;
                     const current=this.store.get(row.recoveryKey),originalInput=this.store.one('SELECT * FROM telegram_updates WHERE update_id=?',row.update_id);
                     if(current?.state!=='pending')continue;
-                    if(!this.recoveryOriginValid(row.recovery)||originalInput?.status!=='ignored'||originalInput.error!=='Stale incoming command'||hash(originalInput.body)!==row.recovery.bodyHash||row.recovery.generation!==b?.generation||row.recovery.botGeneration!==bot||!this.currentIncoming(u,b,at)||!this.delayedReadOnly(u)){
+                    if(!this.recoveryOriginValid(row.recovery)||originalInput?.status!=='ignored'||originalInput.error!=='Stale incoming command'||hash(originalInput.body)!==row.recovery.bodyHash||row.recovery.generation!==b?.generation||row.recovery.botGeneration!==bot||!this.currentIncoming(u,b,at)||!this.delayedRecoverable(u)){
                         this.store.set(row.recoveryKey,{...row.recovery,state:'expired',outcome:'authority_or_original_receipt_changed'});continue;
                     }
                     const original=this.store.one('SELECT id FROM jobs WHERE request_id=?',row.recovery.requestId);
-                    if(original&&(this.store.get('jobTelegramGeneration:'+original.id)!==b.generation||this.store.get('jobCapability:'+original.id)!=='read_only_chat')){this.store.set(row.recoveryKey,{...row.recovery,state:'expired',outcome:'original_admission_authority_mismatch'});continue;}
+                    if(original&&(this.store.get('jobTelegramGeneration:'+original.id)!==b.generation||!telegramChat(this.store.get('jobCapability:'+original.id)))){this.store.set(row.recoveryKey,{...row.recovery,state:'expired',outcome:'original_admission_authority_mismatch'});continue;}
                 }
                 if (u.chatType !== 'private' || !Number.isSafeInteger(u.userId) || u.userId !== u.chatId) {
                     this.store.run("UPDATE telegram_updates SET status='ignored' WHERE update_id=?", row.update_id);
@@ -604,7 +605,7 @@ export class Telegram {
                         this.store.tx(()=>{
                             const r=this.store.get(value.id!),input=r&&this.store.one('SELECT * FROM telegram_updates WHERE update_id=?',r.updateId??Number(value.id!.slice(24)));
                             let body:any;try{body=input&&JSON.parse(input.body);}catch{}
-                            const valid=this.authorized(binding.generation,binding.chatId,callbackBot)&&value.chatId===binding.chatId&&value.botGeneration===callbackBot&&value.expires>currentAt()&&r?.state==='review_required'&&this.recoveryOriginValid(r)&&this.recoveryResumeAvailable(r,currentAt())&&r.generation===binding.generation&&r.botGeneration===callbackBot&&r.chatId===binding.chatId&&r.bodyHash===value.bodyHash&&input?.status==='ignored'&&input.error==='Stale incoming command'&&hash(input.body)===r.bodyHash&&body&&this.currentIncoming(body,binding,at)&&this.delayedReadOnly(body);
+                            const valid=this.authorized(binding.generation,binding.chatId,callbackBot)&&value.chatId===binding.chatId&&value.botGeneration===callbackBot&&value.expires>currentAt()&&r?.state==='review_required'&&this.recoveryOriginValid(r)&&this.recoveryResumeAvailable(r,currentAt())&&r.generation===binding.generation&&r.botGeneration===callbackBot&&r.chatId===binding.chatId&&r.bodyHash===value.bodyHash&&input?.status==='ignored'&&input.error==='Stale incoming command'&&hash(input.body)===r.bodyHash&&body&&this.currentIncoming(body,binding,at)&&this.delayedRecoverable(body);
                             if(!valid){answer='Richiesta o pulsante scaduto; nessuna ripresa.';return;}
                             selected=value.action==='recover_resume';
                             this.store.set(value.id!,{...r,state:selected?'pending':'dismissed',ownerDecision:{action:value.action,updateId:row.update_id,at},outcome:selected?'owner_resume_selected':'owner_dismissed'});
@@ -738,7 +739,7 @@ export class Telegram {
                 }
                 else if (u.text === '/help' || u.text === '/menu') {
                     if(u.text==='/menu')this.attachButtons(event,[['Stato','/status'],['Analizza','/analyze'],['Proposte','/proposals'],['Coda','/queue'],['Recupera','/recover'],['Aiuto','/help']].map(([text,code])=>({text:text!,value:{action:'navigate',code,expires:new Date(Date.parse(at)+15*60000).toISOString()}})),binding.generation);
-                    answer = '/status /analyze /pause /resume /proposals /stop /queue /recover /reset /menu /help. /reset fa ripartire la chat da una conversazione nuova. La chat consente analisi; chiedi esplicitamente una proposta da approvare. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.' + (this.store.get('contentArtifactsEnabled')===true?' Esporta dati con /export pdf|png|csv|xlsx [section=...] [limit=1..100] [-- descrizione].':'');
+                    answer = '/status /analyze /pause /resume /proposals /stop /queue /recover /reset /menu /help. Scrivi in linguaggio naturale: la chat risponde con i dati del nodo e, se chiedi un\'operazione (fee, rebalance, canali), prepara una proposta con i pulsanti Approva e Rifiuta. Nulla si esegue senza il tuo tocco su Approva. /reset fa ripartire la chat da una conversazione nuova. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.' + (this.store.get('contentArtifactsEnabled')===true?' Esporta dati con /export pdf|png|csv|xlsx [section=...] [limit=1..100] [-- descrizione].':'');
                 }
                 else {
                     const message = u.text.startsWith('/analyze') ? u.text.slice(8).trim() || 'Analizza economia del nodo e blocchi attuali' : u.text;

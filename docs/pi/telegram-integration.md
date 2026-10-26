@@ -19,8 +19,10 @@ le notifiche di licenza se si adatta codice, non soltanto i nomi degli autori.
 
 SatsSurge usa pertanto un adattatore Bot API applicativo, con strumenti
 registrati nel **registry nativo Pi Durable esistente**. Nessun secondo agente,
-sessione CLI, QEMU o bot standalone. Il tool `create_manual_proposal` è distinto
-da `execute_decision`; soltanto le capability previste possono richiamarlo.
+sessione CLI, QEMU o bot standalone. I tool `create_manual_proposal` e
+`create_channel_proposal` sono distinti da `execute_decision`; li richiamano
+soltanto la chat Telegram e le richieste web di revisione (vedi
+[Chat con proposte](#chat-con-proposte-074)).
 
 ## Ingresso e identità
 
@@ -47,9 +49,9 @@ messaggio è stato ricevuto dopo la nuova associazione.
 
 ## Proposte e operazioni
 
-Le richieste naturali Telegram sono read-only o abilitate alla creazione di
-proposte; non eseguono direttamente azioni finanziarie. Le analisi restano
-possibili con autonomia in pausa, dichiarando i dati non disponibili.
+Le richieste naturali Telegram usano un solo profilo chat che risponde e può
+preparare proposte; non eseguono direttamente azioni finanziarie. Le analisi
+restano possibili con autonomia in pausa, dichiarando i dati non disponibili.
 
 Una proposta contiene il tipo fee/rebalance, endpoint, importi, costo massimo,
 ragione, evidenze, digest del contenuto e condizioni osservate. Approvazione e
@@ -115,18 +117,19 @@ submission precedente viene eliminata.
 
 La chat libera sveglia immediatamente `Scheduler.dispatchTelegram`, senza
 attendere il ciclo di manutenzione. Il coordinatore Telegram usa il ruolo chat
-con gli strumenti read-only; il coordinatore finanziario e i due analisti restano
-indipendenti. La mailbox applicativa conserva soltanto i turni futuri e ne
+con l'estensione `satssurge-chat` (dalla 0.7.4); il coordinatore finanziario e i
+due analisti restano indipendenti. La mailbox applicativa conserva soltanto i turni futuri e ne
 permette l'annullamento. Per una stessa generazione/chat, chat, analisi e bridge
 verso proposta sono serializzati in ordine d'ammissione, anche se hanno lane
 interne diverse. Le analisi automatiche non diventano turni Telegram.
 
-Una sessione read-only può conservare il contesto di chat nella stessa
-associazione/capability e la stessa chiave di sessione (chat `:2`, ricerca `:0`);
-non viene promossa a capability finanziaria. Una
-richiesta esplicita di proposta crea un job separato `guarded_manual_proposal`.
-Le proposte sono ricevute commesse, approvate una sola volta con i controlli e la
-scadenza esistenti. La conversazione non rinnova mandato o budget.
+Chat e ricerca conservano il contesto nella stessa associazione e chiave di
+sessione (chat `:2`, ricerca `:0`); non vengono promosse a capability
+finanziaria. Fino alla 0.7.3 una regex sul testo mandava le richieste di proposta
+in un job separato `guarded_manual_proposal`, senza la conversazione persistente;
+dalla 0.7.4 le proposte nascono nella chat stessa. Le proposte sono ricevute
+commesse, approvate una sola volta con i controlli e la scadenza esistenti. La
+conversazione non rinnova mandato o budget.
 
 ### Ricevute e confini
 
@@ -289,15 +292,16 @@ mutare la ricevuta salvata. Riapertura esplicita produce una nuova vista con le 
 ## Recupero esplicito degli ingressi storici
 
 I messaggi acquisiti oltre cinque minuti dalla data Telegram restano ricevute
-persistenti; chat read-only e comandi `/status`, `/help`, `/queue`, `/menu`
+persistenti; testo di chat e comandi `/status`, `/help`, `/queue`, `/menu`
 richiedono ora revisione, senza eseguire automaticamente lavoro storico. Lo scan
 avanza di venti ricevute per ciclo, in ordine numerico di update ID. `/recover`
 mostra fino a otto richieste con data, estratto pubblico e pulsanti **Riprendi** e
 **Ignora**. I pulsanti scadono dopo cinque minuti; dopo l'ACK callback e dentro
 la transazione si rivalidano chat, owner, bot, associazione, hash del corpo e
 ricevuta originale. Ignora produce `dismissed / owner_dismissed`, mai completed.
-I comandi con effetti, le proposte, Stop, pairing e callback scaduti restano
-esclusi da questo recupero.
+I comandi con effetti, i pulsanti delle proposte, Stop, pairing e callback
+scaduti restano esclusi da questo recupero. Dalla 0.7.4 un testo ripreso è un
+normale turno chat: può preparare una proposta, che richiede comunque Approva.
 
 La vista di recupero conserva update/request originali, data, body hash,
 associazione e bot; non modifica la riga ignored o l'archivio originale. Una
@@ -382,6 +386,42 @@ conversazioni Durable. Le conversazioni precedenti restano archiviate. Il comand
 è rifiutato finché un turno Telegram è in corso o in coda, e un pulsante già
 usato non azzera una seconda volta. Lo strumento `conversation_memory` è stato
 rimosso: il registro `chat` serve soltanto al riquadro web.
+
+## Chat con proposte (0.7.4)
+
+Il 26 ottobre "Fai il rebalance verso LNMarkets" era finito in sola lettura,
+perché `requestCapability` sceglieva il permesso con una regex
+(`approv|review|propos|propon|valut.*prima|conferm`). Il modello aveva risposto
+per principi generali, senza leggere i dati.
+
+- **Un solo profilo.** Ogni testo Telegram (non `/analyze`) è ammesso come
+  `telegram_chat`; è il modello a capire se serve un'informazione o
+  un'operazione. `read_only_chat`, l'id precedente, vale come lo stesso profilo per
+  i job storici, e la chiave di sessione resta quella, quindi la conversazione
+  persistente prosegue dopo l'aggiornamento. `/reset` è invariato.
+- **Web invariato.** Le richieste web senza turno Telegram mantengono la regex:
+  `guarded_manual_proposal` oppure `financial_guarded`.
+- **Strumenti.** L'estensione `satssurge-chat` contiene gli strumenti di lettura,
+  `analyst_results`, `create_manual_proposal` (fee_change/rebalance) e
+  `create_channel_proposal`. Non contiene `execute_decision`, `propose` né
+  `propose_channel`. I due strumenti di proposta restano rifiutati per la lane
+  analyst, la ricerca e la qualificazione; `execute_decision` resta solo per
+  `financial_guarded`.
+- **Controllo alla creazione.** Prima di registrare una proposta fee/rebalance,
+  `ApplicationControl.blocked` esegue lo stesso controllo dell'approvazione in
+  modalità anteprima (`Store.reserve(..., previewOnly)`): mandato, budget,
+  riserva, autonomia attiva, snapshot fresco, executor libero. Se fallisce non
+  nasce nessuna proposta e lo strumento restituisce `blockedBy`, i limiti del
+  mandato in sat e il budget, così la chat può dire quale limite blocca e con che
+  valore. Le proposte di canale erano già prezzate e verificate alla creazione.
+- **Esecuzione.** Invariata: la proposta arriva su Telegram con Approva e
+  Rifiuta e si esegue solo dopo il tocco del proprietario, ricontrollando su dati
+  freschi mandato, budget, riserva e limiti dei canali.
+- **Istruzioni.** La chat è l'assistente del proprietario; l'autopilota agisce da
+  solo entro il mandato. Legge sempre i dati (almeno `node_state` e le pagine
+  pertinenti) prima di rispondere su nodo, canali, liquidità od operazioni. Quando
+  il proprietario chiede un'operazione segnala in una riga costo e rischio e
+  prepara la proposta invece di discutere.
 
 ## Composizione 0.5.11 — checkpoint storico 2026-10-12
 

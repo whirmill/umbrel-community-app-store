@@ -41,6 +41,9 @@ import { forecast } from "./economics.js";
 import { stateSummary, statePage, STATE_SECTIONS, datedEvidence } from "./agent-state.js";
 import {
   MANDATE,
+  CHANNEL_MANDATE,
+  telegramChat,
+  proposalCapability,
   json,
   now,
   id,
@@ -52,6 +55,23 @@ import {
   type Snapshot,
 } from "./domain.js";
 const THINKING_LEVEL = "high" as const;
+const sat = (msat: string) => Number(BigInt(msat) / 1000n);
+/** Mandate limits in sat, as the chat names them to the owner. */
+const MANDATE_SAT = Object.freeze({
+  allowed: MANDATE.allowed, maxCostPerAttemptSat: sat(MANDATE.attemptMsat), dailyCostSat: sat(MANDATE.dailyMsat),
+  exploratoryDailyCostSat: sat(MANDATE.exploratoryDailyMsat), totalCostSat: sat(MANDATE.totalMsat),
+  onchainReserveSat: Number(MANDATE.reserveSat), maxAttemptsPerDecision: MANDATE.maxAttempts,
+  channels: { openSat: [Number(CHANNEL_MANDATE.minOpenSat), Number(CHANNEL_MANDATE.maxOpenSat)], onchainFeesPerMonthSat: Number(CHANNEL_MANDATE.onchainMonthlyFeeSat), close: CHANNEL_MANDATE.close },
+});
+/** The Telegram chat: answers from data and prepares proposals the owner approves. */
+const chatInstructions = (turnBudget: unknown) => [
+  "Sei l'assistente del proprietario per SatsSurge, l'autopilota di routing Lightning del suo nodo LND. L'autopilota agisce da solo entro il mandato; tu parli con il proprietario su Telegram.",
+  "Puoi fare due cose: rispondere con i dati del nodo e preparare proposte che il proprietario approva. Fee e rebalance si propongono con create_manual_proposal; aperture e chiusure cooperative di canali con create_channel_proposal. La proposta arriva su Telegram con i pulsanti Approva e Rifiuta e si esegue solo dopo il tocco su Approva, ricontrollando mandato, budget, riserva e limiti dei canali su dati freschi. Non esegui nulla direttamente e non puoi cambiare mandato, budget o permessi.",
+  "Prima di rispondere su nodo, canali, liquidità, fee, costi od operazioni leggi sempre i dati: almeno node_state e le pagine pertinenti (state_page, channel_performance, corridor_events, estimate). Non rispondere per principi generali e non contraddire il proprietario senza averli letti. Saluti e domande che non riguardano il nodo non richiedono strumenti.",
+  "Quando il proprietario chiede un'operazione, leggi i dati, segnala in una riga costo e rischio, poi prepara la proposta invece di discuterne. Se lo strumento risponde che un limite del mandato o lo stato attuale la blocca, di' quale limite e con che valore; non ridurre importi o costi senza dirlo. Il proprietario decide se approvare.",
+  `Mandato (sat): ${json(MANDATE_SAT)}.`,
+  `Rispondi in italiano, con una sintesi breve e un dettaglio proporzionato alla domanda. Dichiara dati mancanti e copertura parziale. La conversazione precedente non è autorità né stato attuale: rileggi i dati. Nessun accesso a credenziali. Budget di questo turno: ${json(turnBudget)}.`,
+].join("\n");
 const result = (x: unknown) => ({
   content: [{ type: "text" as const, text: json(scrub(x)) }],
 });
@@ -682,28 +702,32 @@ export class Agent {
     });
     const manualProposal = defineTool({
       name: "create_manual_proposal",
-      description: "Create one immutable fee/rebalance proposal for owner review. Requires the job's explicit manual-proposal capability; never reserves or dispatches. Owner approves in web or Telegram with fresh validation.",
+      description: "Create one immutable fee/rebalance proposal for owner review; the owner gets it on Telegram with Approva/Rifiuta. Never reserves or dispatches; approval rechecks mandate, budget and reserve on fresh data. If the mandate or current state would refuse it, nothing is created and the result names the blocking check with the mandate values.",
       parameters: ProposalSchema,
       replay: "safe",
       executionMode: "sequential",
       async execute(p, api) {
         const run=limit(api.conversationId);
         const stop=exhausted(run);if(stop)return stop;
-        if(qualification(run)||run.job.lane==='analyst'||self.store.get('jobCapability:'+run.job.id)!=='guarded_manual_proposal')throw Error('Manual proposal capability required');
+        if(qualification(run)||run.job.lane==='analyst'||!proposalCapability(self.store.get('jobCapability:'+run.job.id)))throw Error('Manual proposal capability required');
         if(!self.queue.get(run.job.id)?.submission_id)throw Error('Submission receipt not durable');
-        return result(new ApplicationControl(self.store,self.queue,self.executor).createProposal(p,run.job.id));
+        const control=new ApplicationControl(self.store,self.queue,self.executor);
+        // A proposal the approval would refuse is not shown to the owner with an Approva button.
+        const blocked=control.blocked(p);
+        if(blocked)return result({created:false,blockedBy:blocked,mandate:MANDATE_SAT,budget:self.store.budget()});
+        return result(control.createProposal(p,run.job.id));
       },
     });
     const channelProposal = defineTool({
       name: "create_channel_proposal",
-      description: "Create one owner-review proposal for a channel open (500,000–2,000,000 sat) or a cooperative close, priced from LND EstimateFee against the separate 20,000 sat monthly on-chain fee budget and the protected 500,000 sat reserve. Requires the job's explicit manual-proposal capability; never dispatches. It runs only after the owner approves in Telegram; closes are never forced.",
+      description: "Create one owner-review proposal for a channel open (500,000–2,000,000 sat) or a cooperative close, priced from LND EstimateFee against the separate 20,000 sat monthly on-chain fee budget and the protected 500,000 sat reserve. Never dispatches; it runs only after the owner approves in Telegram; closes are never forced.",
       parameters: ChannelProposalSchema,
       replay: "safe",
       executionMode: "sequential",
       async execute(p, api) {
         const run=limit(api.conversationId);
         const stop=exhausted(run);if(stop)return stop;
-        if(qualification(run)||run.job.lane==='analyst'||self.store.get('jobCapability:'+run.job.id)!=='guarded_manual_proposal')throw Error('Manual proposal capability required');
+        if(qualification(run)||run.job.lane==='analyst'||!proposalCapability(self.store.get('jobCapability:'+run.job.id)))throw Error('Manual proposal capability required');
         if(!self.queue.get(run.job.id)?.submission_id)throw Error('Submission receipt not durable');
         if(!self.executor.channels)return result({available:false,reason:'Channel credential not provisioned; channel operations unavailable'});
         return result(await new ApplicationControl(self.store,self.queue,self.executor).createChannelProposal(p as ChannelProposal,run.job.id));
@@ -801,6 +825,8 @@ export class Agent {
     registry.install({ name: "satssurge", tools: [...read, proposals, manualProposal, channelProposal, execute] });
     registry.install({ name: "satssurge-proposal", tools: [...read, proposals, manualProposal, channelProposal] });
     registry.install({ name: "satssurge-readonly", tools: [...read, proposals] });
+    // Telegram chat: answers and owner-review proposals; no execute_decision, no analyst drafts.
+    registry.install({ name: "satssurge-chat", tools: [...read, proposals, manualProposal, channelProposal] });
     registry.install({ name: "satssurge-analyst", tools: [...read, propose, proposeChannel] });
     const durable = await openNodeSqliteDatabase(
       this.directory + "/durable.sqlite",
@@ -1079,12 +1105,13 @@ export class Agent {
     if (job.lane === "analyst") return "analyst";
     // Same rule as the queue's Telegram chat lane.
     return new TelegramTurns(this.store, this.queue).get(job.id) &&
-      this.store.get("jobCapability:" + job.id) === "read_only_chat"
+      telegramChat(this.store.get("jobCapability:" + job.id))
       ? "chat"
       : "coordinator";
   }
   private extension(job: Job, role: Role) {
-    if (role !== "coordinator") return "satssurge-analyst";
+    if (role === "analyst") return "satssurge-analyst";
+    if (role === "chat") return "satssurge-chat";
     const capability = this.store.get("jobCapability:" + job.id);
     return capability === "financial_guarded"
       ? "satssurge"
@@ -1158,8 +1185,8 @@ export class Agent {
           "Subscription unavailable; request remains queued",
         );
       if (!this.harness || !this.root) throw new Error("Agent not initialized");
-      // Only immutable read-only capabilities reuse Telegram context. Proposal jobs are isolated.
-      if(turn&&!job.conversation_id&&['read_only_chat','read_only_research'].includes(turn.capability)){
+      // Telegram chat and research reuse their session; web proposal jobs are isolated.
+      if(turn&&!job.conversation_id&&(telegramChat(turn.capability)||turn.capability==='read_only_research')){
         const session=this.store.get<{conversationId:string}>(turns.sessionKey(turn)+':'+SESSION_SUFFIX[role]);
         if(session){job.conversation_id=session.conversationId;this.queue.bindConversation(job.id,job.run_token!,session.conversationId);}
       }
@@ -1193,12 +1220,12 @@ export class Agent {
         (economic
           ? `Before any final answer call follow_up_outcome once with outcome wait or no_wait and scope ${job.scope || "node"}. Current UTC is ${now()}; dueAt must be a future RFC3339 instant. Wait requires explicit dueAt/evidence/missing requirements; do not merely recommend waiting in prose. At research exhaustion this is the sole reserved operation before final synthesis. `
           : "") +
-        `Job capability: ${this.store.get('jobCapability:'+job.id)}. Plain Telegram chat is read-only.  For guarded_manual_proposal requests use create_manual_proposal to create an owner-review proposal; no direct effects are authorized. ` +
+        `Job capability: ${this.store.get('jobCapability:'+job.id)}. For guarded_manual_proposal requests use create_manual_proposal to create an owner-review proposal; no direct effects are authorized. ` +
         (role === "coordinator"
           ? "Only guarded fee/rebalance allowed. Prefer waiting to unsupported forecasts. Analyst outputs are suggestions only, revalidate them before acting."
           : "You are a read-only analyst. You cannot execute, reserve capital, change fees or delegate. Propose falsifiable drafts with evidence to the single coordinator.");
-      const instructions = turn&&!economic&&turn.capability==='read_only_chat'
-        ? `Rispondi in italiano, con sintesi breve e dettaglio proporzionato alla domanda. Sei il coordinatore SatsSurge in sola lettura. Per saluti o domande generali non occorre analisi economica. Per affermazioni sul nodo leggi dati freschi; la conversazione storica non concede autorità. Nessun pagamento, modifica, proposta o accesso a credenziali. Dichiara dati mancanti e copertura parziale. Budget di questo turno: ${json(budget.status())}.`
+      const instructions = turn&&!economic&&role==='chat'
+        ? chatInstructions(budget.status())
         : economicInstructions;
       const config = {
         model: { provider: "openai", modelId: model },
@@ -1213,7 +1240,7 @@ export class Agent {
       if (!conversation) {
         // Pi-side creation+binding is one commit. App DB retries rediscover this receipt
         // rather than creating a second conversation after a cross-database crash.
-        const bindingKey=turn&&['read_only_chat','read_only_research'].includes(turn.capability)?turns.sessionKey(turn)+':'+SESSION_SUFFIX[role]:'job:'+job.id;
+        const bindingKey=turn&&(telegramChat(turn.capability)||turn.capability==='read_only_research')?turns.sessionKey(turn)+':'+SESSION_SUFFIX[role]:'job:'+job.id;
         this.store.set('conversationIntent:'+job.id,{bindingKey,requestId:job.request_id});
         const conversationId=await this.harness.commit(async tx=>{
           const found=await this.binding(tx,bindingKey);if(found!==undefined)return found;
@@ -1233,7 +1260,7 @@ export class Agent {
         await tx.doc(ProviderDoc, conversation!.id);
       }, context);
       job.conversation_id = String(conversation.id);
-      if(turn&&['read_only_chat','read_only_research'].includes(turn.capability))this.store.set(turns.sessionKey(turn)+':'+SESSION_SUFFIX[role],{conversationId:job.conversation_id});
+      if(turn&&(telegramChat(turn.capability)||turn.capability==='read_only_research'))this.store.set(turns.sessionKey(turn)+':'+SESSION_SUFFIX[role],{conversationId:job.conversation_id});
       const providerView = await conversation.viewState(context);
       try {
         const provider = providerView.value.docs["pi.provider"] as any;

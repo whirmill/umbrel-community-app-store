@@ -1,6 +1,7 @@
 /** Trusted ingress seam. Call only for an explicit owner's requested export, after
  * normal Telegram admission and public canonical projection. Never exposed as a tool. */
 import { Store } from './store.js';
+import { telegramChat } from './domain.js';
 import type { Turn } from './telegram-turns.js';
 import { checksum } from './content-artifacts.js';
 import { channelScid } from './diagnostics.js';
@@ -29,7 +30,7 @@ export function parseContentRequest(message:string):{format:ContentFormat;query:
 }
 function owner(store:Store,jobId:string){
  const turn=store.get<Turn>('telegramTurn:'+jobId),job=store.one('SELECT * FROM jobs WHERE id=?',jobId),binding=store.get('telegramBinding');
- if(store.get('contentArtifactsEnabled')!==true||store.get('telegramTokenTransition')===true||!turn||turn.closed||!['queued','running'].includes(turn.state)||!job||!['queued','running'].includes(job.state)||!binding||binding.generation!==turn.generation||binding.chatId!==turn.chatId||!['read_only_chat','read_only_research'].includes(turn.capability)||store.get('jobCapability:'+jobId)!==turn.capability)throw Error('Content request authority unavailable');
+ if(store.get('contentArtifactsEnabled')!==true||store.get('telegramTokenTransition')===true||!turn||turn.closed||!['queued','running'].includes(turn.state)||!job||!['queued','running'].includes(job.state)||!binding||binding.generation!==turn.generation||binding.chatId!==turn.chatId||!(telegramChat(turn.capability)||turn.capability==='read_only_research')||store.get('jobCapability:'+jobId)!==turn.capability)throw Error('Content request authority unavailable');
  return {turn,job};
 }
 export function authorizeContentRequest(store:Store,jobId:string,format:ContentFormat,snapshot:ContentSnapshot):void {
