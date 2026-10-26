@@ -648,6 +648,9 @@ export class Telegram {
                             void this.turns().dispatchStop(event).then(() => { if (this.store.get('telegramStop:' + event)?.state === 'idle_confirmed')
                                 this.enqueue(event + ':stopped', 'Risposta interrotta; task rilasciato.', 'reply', undefined, now(), u.generation); }).catch(() => { });
                     }
+                    else if (value.action === 'reset') {
+                        answer = this.turns().reset(binding.generation, value.version!) ? 'Conversazione nuova: dalla prossima domanda il bot riparte senza la cronologia della chat.' : 'Pulsante scaduto o risposte in corso; nessun cambiamento.';
+                    }
                     else if (value.action === 'cancel') {
                         answer = this.turns().cancel(value.id!, binding.generation, value.version!) ? 'Richiesta futura annullata; ricevuta conservata.' : 'Richiesta già avviata o pulsante scaduto.';
                     }
@@ -702,6 +705,14 @@ export class Telegram {
                     else
                         answer = 'Nessuna risposta attiva da interrompere.';
                 }
+                else if (u.text === '/reset') {
+                    if (this.turns().open(binding.generation))
+                        answer = 'Ci sono risposte in corso o in coda: attendi che finiscano, oppure usa /stop e /queue, poi riprova.';
+                    else {
+                        answer = 'Ripartire da una conversazione nuova? Il bot dimentica gli scambi precedenti in chat; mandati, stato del nodo e cronologia restano. Finché non premi il pulsante non cambia nulla.';
+                        this.attachButtons(event, [{ text: 'Nuova conversazione', value: { action: 'reset', version: this.turns().epoch() } }], binding.generation);
+                    }
+                }
                 else if (u.text === '/queue') {
                     const pending = this.store.all("SELECT id,state FROM jobs WHERE state IN ('queued','waiting')").map(j => this.turns().get(j.id)).filter(t => t && t.generation === binding.generation && !t.closed);
                     answer = pending.length ? `${pending.length} richieste future. Annulla una richiesta con i pulsanti.` : 'Nessuna richiesta futura.';
@@ -727,7 +738,7 @@ export class Telegram {
                 }
                 else if (u.text === '/help' || u.text === '/menu') {
                     if(u.text==='/menu')this.attachButtons(event,[['Stato','/status'],['Analizza','/analyze'],['Proposte','/proposals'],['Coda','/queue'],['Recupera','/recover'],['Aiuto','/help']].map(([text,code])=>({text:text!,value:{action:'navigate',code,expires:new Date(Date.parse(at)+15*60000).toISOString()}})),binding.generation);
-                    answer = '/status /analyze /pause /resume /proposals /stop /queue /recover /menu /help. La chat consente analisi; chiedi esplicitamente una proposta da approvare. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.' + (this.store.get('contentArtifactsEnabled')===true?' Esporta dati con /export pdf|png|csv|xlsx [section=...] [limit=1..100] [-- descrizione].':'');
+                    answer = '/status /analyze /pause /resume /proposals /stop /queue /recover /reset /menu /help. /reset fa ripartire la chat da una conversazione nuova. La chat consente analisi; chiedi esplicitamente una proposta da approvare. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.' + (this.store.get('contentArtifactsEnabled')===true?' Esporta dati con /export pdf|png|csv|xlsx [section=...] [limit=1..100] [-- descrizione].':'');
                 }
                 else {
                     const message = u.text.startsWith('/analyze') ? u.text.slice(8).trim() || 'Analizza economia del nodo e blocchi attuali' : u.text;
@@ -1098,7 +1109,7 @@ export class Telegram {
         const completeKey = key + ':ownerChatDefaultV1:' + b.chatId;
         if (this.store.get(completeKey) === true) return;
         const dispatchAuthorized=()=>this.authorized(b.generation,b.chatId,bot)&&Date.now()>=(this.store.get<number>('telegramRateLimitUntil')??0);
-        const commands = [['status', 'Stato e budget'], ['analyze', 'Analizza il nodo'], ['proposals', 'Proposte da approvare'], ['pause', 'Sospendi autonomia'], ['resume', 'Riprendi con conferma'], ['stop', 'Interrompi risposta attiva'], ['queue', 'Richieste future'], ['recover', 'Richieste precedenti'], ['prompt', 'Recupera prompt consultivo per ID'], ['menu', 'Menu'], ['help', 'Aiuto']].map(([command, description]) => ({ command, description }));
+        const commands = [['status', 'Stato e budget'], ['analyze', 'Analizza il nodo'], ['proposals', 'Proposte da approvare'], ['pause', 'Sospendi autonomia'], ['resume', 'Riprendi con conferma'], ['stop', 'Interrompi risposta attiva'], ['queue', 'Richieste future'], ['recover', 'Richieste precedenti'], ['reset', 'Nuova conversazione'], ['menu', 'Menu'], ['help', 'Aiuto']].map(([command, description]) => ({ command, description }));
         if(this.store.get('contentArtifactsEnabled')===true)commands.push({command:'export',description:'Esporta dati autorizzati'});
         try {
             // The owner's no-language scope outranks inherited scopes. Leave

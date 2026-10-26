@@ -14,7 +14,7 @@ import { unsolicitedFixture } from './telegram-unsolicited-fixture.js';
 
 const at = new Date().toISOString();
 
-const commandNames = ['status','analyze','proposals','pause','resume','stop','queue','recover','prompt','menu','help'];
+const commandNames = ['status','analyze','proposals','pause','resume','stop','queue','recover','reset','menu','help'];
 function fixture(call: (method: string, body: any) => Promise<any> = async method => method === 'getMe' ? { username: 'satssurge_bot' } : true) {
     const directory = mkdtempSync(join(tmpdir(), 'rich-layout-')), store = new Store(':memory:'), queue = new Queue(store);
     const unsolicited = unsolicitedFixture(store);

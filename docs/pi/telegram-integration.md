@@ -372,6 +372,17 @@ restano immediati. I fence di ingresso per comandi scaduti restano attivi.
 
 I prompt consultivi e il comando `/prompt` sono stati rimossi nella 0.7.1 (#153).
 
+## Nuova conversazione con `/reset` (0.7.2)
+
+La chat e la ricerca su Telegram riusano una conversazione Durable persistente,
+che il modello riassume automaticamente quando cresce. `/reset` chiede conferma
+con il pulsante **Nuova conversazione**. Alla conferma incrementa l'epoca della
+sessione (`telegramSessionEpoch`), quindi la domanda successiva crea nuove
+conversazioni Durable. Le conversazioni precedenti restano archiviate. Il comando
+è rifiutato finché un turno Telegram è in corso o in coda, e un pulsante già
+usato non azzera una seconda volta. Lo strumento `conversation_memory` è stato
+rimosso: il registro `chat` serve soltanto al riquadro web.
+
 ## Composizione 0.5.11 — checkpoint storico 2026-10-12
 
 Il checkpoint reale 0.5.10 su Telegram Web conserva il testo finale completo,
