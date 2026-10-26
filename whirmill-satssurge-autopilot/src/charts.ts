@@ -39,8 +39,10 @@ const romeDay = (t: number) => new Intl.DateTimeFormat('sv-SE', { timeZone: ROME
 
 function aliases(store: Store) { const s = store.get<Snapshot>('snapshot'); return new Map((s?.channels ?? []).map(c => [c.id, c.alias || c.id])); }
 const nameOf = (names: Map<string, string>, id: string) => names.get(id) ?? id;
-/** One snapshot per hour (the last of each), oldest first. */
+/** Every snapshot for short windows (a fast drain lasts minutes); one per hour (the last of each) beyond about two days. */
+const FULL_RESOLUTION_ROWS = 3000;
 function hourly(store: Store, from: string): Snapshot[] {
+  if (store.one('SELECT count(*) n FROM snapshots WHERE at>=?', from).n <= FULL_RESOLUTION_ROWS) return store.all('SELECT content FROM snapshots WHERE at>=? ORDER BY at', from).map(r => JSON.parse(r.content));
   return store.all("SELECT s.content FROM snapshots s JOIN (SELECT max(rowid) r FROM snapshots WHERE at>=? GROUP BY substr(at,1,13)) m ON m.r=s.rowid ORDER BY s.at", from).map(r => JSON.parse(r.content));
 }
 function channelId(store: Store, query: string | undefined, names: Map<string, string>) {
@@ -117,7 +119,7 @@ export function chartCaption(d: ChartData): string {
     case 'storico': return [`Saldo locale dal ${date(Date.parse(d.from))} (% della capacità, campione orario):`, ...d.panels.map(p => { const a = p.points[0]?.[1], b = p.points.at(-1)?.[1]; return `${cleanAlias(p.alias, 32)}: ${a === undefined ? '—' : Math.round(a) + '%'} → ${b === undefined ? '—' : Math.round(b) + '%'}`; })].join('\n').slice(0, 1024);
     case 'inoltri': { const total = d.out.reduce((n, r) => n + r.feeMsat, 0), count = d.out.reduce((n, r) => n + r.count, 0); return [`Inoltri dal ${date(Date.parse(d.from))}: ${count}, commissioni ${satText(total)}.`, ...d.out.filter(r => r.count).map(r => `${cleanAlias(r.alias, 32)}: ${satText(r.feeMsat)} da ${r.count} inoltri in uscita (${compact(sat(r.volumeMsat))} sat)`)].join('\n').slice(0, 1024); }
     case 'guadagni': { const r = d.revenue.at(-1)![1], c = d.costs.at(-1)![1]; return `Dal ${date(Date.parse(d.from))}: commissioni di routing ${satText(r)}, costi dei rebalance ${satText(c)}, saldo ${r - c >= 0 ? '+' : '−'}${satText(Math.abs(r - c))}. Esclusi costi on-chain, swap e spese iniziali.`; }
-    case 'rebalance': { const o = d.operation, earned = d.fees.at(-1)![1], first = d.balance.find(p => p[0] >= Date.parse(o.at))?.[1], last = d.balance.at(-1)?.[1]; return `Rebalance del ${date(Date.parse(o.at))}: ${thousands(o.amountSat)} sat da ${cleanAlias(o.source, 32)} verso ${cleanAlias(o.target, 32)}, costo ${satText(o.feeMsat)}. Commissioni rientrate da allora su ${cleanAlias(o.target, 32)}: ${satText(earned)} (${o.feeMsat ? Math.round(earned / o.feeMsat * 100) : 0}% del costo).${first !== undefined && last !== undefined ? ` Saldo locale ${compact(first)} → ${compact(last)} sat.` : ''}`; }
+    case 'rebalance': { const o = d.operation, earned = d.fees.at(-1)![1], first = d.balance.find(p => p[0] > Date.parse(o.at))?.[1], last = d.balance.at(-1)?.[1]; return `Rebalance del ${date(Date.parse(o.at))}: ${thousands(o.amountSat)} sat da ${cleanAlias(o.source, 32)} verso ${cleanAlias(o.target, 32)}, costo ${satText(o.feeMsat)}. Commissioni rientrate da allora su ${cleanAlias(o.target, 32)}: ${satText(earned)} (${o.feeMsat ? Math.round(earned / o.feeMsat * 100) : 0}% del costo).${first !== undefined && last !== undefined ? ` Saldo locale subito dopo ${compact(first)} sat, ora ${compact(last)} sat.` : ''}`; }
     case 'fee': { const first = d.ppm[0]?.[1], last = d.ppm.at(-1)?.[1], changes = d.ppm.filter((p, i) => i && p[1] !== d.ppm[i - 1]![1]).length, total = d.daily.reduce((n, r) => n + r.count, 0); return `${cleanAlias(d.alias, 32)} dal ${date(Date.parse(d.from))}: fee ${first ?? '—'} → ${last ?? '—'} ppm (${changes} modifiche), ${total} inoltri in uscita.`; }
   }
 }
@@ -142,7 +144,9 @@ interface Panel { x: number; y: number; w: number; h: number; from: number; to: 
 function frame(p: Panel, title?: string) {
   const min = p.min ?? 0, ticks = p.ticks ?? 4; let out = title ? text(p.x, p.y - 14, title, { size: 19, fill: C.ink }) : '';
   for (let i = 0; i <= ticks; i++) { const v = min + (p.max - min) * i / ticks, y = p.y + p.h - (v - min) / (p.max - min) * p.h; out += line(p.x + 56, y, p.x + p.w, y, i ? C.grid : C.axis) + text(p.x + 48, y + 6, p.format(v), { size: 15, fill: C.muted, anchor: 'end' }); }
-  out += text(p.x + 56, p.y + p.h + 24, date(p.from), { size: 15, fill: C.muted }) + text(p.x + p.w, p.y + p.h + 24, date(p.to), { size: 15, fill: C.muted, anchor: 'end' });
+  // Under two days the dates repeat: add the time.
+  const label = (t: number) => p.to - p.from < 2 * DAY ? date(t) + ' ' + new Intl.DateTimeFormat('it-IT', { timeZone: ROME, hour: '2-digit', minute: '2-digit' }).format(new Date(t)) : date(t);
+  out += text(p.x + 56, p.y + p.h + 24, label(p.from), { size: 15, fill: C.muted }) + text(p.x + p.w, p.y + p.h + 24, label(p.to), { size: 15, fill: C.muted, anchor: 'end' });
   return out;
 }
 const sx = (p: Panel, t: number) => p.x + 56 + (t - p.from) / Math.max(1, p.to - p.from) * (p.w - 56);
