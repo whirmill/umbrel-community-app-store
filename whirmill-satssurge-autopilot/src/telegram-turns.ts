@@ -159,5 +159,9 @@ export class TelegramTurns {
             this.saveCorrection(c);
         }
     } }
-    sessionKey(t: Turn) { return 'telegramSession:' + hash(JSON.stringify([t.generation, t.chatId, t.capability])); }
+    // /reset bumps the epoch: chat and research sessions then bind new Durable conversations; old ones stay stored.
+    epoch() { return this.store.get<number>('telegramSessionEpoch') ?? 0; }
+    open(generation: string) { return this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'").some(r => { const t = JSON.parse(r.value) as Turn; return t.generation === generation && !t.closed; }); }
+    reset(generation: string, epoch: number) { return this.store.tx(() => { if (epoch !== this.epoch() || this.open(generation)) return false; this.store.set('telegramSessionEpoch', epoch + 1); return true; }); }
+    sessionKey(t: Turn) { const epoch = this.epoch(); return 'telegramSession:' + hash(JSON.stringify(epoch ? [t.generation, t.chatId, t.capability, epoch] : [t.generation, t.chatId, t.capability])); }
 }

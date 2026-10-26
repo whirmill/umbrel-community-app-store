@@ -341,7 +341,7 @@ finally {
     rmSync(dir, { recursive: true, force: true });
 } });
 test('command menu replaces inherited default commands once per generation and fences every write', async () => { const methods: string[] = [], f = setup(async (method: string, body: any) => { methods.push(method); if (method === 'setMyCommands')
-    assert.deepEqual(body.commands.map((c: any) => c.command), ['status', 'analyze', 'proposals', 'pause', 'resume', 'stop', 'queue', 'recover', 'prompt', 'menu', 'help']); return method === 'getMe' ? { username: 'satssurge_bot' } : true; }); try {
+    assert.deepEqual(body.commands.map((c: any) => c.command), ['status', 'analyze', 'proposals', 'pause', 'resume', 'stop', 'queue', 'recover', 'reset', 'menu', 'help']); return method === 'getMe' ? { username: 'satssurge_bot' } : true; }); try {
     await f.t.menu();
     await f.t.menu();
     assert.deepEqual(methods, ['setMyCommands', 'setMyCommands', 'setChatMenuButton', 'getMe']);
