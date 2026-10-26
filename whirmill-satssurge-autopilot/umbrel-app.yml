@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.7.0"
+version: "0.7.1"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,7 +27,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.7.0 makes SatsSurge react to node events. The HTLC, graph and
-  channel streams stay open instead of reconnecting every 30 seconds. Channel
-  opens and closes, and bursts of failed forwards, now start an automatic
-  review, within the existing daily limit.
+  Version 0.7.1 removes the "prompt di sviluppo consultivo" messages and the
+  /prompt command. They turned every failed job, including deliberate stops,
+  into a generic development prompt. Operational alerts are unchanged.
