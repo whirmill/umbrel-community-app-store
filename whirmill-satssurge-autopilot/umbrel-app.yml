@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.8.0"
+version: "0.8.1"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,7 +27,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.8.0 adds charts on Telegram: channel balance, balance history,
-  forwards and fees, fees against costs, the payback of a rebalance, and fee
-  and traffic of a channel. Use /grafico or ask in the chat. Unused export and
-  import tools were removed.
+  Version 0.8.1 makes recent charts minute by minute, so the payback chart
+  shows how fast a rebalanced channel is used. Short time axes now show the
+  hour.
