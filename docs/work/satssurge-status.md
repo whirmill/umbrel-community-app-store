@@ -8,7 +8,7 @@ available in Git history and in closed PRs #106/#107.
 
 | | |
 |---|---|
-| Version | 0.6.2 |
+| Version | 0.7.0 |
 | Installed | 2026-10-25 via the supported Umbrel update |
 | Financial execution | active since 2026-10-25 10:42 (Rome) under mandate v1, after the owner's `/resume`. The first cycle chose observation only; no operations yet |
 | LND | `lightninglabs/lnd:v0.21.5-beta.rc1`, gRPC TLS healthy |
@@ -60,6 +60,11 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
 - **Model provider alerts (0.5.25, #134).** A dropped model stream or connection pauses requests for a minute. Telegram now alerts only after 10 minutes of repeated failures and sends one recovery message. Authentication, quota and configuration failures still alert immediately.
 - **Telegram Stop on Web (0.6.1, #143).** Telegram Web's native draft stop control sends nothing to the bot, so Stop on Web is `/stop` and then the "Interrompi" button. The confirmation names the running question. The native apps may also stop through the draft control.
 - **HTLC final notices (0.6.2, #146).** LND sends a `final_htlc_event` (event type UNKNOWN) on every forward. SatsSurge treated it as malformed, closed the HTLC stream and raised `acquisition_failure`; busy forwarding periods produced false "LND non risponde" alerts (25 Oct 09:00, 26 Oct 05:22). The notice is now filtered like SEND/RECEIVE.
+- **Event-driven node events (0.7.0, #149).**
+  - **Streams.** The native HTLC, graph and channel-event subscriptions stay open until LND or the network ends them. gRPC keepalive replaces the 30 s idle timer and the 5 min budget, which had caused about 2,500 reconnects a day.
+  - **HTLC subscription.** The legacy duplicate HTLC subscription is gone. The native stream records each failed forward (`link_fail`) as an `htlc_rejected` event.
+  - **Channel events.** `SubscribeChannelEvents` records opens, closes, full resolutions and funding timeouts as `channel_lifecycle` events.
+  - **Automatic reviews.** A channel event, or 3 failed forwards once the burst is 2 minutes old, now starts an automatic review. The cap of 4 automatic reviews per scope per day is unchanged.
 - **Pi Durable integration simplified (0.6.0, #137).** The app no longer patches Pi Durable's scheduler. Tools are registered once per capability instead of per slot. Job leases and heartbeats are removed. Durable's native generation retry replaces the app's own. At startup, interrupted agent runs are re-attached, or aborted natively when the gates would not admit them now, before Durable resumes; aborted runs are never replayed. Each financial operation now records the model tool call that started it. Design: `docs/work/satssurge-durable-simplification.md`.
 - **Peer fee comparison (0.5.21).** It had been unavailable since LND left 0.21.3, because both sides pinned that exact version. It now accepts LND 0.21+ including release candidates.
 - **Database growth (0.5.22, #112).** Per-minute redundant canonical writes stopped: unchanged policies, empty history windows, rollup republishing, snapshot mirror copies and streaming frames. Simulated growth went from about 180 to about 12 MB/day. The release also fixes a latent retention bug that would have blocked financial execution about 90 days after install. `scripts/prune_redundant_history.py` removes existing redundant rollups and frames offline.
