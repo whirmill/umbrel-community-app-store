@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { CONFIG, SETTINGS } from './config.js';
 
 export const now = () => new Date().toISOString();
 export const id = () => randomUUID();
@@ -13,18 +14,23 @@ export function integer(v: unknown): bigint {
 }
 export const day = (at: string) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(at));
 export const SCHEMA_VERSION = 7;
+const msat = (sat: number) => String(BigInt(sat) * 1000n);
+/** Fee/rebalance mandate. Limits come from the owner configuration (config.ts); kinds and rules stay in code. */
 export const MANDATE = Object.freeze({
-  version: 1, totalMsat: '30000000', dailyMsat: '1500000', exploratoryDailyMsat: '750000',
-  attemptMsat: '100000', reserveSat: '500000', feeWindowHours: 48,
-  maxAttempts: 3, maxObservationDays: 7,
-  allowed: ['fee_change', 'rebalance'], economicView: 'net-operating-30-days', timezone: 'Europe/Rome'
+  version: 1, totalMsat: msat(SETTINGS.mandate.totalSat), dailyMsat: msat(SETTINGS.mandate.dailySat), exploratoryDailyMsat: msat(SETTINGS.mandate.exploratoryDailySat),
+  attemptMsat: msat(SETTINGS.mandate.attemptSat), reserveSat: String(SETTINGS.mandate.reserveSat), feeWindowHours: SETTINGS.mandate.feeWindowHours,
+  maxAttempts: SETTINGS.mandate.maxAttempts, maxObservationDays: 7,
+  feeStepPercent: SETTINGS.mandate.feeStepPercent, feeStepMinPpm: SETTINGS.mandate.feeStepMinPpm, ordinaryBenefitRatio: SETTINGS.mandate.ordinaryBenefitRatio,
+  allowed: ['fee_change', 'rebalance'], economicView: 'net-operating-30-days', timezone: 'Europe/Rome',
+  // Every decision stores this object: the digest identifies the owner configuration it ran under.
+  configSource: CONFIG.source, configDigest: CONFIG.digest,
 });
 export const month = (at: string) => day(at).slice(0, 7);
 /** Mandate v2 adds owner-approved channel lifecycle on top of v1; v1 fee/rebalance caps and receipts are unchanged. */
 export const CHANNEL_MANDATE = Object.freeze({
   version: 2, base: MANDATE.version, allowed: ['channel_open', 'channel_close'], approval: 'owner_each_operation',
-  onchainMonthlyFeeSat: '20000', minOpenSat: '500000', maxOpenSat: '2000000', reserveSat: MANDATE.reserveSat,
-  maxSatPerVbyte: 50, targetConf: 6, closeVbytes: 250, close: 'cooperative_only', timezone: 'Europe/Rome'
+  onchainMonthlyFeeSat: String(SETTINGS.channels.onchainMonthlyFeeSat), minOpenSat: String(SETTINGS.channels.minOpenSat), maxOpenSat: String(SETTINGS.channels.maxOpenSat), reserveSat: MANDATE.reserveSat,
+  maxSatPerVbyte: SETTINGS.channels.maxSatPerVbyte, targetConf: 6, closeVbytes: 250, close: 'cooperative_only', timezone: 'Europe/Rome'
 });
 export interface ChannelProposal {
   kind: 'channel_open' | 'channel_close'; peer: string; address?: string; channel?: string; amountSat: string;

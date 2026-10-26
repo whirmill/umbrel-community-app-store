@@ -15,6 +15,7 @@ services:
       INTERLOCK_FILE: /interlock/status.json
       DIAGNOSTICS_FILE: /diagnostics/status.json
       COMPETITION_FILE: /diagnostics/competition.json
+      SATSSURGE_CONFIG_FILE: /config/satssurge.json
       LND_GRPC_TARGET: ${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_GRPC_PORT}
       LND_URL: https://${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_REST_PORT}
       PORT: "8080"
@@ -24,6 +25,7 @@ services:
       - ${APP_DATA_DIR}/history:/history:ro
       - ${APP_DATA_DIR}/interlock:/interlock:ro
       - ${APP_DATA_DIR}/diagnostics:/diagnostics:ro
+      - ${APP_DATA_DIR}/config:/config:ro
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]

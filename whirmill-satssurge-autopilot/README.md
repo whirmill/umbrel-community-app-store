@@ -11,10 +11,12 @@ Current version, update and rollback steps, known issues and roadmap:
 
 ## Safety rules (mandate v1)
 
-These limits are built into the app and cannot be changed from chat.
+Nothing in chat, Telegram or the web app can change these rules. The numbers are
+defaults: the owner can change them in the [configuration file](#configuration).
 
-- **Allowed actions:** `fee_change` and `rebalance` only. No channel opens or
-  closes, no on-chain sends.
+- **Allowed actions:** `fee_change` and `rebalance` on its own. Channel opens and
+  cooperative closes only after the owner taps Approva on each one. No other
+  on-chain sends.
 - **Spending caps:**
   - 30,000 sats cumulative spend, including imported history;
   - 1,500 sats of rebalance fees per day (Europe/Rome), of which at most 750 on
@@ -25,8 +27,9 @@ These limits are built into the app and cannot be changed from chat.
   Below that, nothing is dispatched.
 - **Rebalances** need evidence: 48 observed hours over two days, ten external
   forwards, and an expected benefit of at least twice the maximum cost.
-- **Fee changes** are bounded experiments. They keep the base fee and HTLC
-  parameters and are observed for at least 48 hours.
+- **Fee changes** are bounded experiments: at most 20% (minimum 5 ppm) per
+  step. They keep the base fee and HTLC parameters and are observed for at
+  least 48 hours.
 - **No other fee/rebalance automation at the same time.** A host timer checks
   every 30 seconds that LightningMate (fee, rebalance, sell, LSP), LNDg
   (AF, AR, autopilot) and Loop/Lightning Terminal are off. If the check is
@@ -37,6 +40,53 @@ These limits are built into the app and cannot be changed from chat.
     retried blindly;
   - a payment that breaks an accounting invariant stops autonomy until you
     review it.
+
+## Configuration
+
+Limits and timings live in an optional JSON file on the node. Without the file
+every value is the default below.
+
+- **Location:** `~/umbrel/app-data/whirmill-satssurge-autopilot/config/satssurge.json`.
+  The app sees it at `/config/satssurge.json`, read-only: neither the agent nor
+  Telegram nor the web app can change it.
+- **Format:** write only the values you change. For example,
+  `{"mandate": {"attemptSat": 500}}` raises the per-attempt cost to 500 sats and
+  keeps everything else.
+- **Applying a change:** the file is read when the app starts. After editing it,
+  restart the app (stop and start).
+- **After the restart:**
+  - Telegram reports what changed, for example "costo massimo per tentativo
+    (sat) 100 → 500";
+  - `node_state` shows the values in force;
+  - every decision records the configuration digest.
+- **Mistakes:** a value outside its bounds, an unknown key or broken JSON
+  applies nothing. Financial operations stay blocked and Telegram names the
+  problem; chat keeps working with the defaults.
+
+| Key | Default | Bounds | Meaning |
+|---|---|---|---|
+| `mandate.attemptSat` | 100 | 1–2,000 | max cost of one rebalance attempt |
+| `mandate.dailySat` | 1,500 | 1–10,000 | rebalance fees per day |
+| `mandate.exploratoryDailySat` | 750 | 0–daily | of which exploratory |
+| `mandate.totalSat` | 30,000 | 0–100,000 | cumulative spend |
+| `mandate.reserveSat` | 500,000 | 100,000–10,000,000 | protected on-chain sats |
+| `mandate.maxAttempts` | 3 | 1–5 | attempts per decision |
+| `mandate.feeStepPercent` / `feeStepMinPpm` | 20 / 5 | 1–50 / 1–100 | fee change step |
+| `mandate.feeWindowHours` | 48 | 6–720 | wait between fee changes on a channel |
+| `mandate.ordinaryBenefitRatio` | 2 | 1–10 | benefit required for an ordinary rebalance, × cost |
+| `channels.onchainMonthlyFeeSat` | 20,000 | 0–50,000 | on-chain fees for channel operations per month |
+| `channels.minOpenSat` / `maxOpenSat` | 500,000 / 2,000,000 | 100,000–5,000,000 | channel open size |
+| `channels.maxSatPerVbyte` | 50 | 1–200 | on-chain fee rate |
+| `telegram.proposalMinutes` | 5 | 1–30 | how long Approva stays valid |
+| `telegram.quietStartHour` / `quietEndHour` | 22 / 8 | 0–23 | quiet hours (equal values: none) |
+| `telegram.digestHour` | 9 | 0–23 | daily digest |
+| `telegram.lndAlertMinutes`, `lndSyncAlertMinutes`, `providerAlertMinutes`, `uncertainAlertMinutes` | 10 | 1–60 | delay before a critical alert |
+| `agent.softSeconds` / `economicSoftSeconds` / `hardSeconds` | 120 / 60 / 180 | 30–600 / 30–600 / 60–900 | turn duration; hard ≥ soft + 30 |
+| `agent.readOnlyResearchCalls` / `coordinatorResearchCalls` | 12 / 16 | 4–40 | tool calls per turn |
+| `agent.automaticReviewsPerDay` | 4 | 0–24 | automatic reviews per scope |
+| `agent.htlcFailureTrigger` / `htlcFailureSettleSeconds` | 3 / 120 | 1–100 / 10–3,600 | failed forwards that start a review |
+| `lnd.callSeconds` | 20 | 5–60 | wait for one LND call |
+| `lnd.paymentWaitSeconds` / `paymentTimeoutSeconds` | 120 / 30 | 60–600 / 10–300 | payment wait; timeout ≤ wait − 30 |
 
 ## How it works
 

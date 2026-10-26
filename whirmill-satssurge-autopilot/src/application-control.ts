@@ -6,6 +6,7 @@ import { Queue } from './queue.js';
 import { Executor } from './executor.js';
 import { hash, json, now, scrub, channelKind, proposalCapability, type Proposal, type ChannelProposal, type Snapshot } from './domain.js';
 import { channelApprovalState } from './channels.js';
+import { SETTINGS } from './config.js';
 /** Snapshot timestamps are excluded; every material approved endpoint field is bound. */
 export function approvalState(s: Snapshot, p: Proposal) {
     return hash(json({ identity: s.identity, synced: s.synced, confirmedSat: s.confirmedSat, channels: s.channels.filter(c => [p.source, p.target].includes(c.id)).sort((a, b) => a.id.localeCompare(b.id)) }));
@@ -95,7 +96,7 @@ export class ApplicationControl {
         const originGeneration=this.store.get('jobTelegramGeneration:'+jobId);
         if(originGeneration&&originGeneration!==this.store.get('telegramBinding')?.generation)throw Error('Proposal request authority revoked');
         this.store.tx(()=>{
-            const inserted=this.store.run("INSERT OR IGNORE INTO owner_proposals VALUES(?,?,?,?,?,'pending',?,NULL,NULL,NULL,?)", key, at, content, digest, stateDigest, new Date(Date.parse(at) + 300000).toISOString(), jobId);
+            const inserted=this.store.run("INSERT OR IGNORE INTO owner_proposals VALUES(?,?,?,?,?,'pending',?,NULL,NULL,NULL,?)", key, at, content, digest, stateDigest, new Date(Date.parse(at) + SETTINGS.telegram.proposalMinutes * 60000).toISOString(), jobId);
             if(inserted.changes===1)this.store.set('proposalAuthority:'+key,{generation:this.store.get('telegramBinding')?.generation??null});
         });
         return this.proposal(key);

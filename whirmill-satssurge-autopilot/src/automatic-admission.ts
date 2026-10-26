@@ -2,6 +2,7 @@ import { Queue } from './queue.js';
 import { ReviewWaits } from './review-waits.js';
 import { channelScid } from './diagnostics.js';
 import { hash,json,now } from './domain.js';
+import { SETTINGS } from './config.js';
 export function canonicalScope(scope:string,lane:'coordinator'|'analyst') {
   if(lane==='coordinator')return 'node';
   const channels=scope.split('->');
@@ -9,7 +10,7 @@ export function canonicalScope(scope:string,lane:'coordinator'|'analyst') {
   return channels.map(channelScid).join('->');
 }
 function decimal(scid:string){const [h,t,o]=scid.split('x').map(BigInt);return ((h!<<40n)+(t!<<16n)+o!).toString();}
-export const HTLC_FAILURE_TRIGGER=3,HTLC_FAILURE_SETTLE_MS=120000;
+export const HTLC_FAILURE_TRIGGER=SETTINGS.agent.htlcFailureTrigger,HTLC_FAILURE_SETTLE_MS=SETTINGS.agent.htlcFailureSettleSeconds*1000;
 /** All automatic ingresses share this atomic, durable gate. Owner work bypasses it. */
 export class AutomaticAdmission {
   constructor(private queue:Queue,private clock=Date.now){}
@@ -33,7 +34,7 @@ export class AutomaticAdmission {
       const due=!!wait&&Date.parse(wait.dueAt)<=this.clock()&&previous.due_consumed!==wait.dueAt;
       const changedBlocker=previous.blocker_digest!==null&&blocker!==previous.blocker_digest;
       if((previous.generation||wait)&&!due&&!triggered&&forwards.n<10&&!material.n&&failures.n<HTLC_FAILURE_TRIGGER&&!changedBlocker)return;
-      if(store.one('SELECT count(*) n FROM automatic_admissions WHERE scope=? AND at>?',canonical,new Date(this.clock()-86400000).toISOString()).n>=4)return;
+      if(store.one('SELECT count(*) n FROM automatic_admissions WHERE scope=? AND at>?',canonical,new Date(this.clock()-86400000).toISOString()).n>=SETTINGS.agent.automaticReviewsPerDay)return;
       const generation=previous.generation+1;
       const job=this.queue.enqueueWithinTransaction({requestId:'automatic:'+hash(canonical)+':'+generation,kind:lane==='analyst'?'analysis':'autonomy',scope:canonical,origin:'scheduler',purpose:'economic',payload:{message:'Review '+canonical+' using new material evidence. Compare observation, costs, alternatives and mandate. Missing inputs are unknown; propose only in analyst lane.',generation}},at);
       store.run('INSERT INTO automatic_admissions VALUES(?,?,?,?)',canonical,generation,job.id,at);

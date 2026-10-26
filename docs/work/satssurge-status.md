@@ -34,6 +34,18 @@ The launcher takes a database checkpoint only when a release changes a schema
 version (`scripts/schema-targets.json`). A release that changes only code
 starts immediately.
 
+## How to change the configuration
+
+Limits and timings (mandate, channels, Telegram, agent, LND) are in the optional
+`config/satssurge.json` in app-data, mounted read-only. The keys, defaults and
+bounds are in the [app README](../../whirmill-satssurge-autopilot/README.md#configuration).
+
+1. Write only the changed values, e.g. `{"mandate": {"attemptSat": 500}}`. Create
+   the file as `umbrel` in `~/umbrel/app-data/whirmill-satssurge-autopilot/config/`.
+2. Restart the app (stop, then start). The file is read only at startup.
+3. Telegram reports the change. If it reports "Configurazione non valida", the
+   file was not applied and finance stays blocked until it is fixed.
+
 ## How to roll back
 
 Umbrel has no native downgrade.
@@ -76,6 +88,10 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - **Version.** `node_state` now reports the app name and version.
   - **Historical documents.** `evidence_search` marks documents imported on 8 Oct with their date and as not current.
   - **One-off curation, owner-approved on 26 Oct.** 59 superseded pre-app documents left the search index: plans, proposals, qualifications, market studies, snapshots, point-in-time reports, a session audit and an implementation checkpoint. Their evidence rows stay. The 23 receipts and registers remain searchable.
+- **Owner configuration (0.7.6, #168).** Limits and timings moved from the code to an optional read-only JSON file in app-data.
+  - **Why a file.** Environment variables live in the compose file, which every update rewrites. The database is written by the app and its agent tools, which would put the spending mandate within their reach. The file is mounted read-only and survives updates.
+  - **Behavior.** Defaults equal the previous built-in values. Bounds cap each value, and an invalid file blocks finance. Changes are announced on Telegram and shown in `node_state`, and each decision records the configuration digest.
+  - **Proposals.** A refused proposal now lists unknown evidence ids, and the tool says where valid ids come from.
 - **Approval feedback (0.7.5, #165).** On 26 Oct the owner approved a 250k sat rebalance to LNMarkets (max fee 100 sat). LND failed it at no cost after reconciliation.
   - **What the owner saw.** No message for 45 s, then "Richiesta bloccata o scaduta", although the payment had been sent, then a critical "esito incerto" alert.
   - **Now.** Approva is acknowledged at once. The outcome comes in Italian with LND's failure reason and the cost. A second tap says what happened to the proposal, and proposal status follows the operation (`executed`/`failed`/`expired`).
