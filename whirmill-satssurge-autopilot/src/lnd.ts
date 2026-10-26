@@ -91,7 +91,8 @@ export class Lnd implements NodeClient {
   private streamBindingCleanup=new WeakSet<AbortSignal>();
   private failureEpoch=0;
   private status:LndTransportStatus={transport:'grpc-tls',inspectedAt:now(),warning:'unavailable',activeChannels:0,activeCalls:0};
-  constructor(target:string,private caFile:string,readFile:string,writeFile:string,private limits={unaryMs:20000,paymentMs:45000,maxChannels:4,maxCalls:64,historyBytes:128*1024*1024,streamBytes:32*1024*1024}) {
+  // paymentMs covers SendPaymentV2's timeout_seconds (30) plus HTLC resolution; at 45 s a slow failure became uncertain (26 Oct).
+  constructor(target:string,private caFile:string,readFile:string,writeFile:string,private limits={unaryMs:20000,paymentMs:120000,maxChannels:4,maxCalls:64,historyBytes:128*1024*1024,streamBytes:32*1024*1024}) {
     this.endpoint=grpcTarget(target);
     this.readToken=readFileSync(readFile).toString('hex');this.writeToken=readFileSync(writeFile).toString('hex');
     if(!this.readToken||!this.writeToken)throw new Error('LND restricted credentials unavailable');
@@ -294,7 +295,7 @@ export class Lnd implements NodeClient {
     const routes=(p.htlcs??[]).filter((h:any)=>h.status==='SUCCEEDED').map((h:any)=>h.route);
     const route=routes[0];
     const endpointsValid=routes.length>0 && routes.every((r:any)=>r.hops?.[0]?.chan_id===route?.hops?.[0]?.chan_id && r.hops?.at(-1)?.chan_id===route?.hops?.at(-1)?.chan_id);
-    return {status:p.status,feeMsat:String(p.fee_msat??0),amountSat:String(p.value_sat??0),source:endpointsValid?route?.hops?.[0]?.chan_id:undefined,target:endpointsValid?route?.hops?.at(-1)?.chan_id:undefined,index:p.payment_index?String(p.payment_index):undefined};
+    return {status:p.status,feeMsat:String(p.fee_msat??0),amountSat:String(p.value_sat??0),source:endpointsValid?route?.hops?.[0]?.chan_id:undefined,target:endpointsValid?route?.hops?.at(-1)?.chan_id:undefined,index:p.payment_index?String(p.payment_index):undefined,...(p.status==='FAILED'&&typeof p.failure_reason==='string'?{reason:p.failure_reason}:{})};
   }
   async send(request:string,source:string,lastPeer:string,capMsat:string) {
     const r=await this.stream('sendPaymentV2',{payment_request:request,outgoing_chan_ids:[source],last_hop_pubkey:Buffer.from(lastPeer,'hex'),fee_limit_msat:capMsat,timeout_seconds:30,max_parts:8,allow_self_payment:true,no_inflight_updates:true},true);

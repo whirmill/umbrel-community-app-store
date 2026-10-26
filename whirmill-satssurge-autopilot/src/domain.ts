@@ -58,7 +58,7 @@ export interface Forecast {
   benefitMsat: string; requestedMsat: string; explanation: string;
   reasons?:string[]; coverageComplete?:boolean; inputAvailability?:boolean; rawRequestedMsat?:string; version?:number; baseline?:{at:string;sourceInboundMsat:string;targetOutboundMsat:string;targetPpm:number;targetBaseMsat:string;rate7MsatPerHour:string;rate30MsatPerHour:string;conservativeDemand30Msat:string;opportunityCostMsat:string};
 }
-export interface PaymentOutcome { status: 'SUCCEEDED' | 'FAILED' | 'IN_FLIGHT'; feeMsat: string; amountSat: string; source?: string; target?: string; index?: string; }
+export interface PaymentOutcome { status: 'SUCCEEDED' | 'FAILED' | 'IN_FLIGHT'; feeMsat: string; amountSat: string; source?: string; target?: string; index?: string; reason?: string; }
 export const terminal = (s: string) => s === 'SUCCEEDED' || s === 'FAILED';
 /** Public conversation projection excludes internal thinking and provider metadata. */
 export function publicAnswer(value:unknown):string {

@@ -87,6 +87,8 @@ export class Executor {
       this.store.run('UPDATE operations SET state=?,invoice=NULL,details=? WHERE id=?',result.status,json({...result,completedAt}),operation);
       this.store.run('UPDATE reservations SET active=0 WHERE operation_id=?',operation);
       this.store.run('UPDATE decisions SET status=? WHERE id=?',result.status==='SUCCEEDED'?'observing':'failed',d.id);
+      // An owner-approved proposal follows its operation, also when reconciliation settles it later.
+      this.store.run("UPDATE owner_proposals SET status=? WHERE operation_id=? AND status IN ('executing','reconcile_required')",result.status==='SUCCEEDED'?'executed':'failed',operation);
     });
   }
   async reconcile() {

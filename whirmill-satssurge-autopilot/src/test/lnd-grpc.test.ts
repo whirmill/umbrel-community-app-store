@@ -150,3 +150,7 @@ test('local channel event abort and shutdown retain prior failure while payment 
  const f=await fixture({}, {sendPaymentV2:(c:any)=>c.emit('error',{code:grpc.status.CANCELLED}),trackPaymentV2:(c:any)=>c.emit('error',{code:grpc.status.DEADLINE_EXCEEDED})});
  try{await assert.rejects(f.client.send('fixture',big,peer,'1'),/cancelled/);assert.equal(f.client.transportStatus().failure,'cancelled');await assert.rejects(f.client.track('07'.repeat(32)),/deadline/);assert.equal(f.client.transportStatus().failure,'deadline');assert.equal(f.seen.filter(v=>v.method==='sendPaymentV2').length,1);assert.equal(f.seen.filter(v=>v.method==='trackPaymentV2').length,1);assert.equal(f.client.transportStatus().activeCalls,0);}finally{f.close();}
 });
+test('a failed SendPaymentV2 carries the LND failure reason into the outcome',async()=>{
+ const f=await fixture({},{sendPaymentV2:(c:any)=>{c.write({status:'FAILED',fee_msat:'0',value_sat:'1000',failure_reason:'FAILURE_REASON_NO_ROUTE',htlcs:[]});c.end();}});
+ try{const r=await f.client.send('fixture',big,peer,'1');assert.equal(r.status,'FAILED');assert.equal(r.reason,'FAILURE_REASON_NO_ROUTE');}finally{f.close();}
+});

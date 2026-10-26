@@ -423,6 +423,41 @@ per principi generali, senza leggere i dati.
   il proprietario chiede un'operazione segnala in una riga costo e rischio e
   prepara la proposta invece di discutere.
 
+## Approvazione ed esito (0.7.5)
+
+Il 26 ottobre il proprietario ha approvato un rebalance di 250.000 sat verso
+LNMarkets con costo massimo di 100 sat. Il pagamento è fallito senza costi, ma su
+Telegram non è arrivato niente per 45 secondi. Poi è arrivato «Richiesta bloccata
+o scaduta», benché il pagamento fosse partito, e infine un allarme critico di esito
+incerto, che LND ha risolto in circa due minuti.
+
+- **Conferma immediata.** Un tocco su Approva per una proposta ancora `pending`
+  produce subito la risposta «Approvazione ricevuta: ricontrollo i dati e invio a
+  LND». Il pagamento può durare fino a due minuti.
+- **Esito.** Al termine la risposta riporta l'esito in italiano, con alias, importo
+  e costo, sotto l'evento `operation:<id>:<stato>`.
+  - **Riuscito:** importo e costo effettivo.
+  - **Non riuscito:** motivo di LND (`failure_reason`, per esempio «nessun
+    percorso entro il costo massimo») e la frase «nessun costo e saldi invariati».
+  - **Non ancora confermato:** «verifico senza ripeterlo».
+
+  Se il controllo rifiuta la proposta prima dell'invio, la risposta riporta il
+  controllo. «Richiesta bloccata» non compare più per un pagamento già inviato.
+- **Secondo tocco.** Distingue tra proposta già approvata (esito in verifica), già
+  eseguita, rifiutata, scaduta o revocata. Non invia mai una seconda volta.
+- **Stato della proposta.** Segue l'operazione: `executed` se riuscita, `failed` se
+  non riuscita, `reconcile_required` finché l'esito non è confermato. Lo aggiorna
+  anche la riconciliazione successiva (`Executor.finish`). Una proposta consegnata
+  e non approvata entro cinque minuti diventa `expired`.
+- **Notifiche delle operazioni.** L'esito di un'operazione approvata dal
+  proprietario arriva subito, anche dopo una riconciliazione. Quello delle
+  operazioni autonome resta nel digest. Un'operazione non conclusa
+  (`uncertain`/`in_flight`) diventa critica, e compare tra i blocchi, solo dopo
+  10 minuti, come per gli altri allarmi transitori.
+- **Attesa del pagamento.** L'app attende `SendPaymentV2` per 120 secondi invece
+  di 45: LND ha `timeout_seconds: 30` e poi deve ancora risolvere gli HTLC in
+  volo. Un'interruzione resta incerta e passa alla riconciliazione, senza replay.
+
 ## Composizione 0.5.11 — checkpoint storico 2026-10-12
 
 Il checkpoint reale 0.5.10 su Telegram Web conserva il testo finale completo,
