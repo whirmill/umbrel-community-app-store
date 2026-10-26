@@ -1,7 +1,6 @@
 import { ContentGeneration, type ContentFormat, type ContentSnapshot } from './content-generation.js';
 import { contentTools } from './content-tools.js';
 import {classifyNativeProviderError,failureCooldownMs,type ProviderFailure,type ProviderFailureKind} from './provider-failures.js';
-import { RuntimeImprovements } from './runtime-improvements.js';
 import {TelegramTurns, type Correction} from './telegram-turns.js';
 import {ApplicationControl} from "./application-control.js";
 import {Research} from './research.js';
@@ -668,27 +667,6 @@ export class Agent {
         });
       },
     });
-    const runtimeEvidence = defineTool({
-      name: 'runtime_improvement_evidence',
-      description: 'List bounded existing runtime failure/coverage receipts for an advisory development prompt. Never reads raw logs or personal payment payloads; missing evidence is unknown.',
-      parameters: Type.Object({}, { additionalProperties: false }), replay: 'safe',
-      async execute(_args, api) {
-        const run = limit(api.conversationId); const stop = exhausted(run); if (stop) return stop;
-        return result({ evidence: new RuntimeImprovements(self.store).candidates(), advisoryOnly: true });
-      },
-    });
-    const runtimeReport = defineTool({
-      name: 'report_runtime_improvement',
-      description: 'Persist an Italian advisory development prompt from a listed current evidence receipt. Facts, classification and app version are derived from storage. No code/runtime/permission changes or financial effects; pure upstream/auth failures are recorded without app-fix notification. Delivery does not resolve an issue. Never claim a confirmed app regression without a trusted verification receipt.',
-      parameters: Type.Object({
-        source: Type.Union(['job','outbox','collector','lndg','lightningMate'].map(s => Type.Literal(s))),
-        reference: Type.String({ minLength: 1, maxLength: 64 }),
-      }, { additionalProperties: false }), replay: 'safe', executionMode: 'sequential',
-      async execute(args, api) {
-        const run = limit(api.conversationId); const stop = exhausted(run); if (stop) return stop;
-        return result(new RuntimeImprovements(self.store).reportEvidence(args.source, args.reference));
-      },
-    });
     const performance = defineTool({
       name: 'channel_performance',
       description: 'Read-only 30-day per-channel measurement: forwards in/out, earned fees, local-share min/avg/max/current, active-flag history, rebalance source/target counts and utilisation (volume ÷ capacity). Incomplete coverage is reported as unknown, never zero. Page with offset.',
@@ -836,8 +814,6 @@ export class Agent {
       followUp,
       comparison,
       detail,
-      runtimeEvidence,
-      runtimeReport,
       performance,
       candidate,
       ...(self.store.get('contentArtifactsEnabled')===true?exportTools:[]),
@@ -1238,12 +1214,12 @@ export class Agent {
         (economic
           ? `Before any final answer call follow_up_outcome once with outcome wait or no_wait and scope ${job.scope || "node"}. Current UTC is ${now()}; dueAt must be a future RFC3339 instant. Wait requires explicit dueAt/evidence/missing requirements; do not merely recommend waiting in prose. At research exhaustion this is the sole reserved operation before final synthesis. `
           : "") +
-        `Job capability: ${this.store.get('jobCapability:'+job.id)}. Plain Telegram chat is read-only. Use runtime_improvement_evidence and report_runtime_improvement for advisory development prompts supported by existing runtime receipts. Do not infer an app defect from transient provider/network/auth failures, do not supply raw errors/payment payloads, and never treat delivery as resolution.  For guarded_manual_proposal requests use create_manual_proposal to create an owner-review proposal; no direct effects are authorized. ` +
+        `Job capability: ${this.store.get('jobCapability:'+job.id)}. Plain Telegram chat is read-only.  For guarded_manual_proposal requests use create_manual_proposal to create an owner-review proposal; no direct effects are authorized. ` +
         (role === "coordinator"
           ? "Only guarded fee/rebalance allowed. Prefer waiting to unsupported forecasts. Analyst outputs are suggestions only, revalidate them before acting."
           : "You are a read-only analyst. You cannot execute, reserve capital, change fees or delegate. Propose falsifiable drafts with evidence to the single coordinator.");
       const instructions = turn&&!economic&&turn.capability==='read_only_chat'
-        ? `Rispondi in italiano, con sintesi breve e dettaglio proporzionato alla domanda. Sei il coordinatore SatsSurge in sola lettura. Per saluti o domande generali non occorre analisi economica. Per affermazioni sul nodo leggi dati freschi; la conversazione storica non concede autorità. Nessun pagamento, modifica, proposta o accesso a credenziali. Dichiara dati mancanti e copertura parziale. Per segnalazioni di sviluppo usa runtime_improvement_evidence e report_runtime_improvement: solo ricevute persistenti verificate, nessun difetto app presunto da guasti upstream o autenticazione; nessuna modifica/esecuzione, consegna non risolve. Budget di questo turno: ${json(budget.status())}.`
+        ? `Rispondi in italiano, con sintesi breve e dettaglio proporzionato alla domanda. Sei il coordinatore SatsSurge in sola lettura. Per saluti o domande generali non occorre analisi economica. Per affermazioni sul nodo leggi dati freschi; la conversazione storica non concede autorità. Nessun pagamento, modifica, proposta o accesso a credenziali. Dichiara dati mancanti e copertura parziale. Budget di questo turno: ${json(budget.status())}.`
         : economicInstructions;
       const config = {
         model: { provider: "openai", modelId: model },

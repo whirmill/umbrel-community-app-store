@@ -324,11 +324,6 @@ veritiere. Deduplicazione e recovery dipendono dalla ricevuta di ammissione,
 non dalla presenza di un ACK. Alias draft, Stop e ricevute incerte già commessi
 restano preservati.
 
-I nuovi prompt consultivi diagnostici identificano la fonte chiusa collector,
-LNDg o Lightning Mate anche nella riproduzione. Revisioni, artefatti e checksum
-precedenti restano immutati; le evidenze distinte mantengono la correlazione
-con la propria fonte.
-
 Una scelta `choice_pending` scaduta o `late`, senza submission né ammissione
 correlata, non prova completamento. La vista separata conserva anche l'hash della
 correction originale: **Riprendi** crea soltanto la richiesta futura con request
@@ -365,7 +360,7 @@ l'ACK, e rifiutano catene cicliche, mancanti, mutate o oltre 128 riferimenti.
 La ripresa conserva il vincolo di nuova richiesta e il request ID originale:
 catene ripetute non consumano la correzione né creano doppio lavoro.
 
-## Stop generico e recupero dei prompt consultivi (0.5.9)
+## Stop generico (0.5.9)
 
 Un comando `/stop` può essere consegnato dopo la fine della risposta visibile
 al momento dell'invio. La data Telegram indica l'accettazione sul server e non
@@ -375,15 +370,7 @@ generazione e versione esatti. La conferma interrompe soltanto quel turno; se
 è già chiuso non seleziona un successore. Stop nativo e callback già mirati
 restano immediati. I fence di ingresso per comandi scaduti restano attivi.
 
-I prompt consultivi oltre 2000 caratteri usano un allegato `.txt`; la soglia
-è condivisa fra ammissione e invio. `/prompt ISSUE_ID [REVISIONE]` permette al
-proprietario associato di richiedere una copia di una revisione già registrata.
-Il comando verifica identità, associazione, contenuto e checksum dell'artefatto
-originale e crea una consegna distinta correlata all'update, con
-`sourceRequestLink`. Non cambia revisione, evidenza o ricevuta precedente, né
-ritenta una consegna incerta automaticamente. Un update duplicato conserva
-la sua ricevuta. Il recupero non autorizza modifica del runtime o effetti
-finanziari. La consegna e apertura nel client reale restano prove separate.
+I prompt consultivi e il comando `/prompt` sono stati rimossi nella 0.7.1 (#153).
 
 ## Composizione 0.5.11 — checkpoint storico 2026-10-12
 

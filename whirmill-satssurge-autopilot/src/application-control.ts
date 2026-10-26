@@ -1,4 +1,4 @@
-import { runtimeDetectorVersion } from './runtime-improvements.js';
+import { APP_VERSION } from './version.js';
 import {forecast} from './economics.js';
 import { randomBytes } from 'node:crypto';
 import { Store } from './store.js';
@@ -54,7 +54,7 @@ export class ApplicationControl {
     admitWithinTransaction(requestId: string, message: string, source: 'owner' | 'telegram', analysis = false, purpose?: 'qualification' | 'economic' | 'general', scope = '') {
         const existing = this.store.one('SELECT id FROM jobs WHERE request_id=?', requestId);
         const job = this.queue.enqueueWithinTransaction({ requestId, kind: analysis ? 'analysis' : 'chat', origin: purpose === 'qualification' ? 'qualification' : source, scope, purpose: purpose ?? (analysis ? 'economic' : 'general'), payload: { message } });
-        if (!existing) this.store.set('jobRuntimeVersion:' + job.id, runtimeDetectorVersion);
+        if (!existing) this.store.set('jobRuntimeVersion:' + job.id, APP_VERSION);
         if (!existing) this.store.set('jobCapability:' + job.id, requestCapability(message, source, analysis, purpose));
         return job;
     }

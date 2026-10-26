@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { Store } from '../store.js';
-import { day, hash } from '../domain.js';
-import { romeHour, telegramClean, telegramHtml } from '../telegram.js';
+import { day } from '../domain.js';
+import { romeHour, telegramHtml } from '../telegram.js';
 
-// Unsolicited traffic is still exercised and acknowledged. Only exact persisted
-// receipts in the fixture's current destination may bypass its scenario response.
+// Unsolicited traffic is still exercised and acknowledged. Only the exact persisted
+// digest receipt in the fixture's current destination may bypass its scenario response.
 export function unsolicitedFixture(store: Store) {
     const calls: { method: string; body: any; eventId: string; generation: string; chatId: number; messageId: number }[] = [];
     return {
@@ -16,18 +16,6 @@ export function unsolicitedFixture(store: Store) {
             if (method === 'sendMessage' && body?.chat_id === binding.chatId && body.parse_mode === 'HTML') {
                 row = store.all("SELECT * FROM telegram_outbox WHERE kind='digest' AND status='sending' AND generation=?", binding.generation)
                     .find(r => r.event_id === 'digest:' + day(r.created_at) && romeHour(r.created_at) >= 9 && body.text === telegramHtml(r.text));
-            } else if (method === 'sendDocument' && body instanceof FormData) {
-                const document = body.get('document');
-                if (!(document instanceof File) || !/^satssurge-[a-f0-9]{16}-r\d+\.txt$/.test(document.name)) return;
-                const entries = store.all("SELECT key,value FROM meta WHERE key LIKE 'runtimeArtifact:advisory:%'");
-                const entry = entries.find(e => JSON.parse(e.value).filename === document.name);
-                if (!entry) return;
-                const artifact = JSON.parse(entry.value);
-                row = store.one('SELECT * FROM telegram_outbox WHERE event_id=?', artifact.requestLink);
-                if (!row || entry.key !== 'runtimeArtifact:' + row.event_id || row.event_id !== `advisory:${artifact.issueId}:${artifact.revision}` ||
-                    !['advisory', 'critical'].includes(row.kind) || row.status !== 'sending' || row.generation !== binding.generation ||
-                    artifact.generation !== binding.generation || artifact.chatId !== binding.chatId || body.get('chat_id') !== String(binding.chatId) ||
-                    artifact.checksum !== hash(artifact.content) || hash(await document.text()) !== artifact.checksum || body.get('caption') !== telegramClean(row.text)) return;
             }
             if (!row) return;
             assert.equal(row.attempts, 1, 'unsolicited fixture acknowledgement must not be replayed');
@@ -41,8 +29,7 @@ export function unsolicitedFixture(store: Store) {
                 const row = store.one('SELECT * FROM telegram_outbox WHERE event_id=?', call.eventId);
                 assert.equal(row.status, 'sent'); assert.equal(row.attempts, 1);
                 assert.equal(row.message_id, call.messageId); assert.equal(row.generation, call.generation);
-                assert.equal(call.method === 'sendDocument' ? call.body.get('chat_id') : call.body.chat_id,
-                    call.method === 'sendDocument' ? String(call.chatId) : call.chatId);
+                assert.equal(call.body.chat_id, call.chatId);
             }
         }
     };
