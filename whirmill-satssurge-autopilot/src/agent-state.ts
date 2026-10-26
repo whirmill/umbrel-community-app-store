@@ -1,3 +1,4 @@
+import {APP_VERSION} from './version.js';
 import {safeLndFailureContext} from './lnd.js';
 import {hash,json,scrub} from './domain.js';
 
@@ -8,9 +9,13 @@ export type StateSection=typeof STATE_SECTIONS[number];
 export interface StatePageQuery {section:StateSection;offset?:number;version?:string;provider?:'lndg'|'lightningMate'|'native';collection?:'forwards'|'failures'|'failureRollups'|'rebalances'|'paymentAttempts'|'policies';channel?:string;}
 function providerSummary(p:any){if(!p)return null;const {forwards,failures,failureRollups,rebalances,paymentAttempts,policies,...meta}=p;return {...meta,counts:{forwards:forwards?.length??null,failures:failures?.length??null,failureRollups:failureRollups?.length??null,rebalances:rebalances?.length??null,paymentAttempts:paymentAttempts?.length??null,policies:policies?.length??null}};}
 function competitionRows(s:any){return (s.competition?.channels??[]).map((c:any)=>{const {alternatives,...meta}=c;return {...meta,availableAlternativeRows:alternatives?.length??null};});}
+/** Evidence rows imported before the app (historical:) describe that time, never current state or current work. */
+export function datedEvidence(rows:{source:string;acquired_at:string}[]){
+  return rows.map(r=>r.source.startsWith('historical:')?{...r,note:'Documento storico importato il '+r.acquired_at.slice(0,10)+': descrive quel momento, non lo stato attuale né il lavoro in corso.'}:r);
+}
 export function stateSummary(s:any){
   const {diagnostics,competition,snapshot,operations,decisions,evaluations,evaluationWindows,coverage,claims,holds}=s;
-  return scrub({appControlProof:s.appControlProof??null,operationalReadiness:s.operationalReadiness??null,enabled:s.enabled,bootstrapReady:s.bootstrapReady,blockers:s.blockers,mandate:s.mandate,budget:s.budget,pnl30:s.pnl30,cumulative:s.cumulative,accounting30:s.accounting30?{sectors:Object.fromEntries(Object.entries(s.accounting30.sectors??{}).map(([k,v]:[string,any])=>[k,{revenueMsat:v.revenueMsat,costMsat:v.costMsat,netMsat:v.netMsat}])),unassignedCosts:s.accounting30.unassignedCosts,note:'pnl30 is the gross ledger total. Judge routing by sectors.routing: owner-classified startup, capital and swap activity is in other/swap.'}:null,partial:s.partial,
+  return scrub({app:{name:'SatsSurge Autopilot',version:APP_VERSION},appControlProof:s.appControlProof??null,operationalReadiness:s.operationalReadiness??null,enabled:s.enabled,bootstrapReady:s.bootstrapReady,blockers:s.blockers,mandate:s.mandate,budget:s.budget,pnl30:s.pnl30,cumulative:s.cumulative,accounting30:s.accounting30?{sectors:Object.fromEntries(Object.entries(s.accounting30.sectors??{}).map(([k,v]:[string,any])=>[k,{revenueMsat:v.revenueMsat,costMsat:v.costMsat,netMsat:v.netMsat}])),unassignedCosts:s.accounting30.unassignedCosts,note:'pnl30 is the gross ledger total. Judge routing by sectors.routing: owner-classified startup, capital and swap activity is in other/swap.'}:null,partial:s.partial,
     autonomousReviews:s.autonomousReviews?{reviews:s.autonomousReviews,note:'Latest autopilot reviews run by the scheduler (coordinator and analyst lanes), newest first; summary is the start of each answer. Observation-only cycles leave no decisions row, so explain past autopilot behavior from these.'}:null,
     channelMandate:s.channelMandate??null,channelOperations:(s.channelOperations??[]).map((o:any)=>({id:o.id,kind:o.kind,at:o.at,state:o.state,peer:o.peer,channel:o.channel??null,amountSat:o.amountSat,maxFeeSat:o.maxFeeSat,feeChargedSat:o.feeChargedSat,reason:o.reason??null})),
     agent:s.agent?{at:s.agent.at,status:s.agent.status,model:s.agent.model,thinkingLevel:s.agent.thinkingLevel,until:s.agent.until}:null,
