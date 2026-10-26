@@ -21,8 +21,8 @@ export class Store {
     this.db = new DatabaseSync(path);
     const previousSchema=Number(this.db.prepare('PRAGMA user_version').get()?.user_version);
     if(previousSchema>SCHEMA_VERSION){this.db.close();throw new Error('Database is newer than this software; rollback refused');}
-    if(previousSchema===6){try{this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');migrateCanonical(this.db,{freezeOriginals:true});this.canonical=new CanonicalRuntime(this.db);if(path!==':memory:')chmodSync(path,0o600);return;}catch(error){this.db.close();throw error;}}
-    if(previousSchema===7){try{this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');validateCanonical(this.db);for(const table of ['meta','jobs','owner_proposals',...LEGACY_TABLES])if(!this.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))throw Error('Incomplete original runtime schema');this.canonical=new CanonicalRuntime(this.db);if(path!==':memory:')chmodSync(path,0o600);return;}catch(error){this.db.close();throw error;}}
+    if(previousSchema===6){try{this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');migrateCanonical(this.db,{freezeOriginals:true});this.canonical=new CanonicalRuntime(this.db);this.recordMandate();if(path!==':memory:')chmodSync(path,0o600);return;}catch(error){this.db.close();throw error;}}
+    if(previousSchema===7){try{this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');validateCanonical(this.db);for(const table of ['meta','jobs','owner_proposals',...LEGACY_TABLES])if(!this.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))throw Error('Incomplete original runtime schema');this.canonical=new CanonicalRuntime(this.db);this.recordMandate();if(path!==':memory:')chmodSync(path,0o600);return;}catch(error){this.db.close();throw error;}}
     this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -105,14 +105,15 @@ export class Store {
       }
     });
     if (path !== ':memory:') chmodSync(path, 0o600);
-    // The stored copy follows the owner configuration in force at this start.
-    if (json(this.get('mandate')) !== json(MANDATE)) this.set('mandate', MANDATE);
+    this.recordMandate();
     if (this.get('enabled')===undefined) this.set('enabled', true);
     migrateCanonical(this.db,{freezeOriginals:true});this.canonical=new CanonicalRuntime(this.db);
   }
   all(sql: string, ...args: any[]): any[] { return this.db.prepare(sql).all(...args) as any[]; }
   one(sql: string, ...args: any[]): any { return this.db.prepare(sql).get(...args); }
   run(sql: string, ...args: any[]) { return this.db.prepare(sql).run(...args); }
+  /** The stored copy follows the mandate in force at this start, also on an existing database (owner configuration, config.ts). */
+  private recordMandate() { if (json(this.get('mandate')) !== json(MANDATE)) this.set('mandate', MANDATE); }
   get<T = any>(key: string): T | undefined { const row=this.one('SELECT value FROM meta WHERE key=?',key); return row ? JSON.parse(row.value) as T : undefined; }
   set(key: string, value: unknown) {
     const encoded=json(value);

@@ -88,6 +88,7 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - **Version.** `node_state` now reports the app name and version.
   - **Historical documents.** `evidence_search` marks documents imported on 8 Oct with their date and as not current.
   - **One-off curation, owner-approved on 26 Oct.** 59 superseded pre-app documents left the search index: plans, proposals, qualifications, market studies, snapshots, point-in-time reports, a session audit and an implementation checkpoint. Their evidence rows stay. The 23 receipts and registers remain searchable.
+- **Stored mandate copy (0.7.7, #171).** In 0.7.6 an existing database kept the old `mandate` row in `meta`, because the store returns early on schema 6/7. Every open now refreshes it, and the research state digest uses the mandate in force. Limits, decisions and `node_state` were already correct.
 - **Owner configuration (0.7.6, #168).** Limits and timings moved from the code to an optional read-only JSON file in app-data.
   - **Why a file.** Environment variables live in the compose file, which every update rewrites. The database is written by the app and its agent tools, which would put the spending mandate within their reach. The file is mounted read-only and survives updates.
   - **Behavior.** Defaults equal the previous built-in values. Bounds cap each value, and an invalid file blocks finance. Changes are announced on Telegram and shown in `node_state`, and each decision records the configuration digest.
