@@ -1,8 +1,8 @@
+import { APP_VERSION } from './version.js';
 import {certificateTransportFailure,safeLndFailureContext} from './lnd.js';
 import { authorizeContentRequest, parseContentRequest } from './content-requests.js';
 import { ContentGeneration, type ContentSnapshot } from './content-generation.js';
 import {availabilityBlocker} from './provider-failures.js';
-import { RuntimeImprovements, runtimeDetectorVersion, type RuntimeArtifact } from './runtime-improvements.js';
 import { TelegramTurns } from './telegram-turns.js';
 import { randomBytes } from 'node:crypto';
 import { writeFileSync, readFileSync, existsSync, chmodSync, renameSync, unlinkSync } from 'node:fs';
@@ -14,7 +14,6 @@ import { channelOperations, OPEN_EVIDENCE_MS, type ChannelOperation } from './ch
 export interface TelegramTransport {
     call(method: string, body: unknown, signal?: AbortSignal): Promise<any>;
 }
-const RUNTIME_ADVISORY_INLINE_LIMIT = 2000;
 const AUDIO_UNSUPPORTED = 'I messaggi audio non sono supportati. Invia il testo oppure usa la dettatura della tastiera del telefono.';
 // Application bounds, not claims about Telegram's rich-message size limits.
 const RICH_FINAL_TEXT_LIMIT = 32768;
@@ -322,7 +321,7 @@ export class Telegram {
         return; const parts = telegramParts(text); for (let i = 0; i < parts.length; i++)
         { const partId = i ? eventId + ':part:' + i : eventId;
             const inserted = this.store.run("INSERT OR IGNORE INTO telegram_outbox(event_id,created_at,kind,text,proposal_id,generation) VALUES(?,?,?,?,?,?)", partId, at, kind, parts[i], proposalId ?? null, generation);
-            if (inserted.changes === 1) this.store.set('telegramOutboxVersion:' + partId, runtimeDetectorVersion);
+            if (inserted.changes === 1) this.store.set('telegramOutboxVersion:' + partId, APP_VERSION);
         } }
     private answerExists(event: string) { return !!this.store.one('SELECT event_id FROM telegram_outbox WHERE event_id=? OR event_id LIKE ? LIMIT 1', event, event + ':%'); }
     private enqueueAnswer(event: string, text: string, at: string) {
@@ -341,7 +340,7 @@ export class Telegram {
                 format: RICH_FORMAT, blocks: layout.blocks, depth: layout.depth };
             this.store.run('INSERT INTO telegram_outbox(event_id,created_at,kind,text,generation) VALUES(?,?,?,?,?)', event, at, 'reply', clean, binding.generation);
             this.store.set('telegramRichFinal:' + event, composition);
-            this.store.set('telegramOutboxVersion:' + event, runtimeDetectorVersion);
+            this.store.set('telegramOutboxVersion:' + event, APP_VERSION);
         });
     }
     private callback(eventId: string, value: {
@@ -709,31 +708,6 @@ export class Telegram {
                     this.attachButtons(event, pending.slice(0, 8).map(t => ({ text: 'Annulla ' + t!.jobId.slice(0, 8), value: { action: 'cancel', id: t!.jobId, version: t!.version } })), binding.generation);
                 }
                 else if (u.text === '/recover') { answer=this.recoveryBacklog(event,binding,at); }
-                else if (/^\/prompt(?:\s|$)/.test(u.text)) {
-                    const match = /^\/prompt ([a-f0-9]{16})(?: ([1-9][0-9]*))?$/.exec(u.text);
-                    const issue = match && new RuntimeImprovements(this.store).issues().find(i => i.id === match[1]);
-                    const number = match?.[2] === undefined ? issue?.revisions.at(-1)?.number : Number(match[2]);
-                    const revision = Number.isSafeInteger(number) && issue?.revisions.find(r => r.number === number);
-                    const sourceEvent = revision && revision.delivery?.eventId;
-                    const source = sourceEvent && this.store.get<RuntimeArtifact>('runtimeArtifact:' + sourceEvent);
-                    if (!issue || !revision || !source || sourceEvent !== `advisory:${issue.id}:${revision.number}` ||
-                        source.issueId !== issue.id || source.revision !== revision.number || source.requestLink !== sourceEvent ||
-                        source.generation !== binding.generation || source.chatId !== binding.chatId || revision.delivery?.generation !== binding.generation || revision.delivery?.chatId !== binding.chatId ||
-                        typeof source.content !== 'string' || hash(source.content) !== source.checksum || source.checksum !== revision.delivery?.checksum ||
-                        source.content !== telegramClean(revision.prompt) || source.filename !== `satssurge-${issue.id}-r${revision.number}.txt`) {
-                        answer = 'Prompt non disponibile o identità non valida. Usa /prompt ISSUE_ID [REVISIONE] con l’ID e la revisione della segnalazione ricevuta.';
-                    } else {
-                        // Explicit delivery-only copy: never revise the original advisory,
-                        // regenerate evidence or replay a previous uncertain delivery.
-                        const artifact: RuntimeArtifact & { sourceRequestLink: string } = { ...source, requestLink: event, sourceRequestLink: sourceEvent };
-                        this.store.tx(() => {
-                            if (!this.store.get('runtimeArtifact:' + event)) this.store.set('runtimeArtifact:' + event, artifact);
-                            this.enqueue(event, source.content.length <= RUNTIME_ADVISORY_INLINE_LIMIT ? source.content : `Prompt consultivo ${issue.id}, revisione ${revision.number}. Copia richiesta dal proprietario; checksum ${source.checksum}.`, 'reply', undefined, at, binding.generation);
-                            this.finishIncoming(row);
-                        });
-                        continue;
-                    }
-                }
                 else if (u.text === '/pause') {
                     this.store.tx(() => { this.control.pause(true); this.enqueue(event, 'Autonomia sospesa. Gli effetti esistenti continuano la riconciliazione.', 'reply', undefined, at, u.generation); this.finishIncoming(row); });
                     continue;
@@ -753,7 +727,7 @@ export class Telegram {
                 }
                 else if (u.text === '/help' || u.text === '/menu') {
                     if(u.text==='/menu')this.attachButtons(event,[['Stato','/status'],['Analizza','/analyze'],['Proposte','/proposals'],['Coda','/queue'],['Recupera','/recover'],['Aiuto','/help']].map(([text,code])=>({text:text!,value:{action:'navigate',code,expires:new Date(Date.parse(at)+15*60000).toISOString()}})),binding.generation);
-                    answer = '/status /analyze /pause /resume /proposals /stop /queue /recover /prompt ISSUE_ID [REVISIONE] /menu /help. /prompt recupera una copia del prompt consultivo già registrato. La chat consente analisi; chiedi esplicitamente una proposta da approvare. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.' + (this.store.get('contentArtifactsEnabled')===true?' Esporta dati con /export pdf|png|csv|xlsx [section=...] [limit=1..100] [-- descrizione].':'');
+                    answer = '/status /analyze /pause /resume /proposals /stop /queue /recover /menu /help. La chat consente analisi; chiedi esplicitamente una proposta da approvare. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.' + (this.store.get('contentArtifactsEnabled')===true?' Esporta dati con /export pdf|png|csv|xlsx [section=...] [limit=1..100] [-- descrizione].':'');
                 }
                 else {
                     const message = u.text.startsWith('/analyze') ? u.text.slice(8).trim() || 'Analizza economia del nodo e blocchi attuali' : u.text;
@@ -846,9 +820,6 @@ export class Telegram {
                 this.enqueue(key, this.summary(p), 'proposal', p.id, at);
             }
         }
-        // Advisory failure cannot prevent ordinary capture/delivery. No recursive
-        // observations of advisory outbox events and bounded scan/output budgets.
-        try { this.captureImprovements(at); } catch { this.store.set('runtimeAdvisoryCaptureFailed', { at }); }
         const hour = romeHour(at), date = day(at);
         if (hour >= 9) {
             const key = 'digest:' + date;
@@ -952,31 +923,6 @@ export class Telegram {
             this.store.set('telegramLndTransportRecent',Object.fromEntries([...Object.entries(recent).filter(([key])=>key!==identity),[identity,at]].slice(-32)));
         });
     }
-    private captureImprovements(at: string) {
-        const runtime = new RuntimeImprovements(this.store); runtime.scan(at);
-        const binding = this.store.get('telegramBinding'); if (!binding) return;
-        let admitted = 0;
-        for (const issue of runtime.issues()) {
-            const revision = issue.revisions.at(-1)!;
-            if (issue.status !== 'open' || revision.delivery || ['upstream_transient','authentication'].includes(revision.observation.classification) || admitted >= 3) continue;
-            const eventId = `advisory:${issue.id}:${revision.number}`;
-            const content = telegramClean(revision.prompt), checksum = hash(content);
-            const artifact: RuntimeArtifact = { issueId: issue.id, revision: revision.number, requestLink: eventId,
-                filename: `satssurge-${issue.id}-r${revision.number}.txt`, content, checksum,
-                generation: binding.generation, chatId: binding.chatId };
-            // One immutable text artifact, one outbox intent; retries never regenerate.
-            this.store.tx(() => {
-                this.store.set('runtimeArtifact:' + eventId, artifact);
-                revision.delivery = { eventId, generation: binding.generation, chatId: binding.chatId, checksum, status: 'pending' };
-                const issues = runtime.issues(); const target = issues.find(i => i.id === issue.id)!;
-                target.revisions[target.revisions.length - 1] = revision;
-                this.store.set('runtimeImprovements', issues);
-                const critical = revision.observation.classification === 'app_defect' && revision.observation.impact === 'runtime_blocked' && revision.observation.facts.includes('regression_confirmed');
-                this.enqueue(eventId, content.length <= RUNTIME_ADVISORY_INLINE_LIMIT ? content : `Segnalazione consultiva ${issue.id}, revisione ${revision.number}. Prompt di sviluppo nel file di testo allegato; consegna non significa risoluzione.`, critical ? 'critical' : 'advisory', undefined, at, binding.generation);
-            });
-            admitted++;
-        }
-    }
     async deliver(at = now()) {return this.dispatch(()=>this.deliverUnlocked(at));}
     private async deliverUnlocked(at:string) {
         if(Date.parse(at)<(this.store.get<number>('telegramRateLimitUntil')??0))return;
@@ -1017,11 +963,6 @@ export class Telegram {
             const currentRow = this.store.one('SELECT status,generation FROM telegram_outbox WHERE event_id=?', r.event_id);
             if (Math.max(Date.parse(at),Date.now())<(this.store.get<number>('telegramRateLimitUntil')??0)||!currentBinding || currentBinding.generation !== binding.generation || currentBinding.chatId !== binding.chatId || (this.store.get('telegramBotGeneration') ?? null) !== botGeneration || currentRow?.status !== 'pending' || currentRow.generation !== binding.generation)
                 break;
-            const artifact = this.store.get<RuntimeArtifact>('runtimeArtifact:' + r.event_id);
-            if (artifact && (artifact.generation !== binding.generation || artifact.chatId !== binding.chatId || hash(artifact.content) !== artifact.checksum || artifact.requestLink !== r.event_id)) {
-                this.store.run("UPDATE telegram_outbox SET status='failed',error='Artifact integrity or destination mismatch' WHERE event_id=?", r.event_id);
-                new RuntimeImprovements(this.store).delivery(r.event_id, 'failed'); continue;
-            }
             const rich = this.store.get<RichFinal>('telegramRichFinal:' + r.event_id);
             const fallback = this.store.get<any>('telegramRichFinalFallback:' + r.event_id);
             const layout = rich ? finalLayout(r.text, rich) : undefined;
@@ -1048,7 +989,6 @@ export class Telegram {
             }
             // A crash after this receipt is uncertain, not silently retried after restart.
             this.store.run("UPDATE telegram_outbox SET status='sending',attempts=attempts+1 WHERE event_id=?", r.event_id);
-            new RuntimeImprovements(this.store).delivery(r.event_id, 'sending');
             this.invalidateDrafts(binding.generation,binding.chatId);
             try {
                 let method = 'sendMessage', body: unknown = { chat_id: binding.chatId, text: telegramHtml(r.text), parse_mode: 'HTML', reply_markup: buttons };
@@ -1064,16 +1004,11 @@ export class Telegram {
                     form.set('document', new Blob([r.text], { type: 'text/plain;charset=utf-8' }), `satssurge-response-${hash(r.event_id).slice(0,16)}.txt`);
                     if (buttons) form.set('reply_markup', json(buttons));
                     method = 'sendDocument'; body = form;
-                } else if (artifact && artifact.content.length > RUNTIME_ADVISORY_INLINE_LIMIT) {
-                    const form = new FormData(); form.set('chat_id', String(binding.chatId)); form.set('caption', telegramClean(r.text));
-                    form.set('document', new Blob([artifact.content], { type: 'text/plain;charset=utf-8' }), artifact.filename);
-                    method = 'sendDocument'; body = form;
                 }
                 const message = await this.outboundCall(method,body);
                 if ((rich||contentAttachment) && (!Number.isSafeInteger(message?.message_id) || message.message_id <= 0)) throw Error('Response delivery acknowledgement is uncertain');
                 this.store.tx(() => {
                     this.store.run("UPDATE telegram_outbox SET status='sent',message_id=?,error=NULL WHERE event_id=?", message.message_id, r.event_id);
-                    new RuntimeImprovements(this.store).delivery(r.event_id, 'sent', message.message_id);
                     this.invalidateDrafts(binding.generation,binding.chatId);
                     if (r.proposal_id && this.store.get('telegramBinding')?.generation === binding.generation)
                         this.store.run("UPDATE owner_proposals SET expires_at=? WHERE id=? AND status='pending'", new Date(Date.parse(now()) + 300000).toISOString(), r.proposal_id);
@@ -1093,13 +1028,12 @@ export class Telegram {
                         this.store.set('telegramRichFinalFallback:' + r.event_id, { ...rich, apiCode });
                     this.store.run('UPDATE telegram_outbox SET status=?,next_at=?,error=? WHERE event_id=?', status, new Date(Math.min(8640000000000000,Date.parse(at) + Math.max(retry ?? 0, 2 ** attempts) * 1000)).toISOString(), rejected && status !== 'uncertain' ? 'API rejection; bounded retry' : 'Delivery uncertain; inspect Telegram before manual retry', r.event_id);
                 });
-                new RuntimeImprovements(this.store).delivery(r.event_id, status);
                 if (this.recordRateLimit(error,botGeneration)!==undefined) break;
             }
             if(this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'").some(row=>{const t=JSON.parse(row.value);return !t.closed&&t.state==='running';}))break;
         }
     }
-    recover() { this.store.run("UPDATE telegram_outbox SET status='uncertain',error='Interrupted send; delivery uncertain, no automatic replay' WHERE status='sending'"); this.control.recover(); for (const row of this.store.all("SELECT event_id,status FROM telegram_outbox WHERE event_id LIKE 'advisory:%'")) new RuntimeImprovements(this.store).delivery(row.event_id, row.status); }
+    recover() { this.store.run("UPDATE telegram_outbox SET status='uncertain',error='Interrupted send; delivery uncertain, no automatic replay' WHERE status='sending'"); this.control.recover(); }
     async loop() {
         if (this.running)
             return;

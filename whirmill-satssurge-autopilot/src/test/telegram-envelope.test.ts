@@ -117,28 +117,6 @@ test('unsolicited digest correlation rejects lookalikes and requires its exact p
     } finally {store.close();}
 });
 
-test('unsolicited scanner correlation requires the immutable receipt, exact bytes and destination', async () => {
-    const store = new Store(':memory:'), unsolicited = unsolicitedFixture(store), issueId = '0123456789abcdef', event = 'advisory:'+issueId+':1';
-    const content = 'Prompt consultivo verificato 😀', filename = 'satssurge-'+issueId+'-r1.txt';
-    const artifact = {issueId,revision:1,requestLink:event,filename,content,checksum:hash(content),generation:'fixture-owner',chatId:42};
-    const form = (text=content, chat='42', name=filename) => {const body=new FormData();body.set('chat_id',chat);body.set('caption',content);body.set('document',new Blob([text]),name);return body;};
-    try {
-        store.set('telegramBinding',{generation:'fixture-owner',chatId:42});
-        store.run("INSERT INTO telegram_outbox(event_id,created_at,kind,text,generation,status,attempts) VALUES(?,?,?,?,?,'sending',1)",event,'2030-01-15T08:00:00.000Z','advisory',content,'fixture-owner');
-        assert.equal(await unsolicited.acknowledge('sendDocument',form()),undefined);
-        store.set('runtimeArtifact:'+event,artifact);
-        for (const body of [form(content+' changed'),form(content,'43'),form(content,'42','satssurge-response-0123456789abcdef.txt')])
-            assert.equal(await unsolicited.acknowledge('sendDocument',body),undefined);
-        for (const changes of [{generation:'other-owner'},{chatId:43},{requestLink:'advisory:other:1'},{checksum:hash('changed')},{revision:2}]) {
-            store.set('runtimeArtifact:'+event,{...artifact,...changes});
-            assert.equal(await unsolicited.acknowledge('sendDocument',form()),undefined);
-        }
-        store.set('runtimeArtifact:'+event,artifact); assert.equal(unsolicited.calls.length,0);
-        const acknowledgement=await unsolicited.acknowledge('sendDocument',form()); assert.ok(acknowledgement);
-        store.run("UPDATE telegram_outbox SET status='sent',message_id=? WHERE event_id=?",acknowledgement.message_id,event); unsolicited.verify();
-    } finally {store.close();}
-});
-
 test('after 09 Rome digest ACK remains separate from four denials and the uncertain fifth scenario attempt', async () => {
     const captureAt='2030-01-15T08:00:00.000Z', seen:number[]=[], clock=Date.now;
     const f=fixture((_method,_body,attempt)=>{seen.push(attempt);return attempt<=4?{ok:false,error_code:403}:{ok:'false',result:{message_id:35}};},captureAt);
