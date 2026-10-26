@@ -192,7 +192,7 @@ test('gRPC channel client: separate credential, absent credential unavailable, c
   const server = new grpc.Server();
   server.addService(lndPackage.lnrpc.Lightning.service, Object.fromEntries(Object.entries(handlers).map(([name, h]) => [name, (call: any, cb: any) => { seen.push({ method: name, request: call.request, token: call.metadata.get('macaroon')[0] }); (h as any)(call, cb); }])));
   const port = await new Promise<number>((resolve, reject) => server.bindAsync('127.0.0.1:0', grpc.ServerCredentials.createSsl(null, [{ private_key: pair.key, cert_chain: pair.cert }], false), (e, p) => e ? reject(e) : resolve(p)));
-  const limits = { unaryMs: 1500, paymentMs: 1500, htlcMs: 1500, maxChannels: 4, maxCalls: 64, historyBytes: 1024 * 1024, streamBytes: 1024 * 1024 };
+  const limits = { unaryMs: 1500, paymentMs: 1500, maxChannels: 4, maxCalls: 64, historyBytes: 1024 * 1024, streamBytes: 1024 * 1024 };
   const absent = new Lnd('127.0.0.1:' + port, ca, read, write, limits), client = new Lnd('127.0.0.1:' + port, ca, read, write, limits);
   try {
     assert.equal(absent.enableChannels(join(dir, 'missing.macaroon')), false); assert.equal(absent.channelRpc(), undefined);
