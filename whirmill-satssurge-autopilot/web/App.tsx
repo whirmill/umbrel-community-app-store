@@ -8,7 +8,6 @@ import { virtualMemory } from "../src/ui-virtual-window";
 import { LazyDisclosure } from "../src/ui-disclosure";
 import { repositoryFor } from "./components/repository";
 import { useExpansion, pruneExpansions } from "./components/expansions";
-import { FixtureMetrics, fixtureCounters } from "./components/FixtureMetrics";
 import { ownerEventStream } from "../src/ui-stream.js";
 import {
   useCallback,
@@ -253,7 +252,6 @@ const MESSAGE_PARTS = {
   Text: ({ text }: { text: string }) => <Mark>{text}</Mark>,
 };
 function ChatMessage() {
-  if (fixtureCounters.enabled) fixtureCounters.renders++;
   const id = useAuiState((s) => s.message.id);
   const role = useAuiState((s) => s.message.role);
   const view = useJob(id.replace(/:(user|assistant)$/, "")),
@@ -577,14 +575,8 @@ export function App() {
   const projectionIndex = useRef(new ProjectionIndex()).current;
   const update = useCallback((fn: (p: Projection) => Projection) => {
     canonical.current = fn(canonical.current);
-    const paintStart = performance.now();
     projectionIndex.publish(canonical.current);
     setProjection(canonical.current);
-    if (fixtureCounters.enabled)
-      requestAnimationFrame(() => {
-        fixtureCounters.chunks.push(performance.now() - paintStart);
-        if (fixtureCounters.chunks.length > 512) fixtureCounters.chunks.shift();
-      });
   }, []);
   const closeSession = useCallback((token: string) => {
     if (currentSession.current !== token) return;
@@ -1079,10 +1071,6 @@ export function App() {
                     </div>
                     <detailContext.Provider value={api}>
                       <jobContext.Provider value={projectionIndex}>
-                        <FixtureMetrics
-                          enabled={status?.uiFixture === true}
-                          runtime={runtime}
-                        />
                         <AssistantRuntimeProvider runtime={runtime}>
                           <ThreadPrimitive.Root className="thread">
                             <div
@@ -1385,11 +1373,6 @@ export function App() {
                     <p>Ispezione: {status.lndTransport?.inspectedAt ?? "Non disponibile"}.</p>
                     <Json value={status.lndTransport} label="Dettagli pubblici TLS" />
                   </Panel>
-                  {status.appControlProof && <Panel title="Controlli delle app" sub="Verifica separata per quattro app. Le automazioni esterne a questo ambito restano sconosciute.">
-                    <p>Raccolta e letture native: {status.operationalReadiness?.ready ? "disponibili" : "da verificare"}. Operazioni finanziarie: sospese.</p>
-                    {status.appControlProof.apps?.map((app: any) => <p key={app.id}>{app.id}: {app.state === "verified_absent" ? "assenza verificata" : app.state === "installed_disabled" ? "automazioni disabilitate e verificate" : "stato sconosciuto"}.</p>)}
-                    <p>Acquisizione: {status.appControlProof.at ?? "non disponibile"}. Un risultato sconosciuto non autorizza la sostituzione dell’app.</p>
-                  </Panel>}
                   <div className="two-columns">
                     <Panel
                       title="Diagnostica delle rotte"

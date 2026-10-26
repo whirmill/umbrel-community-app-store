@@ -1,6 +1,0 @@
-Optional composition vocabulary (implemented exports in src/content-artifacts.ts):
-reportDocument(title, body, metadata), kpi(label, value, unit),
-reportTable(headers, rows), provenance(observedAt, coverage, references).
-All text arguments are escaped. body is authored markup and is validated by
-worker, never a raw tool payload. More layouts may be composed from the same
-semantic classes; no mandatory report skeleton is imposed.

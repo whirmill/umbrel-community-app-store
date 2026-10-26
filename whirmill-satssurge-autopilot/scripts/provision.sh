@@ -3,7 +3,7 @@
 set -eu
 umask 077
 APP_DIR=${1:?Supply installed app data path}
-mkdir -p "$APP_DIR/data" "$APP_DIR/credentials" "$APP_DIR/history" "$APP_DIR/interlock"
+mkdir -p "$APP_DIR/data" "$APP_DIR/credentials" "$APP_DIR/interlock" "$APP_DIR/config"
 if [ ! -s "$APP_DIR/credentials/read.macaroon" ]; then
   docker exec lightning_lnd_1 lncli bakemacaroon --save_to=/tmp/satssurge-read.macaroon uri:/lnrpc.Lightning/GetInfo uri:/lnrpc.Lightning/WalletBalance uri:/lnrpc.Lightning/ListChannels uri:/lnrpc.Lightning/GetChanInfo uri:/lnrpc.Lightning/ForwardingHistory uri:/lnrpc.Lightning/ListPayments uri:/lnrpc.Lightning/SubscribeChannelGraph uri:/lnrpc.Lightning/SubscribeChannelEvents uri:/routerrpc.Router/TrackPaymentV2 uri:/routerrpc.Router/SubscribeHtlcEvents >/dev/null
   docker cp lightning_lnd_1:/tmp/satssurge-read.macaroon "$APP_DIR/credentials/read.macaroon"

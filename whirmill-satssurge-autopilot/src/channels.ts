@@ -1,4 +1,3 @@
-import { protectedAutomationGuard } from './executor.js';
 import type { Store } from './store.js';
 import type { NodeClient, ChannelRpc } from './lnd.js';
 import { channelCandidate } from './channel-measurement.js';
@@ -138,7 +137,7 @@ export class ChannelLifecycle {
       });
       try {
         // Recheck pause and host interlock immediately before the writable RPC. No await in between.
-        protectedAutomationGuard(this.store);this.store.assertDispatchReady();
+        this.store.assertDispatchReady();
         this.transition(op,'sending');
         if(p.kind==='channel_open'){const r=await this.rpc.openChannel(p.peer,op.amountSat,op.satPerVbyte);this.transition(op,'pending',{txid:r.txid,point:`${r.txid}:${r.outputIndex}`});}
         else {const r=await this.rpc.closeChannel(op.point!,op.satPerVbyte);this.transition(op,'pending',{txid:r.txid});}

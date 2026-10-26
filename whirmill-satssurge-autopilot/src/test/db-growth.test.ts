@@ -1,6 +1,5 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {execFileSync} from 'node:child_process';
 import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -65,37 +64,6 @@ test('finished jobs drop superseded streaming text frames after a day and keep t
   for(const id of ['done','failed'])assert.deepEqual(rows(id).map(r=>[r.type,r.type==='text'?JSON.parse(r.data).text.length:0]),[['text',4000],['tool_call',0]]);
   for(const id of ['fresh','running'])assert.equal(rows(id).length,41);
  }finally{s.close();}
-});
-
-test('offline prune removes only redundant revisions and stale frames, keeps guards and financial records, and refuses cited revisions',async()=>{
- const dir=mkdtempSync(join(tmpdir(),'prune-redundant-')),path=join(dir,'operational.sqlite');let s=new Store(path);
- const run=(mode:string)=>JSON.parse(execFileSync('python3',['-c','import sys,json;sys.path.insert(0,"scripts");from prune_redundant_history import prune;print(json.dumps(prune(sys.argv[1],apply=sys.argv[2]=="apply")))',path,mode],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
- try{
-  const model=new CanonicalModel(s.db),at='2026-10-20T00:00:00.000Z',receipt=(i:number)=>model.appendCoverage({...binding,capability:'synthetic_receipt',scope:'r',source:'lnd.htlc',epoch:'e',start:at,end:at,observedAt:at,status:'partial',details:{i}});
-  const receipts=[receipt(1),receipt(2)],third=receipt(3);
-  // Pre-fix rollups: the same receipt selection republished under moving range ends.
-  const rollup=(coverageIds:string[],through:number)=>model.publishProjection({name:'native_failure_delivery_rollups',scope:'all',epoch:'through:'+through,calculationVersion:NATIVE_DELIVERY_ROLLUP_VERSION,observationIds:[],coverageIds,result:{through}});
-  const kept=rollup(receipts,10);for(let i=11;i<40;i++)rollup(receipts,i);const distinct=rollup([...receipts,third],41);
-  const empty=Array.from({length:20},(_,i)=>model.publishProjection({name:'native_history_record_capture',scope:'native:w'+i+':forwards',epoch:'w'+i,calculationVersion:'record_match_v2',observationIds:[],coverageIds:[],result:{pageNumber:1}}));
-  const observation=model.observe({...binding,kind:'forward',meaning:'lnd_effect',source:'lnd.forwards',originalId:'f',batchId:'b',occurredAt:at,observedAt:at,granularity:'native nanoseconds',payload:{}});
-  const captured=model.publishProjection({name:'native_history_record_capture',scope:'native:full:forwards',epoch:'full',calculationVersion:'record_match_v2',observationIds:[observation],coverageIds:[],result:{pageNumber:1}});
-  s.run("INSERT INTO jobs(id,request_id,kind,lane,priority,payload,payload_digest,scope,state,created_at,updated_at,finished_at) VALUES('j','r','chat','coordinator',1,'{}','d','node','completed',?,?,?)",at,at,at);
-  for(let i=1;i<=5;i++)s.run("INSERT INTO ui_events(job_id,at,type,data) VALUES('j',?,'text',?)",at,JSON.stringify({text:'frame '+i}));
-  s.ledger({id:'fwd:kept',at,classification:'revenue',amountMsat:'1000',category:'routing'});
-  const revisions=()=>new Set(s.all('SELECT id FROM canonical_projection_revisions').map(r=>r.id));const before=revisions();
-  s.run("INSERT INTO decisions VALUES('d',?,?,'{}','{}','planned')",at,JSON.stringify({evidenceIds:[empty[0]]}));s.close();
-  assert.throws(()=>run('apply'),(e:any)=>/Unexpected references/.test(String(e.stderr)));s=new Store(path);assert.deepEqual(revisions(),before);s.run("DELETE FROM decisions WHERE id='d'");s.close();
-  const dry=run('dry');assert.deepEqual([dry.rollupRevisionsRemoved,dry.emptyHistoryCaptureRevisionsRemoved,dry.uiTextFramesRemoved,dry.applied],[29,20,4,false]);
-  s=new Store(path);assert.deepEqual(revisions(),before);s.close();
-  assert.equal(run('apply').applied,true);
-  s=new Store(path);
-  const after=revisions();assert.equal(after.size,before.size-49);for(const id of [kept,distinct,captured])assert.ok(after.has(id));for(const id of empty)assert.equal(after.has(id),false);
-  assert.deepEqual(s.all("SELECT data FROM ui_events WHERE job_id='j'").map(r=>JSON.parse(r.data).text),['frame 5']);
-  assert.equal(s.one("SELECT amount_msat FROM ledger WHERE id='fwd:kept'").amount_msat,'1000');assert.ok(s.one('SELECT id FROM canonical_observations WHERE id=?',observation));
-  assert.equal(s.db.prepare('PRAGMA foreign_key_check').all().length,0);
-  assert.throws(()=>s.run('DELETE FROM canonical_projection_revisions WHERE id=?',kept),/Immutable/);
-  assert.deepEqual(run('dry'),{rollupRevisionsRemoved:0,emptyHistoryCaptureRevisionsRemoved:0,revisionBytesRemoved:0,uiTextFramesRemoved:0,uiTextBytesRemoved:0,applied:false});
- }finally{s.close();rmSync(dir,{recursive:true,force:true});}
 });
 
 test('retention archives every node-sized snapshot byte-exactly before deleting it and keeps pinned, linked, recent and oversized ones',()=>{

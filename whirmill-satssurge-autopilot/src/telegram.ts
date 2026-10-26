@@ -1,7 +1,5 @@
 import { APP_VERSION } from './version.js';
 import {certificateTransportFailure,safeLndFailureContext} from './lnd.js';
-import { authorizeContentRequest, parseContentRequest } from './content-requests.js';
-import { ContentGeneration, type ContentSnapshot } from './content-generation.js';
 import {availabilityBlocker} from './provider-failures.js';
 import { TelegramTurns } from './telegram-turns.js';
 import { randomBytes } from 'node:crypto';
@@ -11,6 +9,7 @@ import { ApplicationControl } from './application-control.js';
 import { Store } from './store.js';
 import { hash, json, now, day, scrub, channelKind, telegramChat, terminal, type Proposal, type Snapshot } from './domain.js';
 import { SETTINGS, CONFIG, configChanges } from './config.js';
+import { CHART_KINDS, chartData, chartPng, chartsReady, enqueueChart, type ChartData, type ChartKind } from './charts.js';
 import { channelOperations, OPEN_EVIDENCE_MS, type ChannelOperation } from './channels.js';
 export interface TelegramTransport {
     call(method: string, body: unknown, signal?: AbortSignal): Promise<any>;
@@ -23,6 +22,7 @@ const RICH_BLOCK_LIMIT = 500;
 const RICH_DEPTH_LIMIT = 16;
 // v2 adds tables; finals recorded as v1 are re-rendered with the v1 grammar.
 const LND_TRANSIENT_FAILURES = ['deadline', 'cancelled', 'unavailable', 'resource_limit', 'rpc_failure', 'acquisition_failure'], LND_TRANSIENT_ALERT_MS = SETTINGS.telegram.lndAlertMinutes * 60000, LND_TRANSIENT_RECOVERY_MS = 300000, LND_TRANSIENT_GAP_MS = 300000;
+const CHART_BUTTONS = [['Bilanciamento', '/grafico canali'], ['Storico saldi', '/grafico storico'], ['Inoltri', '/grafico inoltri'], ['Guadagni e costi', '/grafico guadagni'], ['Ritorno rebalance', '/grafico rebalance'], ['Fee e traffico', '/grafico fee']] as const;
 const UNCERTAIN_ALERT_MS = SETTINGS.telegram.uncertainAlertMinutes * 60000, UNCERTAIN_MINUTES = SETTINGS.telegram.uncertainAlertMinutes;
 const PROPOSAL_MS = SETTINGS.telegram.proposalMinutes * 60000;
 /** Quiet hours in Europe/Rome; equal start and end disable them. */
@@ -156,9 +156,6 @@ export function telegramParts(text: string) {
 }
 export function romeHour(at: string) { return Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', hour: '2-digit', hourCycle: 'h23' }).format(new Date(at))); }
 export class Telegram {
-    readonly content: ContentGeneration;
-    private contentProjection?: (message:string) => ContentSnapshot;
-    setContentProjection(project: (message:string) => ContentSnapshot) { this.contentProjection = project; }
     readonly tokenPath: string;
     private transport?: TelegramTransport;
     private abort = new AbortController();
@@ -239,8 +236,8 @@ export class Telegram {
         text: string;
         value: any;
     }[], generation: string) { this.store.set('telegramButtons:' + eventId, this.buttons(eventId, items, generation)); }
-    constructor(readonly store: Store, readonly control: ApplicationControl, directory: string, transport?: TelegramTransport, contentDirectory = join(directory, 'content-jobs')) {
-        this.content = new ContentGeneration(store, contentDirectory); this.tokenPath = join(directory, 'telegram.secret'); this.transport = transport;
+    constructor(readonly store: Store, readonly control: ApplicationControl, directory: string, transport?: TelegramTransport) {
+        this.tokenPath = join(directory, 'telegram.secret'); this.transport = transport;
     }
     configure(token: string) {
         if (typeof token !== 'string' || !/^\d{6,12}:[A-Za-z0-9_-]{20,}$/.test(token))
@@ -386,11 +383,6 @@ export class Telegram {
             const admitted = original ?? this.control.admitWithinTransaction(requestId, spec!.message, 'telegram', spec!.analysis);
             this.store.set('jobTelegramGeneration:' + admitted.id, binding.generation);
             this.turns().attach(admitted, binding.generation, binding.chatId);
-            const requestedOutput = spec && parseContentRequest(spec.message);
-            if (requestedOutput) {
-                if (!this.contentProjection) throw Error('Public content projection unavailable');
-                authorizeContentRequest(this.store, admitted.id, requestedOutput.format, this.contentProjection(spec!.message));
-            }
             if (spec) { this.store.set('telegramLinkedRequest:' + admitted.id, spec.link); spec.consume?.(); }
             this.store.set('telegramAction:' + event, { jobId: admitted.id, requestId, generation: binding.generation });
             this.enqueue(event, answer, 'reply', undefined, at, binding.generation);
@@ -595,7 +587,7 @@ export class Telegram {
                 // financial confirmation callbacks and expires after fifteen minutes.
                 if(u.callback){
                     const navigation=this.store.get('telegramCallback:'+u.callback);
-                    if(navigation?.action==='navigate'&&navigation.generation===binding.generation&&navigation.chatId===binding.chatId&&navigation.botGeneration===callbackBot&&navigation.expires>at&&['/status','/analyze','/proposals','/queue','/recover','/help'].includes(navigation.code)){
+                    if(navigation?.action==='navigate'&&navigation.generation===binding.generation&&navigation.chatId===binding.chatId&&navigation.botGeneration===callbackBot&&navigation.expires>at&&['/status','/analyze','/proposals','/queue','/recover','/help','/grafico',...CHART_BUTTONS.map(b=>b[1])].includes(navigation.code)){
                         u.text=navigation.code;u.callback='';
                     }
                 }
@@ -765,6 +757,20 @@ export class Telegram {
                 else if (u.text === '/status') {
                     answer = `Autonomia: ${this.store.get('enabled') ? 'attiva' : 'sospesa'}. Nodo: ${this.store.get('bootstrapReady') ? 'pronto' : 'bloccato'}. Richieste pendenti: ${this.control.queue.metrics(at).states.filter(r => ['queued', 'running', 'waiting'].includes(r.state)).reduce((n, r) => n + r.count, 0)}. Dettagli e budget: impostazioni web.`;
                 }
+                else if (u.text === '/grafico' || u.text.startsWith('/grafico ')) {
+                    const [kind, ...rest] = u.text.slice(8).trim().split(/\s+/).filter(Boolean);
+                    if (!kind) {
+                        answer = 'Quale grafico? Bilanciamento attuale, storico dei saldi, inoltri e commissioni, guadagni contro costi, ritorno dell\'ultimo rebalance, fee e traffico del canale principale.';
+                        this.attachButtons(event, CHART_BUTTONS.map(([text, code]) => ({ text, value: { action: 'navigate', code, expires: new Date(Date.parse(at) + 15 * 60000).toISOString() } })), binding.generation);
+                    }
+                    else if (!(CHART_KINDS as readonly string[]).includes(kind)) answer = `Grafico sconosciuto: ${telegramText(kind).slice(0, 40)}. Usa /grafico per l'elenco.`;
+                    else {
+                        // "/grafico storico 30" sets the days; "/grafico fee lnmarkets" names a channel; "/grafico rebalance <id>" an operation.
+                        const days = /^\d+$/.test(rest[0] ?? '') ? Number(rest[0]) : undefined, arg = days === undefined ? rest.join(' ') || undefined : undefined;
+                        try { enqueueChart(this.store, 'chart:' + event, chartData(this.store, { kind: kind as ChartKind, days, channel: kind === 'fee' ? arg : undefined, operation: kind === 'rebalance' ? arg : undefined }, at), binding.generation, at); answer = ''; }
+                        catch (error) { answer = 'Grafico non disponibile: ' + telegramText(String((error as Error)?.message ?? 'dati mancanti')).slice(0, 200) + '.'; }
+                    }
+                }
                 else if (u.text === '/proposals') {
                     const proposals = this.control.proposals().filter(p => p.status === 'pending');
                     answer = proposals.length ? `${proposals.length} proposte pendenti. Apri la web app per i dettagli.` : 'Nessuna proposta pendente.';
@@ -772,13 +778,12 @@ export class Telegram {
                         this.enqueue('proposal:' + p.id, this.summary(p), 'proposal', p.id, at, u.generation);
                 }
                 else if (u.text === '/help' || u.text === '/menu') {
-                    if(u.text==='/menu')this.attachButtons(event,[['Stato','/status'],['Analizza','/analyze'],['Proposte','/proposals'],['Coda','/queue'],['Recupera','/recover'],['Aiuto','/help']].map(([text,code])=>({text:text!,value:{action:'navigate',code,expires:new Date(Date.parse(at)+15*60000).toISOString()}})),binding.generation);
-                    answer = '/status /analyze /pause /resume /proposals /stop /queue /recover /reset /menu /help. Scrivi in linguaggio naturale: la chat risponde con i dati del nodo e, se chiedi un\'operazione (fee, rebalance, canali), prepara una proposta con i pulsanti Approva e Rifiuta. Nulla si esegue senza il tuo tocco su Approva. /reset fa ripartire la chat da una conversazione nuova. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.' + (this.store.get('contentArtifactsEnabled')===true?' Esporta dati con /export pdf|png|csv|xlsx [section=...] [limit=1..100] [-- descrizione].':'');
+                    if(u.text==='/menu')this.attachButtons(event,[['Stato','/status'],['Analizza','/analyze'],['Grafici','/grafico'],['Proposte','/proposals'],['Coda','/queue'],['Recupera','/recover'],['Aiuto','/help']].map(([text,code])=>({text:text!,value:{action:'navigate',code,expires:new Date(Date.parse(at)+15*60000).toISOString()}})),binding.generation);
+                    answer = '/status /analyze /grafico /pause /resume /proposals /stop /queue /recover /reset /menu /help. /grafico mostra bilanciamento, storico, inoltri, guadagni, ritorno di un rebalance e fee come immagini. Scrivi in linguaggio naturale: la chat risponde con i dati del nodo e, se chiedi un\'operazione (fee, rebalance, canali), prepara una proposta con i pulsanti Approva e Rifiuta. Nulla si esegue senza il tuo tocco su Approva. /reset fa ripartire la chat da una conversazione nuova. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.';
                 }
                 else {
                     const message = u.text.startsWith('/analyze') ? u.text.slice(8).trim() || 'Analizza economia del nodo e blocchi attuali' : u.text;
                     if (!message.trim()) throw Error('Empty request');
-                    const outputRequest = parseContentRequest(message);
                     let shouldWake = false;
                     this.store.tx(() => {
                         const requestId = 'telegram:' + (this.store.get('telegramBotGeneration') ?? 'initial') + ':' + row.update_id;
@@ -793,10 +798,6 @@ export class Telegram {
                             const job = original ?? this.control.admitWithinTransaction(requestId, message, 'telegram', u.text.startsWith('/analyze'));
                             this.store.set('jobTelegramGeneration:' + job.id, binding.generation);
                             if(!['completed','failed','cancelled'].includes(job.state))this.turns().attach(job, binding.generation, binding.chatId);
-                            if(outputRequest&&!this.store.get('contentAuthorizedRequest:'+job.id)){
-                                if(!this.contentProjection)throw Error('Public content projection unavailable');
-                                authorizeContentRequest(this.store,job.id,outputRequest.format,this.contentProjection(message));
-                            }
                             shouldWake = !['completed','failed','cancelled'].includes(job.state); answer = this.store.all("SELECT id FROM jobs WHERE state IN ('queued','waiting','running') AND id!=?",job.id).some(j=>this.turns().get(j.id)?.generation===binding.generation)?'Richiesta accodata; puoi annullarla con /queue.':'';
                         }
                         if(answer)this.enqueue(event, answer, 'reply', undefined, at, u.generation);
@@ -1006,7 +1007,8 @@ export class Telegram {
     async deliver(at = now()) {return this.dispatch(()=>this.deliverUnlocked(at));}
     private async deliverUnlocked(at:string) {
         if(Date.parse(at)<(this.store.get<number>('telegramRateLimitUntil')??0))return;
-        if(this.store.get('contentArtifactsEnabled')===true)await this.content.capture(at);
+        // Before any per-row fence: a failed renderer only fails chart rows, never other delivery.
+        await chartsReady().catch(() => { });
         const binding = this.store.get('telegramBinding');
         if (!binding)
             return;
@@ -1051,31 +1053,21 @@ export class Telegram {
                 fallback && (fallback.checksum !== rich.checksum || fallback.htmlBytes !== rich.htmlBytes || fallback.format !== rich.format || fallback.blocks !== rich.blocks || fallback.depth !== rich.depth || fallback.generation !== binding.generation || fallback.chatId !== binding.chatId || fallback.botGeneration !== botGeneration || ![400,404].includes(fallback.apiCode)))) {
                 this.store.run("UPDATE telegram_outbox SET status='failed',error='Rich response integrity or destination mismatch' WHERE event_id=?", r.event_id); continue;
             }
-            let contentAttachment: Awaited<ReturnType<ContentGeneration['attachment']>>;
-            try { contentAttachment = await this.content.attachment(r.event_id); }
-            catch {
-                this.store.run("UPDATE telegram_outbox SET status='failed',error='Content integrity or authority unavailable' WHERE event_id=? AND status='pending'", r.event_id);
-                continue;
-            }
-            // Attachment IO may await: reread the SAME destination/token/outbox immediately before intent.
-            const attachmentBinding = this.store.get('telegramBinding');
-            const attachmentRow = this.store.one('SELECT status,generation FROM telegram_outbox WHERE event_id=?', r.event_id);
-            if (Math.max(Date.parse(at),Date.now())<(this.store.get<number>('telegramRateLimitUntil')??0)||!attachmentBinding || attachmentBinding.generation !== binding.generation || attachmentBinding.chatId !== binding.chatId || (this.store.get('telegramBotGeneration') ?? null) !== botGeneration || this.store.get('telegramTokenTransition') === true || attachmentRow?.status !== 'pending' || attachmentRow.generation !== binding.generation)
-                break;
-            try { this.content.assertDelivery(r.event_id); }
-            catch {
-                this.store.run("UPDATE telegram_outbox SET status='failed',error='Content final authority unavailable' WHERE event_id=? AND status='pending'", r.event_id);
-                continue;
+            const chart = this.store.get<ChartData>('telegramChart:' + r.event_id);
+            let photo: Uint8Array | undefined;
+            if (chart) {
+                try { photo = chartPng(chart); }
+                catch { this.store.run("UPDATE telegram_outbox SET status='failed',error='Chart rendering failed' WHERE event_id=? AND status='pending'", r.event_id); continue; }
             }
             // A crash after this receipt is uncertain, not silently retried after restart.
             this.store.run("UPDATE telegram_outbox SET status='sending',attempts=attempts+1 WHERE event_id=?", r.event_id);
             this.invalidateDrafts(binding.generation,binding.chatId);
             try {
                 let method = 'sendMessage', body: unknown = { chat_id: binding.chatId, text: telegramHtml(r.text), parse_mode: 'HTML', reply_markup: buttons };
-                if(contentAttachment){
-                    const form=new FormData();form.set('chat_id',String(contentAttachment.chatId));form.set('caption',telegramClean(contentAttachment.caption).slice(0,1000));
-                    form.set('document',new Blob([new Uint8Array(contentAttachment.data)],{type:contentAttachment.mime}),contentAttachment.filename);
-                    method='sendDocument';body=form;
+                if (photo) {
+                    const form = new FormData(); form.set('chat_id', String(binding.chatId)); form.set('caption', telegramClean(r.text).slice(0, 1024));
+                    form.set('photo', new Blob([new Uint8Array(photo)], { type: 'image/png' }), 'grafico.png');
+                    method = 'sendPhoto'; body = form;
                 } else if (rich && !fallback) {
                     method = 'sendRichMessage'; body = { chat_id: binding.chatId, rich_message: { html: layout!.html }, reply_markup: buttons };
                 } else if (rich && fallback) {
@@ -1086,7 +1078,7 @@ export class Telegram {
                     method = 'sendDocument'; body = form;
                 }
                 const message = await this.outboundCall(method,body);
-                if ((rich||contentAttachment) && (!Number.isSafeInteger(message?.message_id) || message.message_id <= 0)) throw Error('Response delivery acknowledgement is uncertain');
+                if ((rich||photo) && (!Number.isSafeInteger(message?.message_id) || message.message_id <= 0)) throw Error('Response delivery acknowledgement is uncertain');
                 this.store.tx(() => {
                     this.store.run("UPDATE telegram_outbox SET status='sent',message_id=?,error=NULL WHERE event_id=?", message.message_id, r.event_id);
                     this.invalidateDrafts(binding.generation,binding.chatId);
@@ -1175,11 +1167,10 @@ export class Telegram {
         const b = this.store.get('telegramBinding');
         if (!b) return;
         const bot = this.store.get('telegramBotGeneration') ?? null, key = 'telegramMenu:' + b.generation + ':' + bot;
-        const completeKey = key + ':ownerChatDefaultV1:' + b.chatId;
+        const completeKey = key + ':ownerChatDefaultV2:' + b.chatId;
         if (this.store.get(completeKey) === true) return;
         const dispatchAuthorized=()=>this.authorized(b.generation,b.chatId,bot)&&Date.now()>=(this.store.get<number>('telegramRateLimitUntil')??0);
-        const commands = [['status', 'Stato e budget'], ['analyze', 'Analizza il nodo'], ['proposals', 'Proposte da approvare'], ['pause', 'Sospendi autonomia'], ['resume', 'Riprendi con conferma'], ['stop', 'Interrompi risposta attiva'], ['queue', 'Richieste future'], ['recover', 'Richieste precedenti'], ['reset', 'Nuova conversazione'], ['menu', 'Menu'], ['help', 'Aiuto']].map(([command, description]) => ({ command, description }));
-        if(this.store.get('contentArtifactsEnabled')===true)commands.push({command:'export',description:'Esporta dati autorizzati'});
+        const commands = [['status', 'Stato e budget'], ['analyze', 'Analizza il nodo'], ['grafico', 'Grafici del nodo'], ['proposals', 'Proposte da approvare'], ['pause', 'Sospendi autonomia'], ['resume', 'Riprendi con conferma'], ['stop', 'Interrompi risposta attiva'], ['queue', 'Richieste future'], ['recover', 'Richieste precedenti'], ['reset', 'Nuova conversazione'], ['menu', 'Menu'], ['help', 'Aiuto']].map(([command, description]) => ({ command, description }));
         try {
             // The owner's no-language scope outranks inherited scopes. Leave
             // global, all-private and unrelated command registrations untouched.

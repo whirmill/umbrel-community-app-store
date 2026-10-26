@@ -11,7 +11,7 @@ import { TelegramTurns } from '../telegram-turns.js';
 import { hash } from '../domain.js';
 import { unsolicitedFixture } from './telegram-unsolicited-fixture.js';
 
-const at = new Date().toISOString(), marker = 'telegramMenu:legacy-owner:null:ownerChatDefaultV1:42';
+const at = new Date().toISOString(), marker = 'telegramMenu:legacy-owner:null:ownerChatDefaultV2:42';
 // Every call uses the production client and its actual JSON parser. Only fetch
 // is intercepted, before any network effect, in this process-isolated test file.
 function fixture(envelope: (method: string, body: any, attempt: number) => unknown | Promise<unknown>) {

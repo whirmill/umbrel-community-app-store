@@ -59,12 +59,12 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
 ## Known issues and history
 
 - **0.5.17 never ran on the node.** Its launcher was OOM-killed (768 MB limit) while hashing a 3 GB checkpoint, and it is fixed in 0.5.18 (#108, #109). Do not install 0.5.17.
-- **Diagnostics archive.** Before 0.5.18 every 30 s diagnostics refresh archived two ~257 KB copies; 7,170 duplicates (1.85 GB) were removed with `scripts/prune_diagnostics_archive.py`. 0.5.18 archives only content changes.
+- **Diagnostics archive.** Before 0.5.18 every 30 s diagnostics refresh archived two ~257 KB copies; 7,170 duplicates (1.85 GB) were removed with `scripts/prune_diagnostics_archive.py` (removed in 0.8.0; in Git history). 0.5.18 archives only content changes.
 - **Host-level timers.** These run outside the Umbrel app as `umbrel` user systemd timers:
   - `satssurge-autopilot-{diagnostics,interlock,lnd-cert}`: about every 30–60 s;
   - `-competition`: every 3 minutes.
 
-  The pre-app `satssurge-collect` daily report and the Lightning Mate backfill were retired on 2026-10-25. The collector's past reports remain in `~/.local/share/satssurge` (#126).
+  The pre-app `satssurge-collect` daily report and the Lightning Mate backfill were retired on 2026-10-25 (#126), and their unit files were removed in 0.8.0. The collector's past reports remain in `~/.local/share/satssurge`.
 - **Startup costs.** The owner's manual startup operations of 3–8 October are annotated in `ledger_annotations`: 45 entries as `other` (channel opens and closes, funding, Magma liquidity, initial balancing) and 2 as `swap` (RoboSats fees). The budget still counts them, as mandate v1 requires. Since 0.5.20 the agent sees the 30-day partition. On 2026-10-25 it showed routing at +1,452.7 sat, other at −9,872.7 sat and swap at +1,834.5 sat.
 - **LND alerts (0.5.21).** Transient LND call failures (deadline, cancelled, rpc_failure, unavailable, resource_limit, acquisition_failure) alert only after 10 minutes of outage, once per outage, with one recovery message after 5 minutes of continuous health. Certificate, endpoint and authentication problems alert immediately. Before 0.5.21 single hiccups had produced 158 alerts.
 - **LND sync alerts (0.5.23, #128).** Right after a new block LND briefly reports `synced_to_chain=false`. Finance still stops at once, but Telegram alerts only after 10 minutes unsynchronized and sends one recovery message. On 2026-10-25 two blocks 29 s apart had produced a false "LND not synchronized" alert.
@@ -88,6 +88,15 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - **Version.** `node_state` now reports the app name and version.
   - **Historical documents.** `evidence_search` marks documents imported on 8 Oct with their date and as not current.
   - **One-off curation, owner-approved on 26 Oct.** 59 superseded pre-app documents left the search index: plans, proposals, qualifications, market studies, snapshots, point-in-time reports, a session audit and an implementation checkpoint. Their evidence rows stay. The 23 receipts and registers remain searchable.
+- **Charts and cleanup (0.8.0, #174).**
+  - **Charts.** `/grafico` and the chat send PNG charts built from the database: channel balance, balance history, forwards and fees per channel, routing fees vs rebalance costs, rebalance payback, fee and traffic of a channel. They are rendered in the container with resvg (WebAssembly) and the bundled DejaVu fonts; there is no browser. The data is frozen in the outbox receipt.
+  - **Removed, all unused:**
+    - the Chromium content renderer and the disabled `/export` pipeline;
+    - LNDg/LightningMate native hooks and the one-off prune scripts;
+    - the protected (schema 2) and scoped app-controls interlocks, with their host scripts. The live schema-1 `interlock.py` stays; a leftover `interlockContract`/`appControlContract` setting now holds finance;
+    - the UI fixture;
+    - the historical import and the `/history` mount. Imported data stays.
+  - **On the node.** The retired `satssurge-collect` unit files and its code in `~/.local/lib/satssurge` were removed. Its reports stay in `~/.local/share/satssurge`, and the `history` folder in app-data stays as source data.
 - **Stored mandate copy (0.7.7, #171).** In 0.7.6 an existing database kept the old `mandate` row in `meta`, because the store returns early on schema 6/7. Every open now refreshes it, and the research state digest uses the mandate in force. Limits, decisions and `node_state` were already correct.
 - **Owner configuration (0.7.6, #168).** Limits and timings moved from the code to an optional read-only JSON file in app-data.
   - **Why a file.** Environment variables live in the compose file, which every update rewrites. The database is written by the app and its agent tools, which would put the spending mandate within their reach. The file is mounted read-only and survives updates.
@@ -103,7 +112,7 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - **Blocked proposals.** A fee/rebalance proposal that the approval would refuse is not created. The tool reports the blocking check and the mandate values. Under mandate v1 the cap is 100 sat per attempt, so a ~250k sat rebalance at the observed 300–440 sat is blocked until the owner changes the mandate.
 - **Pi Durable integration simplified (0.6.0, #137).** The app no longer patches Pi Durable's scheduler. Tools are registered once per capability instead of per slot. Job leases and heartbeats are removed. Durable's native generation retry replaces the app's own. At startup, interrupted agent runs are re-attached, or aborted natively when the gates would not admit them now, before Durable resumes; aborted runs are never replayed. Each financial operation now records the model tool call that started it. Design: `docs/work/satssurge-durable-simplification.md`.
 - **Peer fee comparison (0.5.21).** It had been unavailable since LND left 0.21.3, because both sides pinned that exact version. It now accepts LND 0.21+ including release candidates.
-- **Database growth (0.5.22, #112).** Per-minute redundant canonical writes stopped: unchanged policies, empty history windows, rollup republishing, snapshot mirror copies and streaming frames. Simulated growth went from about 180 to about 12 MB/day. The release also fixes a latent retention bug that would have blocked financial execution about 90 days after install. `scripts/prune_redundant_history.py` removes existing redundant rollups and frames offline.
+- **Database growth (0.5.22, #112).** Per-minute redundant canonical writes stopped: unchanged policies, empty history windows, rollup republishing, snapshot mirror copies and streaming frames. Simulated growth went from about 180 to about 12 MB/day. The release also fixes a latent retention bug that would have blocked financial execution about 90 days after install. `scripts/prune_redundant_history.py` (removed in 0.8.0; in Git history) removes existing redundant rollups and frames offline.
 - **Scoped mode (until 0.5.19).** The app-controls environment pointed at an unmounted `/app-controls`, and the persisted proof kept scoped mode alive. Together they held finance permanently. An orphan maintenance claim left by an agent on 2026-10-10 was released on 2026-10-25 with the app stopped and no operations active (#113, #114).
 
 ## Roadmap

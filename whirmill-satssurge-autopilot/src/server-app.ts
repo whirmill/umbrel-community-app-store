@@ -1,6 +1,3 @@
-import { projectContent } from './content-projection.js';
-import { prepareContentDirectory } from './content-runtime.js';
-import { authorizedContentRequest } from './content-requests.js';
 import {ApplicationControl} from "./application-control.js";
 import {Telegram} from "./telegram.js";
 import { modelSettings } from "./model-settings.js";
@@ -25,7 +22,6 @@ import { Scheduler } from "./scheduler.js";
 import { Agent } from "./agent.js";
 import { UiEvents, serveUiEvents } from "./ui-events.js";
 import { OwnerSessions } from "./owner-auth.js";
-import { importHistory } from "./importer.js";
 import { now, json, publicAnswer, scrub } from "./domain.js";
 /** Internal application body; production admission is owned by server.ts. */
 export async function startApplication() {
@@ -33,8 +29,6 @@ const directory = resolve(process.env.DATA_DIR ?? "/data");
 mkdirSync(directory, { recursive: true, mode: 0o700 });
 const store = new Store(join(directory, "operational.sqlite"));
 if (!store.get("installedAt")) store.set("installedAt", now());
-const importDir = process.env.HISTORY_DIR ?? "/history";
-if (existsSync(importDir)) importHistory(store, importDir);
 const csrf = randomBytes(32).toString("hex");
 const ownerPath = join(directory, "owner.secret");
 if (!existsSync(ownerPath)) {
@@ -47,11 +41,7 @@ const sessions = new OwnerSessions();
 const uiEvents = new UiEvents(store);
 const queue = new Queue(store);
 let control = new ApplicationControl(store, queue);
-const contentDirectory = resolve(process.env.CONTENT_JOBS_DIR ?? join(directory,'content-jobs'));
-if(store.get('contentArtifactsEnabled')===undefined)store.set('contentArtifactsEnabled',false);
-if(store.get('contentArtifactsEnabled')===true)prepareContentDirectory(contentDirectory);
-const telegram = new Telegram(store, control, directory, undefined, contentDirectory);
-telegram.setContentProjection(message=>projectContent(store,message));
+const telegram = new Telegram(store, control, directory);
 queue.recoverAfterRestart();
 // Preserve pre-queue exchanges once. Durable jobs own all subsequent history.
 if (store.get("legacyChat") === undefined)
@@ -102,7 +92,7 @@ try {
     process.env.INTERLOCK_FILE ?? "/interlock/status.json",
     native,
   );
-  agent = new Agent(store, executor, directory, queue, undefined, job=>authorizedContentRequest(store,job.id),contentDirectory);
+  agent = new Agent(store, executor, directory, queue);
   await agent.open();
   await collector.collect();
   intervals.push(setInterval(() => void collector!.collect(), 60000));

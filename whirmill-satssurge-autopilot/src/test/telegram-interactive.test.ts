@@ -341,7 +341,7 @@ finally {
     rmSync(dir, { recursive: true, force: true });
 } });
 test('command menu replaces inherited default commands once per generation and fences every write', async () => { const methods: string[] = [], f = setup(async (method: string, body: any) => { methods.push(method); if (method === 'setMyCommands')
-    assert.deepEqual(body.commands.map((c: any) => c.command), ['status', 'analyze', 'proposals', 'pause', 'resume', 'stop', 'queue', 'recover', 'reset', 'menu', 'help']); return method === 'getMe' ? { username: 'satssurge_bot' } : true; }); try {
+    assert.deepEqual(body.commands.map((c: any) => c.command), ['status', 'analyze', 'grafico', 'proposals', 'pause', 'resume', 'stop', 'queue', 'recover', 'reset', 'menu', 'help']); return method === 'getMe' ? { username: 'satssurge_bot' } : true; }); try {
     await f.t.menu();
     await f.t.menu();
     assert.deepEqual(methods, ['setMyCommands', 'setMyCommands', 'setChatMenuButton', 'getMe']);
@@ -487,7 +487,7 @@ test('production scheduler projects queued/waiting terminal receipts before mode
 
 test('/menu delivers inline navigation through command handlers with ACK before admission',async()=>{
  const calls:{method:string;body:any}[]=[],f=setup(async(method:string,body:any)=>{calls.push({method,body});if(method==='answerCallbackQuery')assert.equal(f.q.metrics().states.reduce((n,r)=>n+r.count,0),0,'callback ACK precedes analysis admission');return {message_id:1};});
- try{f.t.ingest([incoming(900,'/menu')]);await f.t.process();await f.t.deliver();const sent=calls.find(c=>c.method==='sendMessage')!.body,buttons=sent.reply_markup.inline_keyboard.flat();assert.deepEqual(buttons.map((b:any)=>b.text),['Stato','Analizza','Proposte','Coda','Recupera','Aiuto']);for(const b of buttons){assert.ok(Buffer.byteLength(b.callback_data)>=1&&Buffer.byteLength(b.callback_data)<=64);const receipt=f.s.get<any>('telegramCallback:'+b.callback_data);assert.equal(receipt.chatId,42);assert.equal(receipt.generation,'owner-generation');assert.ok(receipt.expires);assert.equal(receipt.eventId,'update:900:'+b.text);}
+ try{f.t.ingest([incoming(900,'/menu')]);await f.t.process();await f.t.deliver();const sent=calls.find(c=>c.method==='sendMessage')!.body,buttons=sent.reply_markup.inline_keyboard.flat();assert.deepEqual(buttons.map((b:any)=>b.text),['Stato','Analizza','Grafici','Proposte','Coda','Recupera','Aiuto']);for(const b of buttons){assert.ok(Buffer.byteLength(b.callback_data)>=1&&Buffer.byteLength(b.callback_data)<=64);const receipt=f.s.get<any>('telegramCallback:'+b.callback_data);assert.equal(receipt.chatId,42);assert.equal(receipt.generation,'owner-generation');assert.ok(receipt.expires);assert.equal(receipt.eventId,'update:900:'+b.text);}
  const analyze=buttons.find((b:any)=>b.text==='Analizza');calls.length=0;f.t.ingest([callback(901,analyze.callback_data)]);await f.t.process();assert.equal(calls[0]!.method,'answerCallbackQuery');assert.equal(calls[0]!.body.callback_query_id,'callback-901');const jobs=f.s.all('SELECT * FROM jobs');assert.equal(jobs.length,1);assert.equal(jobs[0]!.kind,'analysis');assert.equal(JSON.parse(jobs[0]!.payload).message,'Analizza economia del nodo e blocchi attuali');assert.equal(f.s.get('jobTelegramGeneration:'+jobs[0]!.id),'owner-generation');await f.t.deliver();assert.equal(calls.some(c=>c.method==='sendMessage'),false,'idle admission emits no permanent generic ACK');
  }finally{f.close();}
 });

@@ -236,12 +236,9 @@ def main():
                     acquire(maintenance, fcntl.LOCK_SH)
                     fcntl.flock(admission, fcntl.LOCK_UN)
                     env['SATSSURGE_GATE_PHASE'] = 'runtime'
-                    arguments = sys.argv[1:]
-                    if arguments and arguments[0] != '--import':
+                    if sys.argv[1:]:
                         raise ValueError('Unsupported launcher mode')
-                    command = ['node', str(root / ('dist/import-cli.js' if arguments else 'dist/server.js'))]
-                    if arguments:
-                        command.extend(arguments[1:])
+                    command = ['node', str(root / 'dist/server.js')]
                     # Runtime has time for the existing 25-second drain within
                     # Compose's 60-second grace; both owning descriptions stay
                     # alive until the child is actually reaped.
