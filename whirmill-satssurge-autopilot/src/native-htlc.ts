@@ -41,9 +41,9 @@ function timelock(v:unknown):string|null {if(v===undefined||v===null)return null
 function eventType(v:unknown):string|null {if(v==='FORWARD'||v===3)return 'FORWARD';if(v==='SEND'||v===1)return 'SEND';if(v==='RECEIVE'||v===2)return 'RECEIVE';if(v==='UNKNOWN'||v===0)return 'UNKNOWN';return null;}
 function identifier(v:unknown):string {if(typeof v==='number'&&Number.isSafeInteger(v)&&v>=0)v=String(v);return exact(v);}
 function circuitKey(r:HtlcCircuit):string{return digest({incomingChannelId:r.incomingChannelId,outgoingChannelId:r.outgoingChannelId,incomingHtlcId:r.incomingHtlcId,outgoingHtlcId:r.outgoingHtlcId});}
-/** Decode allowlisted FORWARD observables only. SEND/RECEIVE are excluded before reading their private payload. */
+/** Decode allowlisted FORWARD observables only. SEND/RECEIVE are excluded before reading their private payload; LND's final resolution notice (event_type UNKNOWN, sent on every forward) carries no forward fields. */
 export function decodeNativeForward(value:unknown):NativeForwardRecord|null {
- const r=obj(value);if(eventType(r.event_type)==='SEND'||eventType(r.event_type)==='RECEIVE')return null;
+ const r=obj(value);if(eventType(r.event_type)==='SEND'||eventType(r.event_type)==='RECEIVE'||r.final_htlc_event!=null)return null;
  if(eventType(r.event_type)!=='FORWARD')throw Error('Unknown HTLC event type');
  const variants=[['forward_event','forward'],['link_fail_event','link_fail'],['settle_event','settle'],['forward_fail_event','forward_fail']] as const;
  const present=variants.filter(([field])=>r[field]!==undefined&&r[field]!==null);if(present.length!==1)throw Error('Native HTLC variant must be explicit');
