@@ -62,10 +62,10 @@ lane e capability e sceglie estensione, budget, istruzioni e proiezioni:
 | Capability | Ruolo | Estensione | Budget |
 |---|---|---|---|
 | `financial_guarded` | coordinator | `satssurge`: lettura, `analyst_results`, proposte, `execute_decision` | coordinator |
-| `guarded_manual_proposal` | coordinator | `satssurge-proposal`: lettura, `analyst_results`, proposte manuali e di canale | coordinator |
+| `guarded_manual_proposal` (richiesta web di revisione) | coordinator | `satssurge-proposal`: lettura, `analyst_results`, proposte manuali e di canale | coordinator |
 | `read_only_qualification` (o sconosciuta) | coordinator | `satssurge-readonly`: lettura, `analyst_results` | coordinator |
 | `read_only_research` (lane analyst, `/analyze`) | analyst | `satssurge-analyst`: lettura, `propose`, `propose_channel` | analyst |
-| `read_only_chat` (turno Telegram) | chat | `satssurge-analyst` | analyst |
+| `telegram_chat`, prima `read_only_chat` (turno Telegram) | chat | `satssurge-chat`: lettura, `analyst_results`, `create_manual_proposal`, `create_channel_proposal` | analyst |
 
 Le chiavi di sessione Telegram mantengono i suffissi storici: chat `:2`,
 ricerca `:0` (una sessione `/analyze` legata a `:1` riparte una volta). Le

@@ -2,7 +2,7 @@ import {Research} from './research.js';
 import {provenance,type Origin,type Purpose} from './analysis-feed.js';
 import { UiEvents } from './ui-events.js';
 import { Store } from './store.js';
-import { id, now, hash, json, scrub } from './domain.js';
+import { id, now, hash, json, scrub, telegramChat } from './domain.js';
 
 export type JobKind='chat'|'autonomy'|'events'|'analysis';
 export type JobState='queued'|'running'|'waiting'|'completed'|'failed'|'cancelled';
@@ -16,7 +16,9 @@ export interface Job {
 const pending="('queued','running','waiting')";
 const activeFinancial="('reserved','preparing','sending','uncertain','in_flight')";
 /** Capabilities admitted while the autopilot is paused or bootstrap is incomplete. */
-const READ_ONLY_CAPABILITIES=['read_only_chat','read_only_research','guarded_manual_proposal'];
+const READ_ONLY_CAPABILITIES=['telegram_chat','read_only_chat','read_only_research','guarded_manual_proposal'];
+/** Telegram chat turns, current and pre-0.7.4 capability ids (see telegramChat). */
+const CHAT_CAPABILITIES="('telegram_chat','read_only_chat')";
 
 /** Queue ownership is transactional. Financial intents are owned exclusively by Executor. */
 export class Queue {
@@ -49,7 +51,7 @@ export class Queue {
   claim(lane:Job['lane'],owner:string,at=now(),work:'all'|'chat'|'financial'='all'):Job|undefined {
     return this.store.tx(()=>{
       const blocked=this.store.get('enabled')!==true||!this.store.get('bootstrapReady');
-      const chatFilter="EXISTS(SELECT 1 FROM meta WHERE key='telegramTurn:'||jobs.id) AND (SELECT json_extract(value,'$') FROM meta WHERE key='jobCapability:'||jobs.id)='read_only_chat'";
+      const chatFilter="EXISTS(SELECT 1 FROM meta WHERE key='telegramTurn:'||jobs.id) AND (SELECT json_extract(value,'$') FROM meta WHERE key='jobCapability:'||jobs.id) IN "+CHAT_CAPABILITIES;
       const workFilter=work==='all'?'':work==='chat'?' AND ('+chatFilter+')':' AND NOT ('+chatFilter+')';
       if(lane==='coordinator' && this.store.one("SELECT id FROM jobs WHERE lane='coordinator' AND state='running'"+workFilter))return;
       const uncertain=lane==='coordinator'&&!!this.store.one(`SELECT id FROM operations WHERE state IN ${activeFinancial}`);
@@ -81,7 +83,7 @@ export class Queue {
   /** Recovered runs left by the previous process, oldest first. */
   recovering():Job[]{return this.store.all("SELECT * FROM jobs WHERE state='waiting' AND wait_reason='restart_recovery' ORDER BY rowid");}
   /** Same rule as the Telegram chat lane filter of claim(). */
-  chat(job:Job){return !!this.store.get('telegramTurn:'+job.id)&&this.store.get('jobCapability:'+job.id)==='read_only_chat';}
+  chat(job:Job){return !!this.store.get('telegramTurn:'+job.id)&&telegramChat(this.store.get('jobCapability:'+job.id));}
   /** A recovered run the gates no longer admit ends here; its native work was aborted, never replayed. */
   abandon(key:string,error:string,at=now()) {
     return this.store.tx(()=>{

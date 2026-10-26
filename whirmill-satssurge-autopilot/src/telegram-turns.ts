@@ -1,6 +1,6 @@
 import { Store } from './store.js';
 import { Queue, type Job } from './queue.js';
-import { now, hash } from './domain.js';
+import { now, hash, telegramChat } from './domain.js';
 export interface Turn {
     jobId: string;
     generation: string;
@@ -37,7 +37,7 @@ export class TelegramTurns {
     get(jobId: string) { return this.store.get<Turn>('telegramTurn:' + jobId); }
     save(turn: Turn) { this.store.set('telegramTurn:' + turn.jobId, turn); }
     attach(job: Job, generation: string, chatId: number) { const old = this.get(job.id); if (old)
-        return old; const turn: Turn = { jobId: job.id, generation, chatId, version: 1, state: 'queued', capability: this.store.get('jobCapability:' + job.id) ?? 'read_only_chat', submissions: [], closed: false }; this.save(turn); return turn; }
+        return old; const turn: Turn = { jobId: job.id, generation, chatId, version: 1, state: 'queued', capability: this.store.get('jobCapability:' + job.id) ?? 'telegram_chat', submissions: [], closed: false }; this.save(turn); return turn; }
     active(generation: string) { return this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'").map(r => JSON.parse(r.value) as Turn).find(t => t.generation === generation && !t.closed && (['running', 'stop_requested'].includes(t.state) || this.queue.get(t.jobId)?.state === 'running')); }
     // telegramVoiceCorrection belongs to dormant legacy local audio. Future audio must use a separate namespace.
     choices(generation: string) { return this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramCorrection:%'").map(r => JSON.parse(r.value) as Correction).filter(c => c.generation === generation && c.state === 'choice_pending' && this.store.get('telegramVoiceCorrection:' + c.id) === undefined); }
@@ -163,5 +163,9 @@ export class TelegramTurns {
     epoch() { return this.store.get<number>('telegramSessionEpoch') ?? 0; }
     open(generation: string) { return this.store.all("SELECT value FROM meta WHERE key LIKE 'telegramTurn:%'").some(r => { const t = JSON.parse(r.value) as Turn; return t.generation === generation && !t.closed; }); }
     reset(generation: string, epoch: number) { return this.store.tx(() => { if (epoch !== this.epoch() || this.open(generation)) return false; this.store.set('telegramSessionEpoch', epoch + 1); return true; }); }
-    sessionKey(t: Turn) { const epoch = this.epoch(); return 'telegramSession:' + hash(JSON.stringify(epoch ? [t.generation, t.chatId, t.capability, epoch] : [t.generation, t.chatId, t.capability])); }
+    sessionKey(t: Turn) {
+        // The 0.7.4 rename keeps the existing chat conversation: both ids hash as read_only_chat.
+        const epoch = this.epoch(), capability = telegramChat(t.capability) ? 'read_only_chat' : t.capability;
+        return 'telegramSession:' + hash(JSON.stringify(epoch ? [t.generation, t.chatId, capability, epoch] : [t.generation, t.chatId, capability]));
+    }
 }

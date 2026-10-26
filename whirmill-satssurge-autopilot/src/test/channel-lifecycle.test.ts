@@ -52,8 +52,8 @@ test('channel operations dispatch only after the owner approval; other paths can
   assert.equal(f.effects().length, 0);
   await assert.rejects(f.executor.channels!.execute(p!.id, { validate: () => {}, reserved: () => {} }), /Owner approval required/);
   await assert.rejects(f.executor.execute(p!.content), /Unsupported operation/);
-  const chat = f.c.admit('plain-chat', 'Come va il nodo?', 'telegram');
-  await assert.rejects(f.c.createChannelProposal(f.draft(), chat.id), /capability/);
+  const research = f.c.admit('telegram-analysis', 'Come va il nodo?', 'telegram', true);
+  await assert.rejects(f.c.createChannelProposal(f.draft(), research.id), /capability/);
   assert.equal(f.c.reject(p!.id), true); assert.equal((await f.c.approve(p!.id)).consumed, false);
   assert.equal(f.effects().length, 0); assert.equal(f.s.one("SELECT count(*) n FROM meta WHERE key LIKE 'channelOperation:%'").n, 0);
   const q = await f.c.createChannelProposal(f.draft({ amountSat: '1500000' }), f.job.id);

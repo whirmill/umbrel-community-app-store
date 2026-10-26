@@ -4,15 +4,18 @@ import { randomBytes } from 'node:crypto';
 import { Store } from './store.js';
 import { Queue } from './queue.js';
 import { Executor } from './executor.js';
-import { hash, json, now, scrub, channelKind, type Proposal, type ChannelProposal, type Snapshot } from './domain.js';
+import { hash, json, now, scrub, channelKind, proposalCapability, type Proposal, type ChannelProposal, type Snapshot } from './domain.js';
 import { channelApprovalState } from './channels.js';
 /** Snapshot timestamps are excluded; every material approved endpoint field is bound. */
 export function approvalState(s: Snapshot, p: Proposal) {
     return hash(json({ identity: s.identity, synced: s.synced, confirmedSat: s.confirmedSat, channels: s.channels.filter(c => [p.source, p.target].includes(c.id)).sort((a, b) => a.id.localeCompare(b.id)) }));
 }
+/** Telegram text is one chat profile: the model decides between answering and proposing. Web requests keep keyword routing. */
 export function requestCapability(message:string,source:'owner'|'telegram',analysis=false,purpose?:'qualification'|'economic'|'general') {
-    const review=/\b(approv|review|propos|propon|valut.*prima|conferm)/i.test(message);
-    return purpose==='qualification'?'read_only_qualification':analysis?'read_only_research':review?'guarded_manual_proposal':source==='telegram'?'read_only_chat':'financial_guarded';
+    if(purpose==='qualification')return 'read_only_qualification';
+    if(analysis)return 'read_only_research';
+    if(source==='telegram')return 'telegram_chat';
+    return /\b(approv|review|propos|propon|valut.*prima|conferm)/i.test(message)?'guarded_manual_proposal':'financial_guarded';
 }
 export class ApplicationControl {
     constructor(readonly store: Store, readonly queue: Queue, readonly executor?: Executor) { }
@@ -60,7 +63,7 @@ export class ApplicationControl {
     }
 
     createProposal(p: Proposal, jobId: string, at = now()) {
-        if (this.store.get('jobCapability:' + jobId) !== 'guarded_manual_proposal')
+        if (!proposalCapability(this.store.get('jobCapability:' + jobId)))
             throw Error('Manual proposal capability required');
         if (!['fee_change', 'rebalance'].includes(p.kind))
             throw Error('Unsupported manual proposal');
@@ -69,9 +72,16 @@ export class ApplicationControl {
             throw Error('Snapshot unavailable');
         return this.record(p, jobId, approvalState(snapshot, p), at);
     }
+    /** The approval-time policy check, without intent: the reason a fee/rebalance proposal would be refused now, if any. */
+    blocked(p: Proposal, at = now()): string | undefined {
+        const snapshot = this.store.get<Snapshot>('snapshot');
+        if (!snapshot) return 'Snapshot unavailable';
+        try { this.store.reserve(p, forecast(this.store, p, snapshot), snapshot, at, undefined, true); return undefined; }
+        catch (error) { return String((error as Error)?.message ?? error); }
+    }
     /** Channel opens/closes are priced now and execute only after the owner's approve action. */
     async createChannelProposal(p: ChannelProposal, jobId: string, at = now()) {
-        if (this.store.get('jobCapability:' + jobId) !== 'guarded_manual_proposal')
+        if (!proposalCapability(this.store.get('jobCapability:' + jobId)))
             throw Error('Manual proposal capability required');
         const snapshot = this.store.get<Snapshot>('snapshot');
         if (!snapshot)
