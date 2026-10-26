@@ -93,6 +93,7 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - **Research.** The required research sections are the native LND collections (forwards, failures, rollups, rebalances, payment attempts, policies).
   - **Diagnostics.** `diagnostics.py` reports an absent app as `not_installed`.
   - **Before uninstalling.** Umbrel deletes an app's data on uninstall, so archive it first.
+  - **Uninstalled on 26 Oct.** LNDg and Lightning Mate were uninstalled after their app-data was archived to `history/lndg-lightningmate-app-data-20261026.tar.gz` (39 entries, verified identical, sha256 `004edac2…96be`). The interlock reports `installed: []` and finance stays eligible.
 - **Button rows (0.8.2, #180).** The six /grafico buttons are in two rows of three, and /menu in rows of four. On one row Telegram truncated the labels.
 - **Chart resolution (0.8.1, #177).** The owner's 26 Oct rebalance (+250k sat to LNMarkets) was used within 7 minutes by three forwards (145k, 80k and 20k sat), which earned 98 sat. The 0.8.0 payback chart sampled one snapshot per hour and missed the 267k peak. Windows of up to about 2 days now use every snapshot, and short axes show the time.
 - **Charts and cleanup (0.8.0, #174).**
