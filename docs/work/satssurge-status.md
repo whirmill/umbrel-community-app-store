@@ -8,7 +8,7 @@ available in Git history and in closed PRs #106/#107.
 
 | | |
 |---|---|
-| Version | 0.7.2 |
+| Version | 0.7.3 |
 | Installed | 2026-10-25 via the supported Umbrel update |
 | Financial execution | active since 2026-10-25 10:42 (Rome) under mandate v1, after the owner's `/resume`. The first cycle chose observation only; no operations yet |
 | LND | `lightninglabs/lnd:v0.21.5-beta.rc1`, gRPC TLS healthy |
@@ -72,6 +72,10 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - **`/reset`.** The new command, with a confirmation button, starts new conversations; it is refused while a turn is open.
   - **`conversation_memory`.** The tool is removed. It claimed owner exchanges but returned mostly automatic reviews and 9–10 Oct test messages.
   - **Telegram menu.** It no longer lists `/prompt`, a leftover from 0.7.1.
+- **Version and historical evidence (0.7.3, #159).**
+  - **Version.** `node_state` now reports the app name and version.
+  - **Historical documents.** `evidence_search` marks documents imported on 8 Oct with their date and as not current.
+  - **One-off curation, owner-approved on 26 Oct.** 60 superseded pre-app documents left the search index: plans, proposals, qualifications, market studies, snapshots, point-in-time reports, a session audit and an implementation checkpoint. Their evidence rows stay. The 22 receipts and registers remain searchable.
 - **Pi Durable integration simplified (0.6.0, #137).** The app no longer patches Pi Durable's scheduler. Tools are registered once per capability instead of per slot. Job leases and heartbeats are removed. Durable's native generation retry replaces the app's own. At startup, interrupted agent runs are re-attached, or aborted natively when the gates would not admit them now, before Durable resumes; aborted runs are never replayed. Each financial operation now records the model tool call that started it. Design: `docs/work/satssurge-durable-simplification.md`.
 - **Peer fee comparison (0.5.21).** It had been unavailable since LND left 0.21.3, because both sides pinned that exact version. It now accepts LND 0.21+ including release candidates.
 - **Database growth (0.5.22, #112).** Per-minute redundant canonical writes stopped: unchanged policies, empty history windows, rollup republishing, snapshot mirror copies and streaming frames. Simulated growth went from about 180 to about 12 MB/day. The release also fixes a latent retention bug that would have blocked financial execution about 90 days after install. `scripts/prune_redundant_history.py` removes existing redundant rollups and frames offline.
