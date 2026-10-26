@@ -64,7 +64,7 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - `satssurge-autopilot-{diagnostics,interlock,lnd-cert}`: about every 30–60 s;
   - `-competition`: every 3 minutes.
 
-  The pre-app `satssurge-collect` daily report and the Lightning Mate backfill were retired on 2026-10-25 (#126), and their unit files were removed in 0.8.0. The collector's past reports remain in `~/.local/share/satssurge`.
+  The pre-app `satssurge-collect` daily report and the Lightning Mate backfill were retired on 2026-10-25 (#126), and their unit files were removed in 0.8.0. On 26 Oct the collector's past reports, including the pre-app financial receipts, were archived to `~/umbrel/app-data/whirmill-satssurge-autopilot/history/pre-app-reports-local-share-20261026.tar.gz` (265 entries, verified identical, sha256 `c4af5063…3102`). The original folder was removed.
 - **Startup costs.** The owner's manual startup operations of 3–8 October are annotated in `ledger_annotations`: 45 entries as `other` (channel opens and closes, funding, Magma liquidity, initial balancing) and 2 as `swap` (RoboSats fees). The budget still counts them, as mandate v1 requires. Since 0.5.20 the agent sees the 30-day partition. On 2026-10-25 it showed routing at +1,452.7 sat, other at −9,872.7 sat and swap at +1,834.5 sat.
 - **LND alerts (0.5.21).** Transient LND call failures (deadline, cancelled, rpc_failure, unavailable, resource_limit, acquisition_failure) alert only after 10 minutes of outage, once per outage, with one recovery message after 5 minutes of continuous health. Certificate, endpoint and authentication problems alert immediately. Before 0.5.21 single hiccups had produced 158 alerts.
 - **LND sync alerts (0.5.23, #128).** Right after a new block LND briefly reports `synced_to_chain=false`. Finance still stops at once, but Telegram alerts only after 10 minutes unsynchronized and sends one recovery message. On 2026-10-25 two blocks 29 s apart had produced a false "LND not synchronized" alert.
@@ -93,6 +93,7 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - **Research.** The required research sections are the native LND collections (forwards, failures, rollups, rebalances, payment attempts, policies).
   - **Diagnostics.** `diagnostics.py` reports an absent app as `not_installed`.
   - **Before uninstalling.** Umbrel deletes an app's data on uninstall, so archive it first.
+  - **Uninstalled on 26 Oct.** LNDg and Lightning Mate were uninstalled after their app-data was archived to `history/lndg-lightningmate-app-data-20261026.tar.gz` (39 entries, verified identical, sha256 `004edac2…96be`). The interlock reports `installed: []` and finance stays eligible.
 - **Button rows (0.8.2, #180).** The six /grafico buttons are in two rows of three, and /menu in rows of four. On one row Telegram truncated the labels.
 - **Chart resolution (0.8.1, #177).** The owner's 26 Oct rebalance (+250k sat to LNMarkets) was used within 7 minutes by three forwards (145k, 80k and 20k sat), which earned 98 sat. The 0.8.0 payback chart sampled one snapshot per hour and missed the 267k peak. Windows of up to about 2 days now use every snapshot, and short axes show the time.
 - **Charts and cleanup (0.8.0, #174).**
@@ -103,7 +104,7 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
     - the protected (schema 2) and scoped app-controls interlocks, with their host scripts. The live schema-1 `interlock.py` stays; a leftover `interlockContract`/`appControlContract` setting now holds finance;
     - the UI fixture;
     - the historical import and the `/history` mount. Imported data stays.
-  - **On the node.** The retired `satssurge-collect` unit files and its code in `~/.local/lib/satssurge` were removed. Its reports stay in `~/.local/share/satssurge`, and the `history` folder in app-data stays as source data.
+  - **On the node.** The retired `satssurge-collect` unit files and its code in `~/.local/lib/satssurge` were removed. Its reports and the two manual rebalance scripts of 7 Oct were removed after the archive below; the `history` folder in app-data stays as source data.
 - **Stored mandate copy (0.7.7, #171).** In 0.7.6 an existing database kept the old `mandate` row in `meta`, because the store returns early on schema 6/7. Every open now refreshes it, and the research state digest uses the mandate in force. Limits, decisions and `node_state` were already correct.
 - **Owner configuration (0.7.6, #168).** Limits and timings moved from the code to an optional read-only JSON file in app-data.
   - **Why a file.** Environment variables live in the compose file, which every update rewrites. The database is written by the app and its agent tools, which would put the spending mandate within their reach. The file is mounted read-only and survives updates.
