@@ -74,7 +74,7 @@ test('a chart is queued once with frozen data and goes out as a photo; /grafico 
     assert.equal(s.one("SELECT status FROM telegram_outbox WHERE event_id='chart:test'").status, 'sent');
     // The menu command offers the six charts; a named chart is queued as an image.
     t.ingest([{ update_id: 2, message: { text: '/grafico', from: { id: 42 }, chat: { id: 42, type: 'private' }, date: Math.floor(Date.now() / 1000) } }]); await t.process();
-    assert.deepEqual(s.get('telegramButtons:update:2').inline_keyboard.flat().map((b: any) => b.text), ['Bilanciamento', 'Storico saldi', 'Inoltri', 'Guadagni e costi', 'Ritorno rebalance', 'Fee e traffico']);
+    assert.deepEqual(s.get('telegramButtons:update:2').inline_keyboard.map((row: any) => row.map((b: any) => b.text)), [['Bilanciamento', 'Storico saldi', 'Inoltri'], ['Guadagni e costi', 'Ritorno rebalance', 'Fee e traffico']]);
     t.ingest([{ update_id: 3, message: { text: '/grafico storico 3', from: { id: 42 }, chat: { id: 42, type: 'private' }, date: Math.floor(Date.now() / 1000) } }]); await t.process();
     assert.equal(s.get('telegramChart:chart:update:3').kind, 'storico');
     t.ingest([{ update_id: 4, message: { text: '/grafico fee nessuno', from: { id: 42 }, chat: { id: 42, type: 'private' }, date: Math.floor(Date.now() / 1000) } }]); await t.process();

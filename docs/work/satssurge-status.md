@@ -88,6 +88,7 @@ The backup restores both the data and the previous `docker-compose.yml`, which p
   - **Version.** `node_state` now reports the app name and version.
   - **Historical documents.** `evidence_search` marks documents imported on 8 Oct with their date and as not current.
   - **One-off curation, owner-approved on 26 Oct.** 59 superseded pre-app documents left the search index: plans, proposals, qualifications, market studies, snapshots, point-in-time reports, a session audit and an implementation checkpoint. Their evidence rows stay. The 23 receipts and registers remain searchable.
+- **Button rows (0.8.2, #180).** The six /grafico buttons are in two rows of three, and /menu in rows of four. On one row Telegram truncated the labels.
 - **Chart resolution (0.8.1, #177).** The owner's 26 Oct rebalance (+250k sat to LNMarkets) was used within 7 minutes by three forwards (145k, 80k and 20k sat), which earned 98 sat. The 0.8.0 payback chart sampled one snapshot per hour and missed the 267k peak. Windows of up to about 2 days now use every snapshot, and short axes show the time.
 - **Charts and cleanup (0.8.0, #174).**
   - **Charts.** `/grafico` and the chat send PNG charts built from the database: channel balance, balance history, forwards and fees per channel, routing fees vs rebalance costs, rebalance payback, fee and traffic of a channel. They are rendered in the container with resvg (WebAssembly) and the bundled DejaVu fonts; there is no browser. The data is frozen in the outbox receipt.
