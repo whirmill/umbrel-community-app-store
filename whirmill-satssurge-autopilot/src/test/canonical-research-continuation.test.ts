@@ -18,7 +18,10 @@ function consume(c:Context,job:Job,input:EvidenceQuery){const q=c.research.query
 function setup(c:Context,found:boolean,unavailable=405){
  const capture={status:'qualified',version:'0.7.7',capturedAt:at,failures:[],...(found?{rebalances:Array.from({length:405},(_,i)=>({id:'old-'+i,at,status:'requested',source:'1',target:'2',privateToken:'synthetic-private'}))}:{})};c.s.set('enabled',false);c.s.set('snapshot',{at,channels:[]});c.s.set('diagnostics',{at,lightningMate:capture});
  for(let i=0;i<unavailable;i++)c.s.set('diagnostics',{at:new Date(Date.parse(at)+1000+i*1000).toISOString(),lightningMate:{status:'unavailable',reason:'synthetic-refresh-'+i},lndg:{status:'qualified',version:'1.11.1',capturedAt:at,forwards:[],failures:[],failureRollups:[],rebalances:[]}});
- const job=c.queue.enqueue({requestId:'canonical-search-'+found,kind:'analysis',origin:'scheduler',purpose:'economic',payload:{}});c.research.initialize(job);c.research.state(job);c.research.alternatives(job,{wait:'observe',priceChange:'read only',smallerRebalance:'read only',proposedAction:'hold'});
+ const job=c.queue.enqueue({requestId:'canonical-search-'+found,kind:'analysis',origin:'scheduler',purpose:'economic',payload:{}});c.research.initialize(job);
+ // Retained Lightning Mate captures are optional since 0.8.3: this research names the section explicitly.
+ {const r=c.research.get(job.id);if(!r.required.includes(key)){r.required.push(key);c.s.set('research:'+job.id,r);}}
+ c.research.state(job);c.research.alternatives(job,{wait:'observe',priceChange:'read only',smallerRebalance:'read only',proposedAction:'hold'});
  for(const required of c.research.get(job.id).required){if(['state_budget','alternatives',key].includes(required))continue;const [section,provider,collection]=required.split(':');let q:any={section,...(provider?{provider,collection}:{})};for(let n=0;n<1000;n++){const page=consume(c,job,q);if(!page.nextCall)break;q=page.nextCall.query;}assert.equal(c.research.get(job.id).sections[required].done,true,required);c.views.release(job.id);}
  c.s.run("DELETE FROM meta WHERE key LIKE 'canonicalDiagnosticLookup:%'");return {job,capture};
 }

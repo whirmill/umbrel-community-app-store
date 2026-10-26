@@ -4,7 +4,7 @@ import { Store } from './store.js';
 import { Queue,type Job } from './queue.js';
 import { hash,json,now,MANDATE } from './domain.js';
 import {normalizeEvidenceQuery,type EvidenceQuery } from './evidence-views.js';
-export const REQUIRED_RESEARCH=['state_budget','channels','coverage','manual_events','policy_events','diagnostics:lndg:forwards','diagnostics:lndg:failures','diagnostics:lndg:failureRollups','diagnostics:lndg:rebalances','diagnostics:lightningMate:rebalances','diagnostics:lightningMate:failures','competition','alternatives'] as const;
+export const REQUIRED_RESEARCH=['state_budget','channels','coverage','manual_events','policy_events','diagnostics:native:forwards','diagnostics:native:failures','diagnostics:native:failureRollups','diagnostics:native:rebalances','diagnostics:native:paymentAttempts','diagnostics:native:policies','competition','alternatives'] as const;
 type Progress={query:any;version:string|null;offset:number;total:number|null;done:boolean;available:boolean;reason:string|null};
 function queryScope(q:EvidenceQuery){const {cursor,sourceCursor,offset,version,...scope}=normalizeEvidenceQuery(q);return scope;}
 const scopeDigest=(q:EvidenceQuery)=>hash(json(Object.fromEntries(Object.entries(queryScope(q)).sort(([a],[b])=>a.localeCompare(b)))));
@@ -26,7 +26,8 @@ export class Research {
    {researchId:job.id,revisionId:hash(job.id+':'+job.snapshot_at),segmentIndex:0,parentReceipt:null,start:new Date(Date.parse(job.created_at)-30*86400000).toISOString(),end:job.created_at,sections:{},progress:0,calls:0,segmentStartProgress:0,segmentStartCalls:0};
   if(!r.required){
     r.required=[...REQUIRED_RESEARCH];
-    if(this.store.get('nativeCollection')?.ok===true)r.required.push('canonical_history','diagnostics:native:forwards','diagnostics:native:failures','diagnostics:native:paymentAttempts','diagnostics:native:policies','diagnostics:native:rebalances');
+    // Native LND collection is the diagnostic source; LNDg and Lightning Mate are optional and may be uninstalled.
+    if(this.store.get('nativeCollection')?.ok===true)r.required.push('canonical_history');
     if(job.scope.includes('->'))try{const scoped=job.scope.split('->').map(channelScid).join('->');r.required=r.required.map((k:string)=>['manual_events','policy_events'].includes(k)?k+':'+scoped:k);}catch{}
     const channels=this.store.get<any>('snapshot')?.channels??[];
     let corridors=job.scope.includes('->')?[job.scope]:this.store.all("SELECT DISTINCT source,target FROM events WHERE type='external_forward'").map(x=>x.source+'->'+x.target);

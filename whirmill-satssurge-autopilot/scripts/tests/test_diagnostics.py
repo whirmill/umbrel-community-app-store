@@ -58,6 +58,20 @@ class DiagnosticTests(unittest.TestCase):
             finally:
                 d.SHAPE = original
 
+    def test_uninstalled_apps_are_reported_not_installed(self):
+        import subprocess
+        original = d.subprocess.run
+        d.subprocess.run = lambda *a, **k: subprocess.CompletedProcess(a[0], 0, stdout='bitcoin_app_1\n', stderr='')
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                app = pathlib.Path(directory)
+                (app / 'credentials').mkdir()
+                (app / 'credentials/node-pubkey').write_text('02' + 'a' * 64)
+                result = d.capture(app, app / 'app-data')
+            self.assertEqual({k: v['status'] for k, v in result['providers'].items()}, {'lndg': 'not_installed', 'lightningMate': 'not_installed'})
+        finally:
+            d.subprocess.run = original
+
 
 if __name__ == '__main__':
     unittest.main()
