@@ -161,7 +161,12 @@ def capture(app_directory, base):
     if len(identity) != 66 or any(c not in '0123456789abcdef' for c in identity):
         raise ValueError('Node identity not qualified')
     providers = {}
+    # An uninstalled app (no container, running or stopped) is reported as such, not as a failed read.
+    containers = subprocess.run(['docker', 'ps', '-a', '--format', '{{.Names}}'], capture_output=True, text=True, check=True, timeout=8).stdout.splitlines()
     for name in IMAGES:
+        if IMAGES[name][0] not in containers:
+            providers[name] = {'status': 'not_installed', 'reason': 'App not installed on the node'}
+            continue
         try:
             version = running_version(name)
             if name == 'lndg':

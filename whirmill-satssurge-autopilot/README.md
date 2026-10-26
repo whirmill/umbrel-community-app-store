@@ -32,8 +32,10 @@ defaults: the owner can change them in the [configuration file](#configuration).
   least 48 hours.
 - **No other fee/rebalance automation at the same time.** A host timer checks
   every 30 seconds that LightningMate (fee, rebalance, sell, LSP), LNDg
-  (AF, AR, autopilot) and Loop/Lightning Terminal are off. If the check is
-  missing, stale or positive, financial dispatch stops.
+  (AF, AR, autopilot) and Loop/Lightning Terminal are off. LNDg and LightningMate
+  are optional: an app with no container counts as absent. If the check is
+  missing, stale or positive, or an installed app cannot be read, financial
+  dispatch stops.
 - **Payment safety:**
   - every payment writes its intent and payment hash before it is sent;
   - a timeout is treated as uncertain and resolved with TrackPaymentV2, never
@@ -102,8 +104,9 @@ every value is the default below.
   - `owner.secret` and `telegram.secret`.
 - **Host timers** run as the `umbrel` user (`systemctl --user list-timers`):
   - `satssurge-autopilot-interlock`: the automation check above, every 30 s;
-  - `satssurge-autopilot-diagnostics` and `-competition`: read-only
-    LNDg/LightningMate data and peer fee comparison;
+  - `satssurge-autopilot-diagnostics` and `-competition`: optional read-only
+    LNDg/LightningMate data (reported as not installed when absent) and peer fee
+    comparison. The agent's required research uses native LND collection;
   - `satssurge-autopilot-lnd-cert`: keeps the public LND TLS certificate copy
     current.
 

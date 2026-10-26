@@ -23,6 +23,7 @@ function stamp(value:unknown):string {
 }
 export interface DiagnosticProvider {status:'qualified'|'unavailable'|'incompatible';version?:string;reason?:string;capturedAt?:string;coverage?:unknown;forwards?:unknown[];failures?:unknown[];failureRollups?:unknown[];rebalances?:unknown[];captureCounts?:unknown;captureComplete?:boolean|null;}
 function provider(raw:any,name:'lndg'|'lightningMate',capturedAt:string):DiagnosticProvider {
+  if(raw?.status==='not_installed')return {status:'unavailable',reason:'App not installed on the node; native LND collection covers it'};
   if(raw?.status==='incompatible')return {status:'incompatible',version:typeof raw.version==='string'?raw.version:undefined,reason:'Source version or schema is not supported'};
   if(!raw||raw.status!=='ok')return {status:'unavailable',reason:'Capture unavailable; unknown is not zero'};
   try{

@@ -19,3 +19,9 @@ test('failed HTLCs remain attempts, rollups remain aggregates and pending fees r
   const result:any=qualifyDiagnostics(raw,identity,at).lndg;assert.equal(result.failures[0].amountMsat,'12000');assert.equal(result.failures[0].distinctPaymentsUnknown,true);
   assert.match(result.failureRollups[0].granularity,/bucket/);assert.equal(result.rebalances[0].succeeded,false);assert.equal(result.rebalances[0].feeMsat,null);
 });
+
+test('an uninstalled LNDg or Lightning Mate is unavailable with its reason, never an adapter failure', () => {
+  const identity = '02' + 'a'.repeat(64), capturedAt = new Date().toISOString();
+  const result = qualifyDiagnostics({ schema: 1, identity, capturedAt, providers: { lndg: { status: 'not_installed' }, lightningMate: { status: 'not_installed' } } }, identity);
+  for (const name of ['lndg', 'lightningMate'] as const) assert.deepEqual(result[name], { status: 'unavailable', reason: 'App not installed on the node; native LND collection covers it' });
+});
