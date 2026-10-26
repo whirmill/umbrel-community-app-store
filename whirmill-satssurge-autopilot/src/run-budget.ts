@@ -1,5 +1,6 @@
 import { Store } from "./store.js";
 import { now, json } from "./domain.js";
+import { SETTINGS } from "./config.js";
 export class RunBudget {
   readonly key: string;
   private state: {
@@ -26,9 +27,9 @@ export class RunBudget {
       calls: 0,
       phase: "research",
       reason: null,
-      hardMs: 180000,
-      softMs: policy.economic ? 60000 : 120000,
-      researchCalls: analyst ? 12 : 16,
+      hardMs: SETTINGS.agent.hardSeconds * 1000,
+      softMs: (policy.economic ? SETTINGS.agent.economicSoftSeconds : SETTINGS.agent.softSeconds) * 1000,
+      researchCalls: analyst ? SETTINGS.agent.readOnlyResearchCalls : SETTINGS.agent.coordinatorResearchCalls,
     };
     this.save();
   }

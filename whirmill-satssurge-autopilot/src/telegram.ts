@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { ApplicationControl } from './application-control.js';
 import { Store } from './store.js';
 import { hash, json, now, day, scrub, channelKind, telegramChat, terminal, type Proposal, type Snapshot } from './domain.js';
+import { SETTINGS, CONFIG, configChanges } from './config.js';
 import { channelOperations, OPEN_EVIDENCE_MS, type ChannelOperation } from './channels.js';
 export interface TelegramTransport {
     call(method: string, body: unknown, signal?: AbortSignal): Promise<any>;
@@ -21,8 +22,11 @@ const RICH_FINAL_HTML_BYTES = 65536;
 const RICH_BLOCK_LIMIT = 500;
 const RICH_DEPTH_LIMIT = 16;
 // v2 adds tables; finals recorded as v1 are re-rendered with the v1 grammar.
-const LND_TRANSIENT_FAILURES = ['deadline', 'cancelled', 'unavailable', 'resource_limit', 'rpc_failure', 'acquisition_failure'], LND_TRANSIENT_ALERT_MS = 600000, LND_TRANSIENT_RECOVERY_MS = 300000, LND_TRANSIENT_GAP_MS = 300000;
-const UNCERTAIN_ALERT_MS = 600000;
+const LND_TRANSIENT_FAILURES = ['deadline', 'cancelled', 'unavailable', 'resource_limit', 'rpc_failure', 'acquisition_failure'], LND_TRANSIENT_ALERT_MS = SETTINGS.telegram.lndAlertMinutes * 60000, LND_TRANSIENT_RECOVERY_MS = 300000, LND_TRANSIENT_GAP_MS = 300000;
+const UNCERTAIN_ALERT_MS = SETTINGS.telegram.uncertainAlertMinutes * 60000, UNCERTAIN_MINUTES = SETTINGS.telegram.uncertainAlertMinutes;
+const PROPOSAL_MS = SETTINGS.telegram.proposalMinutes * 60000;
+/** Quiet hours in Europe/Rome; equal start and end disable them. */
+const quiet = (hour: number) => { const { quietStartHour: start, quietEndHour: end } = SETTINGS.telegram; return start < end ? hour >= start && hour < end : start > end ? hour >= start || hour < end : false; };
 const FAILURE_REASONS: Record<string, string> = {
     FAILURE_REASON_NO_ROUTE: 'nessun percorso entro il costo massimo', FAILURE_REASON_TIMEOUT: 'tempo scaduto senza un percorso riuscito',
     FAILURE_REASON_INSUFFICIENT_BALANCE: 'saldo insufficiente sul canale di partenza', FAILURE_REASON_INCORRECT_PAYMENT_DETAILS: 'pagamento rifiutato dalla destinazione',
@@ -36,15 +40,15 @@ export function operationText(p: Proposal, state: string, details: any, snapshot
     if (p.kind === 'fee_change') {
         const what = `fee di ${name(p.target)} a ${p.newPpm} ppm`;
         return state === 'SUCCEEDED' ? `Fee aggiornata: ${what}.` : state === 'FAILED' ? `Modifica della ${what} non applicata.`
-            : `Modifica della ${what}: esito non ancora verificato${stale ? ' dopo 10 minuti' : ''}. Verifico senza ripeterla.`;
+            : `Modifica della ${what}: esito non ancora verificato${stale ? ` dopo ${UNCERTAIN_MINUTES} minuti` : ''}. Verifico senza ripeterla.`;
     }
     const what = `${thousands(p.amountSat)} sat da ${name(p.source)} verso ${name(p.target)}`;
     if (state === 'SUCCEEDED') return `Rebalance riuscito: ${what}, costo ${msatText(String(details.feeMsat ?? '0'))}.`;
     if (state === 'FAILED') return `Rebalance non riuscito: ${what}${FAILURE_REASONS[details.reason] ? ` (${FAILURE_REASONS[details.reason]}, limite ${msatText(p.maxFeeMsat)})` : ''}. Nessun costo e saldi invariati.`;
-    return `Rebalance di ${what}: pagamento inviato, esito non ancora confermato da LND${stale ? ' dopo 10 minuti' : ''}. Verifico senza ripeterlo e ti scrivo l'esito.`;
+    return `Rebalance di ${what}: pagamento inviato, esito non ancora confermato da LND${stale ? ` dopo ${UNCERTAIN_MINUTES} minuti` : ''}. Verifico senza ripeterlo e ti scrivo l'esito.`;
 }
-const LND_SYNC_BLOCKER = 'LND not synchronized', LND_SYNC_ALERT_MS = 600000, LND_SYNC_ALERT_TEXT = 'LND non sincronizzato da oltre 10 minuti';
-const PROVIDER_TRANSIENT_FAILURES = ['transient_stream', 'transient_network'], PROVIDER_ALERT_MS = 600000, PROVIDER_COOLDOWN_GRACE_MS = 120000, PROVIDER_ALERT_TEXT = 'Provider del modello non raggiungibile da oltre 10 minuti; nuove richieste in attesa';
+const LND_SYNC_BLOCKER = 'LND not synchronized', LND_SYNC_ALERT_MS = SETTINGS.telegram.lndSyncAlertMinutes * 60000, LND_SYNC_ALERT_TEXT = `LND non sincronizzato da oltre ${SETTINGS.telegram.lndSyncAlertMinutes} minuti`;
+const PROVIDER_TRANSIENT_FAILURES = ['transient_stream', 'transient_network'], PROVIDER_ALERT_MS = SETTINGS.telegram.providerAlertMinutes * 60000, PROVIDER_COOLDOWN_GRACE_MS = 120000, PROVIDER_ALERT_TEXT = `Provider del modello non raggiungibile da oltre ${SETTINGS.telegram.providerAlertMinutes} minuti; nuove richieste in attesa`;
 const RICH_FORMAT = 'rich-blocks-v2', RICH_FORMATS: Record<string, boolean> = { 'rich-blocks-v1': false, 'rich-blocks-v2': true };
 const graphemes = new Intl.Segmenter('it', { granularity: 'grapheme' });
 interface RichFinal {
@@ -811,6 +815,16 @@ export class Telegram {
             }
         }
     }
+    /** One notice when the owner configuration in force differs from the one applied at the previous start. */
+    private captureConfig(at: string) {
+        const applied = this.store.get<any>('configApplied');
+        if (applied?.digest === CONFIG.digest && json(applied?.errors ?? []) === json(CONFIG.errors)) return;
+        const changes = configChanges(applied?.values, CONFIG.values);
+        this.store.tx(() => {
+            if (changes.length) this.enqueue('config:' + CONFIG.digest + ':' + at, `Configurazione cambiata all'avvio: ${changes.join('; ')}.`, 'reply', undefined, at);
+            this.store.set('configApplied', { digest: CONFIG.digest, values: CONFIG.values, errors: CONFIG.errors, at });
+        });
+    }
     /** Why a proposal tap did nothing: it was already used, refused, expired or revoked. */
     private usedProposal(p: any) {
         const status = p?.status;
@@ -835,8 +849,8 @@ export class Telegram {
     summary(p: any) {
         const c = p.content;
         // The pubkey is the identity the owner approves; the alias is gossip the peer controls and can impersonate anyone.
-        if (channelKind(c.kind)) return `${c.kind === 'channel_open' ? `Proposta apertura canale da ${c.amountSat} sat verso il nodo ${c.peer} all’indirizzo ${telegramText(String(c.address ?? 'non disponibile'))}` : `Proposta chiusura cooperativa del canale ${c.channel} con il nodo ${String(c.peer).slice(0, 16)}…${String(c.peer).slice(-8)}`}${c.alias ? ` (alias dichiarato dal nodo, non verificato: «${telegramText(String(c.alias)).slice(0, 40)}»)` : ''}. Fee on-chain massima ${c.maxFeeSat} sat a ${c.satPerVbyte} sat/vB; budget on-chain mensile residuo ${c.forecast?.monthlyBudget?.remainingSat ?? 'sconosciuto'} sat.${c.kind === 'channel_close' ? ' Mai chiusura forzata: se il peer è offline o rifiuta, l’operazione si ferma e viene segnalata.' : ` Riserva on-chain di ${c.forecast?.reserveSat ?? '500000'} sat protetta.`} Motivo: ${telegramText(c.whyAct)}. Valida per 5 minuti dalla consegna. Nulla viene eseguito senza la tua approvazione.`;
-        return `Proposta ${p.content.kind}: ${p.content.source || 'policy'} → ${p.content.target}. Importo ${p.content.amountSat} sat; costo massimo ${p.content.maxFeeMsat} msat${p.content.newPpm === undefined ? '' : `; nuova fee ${p.content.newPpm} ppm`}. Motivo: ${telegramText(p.content.whyAct)}. Valida per 5 minuti dalla consegna. Approva o rifiuta; restano attivi i controlli di sicurezza.`; }
+        if (channelKind(c.kind)) return `${c.kind === 'channel_open' ? `Proposta apertura canale da ${c.amountSat} sat verso il nodo ${c.peer} all’indirizzo ${telegramText(String(c.address ?? 'non disponibile'))}` : `Proposta chiusura cooperativa del canale ${c.channel} con il nodo ${String(c.peer).slice(0, 16)}…${String(c.peer).slice(-8)}`}${c.alias ? ` (alias dichiarato dal nodo, non verificato: «${telegramText(String(c.alias)).slice(0, 40)}»)` : ''}. Fee on-chain massima ${c.maxFeeSat} sat a ${c.satPerVbyte} sat/vB; budget on-chain mensile residuo ${c.forecast?.monthlyBudget?.remainingSat ?? 'sconosciuto'} sat.${c.kind === 'channel_close' ? ' Mai chiusura forzata: se il peer è offline o rifiuta, l’operazione si ferma e viene segnalata.' : ` Riserva on-chain di ${c.forecast?.reserveSat ?? '500000'} sat protetta.`} Motivo: ${telegramText(c.whyAct)}. Valida per ${SETTINGS.telegram.proposalMinutes} minuti dalla consegna. Nulla viene eseguito senza la tua approvazione.`;
+        return `Proposta ${p.content.kind}: ${p.content.source || 'policy'} → ${p.content.target}. Importo ${p.content.amountSat} sat; costo massimo ${p.content.maxFeeMsat} msat${p.content.newPpm === undefined ? '' : `; nuova fee ${p.content.newPpm} ppm`}. Motivo: ${telegramText(p.content.whyAct)}. Valida per ${SETTINGS.telegram.proposalMinutes} minuti dalla consegna. Approva o rifiuta; restano attivi i controlli di sicurezza.`; }
     capture(at = now()) {
         this.turns().reconcile();
         if (!this.store.get('telegramBinding'))
@@ -863,8 +877,9 @@ export class Telegram {
         this.store.run("UPDATE owner_proposals SET status='expired' WHERE status='pending' AND expires_at IS NOT NULL AND expires_at<=?", at);
         this.captureChannelOperations(at);
         this.captureLndTransport(at);
+        this.captureConfig(at);
         const syncAlert = this.captureLndSync(at), provider = this.captureProviderAvailability(at);
-        const blockers = [this.store.get('integrityBlocker'), this.store.get('agent')?.status !== 'unavailable' ? null : provider.transient ? (provider.alert ? PROVIDER_ALERT_TEXT : null) : availabilityBlocker(this.store.get('agent')?.failure), this.store.one("SELECT id FROM operations WHERE state='uncertain' AND at<=?", new Date(Date.parse(at) - UNCERTAIN_ALERT_MS).toISOString()) ? 'Esito finanziario incerto da oltre 10 minuti; richiesta riconciliazione, nessun replay' : null, ...(this.store.get<any[]>('blockers') ?? []).filter(b => !(b === 'Native LND gRPC/acquisition requires attention' && LND_TRANSIENT_FAILURES.includes(this.store.get('lndTransport')?.failure)) && !(b === LND_SYNC_BLOCKER && !syncAlert)).map(b => b === LND_SYNC_BLOCKER ? LND_SYNC_ALERT_TEXT : b)].filter(Boolean).map(telegramText);
+        const blockers = [this.store.get('integrityBlocker'), CONFIG.errors.length ? `Configurazione non valida (${CONFIG.file}): ${CONFIG.errors.join('; ')}. Operazioni finanziarie bloccate; valgono i valori predefiniti` : null, this.store.get('agent')?.status !== 'unavailable' ? null : provider.transient ? (provider.alert ? PROVIDER_ALERT_TEXT : null) : availabilityBlocker(this.store.get('agent')?.failure), this.store.one("SELECT id FROM operations WHERE state='uncertain' AND at<=?", new Date(Date.parse(at) - UNCERTAIN_ALERT_MS).toISOString()) ? `Esito finanziario incerto da oltre ${UNCERTAIN_MINUTES} minuti; richiesta riconciliazione, nessun replay` : null, ...(this.store.get<any[]>('blockers') ?? []).filter(b => !(b === 'Native LND gRPC/acquisition requires attention' && LND_TRANSIENT_FAILURES.includes(this.store.get('lndTransport')?.failure)) && !(b === LND_SYNC_BLOCKER && !syncAlert)).map(b => b === LND_SYNC_BLOCKER ? LND_SYNC_ALERT_TEXT : b)].filter(Boolean).map(telegramText);
         this.store.tx(() => {
             const generation = this.store.get('telegramBinding').generation;
             const previous = this.store.get('telegramIncident');
@@ -886,7 +901,7 @@ export class Telegram {
             }
         }
         const hour = romeHour(at), date = day(at);
-        if (hour >= 9) {
+        if (hour >= SETTINGS.telegram.digestHour) {
             const key = 'digest:' + date;
             if (!this.store.one('SELECT event_id FROM telegram_outbox WHERE event_id=?', key))
                 this.store.tx(() => {
@@ -998,7 +1013,7 @@ export class Telegram {
         const hour = romeHour(at);
         const botGeneration = this.store.get('telegramBotGeneration') ?? null;
         for (const r of this.store.all("SELECT * FROM telegram_outbox WHERE status='pending' AND kind<>'ordinary' AND generation=? AND (next_at IS NULL OR next_at<=?) ORDER BY CASE kind WHEN 'critical' THEN 0 WHEN 'reply' THEN 1 ELSE 2 END,created_at LIMIT 20", binding.generation, at)) {
-            if ((hour >= 22 || hour < 8) && !['critical', 'reply'].includes(r.kind))
+            if (quiet(hour) && !['critical', 'reply'].includes(r.kind))
                 continue;
             if (r.proposal_id) {
                 const p = this.control.proposal(r.proposal_id);
@@ -1007,7 +1022,7 @@ export class Telegram {
                     continue;
                 }
                 try {
-                    this.store.run('UPDATE owner_proposals SET expires_at=? WHERE id=?', new Date(Date.parse(at) + 300000).toISOString(), p.id);
+                    this.store.run('UPDATE owner_proposals SET expires_at=? WHERE id=?', new Date(Date.parse(at) + PROPOSAL_MS).toISOString(), p.id);
                     this.control.validate(p.id, this.store.get('snapshot')!, at);
                 }
                 catch {
@@ -1076,7 +1091,7 @@ export class Telegram {
                     this.store.run("UPDATE telegram_outbox SET status='sent',message_id=?,error=NULL WHERE event_id=?", message.message_id, r.event_id);
                     this.invalidateDrafts(binding.generation,binding.chatId);
                     if (r.proposal_id && this.store.get('telegramBinding')?.generation === binding.generation)
-                        this.store.run("UPDATE owner_proposals SET expires_at=? WHERE id=? AND status='pending'", new Date(Date.parse(now()) + 300000).toISOString(), r.proposal_id);
+                        this.store.run("UPDATE owner_proposals SET expires_at=? WHERE id=? AND status='pending'", new Date(Date.parse(now()) + PROPOSAL_MS).toISOString(), r.proposal_id);
                 });
             }
             catch (error) {

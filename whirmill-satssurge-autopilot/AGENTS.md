@@ -42,6 +42,9 @@ changes read [Telegram integration](../docs/pi/telegram-integration.md).
 - A schema change bumps the database version and updates
   `scripts/schema-targets.json`; the launcher takes a checkpoint only then.
 - Node actions (stop, update, restore, data changes) need the owner's approval.
+- Owner-tunable limits and timings belong in `src/config.ts` (defaults, bounds,
+  read-only `config/satssurge.json`), not new hard-coded constants or database
+  settings. Safety rules stay in code.
 
 The Telegram-first release preserves the current fee/rebalance mandate. Native
 LND diagnostics, channel lifecycle, HTLC policies, discovery and optional

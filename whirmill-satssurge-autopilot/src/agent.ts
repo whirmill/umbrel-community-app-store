@@ -61,6 +61,7 @@ const MANDATE_SAT = Object.freeze({
   allowed: MANDATE.allowed, maxCostPerAttemptSat: sat(MANDATE.attemptMsat), dailyCostSat: sat(MANDATE.dailyMsat),
   exploratoryDailyCostSat: sat(MANDATE.exploratoryDailyMsat), totalCostSat: sat(MANDATE.totalMsat),
   onchainReserveSat: Number(MANDATE.reserveSat), maxAttemptsPerDecision: MANDATE.maxAttempts,
+  feeStepPercent: MANDATE.feeStepPercent, feeWindowHours: MANDATE.feeWindowHours,
   channels: { openSat: [Number(CHANNEL_MANDATE.minOpenSat), Number(CHANNEL_MANDATE.maxOpenSat)], onchainFeesPerMonthSat: Number(CHANNEL_MANDATE.onchainMonthlyFeeSat), close: CHANNEL_MANDATE.close },
 });
 /** The Telegram chat: answers from data and prepares proposals the owner approves. */
@@ -86,7 +87,7 @@ const ProposalSchema = Type.Object({
   decisionCapMsat: Type.String(),
   newPpm: Type.Optional(Type.Integer()),
   demandKey: Type.String(),
-  evidenceIds: Type.Array(Type.String()),
+  evidenceIds: Type.Array(Type.String(), { description: "At least one id copied from a tool result: an evidence id from evidence_search or an event id from corridor_events. Channel ids, pubkeys and invented ids are refused." }),
   problem: Type.String(),
   evidence: Type.String(),
   whyAct: Type.String(),

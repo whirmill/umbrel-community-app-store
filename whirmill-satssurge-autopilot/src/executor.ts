@@ -60,7 +60,7 @@ export class Executor {
         this.store.run("UPDATE operations SET payment_hash=?,invoice=?,state='sending' WHERE id=?",invoice.hash,invoice.request,operation);
         const fresh=await this.node.snapshot();
         const changed=[p.source,p.target].some(key=>{const before=s.channels.find(c=>c.id===key)!,after=fresh.channels.find(c=>c.id===key);const drift=(a:string,b:string)=>{const d=integer(a)-integer(b);return (d<0n?-d:d)*100n>integer(before.capacitySat);};return !after||!after.active||after.ppm!==before.ppm||after.baseMsat!==before.baseMsat||after.pendingSat!=='0'||drift(after.localSat,before.localSat)||drift(after.remoteSat,before.remoteSat);});
-        if(changed || fresh.identity!==s.identity || !fresh.synced || integer(fresh.confirmedSat)<500000n || Date.now()-Date.parse(this.store.get('automationProof')?.at??'1970-01-01')>90000){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});this.store.saveSnapshot(fresh);throw new Error('Material state change before send; replan');}
+        if(changed || fresh.identity!==s.identity || !fresh.synced || integer(fresh.confirmedSat)<integer(MANDATE.reserveSat) || Date.now()-Date.parse(this.store.get('automationProof')?.at??'1970-01-01')>90000){this.finish(operation,{status:'FAILED',feeMsat:'0',amountSat:'0'});this.store.saveSnapshot(fresh);throw new Error('Material state change before send; replan');}
         this.dispatchGuard(operation,fresh);
         const result=await this.node.send(invoice.request,p.source,s.channels.find(c=>c.id===p.target)!.peer,p.maxFeeMsat);
         this.finish(operation,result);

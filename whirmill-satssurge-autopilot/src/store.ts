@@ -8,6 +8,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { id, now, json, hash, integer, day, MANDATE, CHANNEL_MANDATE, SCHEMA_VERSION, type Snapshot, type Proposal, type Forecast } from './domain.js';
+import { CONFIG } from './config.js';
 
 export const UI_TEXT_FRAME_RETENTION_MS=86400000;
 /** Durable tool call identity: conversation and call ID, plus the job that owned it. */
@@ -104,7 +105,8 @@ export class Store {
       }
     });
     if (path !== ':memory:') chmodSync(path, 0o600);
-    if (!this.get('mandate')) this.set('mandate', MANDATE);
+    // The stored copy follows the owner configuration in force at this start.
+    if (json(this.get('mandate')) !== json(MANDATE)) this.set('mandate', MANDATE);
     if (this.get('enabled')===undefined) this.set('enabled', true);
     migrateCanonical(this.db,{freezeOriginals:true});this.canonical=new CanonicalRuntime(this.db);
   }
@@ -171,6 +173,7 @@ export class Store {
     return { cumulativeMsat:cumulative.toString(), dailyMsat:daily.toString(), exploratoryMsat:exploratory.toString(), remainingMsat:(integer(MANDATE.totalMsat)-cumulative).toString(), coverageComplete:this.get('historicalCoverageComplete')===true };
   }
   assertDispatchReady(at=now()) {
+    if(CONFIG.errors.length)throw new Error('Owner configuration invalid: '+CONFIG.errors.join('; '));
     if(this.get('interlockContract')!==undefined&&this.get('interlockContract')?.schema!==2)throw new Error('Unsupported protected automation interlock');
     if(scopedAppControls(this))throw new Error('Owner-wide standalone automation unknown in scoped app-controls mode');
     if(this.get('maintenanceClaim'))throw new Error('Financial execution suspended for maintenance');
@@ -199,7 +202,8 @@ export class Store {
       for(const c of [p.source,p.target].filter(Boolean)) if(this.one('SELECT channel_id FROM channel_holds WHERE channel_id=?',c)) throw new Error('Manual intervention under reconciliation');
       if(!MANDATE.allowed.includes(p.kind) || !['ordinary','exploratory'].includes(p.category)) throw new Error('Unsupported operation');
       if(!p.strategy || !p.problem || !p.evidence || !p.whyAct || !p.alternatives || !p.verify || !p.hypothesis || !p.demandKey) throw new Error('Incomplete decision');
-      if(!p.evidenceIds.length || p.evidenceIds.some(e=>!this.one('SELECT id FROM evidence WHERE id=?',e) && !this.one('SELECT id FROM events WHERE id=?',e))) throw new Error('Unverified evidence references');
+      const unknown=p.evidenceIds.filter(e=>!this.one('SELECT id FROM evidence WHERE id=?',e) && !this.one('SELECT id FROM events WHERE id=?',e));
+      if(!p.evidenceIds.length || unknown.length) throw new Error('Unverified evidence references'+(unknown.length?': '+unknown.slice(0,5).join(', '):''));
       const fingerprint=hash(json(p.evidenceIds.slice().sort()));
       const previousAttempts=this.all("SELECT d.id,d.proposal,o.state FROM decisions d JOIN operations o ON o.decision_id=d.id WHERE json_extract(d.proposal,'$.demandKey')=?",p.demandKey).filter(r=>hash(json((JSON.parse(r.proposal).evidenceIds as string[]).slice().sort()))===fingerprint);
       const spent=previousAttempts.reduce<bigint>((n,r)=>n+this.all("SELECT amount_msat FROM ledger WHERE operation_id IN (SELECT id FROM operations WHERE decision_id=?) AND classification='expense'",r.id).reduce<bigint>((a,x)=>a+integer(x.amount_msat),0n),0n);
@@ -219,7 +223,7 @@ export class Store {
         const uncommitted=this.uncommittedDemand(p.source,p.target,f.rawRequestedMsat??f.requestedMsat,at);
         if(uncommitted!==f.requestedMsat)throw new Error('Forecast stale: future demand already allocated; recompute');
       }
-      if(p.category==='ordinary' && (!f.eligible || integer(f.benefitMsat)<2n*cap)) throw new Error('Insufficient independently computed benefit');
+      if(p.category==='ordinary' && (!f.eligible || integer(f.benefitMsat)<BigInt(MANDATE.ordinaryBenefitRatio)*cap)) throw new Error('Insufficient independently computed benefit');
       const target=s.channels.find(c=>c.id===p.target);
       if(!target?.active) throw new Error('Target channel unavailable');
       if(p.kind==='rebalance') {
@@ -233,10 +237,10 @@ export class Store {
       } else {
         if(p.category!=='exploratory')throw new Error('Pricing changes require explicit experiment');
         if(cap!==0n || p.amountSat!=='0' || !Number.isInteger(p.newPpm) || p.newPpm!<0 || p.newPpm!>100000) throw new Error('Invalid fee proposal');
-        const step=Math.max(5,Math.ceil(target.ppm*0.2));
+        const step=Math.max(MANDATE.feeStepMinPpm,Math.ceil(target.ppm*MANDATE.feeStepPercent/100));
         if(p.newPpm===target.ppm || Math.abs(p.newPpm!-target.ppm)>step) throw new Error('Fee step exceeds 20%/5ppm');
         const last=this.all("SELECT d.at,d.proposal FROM decisions d WHERE json_extract(d.proposal,'$.kind')='fee_change' AND json_extract(d.proposal,'$.target')=? ORDER BY d.at DESC LIMIT 1",p.target)[0];
-        if(last && Date.parse(at)-Date.parse(last.at)<48*3600_000) throw new Error('Fee observation window');
+        if(last && Date.parse(at)-Date.parse(last.at)<MANDATE.feeWindowHours*3600_000) throw new Error('Fee observation window');
       }
       // Read-only preview uses exactly the execution policy, without creating intent.
       if(previewOnly)return {decision:'',operation:''};
@@ -285,7 +289,7 @@ export class Store {
       let revenue=0n,cost=0n; for(const r of rows){ if(r.classification==='expense')cost+=integer(r.amount_msat); if(r.classification==='revenue')revenue+=integer(r.amount_msat); }
       return {revenueMsat:revenue.toString(),costMsat:cost.toString(),netMsat:(revenue-cost).toString()};
     };
-    return {appControlProof:this.get('appControlProof')??null,operationalReadiness:this.get('operationalReadiness')??null,enabled:this.get('enabled'),bootstrapReady:this.get('bootstrapReady')??false,blockers:this.get('blockers')??[],mandate:MANDATE,budget:this.budget(),snapshot:this.get('snapshot')??null,
+    return {appControlProof:this.get('appControlProof')??null,operationalReadiness:this.get('operationalReadiness')??null,enabled:this.get('enabled'),bootstrapReady:this.get('bootstrapReady')??false,blockers:this.get('blockers')??[],mandate:MANDATE,config:{source:CONFIG.source,digest:CONFIG.digest,errors:CONFIG.errors,overrides:CONFIG.overrides,values:CONFIG.values},budget:this.budget(),snapshot:this.get('snapshot')??null,
       canonical:canonicalRead(this,{limit:100}),canonicalArchive:this.canonical.summary(),nativeCollection:this.get('nativeCollection')??null,diagnostics:unifiedDiagnostics(this),competition:this.get('competition')??null,pnl30:sums(ledger.filter(r=>r.at>=since)),cumulative:sums(ledger),partial:this.get('historicalCoverageComplete')!==true || !ledger.some(r=>r.classification==='expense'&&JSON.parse(r.details).scope==='subscription') || accountingPartition(ledger,this.all('SELECT * FROM ledger_annotations')).unassignedCosts,
       accounting:accountingPartition(ledger,this.all('SELECT * FROM ledger_annotations')),
       accounting30:accountingPartition(ledger.filter(r=>r.at>=since),this.all('SELECT * FROM ledger_annotations')),
