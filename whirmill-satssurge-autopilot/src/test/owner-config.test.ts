@@ -107,3 +107,18 @@ test('an invalid file blocks finance and says why on Telegram; chat settings fal
     assert.match(blocker.text, /Configurazione non valida \(.*satssurge\.json\): mandate\.attemptSat=50000 fuori dai limiti 1–2000\. Operazioni finanziarie bloccate/);
     assert.match(withConfig('not json').dispatch, /JSON non valido/);
 });
+
+test('reopening an existing database refreshes the stored mandate copy', async () => {
+    const { Store } = await import('../store.js');
+    const dir = mkdtempSync(join(tmpdir(), 'owner-config-store-')), path = join(dir, 'operational.sqlite');
+    try {
+        let s = new Store(path);
+        assert.equal(s.one('PRAGMA user_version').user_version, 7);
+        // A pre-0.7.6 copy: no configuration digest, old limits.
+        s.set('mandate', { version: 1, attemptMsat: '100000' }); s.close();
+        s = new Store(path);
+        assert.deepEqual(s.get('mandate'), JSON.parse(JSON.stringify(MANDATE)));
+        assert.equal(s.get('mandate').configDigest, CONFIG.digest);
+        s.close();
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+});

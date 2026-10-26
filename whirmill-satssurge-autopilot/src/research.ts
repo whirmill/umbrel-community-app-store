@@ -2,7 +2,7 @@ import {UiEvents} from './ui-events.js';
 import {channelScid} from './diagnostics.js';
 import { Store } from './store.js';
 import { Queue,type Job } from './queue.js';
-import { hash,json,now } from './domain.js';
+import { hash,json,now,MANDATE } from './domain.js';
 import {normalizeEvidenceQuery,type EvidenceQuery } from './evidence-views.js';
 export const REQUIRED_RESEARCH=['state_budget','channels','coverage','manual_events','policy_events','diagnostics:lndg:forwards','diagnostics:lndg:failures','diagnostics:lndg:failureRollups','diagnostics:lndg:rebalances','diagnostics:lightningMate:rebalances','diagnostics:lightningMate:failures','competition','alternatives'] as const;
 type Progress={query:any;version:string|null;offset:number;total:number|null;done:boolean;available:boolean;reason:string|null};
@@ -42,7 +42,7 @@ export class Research {
   const scoped=['corridor_events','manual_events','policy_events'].includes(q.section)&&job.scope.includes('->')?{source:job.scope.split('->')[0],target:job.scope.split('->')[1]}:{};
   return {...scoped,...q,...(['corridor_events','manual_events','policy_events','coverage','decisions','operations','evaluations','evaluationWindows','holds','claims'].includes(q.section)?{start:q.start??r.start,end:q.end??r.end}:{})};
  }
- state(job:Job){const r=this.initialize(job);const digest=hash(json({budget:this.store.budget(),mandate:this.store.get('mandate'),blockers:this.store.get('blockers')}));if(r.sections.state_budget?.version!==digest)r.progress++;r.sections.state_budget={done:true,available:true,query:{tool:'node_state'},version:digest,offset:1,total:1};r.calls++;this.save(r);}
+ state(job:Job){const r=this.initialize(job);const digest=hash(json({budget:this.store.budget(),mandate:MANDATE,blockers:this.store.get('blockers')}));if(r.sections.state_budget?.version!==digest)r.progress++;r.sections.state_budget={done:true,available:true,query:{tool:'node_state'},version:digest,offset:1,total:1};r.calls++;this.save(r);}
  page(job:Job,q:EvidenceQuery,page:any){
   q={...q,...page.metadata?.scope};
   const r=this.initialize(job);let key:string=q.section==='diagnostics'?'diagnostics:'+q.provider+':'+q.collection:q.section;
