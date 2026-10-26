@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.7.6"
+version: "0.7.7"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,7 +27,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.7.6 moves spending limits and timings into an optional settings
-  file, so you can change them without a new release. Telegram confirms each
-  change after a restart. A file with a mistake stops payments and says which
-  value is wrong.
+  Version 0.7.7 fixes a detail of 0.7.6: the copy of the spending limits kept
+  in the database now updates when the settings file changes. The limits in
+  force were already applied correctly.
