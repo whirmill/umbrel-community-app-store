@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.7.4"
+version: "0.7.5"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,8 +27,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.7.4 lets you ask for operations in plain words on Telegram. The
-  chat reads the node data first, then prepares a fee, rebalance or channel
-  proposal with Approva and Rifiuta buttons. Nothing runs until you tap
-  Approva. If the mandate blocks an operation, the chat says which limit
-  blocks it.
+  Version 0.7.5 confirms right away when you tap Approva on Telegram. It then
+  reports the result: the cost, or why LND could not complete the payment. A
+  payment still being checked no longer looks blocked, and it raises an alert
+  only after 10 minutes.
