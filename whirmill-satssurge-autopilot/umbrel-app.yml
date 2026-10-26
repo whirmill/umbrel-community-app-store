@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.8.2"
+version: "0.8.3"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,5 +27,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.8.2 lays out the Telegram chart and menu buttons in rows, so their
-  labels are no longer cut off.
+  Version 0.8.3 no longer needs LNDg or Lightning Mate. The agent uses data it
+  collects directly from LND. If you uninstall them, autopilot keeps working;
+  if they are installed, it still checks that their automation is off.
