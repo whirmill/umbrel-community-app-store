@@ -231,11 +231,16 @@ export class Telegram {
     private buttons(eventId: string, items: {
         text: string;
         value: any;
-    }[], generation: string) { return { inline_keyboard: [items.map(i => ({ text: i.text, callback_data: this.callback(eventId + ':' + i.text, i.value, generation) }))] }; }
+    }[], generation: string, perRow = items.length) {
+        // Rows of perRow buttons: Telegram truncates labels when one row holds too many.
+        const all = items.map(i => ({ text: i.text, callback_data: this.callback(eventId + ':' + i.text, i.value, generation) }));
+        const rows = []; for (let i = 0; i < all.length; i += Math.max(1, perRow)) rows.push(all.slice(i, i + Math.max(1, perRow)));
+        return { inline_keyboard: rows };
+    }
     private attachButtons(eventId: string, items: {
         text: string;
         value: any;
-    }[], generation: string) { this.store.set('telegramButtons:' + eventId, this.buttons(eventId, items, generation)); }
+    }[], generation: string, perRow?: number) { this.store.set('telegramButtons:' + eventId, this.buttons(eventId, items, generation, perRow)); }
     constructor(readonly store: Store, readonly control: ApplicationControl, directory: string, transport?: TelegramTransport) {
         this.tokenPath = join(directory, 'telegram.secret'); this.transport = transport;
     }
@@ -761,7 +766,7 @@ export class Telegram {
                     const [kind, ...rest] = u.text.slice(8).trim().split(/\s+/).filter(Boolean);
                     if (!kind) {
                         answer = 'Quale grafico? Bilanciamento attuale, storico dei saldi, inoltri e commissioni, guadagni contro costi, ritorno dell\'ultimo rebalance, fee e traffico del canale principale.';
-                        this.attachButtons(event, CHART_BUTTONS.map(([text, code]) => ({ text, value: { action: 'navigate', code, expires: new Date(Date.parse(at) + 15 * 60000).toISOString() } })), binding.generation);
+                        this.attachButtons(event, CHART_BUTTONS.map(([text, code]) => ({ text, value: { action: 'navigate', code, expires: new Date(Date.parse(at) + 15 * 60000).toISOString() } })), binding.generation, 3);
                     }
                     else if (!(CHART_KINDS as readonly string[]).includes(kind)) answer = `Grafico sconosciuto: ${telegramText(kind).slice(0, 40)}. Usa /grafico per l'elenco.`;
                     else {
@@ -778,7 +783,7 @@ export class Telegram {
                         this.enqueue('proposal:' + p.id, this.summary(p), 'proposal', p.id, at, u.generation);
                 }
                 else if (u.text === '/help' || u.text === '/menu') {
-                    if(u.text==='/menu')this.attachButtons(event,[['Stato','/status'],['Analizza','/analyze'],['Grafici','/grafico'],['Proposte','/proposals'],['Coda','/queue'],['Recupera','/recover'],['Aiuto','/help']].map(([text,code])=>({text:text!,value:{action:'navigate',code,expires:new Date(Date.parse(at)+15*60000).toISOString()}})),binding.generation);
+                    if(u.text==='/menu')this.attachButtons(event,[['Stato','/status'],['Analizza','/analyze'],['Grafici','/grafico'],['Proposte','/proposals'],['Coda','/queue'],['Recupera','/recover'],['Aiuto','/help']].map(([text,code])=>({text:text!,value:{action:'navigate',code,expires:new Date(Date.parse(at)+15*60000).toISOString()}})),binding.generation,4);
                     answer = '/status /analyze /grafico /pause /resume /proposals /stop /queue /recover /reset /menu /help. /grafico mostra bilanciamento, storico, inoltri, guadagni, ritorno di un rebalance e fee come immagini. Scrivi in linguaggio naturale: la chat risponde con i dati del nodo e, se chiedi un\'operazione (fee, rebalance, canali), prepara una proposta con i pulsanti Approva e Rifiuta. Nulla si esegue senza il tuo tocco su Approva. /reset fa ripartire la chat da una conversazione nuova. Mandato, permessi, token e collegamento si gestiscono nelle impostazioni web.';
                 }
                 else {
