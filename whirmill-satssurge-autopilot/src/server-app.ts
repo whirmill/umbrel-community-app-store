@@ -119,7 +119,7 @@ try {
   scheduler.tick();
   const streamLoop = async () => {
     try {
-      await collector!.stream(streamAbort.signal);
+      await collector!.channels(streamAbort.signal);
     } catch {}
     if (!closing) streamRetry = setTimeout(() => void streamLoop(), 5000);
   };

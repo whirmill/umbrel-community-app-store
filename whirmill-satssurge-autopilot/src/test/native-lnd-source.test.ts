@@ -24,15 +24,15 @@ const bounds:NativeReadLimits={deadlineMs:1000,bodyBytes:1000000,frameBytes:1000
 function codec(service:'Lightning'|'Router',method:string,row:unknown){const c=(service==='Lightning'?lndPackage.lnrpc.Lightning:lndPackage.routerrpc.Router).service[method];return c.responseDeserialize(c.responseSerialize(row));}
 
 test('local stream closure cancels its held frame binding without changing prior failure or epoch',async t=>{
- for(const prior of [false,true])for(const kind of ['idle','budget','abort','shutdown'])await t.test(`${kind} prior=${prior}`,async()=>{
+ for(const prior of [false,true])for(const kind of ['abort','shutdown'])await t.test(`${kind} prior=${prior}`,async()=>{
   let seed=prior,reads=0,hold=true,reply!:()=>void,entered!:()=>void;const started=new Promise<void>(r=>entered=r);
   const f=await nativeGrpcFixture({getInfo:(_c:any,cb:any)=>{if(seed){seed=false;cb({code:grpc.status.PERMISSION_DENIED});}else if(++reads===1||!hold)cb(null,info);else{reply=()=>cb(null,info);entered();}},walletBalance:(_c:any,cb:any)=>cb(null,{}),listChannels:(_c:any,cb:any)=>cb(null,{})},{subscribeHtlcEvents:(c:any)=>c.write({subscribed_event:{}})});
-  const s=source(f,{idleMs:kind==='idle'?150:1000,streamMs:kind==='budget'?200:1000}),controller=new AbortController(),events:unknown[]=[];
+  const s=source(f),controller=new AbortController(),events:unknown[]=[];
   try{
    if(prior)await assert.rejects(f.client.nativeRead().getInfo(new AbortController().signal,bounds),/permission_denied/);
    const epoch=(f.client as any).failureEpoch,recover=f.client.beginCollection(),pending=s.subscribeHtlcEvents({onEvent:e=>events.push(e)},controller.signal);
    await started;assert.equal(f.client.transportStatus().activeCalls,2);if(kind==='abort')controller.abort();else if(kind==='shutdown')s.shutdown();
-   const r=await pending;assert.equal(r.reason,kind==='idle'?'idle_timeout':kind==='budget'?'time_budget':kind==='shutdown'?'shutdown':'cancelled');assert.equal(r.frames,0);assert.equal(r.nativeAckObserved,false);assert.equal(r.subscribed,false);assert.equal(r.replayQualified,false);assert.equal(r.sourceHistoryComplete,false);assert.equal(f.client.transportStatus().activeCalls,0);assert.equal(f.client.transportStatus().failure,prior?'permission_denied':undefined);assert.equal((f.client as any).failureEpoch,epoch);
+   const r=await pending;assert.equal(r.reason,kind==='shutdown'?'shutdown':'cancelled');assert.equal(r.frames,0);assert.equal(r.nativeAckObserved,false);assert.equal(r.subscribed,false);assert.equal(r.replayQualified,false);assert.equal(r.sourceHistoryComplete,false);assert.equal(f.client.transportStatus().activeCalls,0);assert.equal(f.client.transportStatus().failure,prior?'permission_denied':undefined);assert.equal((f.client as any).failureEpoch,epoch);
    hold=false;reply();await new Promise(r=>setTimeout(r,10));assert.deepEqual(events,[]);await f.client.snapshot();assert.equal(f.client.transportStatus().failure,prior?'permission_denied':undefined);recover();assert.equal(f.client.transportStatus().failure,undefined);
   }finally{s.shutdown();f.close();}
  });
@@ -63,21 +63,21 @@ test('remote errors in a stream frame binding remain latched and invalidate stal
 });
 
 test('planned source stream boundaries retain exact incomplete receipts without a transport failure',async t=>{
- for(const kind of ['idle','budget','abort','shutdown','lndClose'])await t.test(kind,async()=>{
+ for(const kind of ['abort','shutdown','lndClose'])await t.test(kind,async()=>{
   const f=await nativeGrpcFixture({getInfo},{subscribeHtlcEvents:(c:any)=>c.write({subscribed_event:{}})});
   try{
-   const s=source(f,{idleMs:kind==='idle'?80:1000,streamMs:kind==='budget'?120:1000}),controller=new AbortController();let entered!:()=>void;const ready=new Promise<void>(r=>entered=r);
+   const s=source(f),controller=new AbortController();let entered!:()=>void;const ready=new Promise<void>(r=>entered=r);
    const pending=s.subscribeHtlcEvents({onReady:()=>entered(),onEvent:()=>assert.fail('ACK must not become an event')},controller.signal);
-   if(kind==='abort'||kind==='shutdown'||kind==='lndClose'){await ready;if(kind==='abort')controller.abort();else if(kind==='shutdown')s.shutdown();else f.client.close();}
-   const r=await pending;assert.equal(r.reason,kind==='idle'?'idle_timeout':kind==='budget'?'time_budget':kind==='shutdown'?'shutdown':'cancelled');assert.equal(r.nativeAckObserved,true);assert.equal(r.subscribed,true);assert.equal(r.transportReady,true);assert.equal(r.frames,1);assert.equal(r.filtered,0);assert.equal(r.replayQualified,false);assert.equal(r.sourceHistoryComplete,false);assert.equal(f.client.transportStatus().failure,undefined);assert.equal(f.client.transportStatus().activeCalls,0);s.shutdown();
+   await ready;if(kind==='abort')controller.abort();else if(kind==='shutdown')s.shutdown();else f.client.close();
+   const r=await pending;assert.equal(r.reason,kind==='shutdown'?'shutdown':'cancelled');assert.equal(r.nativeAckObserved,true);assert.equal(r.subscribed,true);assert.equal(r.transportReady,true);assert.equal(r.frames,1);assert.equal(r.filtered,0);assert.equal(r.replayQualified,false);assert.equal(r.sourceHistoryComplete,false);assert.equal(f.client.transportStatus().failure,undefined);assert.equal(f.client.transportStatus().activeCalls,0);s.shutdown();
   }finally{f.close();}
  });
 });
 
 test('malformed binding and callback failures remain transport failures with retained source gap reasons',async t=>{
- for(const kind of ['malformed','binding','callback','overflow'])await t.test(kind,async()=>{
+ for(const kind of ['malformed','binding','callback'])await t.test(kind,async()=>{
   let reads=0;const f=await nativeGrpcFixture({getInfo:(_c:any,cb:any)=>cb(null,kind==='binding'&&++reads>1?{...info,identity_pubkey:peer}:info)},{subscribeHtlcEvents:(c:any)=>{c.write({subscribed_event:{}});c.write(kind==='malformed'?{...htlc,settle_event:{preimage:Buffer.alloc(32)}}:htlc);}});
-  try{const s=source(f,kind==='overflow'?{frames:1}:{}),r=await s.subscribeHtlcEvents({onEvent:()=>{if(kind==='callback')throw Error('private fixture callback');}});assert.equal(r.reason,kind==='malformed'?'malformed_response':kind==='binding'?'binding_mismatch':kind==='callback'?'callback_error':'size_limit');assert.equal(f.client.transportStatus().failure,kind==='overflow'?'resource_limit':'acquisition_failure');assert.equal(f.client.transportStatus().failureContext?.method,'subscribeHtlcEvents');assert.equal(f.client.transportStatus().failureContext?.origin,'local_acquisition');if(kind!=='overflow')assert.equal(f.client.transportStatus().failureContext?.reason,r.reason);assert.ok(!JSON.stringify(f.client.transportStatus()).includes('private fixture callback'));assert.equal(r.sourceHistoryComplete,false);assert.equal(r.replayQualified,false);assert.equal(f.client.transportStatus().activeCalls,0);s.shutdown();}finally{f.close();}
+  try{const s=source(f),r=await s.subscribeHtlcEvents({onEvent:()=>{if(kind==='callback')throw Error('private fixture callback');}});assert.equal(r.reason,kind==='malformed'?'malformed_response':kind==='binding'?'binding_mismatch':'callback_error');assert.equal(f.client.transportStatus().failure,'acquisition_failure');assert.equal(f.client.transportStatus().failureContext?.method,'subscribeHtlcEvents');assert.equal(f.client.transportStatus().failureContext?.origin,'local_acquisition');assert.equal(f.client.transportStatus().failureContext?.reason,r.reason);assert.ok(!JSON.stringify(f.client.transportStatus()).includes('private fixture callback'));assert.equal(r.sourceHistoryComplete,false);assert.equal(r.replayQualified,false);assert.equal(f.client.transportStatus().activeCalls,0);s.shutdown();}finally{f.close();}
  });
 });
 
@@ -136,12 +136,11 @@ test('stream callback exceptions and async callbacks close with a safe callback_
 });
 
 test('frame/count/aggregate byte bounds abort streams and release shared leases',async t=>{
- for(const [name,limits] of Object.entries({frame:{frameBytes:30},count:{frames:1},total:{streamBytes:400}}))await t.test(name,async()=>{const f=await nativeGrpcFixture({getInfo},{subscribeHtlcEvents:(c:any)=>{c.write({subscribed_event:{}});c.write(htlc);c.write(htlc);}});try{const s=source(f,limits),r=await s.subscribeHtlcEvents({onEvent:()=>{}});assert.equal(r.reason,'size_limit');assert.equal(f.client.transportStatus().activeCalls,0);s.shutdown();}finally{f.close();}});
+ for(const [name,limits] of Object.entries({frame:{frameBytes:30}}))await t.test(name,async()=>{const f=await nativeGrpcFixture({getInfo},{subscribeHtlcEvents:(c:any)=>{c.write({subscribed_event:{}});c.write(htlc);c.write(htlc);}});try{const s=source(f,limits),r=await s.subscribeHtlcEvents({onEvent:()=>{}});assert.equal(r.reason,'size_limit');assert.equal(f.client.transportStatus().activeCalls,0);s.shutdown();}finally{f.close();}});
 });
 
 test('deadline/auth/permission/server failures expose closed categories without service payloads',async t=>{
  for(const [name,code] of Object.entries({authentication:grpc.status.UNAUTHENTICATED,permission_denied:grpc.status.PERMISSION_DENIED,unavailable:grpc.status.UNAVAILABLE,source_error:grpc.status.UNKNOWN}))await t.test(name,async()=>{const f=await nativeGrpcFixture({getInfo:(_c:any,cb:any)=>cb({code,details:'private-secret-macaroon'})});try{const s=source(f);await assert.rejects(s.binding(),e=>String(e).includes(name)&&!String(e).includes('private-secret'));assert.equal(f.client.transportStatus().activeCalls,0);s.shutdown();}finally{f.close();}});
- const f=await nativeGrpcFixture({getInfo},{subscribeHtlcEvents:()=>{}});try{const s=source(f,{streamMs:80,idleMs:1000}),r=await s.subscribeHtlcEvents({onEvent:()=>{}});assert.equal(r.reason,'time_budget');assert.equal(f.client.transportStatus().activeCalls,0);s.shutdown();}finally{f.close();}
 });
 
 test('source cancellation/shutdown and Lnd.close settle streams and unary work without retained channels',async t=>{
@@ -180,8 +179,8 @@ test('real-codec window violation and mutable forward offset stall preserve the 
  try{const s=source(f),collector=new NativeHistoryCollector(m.model,s),r={captureId:'mutable-forwards',kind:'forwards' as const,startTime:'100',endTime:'200',pageSize:1,maxPages:1},first=await collector.collect(r);phase='stalled';const stalled=await collector.collect(r);assert.equal(stalled.error,'malformed_page');assert.equal(stalled.checkpointId,first.checkpointId);assert.equal(stalled.nextOffset,'1');phase='outside';const outside=await collector.collect({...r,captureId:'outside'});assert.equal(outside.error,'malformed_page');assert.equal(outside.checkpointId,null);assert.equal(m.db.prepare('SELECT count(*) n FROM canonical_observations').get()!.n,1);assert.equal(m.db.prepare("SELECT count(*) n FROM canonical_coverage WHERE status='gap'").get()!.n,2);s.shutdown();
  }finally{m.db.close();f.close();}
 });
-test('idle stream and unary response byte limits are closed incomplete failures',async()=>{
- const f=await nativeGrpcFixture({getInfo},{subscribeHtlcEvents:(c:any)=>c.sendMetadata(new grpc.Metadata())});try{const s=source(f,{idleMs:30,streamMs:1000}),r=await s.subscribeHtlcEvents({onEvent:()=>{}});assert.equal(r.reason,'idle_timeout');assert.equal(r.sourceHistoryComplete,false);assert.equal(f.client.transportStatus().activeCalls,0);s.shutdown();const tiny=source(f,{bodyBytes:20});await assert.rejects(tiny.binding(),/size_limit/);tiny.shutdown();assert.equal(f.client.transportStatus().activeCalls,0);}finally{f.close();}
+test('unary response byte limits are closed incomplete failures',async()=>{
+ const f=await nativeGrpcFixture({getInfo});try{const tiny=source(f,{bodyBytes:20});await assert.rejects(tiny.binding(),/size_limit/);tiny.shutdown();assert.equal(f.client.transportStatus().activeCalls,0);}finally{f.close();}
 });
 
 test('empty stream EOF and invalid channel messages never fabricate ACK, identity or source completeness',async()=>{

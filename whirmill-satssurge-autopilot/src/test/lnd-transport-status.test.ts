@@ -59,15 +59,15 @@ test('full collection readiness and blockers use the recovered latest transport 
  }
 });
 
-for(const failure of ['permission_denied','unavailable'] as const)test(`healthy collection followed by HTLC ${failure} blocks dispatch until full native recovery`,async()=>{
+for(const failure of ['permission_denied','unavailable'] as const)test(`healthy collection followed by channel event ${failure} blocks dispatch until full native recovery`,async()=>{
  const dir=mkdtempSync(join(tmpdir(),'collector-stream-readiness-')),s=new Store(':memory:'),server=new grpc.Server();let node:Lnd|undefined;
  const identity='02'+'11'.repeat(32),key=join(dir,'fixture.key'),ca=join(dir,'tls.cert'),read=join(dir,'read'),write=join(dir,'write'),gate=join(dir,'gate');
  try {
   execFileSync('openssl',['req','-new','-x509','-newkey','rsa:2048','-nodes','-keyout',key,'-out',ca,'-days','365','-subj','/CN=isolated-fixture','-addext','subjectAltName=IP:127.0.0.1'],{stdio:'ignore'});
   writeFileSync(read,Buffer.from('010203','hex'));writeFileSync(write,Buffer.from('040506','hex'));
   writeFileSync(gate,JSON.stringify({schema:1,at:new Date().toISOString(),...Object.fromEntries(['fee','rebalance','channel','sell','autoclose','relist','reprice','size','maxHTLC','lsp','lndgAF','lndgAR','lndgAutopilot','loop'].map(k=>[k,false]))}));
-  server.addService(lndPackage.lnrpc.Lightning.service,{getInfo:(_c:any,cb:any)=>cb(null,{identity_pubkey:identity,synced_to_chain:true,synced_to_graph:true}),walletBalance:(_c:any,cb:any)=>cb(null,{confirmed_balance:'500001'}),listChannels:(_c:any,cb:any)=>cb(null,{}),listPayments:(_c:any,cb:any)=>cb(null,{}),forwardingHistory:(_c:any,cb:any)=>cb(null,{})});
-  server.addService(lndPackage.routerrpc.Router.service,{subscribeHtlcEvents:(c:any)=>c.emit('error',{code:failure==='permission_denied'?grpc.status.PERMISSION_DENIED:grpc.status.UNAVAILABLE,details:'isolated sensitive diagnostics'} )});
+  server.addService(lndPackage.lnrpc.Lightning.service,{getInfo:(_c:any,cb:any)=>cb(null,{identity_pubkey:identity,synced_to_chain:true,synced_to_graph:true}),walletBalance:(_c:any,cb:any)=>cb(null,{confirmed_balance:'500001'}),listChannels:(_c:any,cb:any)=>cb(null,{}),listPayments:(_c:any,cb:any)=>cb(null,{}),forwardingHistory:(_c:any,cb:any)=>cb(null,{}),subscribeChannelEvents:(c:any)=>c.emit('error',{code:failure==='permission_denied'?grpc.status.PERMISSION_DENIED:grpc.status.UNAVAILABLE,details:'isolated sensitive diagnostics'})});
+  server.addService(lndPackage.routerrpc.Router.service,{});
   const port=await new Promise<number>((resolve,reject)=>server.bindAsync('127.0.0.1:0',grpc.ServerCredentials.createSsl(null,[{private_key:readFileSync(key),cert_chain:readFileSync(ca)}],false),(error,p)=>error?reject(error):resolve(p)));
   node=new Lnd('127.0.0.1:'+port,ca,read,write);
   s.set('enabled',true);s.set('expectedIdentity',identity);s.set('historicalLedgerImported',true);
@@ -76,7 +76,7 @@ for(const failure of ['permission_denied','unavailable'] as const)test(`healthy 
   s.run('INSERT INTO decisions VALUES(?,?,?,?,?,?)','original-decision',new Date().toISOString(),'{}','{}','{}','planned');
   for(const state of ['uncertain','in_flight'])s.run('INSERT INTO operations VALUES(?,?,?,?,?,?,?)','original-'+state,'original-decision',new Date().toISOString(),state,'original-hash-'+state,null,JSON.stringify({originalReceipt:state}));
   const original=s.all('SELECT * FROM operations ORDER BY id'),saved=s.get('snapshot');s.set('blockers',['Existing unrelated blocker']);
-  await assert.rejects(collector.stream(new AbortController().signal),new RegExp(failure));
+  await assert.rejects(collector.channels(new AbortController().signal),new RegExp(failure));
   assert.equal(s.get('lndTransport').failure,failure);assert.equal(s.get('bootstrapReady'),false);assert.throws(()=>s.assertDispatchReady(),/Bootstrap/);
   assert.deepEqual(s.get('snapshot'),saved);assert.deepEqual(s.get('blockers'),['Existing unrelated blocker']);assert.deepEqual(s.all('SELECT * FROM operations ORDER BY id'),original);
   // Successful sibling/read callbacks alone do not clear the native failure epoch or gate.

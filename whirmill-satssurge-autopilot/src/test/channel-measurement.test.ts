@@ -119,7 +119,7 @@ test('gRPC nodeGraph requests include_channels under the channel credential and 
     { channel_id: '18446744073709551614', node1_pub: cand, node2_pub: peerA, capacity: '5000000', node1_policy: { fee_base_msat: '1000', fee_rate_milli_msat: '250', time_lock_delta: 40, disabled: false }, node2_policy: { fee_base_msat: '0', fee_rate_milli_msat: '5', time_lock_delta: 80, disabled: true } },
     { channel_id: '2', node1_pub: peerB, node2_pub: cand, capacity: '2000000', node1_policy: { fee_rate_milli_msat: '7' } }] }); } } as any);
   const port = await new Promise<number>((resolve, reject) => server.bindAsync('127.0.0.1:0', grpc.ServerCredentials.createSsl(null, [{ private_key: pair.key, cert_chain: pair.cert }], false), (e, p) => e ? reject(e) : resolve(p)));
-  const client = new Lnd('127.0.0.1:' + port, ca, read, write, { unaryMs: 1500, paymentMs: 1500, htlcMs: 1500, maxChannels: 4, maxCalls: 64, historyBytes: 1024 * 1024, streamBytes: 1024 * 1024 });
+  const client = new Lnd('127.0.0.1:' + port, ca, read, write, { unaryMs: 1500, paymentMs: 1500, maxChannels: 4, maxCalls: 64, historyBytes: 1024 * 1024, streamBytes: 1024 * 1024 });
   try {
     client.enableChannels(chan); const g = await client.channelRpc()!.nodeGraph(cand);
     assert.equal(seen[0].request.include_channels, true); assert.equal(seen[0].request.pub_key, cand); assert.equal(seen[0].token, '0709');

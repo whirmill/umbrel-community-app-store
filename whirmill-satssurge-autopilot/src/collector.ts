@@ -114,11 +114,12 @@ export class Collector {
       if(transport.failure)this.store.set('bootstrapReady',false);
     });
   }
-  async stream(signal:AbortSignal){
-    const start=now();try{await this.node.htlc(e=>{
-      if(!e.timestamp_ns)return;
-      const at=new Date(Number(BigInt(e.timestamp_ns)/1000000n)).toISOString();
-      this.store.event({id:'htlc:'+hash(json(e)),at,type:e.link_fail_event?'htlc_rejected':'htlc_event',source:String(e.incoming_channel_id??''),target:String(e.outgoing_channel_id??''),amountMsat:String(e.link_fail_event?.info?.outgoing_amt_msat??e.forward_event?.info?.outgoing_amt_msat??'0'),feeMsat:'0',details:{source:'LND SubscribeHtlcEvents',failure:e.link_fail_event?.failure_detail??null,wireFailure:e.link_fail_event?.wire_failure??null}});
-    },signal);}finally{this.persistTransport();this.store.run('INSERT INTO coverage VALUES(?,?,?,?,?,?)',hash(start),start,now(),'HTLC stream',0,json({note:'Live segment; gaps/reconnect boundaries retained, no historical failure completeness asserted'}));}
+  // Lifecycle updates are material for automatic admission; active/inactive flaps and commitment updates are not.
+  async channels(signal:AbortSignal){
+    try{await this.node.channelEvents?.(e=>{
+      const update=['open_channel','closed_channel','fully_resolved_channel','channel_funding_timeout'].find(k=>e[k]);if(!update)return;
+      const c=e[update];
+      this.store.event({id:'channel:'+hash(json(e)),at:now(),type:'channel_lifecycle',source:String(c.chan_id??''),target:String(c.remote_pubkey??''),amountMsat:'0',feeMsat:'0',details:{source:'LND SubscribeChannelEvents',update,closeType:c.close_type??null,capacitySat:c.capacity??null}});
+    },signal);}finally{this.persistTransport();}
   }
 }

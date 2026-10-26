@@ -8,7 +8,7 @@ import * as grpc from '@grpc/grpc-js';
 import {Lnd,lndPackage,grpcTarget} from '../lnd.js';
 import {hash,json} from '../domain.js';
 export const identity='02'+'11'.repeat(32),peer='03'+'22'.repeat(32),big='9007199254740993';
-const limits={unaryMs:1500,paymentMs:1500,htlcMs:1500,maxChannels:4,maxCalls:64,historyBytes:128*1024*1024,streamBytes:32*1024*1024};
+const limits={unaryMs:1500,paymentMs:1500,maxChannels:4,maxCalls:64,historyBytes:128*1024*1024,streamBytes:32*1024*1024};
 export function nativeCertificate(dir:string,name:string,days='365',san='IP:127.0.0.1') {
  const key=join(dir,name+'.key'),cert=join(dir,name+'.pem'),csr=join(dir,name+'.csr');
  execFileSync('openssl',['req','-new','-newkey','rsa:2048','-nodes','-keyout',key,'-out',csr,'-subj','/CN=isolated-fixture','-addext','subjectAltName='+san],{stdio:'ignore'});
