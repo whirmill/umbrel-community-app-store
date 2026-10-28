@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.2"
+version: "0.9.3"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,6 +27,10 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.2 keeps the background calculation's change log for one day
-  instead of seven, so its tables stay small. Fees, rebalances and other
-  decisions are unchanged.
+  Version 0.9.3 changes how the autopilot decides. Ordinary rebalances were
+  always refused at execution because the data coverage check compared the
+  live node state with the last collection; this is fixed, so ordinary
+  rebalances are possible again within the unchanged mandate. An experiment
+  with too little traffic to judge no longer blocks its corridor. Forecasts
+  now use a few MB of memory instead of hundreds, and the app's memory limit
+  is raised to 1 GB.
