@@ -12,7 +12,7 @@ description: >-
   Cloudflare proxy or DNS-only state while updating its public IPv4 address.
 developer: whirmill
 website: https://developers.cloudflare.com/dns/manage-dns-records/how-to/managing-dynamic-ip-addresses/
-repo: https://github.com/whirmill/umbrel-community-app-store
+repo: https://github.com/whirmill/cloudflare-ddns
 support: https://developers.cloudflare.com/api/
 port: 5233
 path: ""

@@ -1,5 +1,0 @@
-{
-  "operational.sqlite": {"userVersion": 7, "durableVersion": null},
-  "durable.sqlite": {"userVersion": 0, "durableVersion": 1},
-  "oauth.sqlite": {"userVersion": 0, "durableVersion": null}
-}

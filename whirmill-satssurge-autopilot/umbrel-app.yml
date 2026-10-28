@@ -17,8 +17,8 @@ description: >-
   see the README.
 developer: whirmill
 website: https://github.com/whirmill/umbrel-community-app-store
-repo: https://github.com/whirmill/umbrel-community-app-store
-support: https://github.com/whirmill/umbrel-community-app-store/issues
+repo: https://github.com/whirmill/satssurge-autopilot
+support: https://github.com/whirmill/satssurge-autopilot/issues
 port: 5238
 path: ""
 icon: https://raw.githubusercontent.com/whirmill/umbrel-community-app-store/main/whirmill-satssurge-autopilot/icon.svg

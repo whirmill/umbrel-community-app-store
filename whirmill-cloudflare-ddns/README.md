@@ -1,65 +1,9 @@
-# Cloudflare DDNS for Umbrel
+# Cloudflare DDNS: installer
 
-This local Umbrel app keeps an explicit allowlist of existing Cloudflare `A`
-records across one or more zones aligned with the connection's public IPv4
-address. Its default scope is the three native SimpleX endpoints:
+The source is private (`whirmill/cloudflare-ddns`); this folder holds the Umbrel
+manifest and compose file.
 
-- `smp.satssurge.com`
-- `xftp.satssurge.com`
-- `turn.satssurge.com`
-
-It does not create or delete DNS records. Before saving a configuration, it
-verifies the API token, resolves every exact active zone, and requires every
-configured `A` record to exist uniquely in its most specific configured zone.
-Every update preserves the record TTL and existing Cloudflare proxy state,
-changing only its IPv4 content when needed. This allows HTTP records to remain
-proxied while native SMP, XFTP, STUN, and TURN records remain DNS-only.
-
-## Why this package does not use `oznu/cloudflare-ddns`
-
-The `oznu/docker-cloudflare-ddns` project is archived and no longer maintained.
-This package instead uses a small dependency-free service with a local Umbrel
-setup page, HTTPS-only public-IP detection, exact-record validation, and a
-pinned Python runtime image. It also avoids putting the Cloudflare token in the
-Compose file, process environment, or browser request.
-
-## Cloudflare token
-
-Create a dedicated API token in Cloudflare with only:
-
-- `Zone` / `Zone` / `Read`
-- `Zone` / `DNS` / `Edit`
-
-Restrict its zone resources to `Include` / `Specific zone` and select every
-zone managed by this app. A token covering all zones in the account also works,
-but grants broader access than necessary. Do not use the Global API Key.
-
-Because the local Umbrel route is HTTP, the token is never accepted by the web
-UI. Install it interactively over SSH as `data/api-token`; the service requires
-that it be a regular file with mode `0600`. It is never returned by the status
-API. This is still a plaintext secret at rest inside the app's persistent data,
-so access to the Umbrel host and its backups must be protected accordingly.
-
-## Runtime layout
-
-- `server`: versioned multi-architecture container with the dependency-free
-  Python service and authenticated Umbrel UI.
-- Local UI: `http://umbrel.local:5233` through Umbrel's app proxy.
-- Default interval: 300 seconds; accepted range is 60–86400 seconds.
-- Public IPv4: detected from Cloudflare trace endpoints over HTTPS; private,
-  non-IPv4, unexpected-host, and WARP responses are rejected.
-- The container image owns the immutable backend and UI files; only `/data` is
-  mounted from `${APP_DATA_DIR}` so app updates replace code without touching
-  runtime state.
-- Persistent settings: `${APP_DATA_DIR}/data/config.json`; restricted token:
-  `${APP_DATA_DIR}/data/api-token`.
-- No host port is published and no inbound router rule is required for DDNS.
-
-The three SimpleX service records must remain **DNS only**; configure that state
-in Cloudflare and the updater will preserve it. HTTP records may remain proxied.
-Router forwarding for native service ports remains independent from this app.
-
-## Local installation
+## Installation
 
 ```sh
 Install this package as `whirmill-cloudflare-ddns` after importing the Whirmill
@@ -79,50 +23,4 @@ unset cloudflare_token
 ```
 
 Open `http://umbrel.local:5233`, confirm that the token is detected, enter one
-Cloudflare zone and one fully qualified record per line, then save. The service
-validates the token, every zone, and every record before saving the non-secret
-settings; the first update is requested immediately. Records in delegated
-sub-zones are assigned to the longest matching configured zone.
-
-Configurations created by version 1.0 with a single `zone` field are accepted
-and migrated in memory to the new `zones` list. Saving from version 1.1 writes
-the new schema without changing or deleting any Cloudflare record.
-
-Version 1.1.1 moves the backend and UI into the versioned container image.
-Earlier packages mounted those files from `${APP_DATA_DIR}`, which Umbrel keeps
-persistent during an update; as a result, the 1.1.0 manifest could be installed
-while the 1.0 runtime remained active. Updating to 1.1.1 preserves the existing
-`data/` directory but replaces the stale application files.
-
-Version 1.1.2 updates only the IPv4 content of each managed record and preserves
-its existing Cloudflare proxy state. Existing DNS-only SimpleX records therefore
-remain DNS-only, while proxied HTTP records remain proxied.
-
-## Verification
-
-Do not treat a running container as DDNS proof. Check all of the following:
-
-1. The app reports a successful update and the detected public IPv4.
-2. Cloudflare shows each configured `A` record with that IPv4 and the same proxy
-   status it had before the update.
-3. The status response contains no token:
-
-   ```sh
-   curl -fsS http://127.0.0.1:5233/api/status
-   ```
-
-4. After restarting the app, the configuration remains present and a new
-   update succeeds.
-5. Changing only the public IPv4 in a controlled test updates the allowlisted
-   records and leaves unrelated DNS records untouched.
-
-## Removal and rollback
-
-The UI's **Remove configuration** action waits for any in-flight update and
-then deletes the saved token and settings, but does not alter or delete
-Cloudflare records. Uninstalling the Umbrel app
-also stops future updates; the last DNS values remain in Cloudflare.
-
-To roll back after an unwanted update, disable or uninstall the app, restore
-the intended `A` record values manually in Cloudflare, and rotate the dedicated
-API token if its confidentiality is in doubt.
+Cloudflare zone and one fully qualified record per line, then save.
