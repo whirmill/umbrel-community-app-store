@@ -36,7 +36,7 @@ class PublicCertificateTests(unittest.TestCase):
     def test_bad_expired_private_or_oversized_source_retains_prior_copy(self):
         self.copy()
         before = self.destination.read_bytes()
-        expired = Path(__file__).parents[2] / 'src/test/fixtures/lnd-expired.cert-fixture'
+        expired = Path(__file__).parent / 'fixtures/lnd-expired.cert-fixture'
         for invalid in [b'invalid', expired.read_bytes(), self.source.read_bytes() + b'\n-----BEGIN PRIVATE KEY-----\ninvalid', b'x' * 65537]:
             self.source.write_bytes(invalid)
             with self.assertRaises((ValueError, Exception)):

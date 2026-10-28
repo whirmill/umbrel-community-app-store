@@ -1,21 +1,26 @@
 # Whirmill Community App Store
 
-Store privato per i pacchetti Umbrel gestiti da Whirmill e assenti dallo store
+Store pubblico per i pacchetti Umbrel gestiti da Whirmill e assenti dallo store
 ufficiale. La struttura segue il template ufficiale Umbrel: lo store usa il
 prefisso `whirmill` e ogni directory coincide con l'ID completo dell'app.
 
+Come nello store ufficiale, qui stanno solo manifest, compose, icone, hook e
+installer host. Il sorgente delle app sviluppate da Whirmill è in repository
+privati; le immagini su GHCR restano pubbliche.
+
 ## Applicazioni
 
-| Nuovo ID | Versione | Stato prima della migrazione | Vecchio ID |
-| --- | --- | --- | --- |
-| `whirmill-byparr` | `3.0.4` | installata direttamente | `byparr` |
-| `whirmill-tdarr` | `2.87.01-1` | installata direttamente | `tdarr` |
-| `whirmill-simplex-smp` | `7.0.1` | installata direttamente | `simplex-smp` |
-| `whirmill-simplex-xftp` | `7.0.1-1` | installata direttamente | `simplex-xftp` |
-| `whirmill-simplex-turn` | `4.18.0` | installata direttamente | `simplex-turn` |
-| `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` |
-| `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — |
-| `whirmill-zapbot` | `0.1.59` | installata dal Community App Store | — |
+| Nuovo ID | Versione | Stato prima della migrazione | Vecchio ID | Sorgente |
+| --- | --- | --- | --- | --- |
+| `whirmill-byparr` | `3.0.4` | installata direttamente | `byparr` | terze parti |
+| `whirmill-tdarr` | `2.87.01-1` | installata direttamente | `tdarr` | terze parti |
+| `whirmill-simplex-smp` | `7.0.1` | installata direttamente | `simplex-smp` | terze parti |
+| `whirmill-simplex-xftp` | `7.0.1-1` | installata direttamente | `simplex-xftp` | terze parti |
+| `whirmill-simplex-turn` | `4.18.0` | installata direttamente | `simplex-turn` | terze parti |
+| `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` | `whirmill/cloudflare-ddns` (privato) |
+| `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — | `whirmill/limpidog-crm` (privato) |
+| `whirmill-zapbot` | `0.1.59` | installata dal Community App Store | — | `whirmill/zapbot-exs` (privato) |
+| `whirmill-satssurge-autopilot` | `0.8.3` | installata dal Community App Store | — | `whirmill/satssurge-autopilot` (privato) |
 
 ZapBot 0.1.59 raggruppa la diagnostica delle code Oban da 54 letture equivalenti
 a due proiezioni per snapshot. Conserva conteggi di code e worker, classificazione
