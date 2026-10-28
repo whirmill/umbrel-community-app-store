@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.4"
+version: "0.9.5"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,9 +27,11 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.4 updates the database to schema 9 and adds a background
-  analysis of the channels (with kernel.shadow on): which channels run out of
-  liquidity and turn payments away, which fill up, which are idle, and
-  suggested fee changes, rebalances and closures to restore return routes.
-  It only reports; it does not propose or execute anything. Back up app-data
-  before updating: 0.9.3 cannot open the new database.
+  Version 0.9.5 looks for peers to open channels with, in observation only:
+  every 12 hours it reads the public graph around the peers of channels that
+  run empty, and ranks their neighbours by the cost of bringing liquidity back
+  through them. It needs the QueryRoutes permission on the channel credential
+  (provision-channels.sh bakes it again); without it costs are estimated from
+  announced fees. The database moves to schema 10: back up app-data before
+  updating, 0.9.4 cannot open it. Fees, rebalances and other decisions are
+  unchanged.
