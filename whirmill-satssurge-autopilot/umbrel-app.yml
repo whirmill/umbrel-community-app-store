@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.3"
+version: "0.9.4"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,10 +27,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.3 changes how the autopilot decides. Ordinary rebalances were
-  always refused at execution because the data coverage check compared the
-  live node state with the last collection; this is fixed, so ordinary
-  rebalances are possible again within the unchanged mandate. An experiment
-  with too little traffic to judge no longer blocks its corridor. Forecasts
-  now use a few MB of memory instead of hundreds, and the app's memory limit
-  is raised to 1 GB.
+  Version 0.9.4 updates the database to schema 9 and adds a background
+  analysis of the channels (with kernel.shadow on): which channels run out of
+  liquidity and turn payments away, which fill up, which are idle, and
+  suggested fee changes, rebalances and closures to restore return routes.
+  It only reports; it does not propose or execute anything. Back up app-data
+  before updating: 0.9.3 cannot open the new database.
