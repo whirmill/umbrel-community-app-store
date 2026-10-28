@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.6"
+version: "0.9.7"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,9 +27,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.6 lets analyses reach a decision again: since 26 October they
-  had to read more evidence than their budget allowed and never computed the
-  forecast. They now read the sections a decision rests on, and payments
-  turned away for insufficient balance count as demand toward the evidence
-  threshold. Peer candidates must beat today's return route. Telegram
-  commands are in English: /chart replaces /grafico (still understood).
+  Version 0.9.7 removes the last obstacle that kept analyses from reaching a
+  forecast: reading the full coverage history (over 11,000 old rows) is no
+  longer required, since the forecast checks coverage itself. Fees,
+  rebalances and the mandate are unchanged.
