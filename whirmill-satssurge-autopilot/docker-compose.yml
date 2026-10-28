@@ -4,7 +4,7 @@ services:
       APP_HOST: whirmill-satssurge-autopilot_server_1
       APP_PORT: 8080
   server:
-    image: ghcr.io/whirmill/umbrel-satssurge-autopilot:0.9.2@sha256:d217e1d9ea93b108fefc29b11cbca3ed3edf17664c479923098774fc9b54b2e6
+    image: ghcr.io/whirmill/umbrel-satssurge-autopilot:0.9.3@sha256:6c56e8c28f379954d3121bda67284c7acf951bc84c7445f71f84d01fe3d6109e
     container_name: whirmill-satssurge-autopilot_server_1
     restart: on-failure
     init: true
@@ -29,7 +29,7 @@ services:
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     pids_limit: 128
-    mem_limit: 768m
+    mem_limit: 1024m
     stop_grace_period: 60s
     healthcheck:
       test: [CMD, node, -e, "fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
