@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.0"
+version: "0.9.1"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,10 +27,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.0 updates the database to schema 8 and adds an incremental
-  calculation that runs in the background, off by default. With
-  kernel.shadow set to 1 in config/satssurge.json it keeps per-corridor
-  demand measurements up to date; with kernel.notes also set to 1 the agent
-  writes a short evaluation note after an executed decision, at most a few a
-  day. Neither changes fees, rebalances or any other decision. Back up
-  app-data before updating: 0.8.3 cannot open the new database.
+  Version 0.9.1 fixes the evaluation notes of the background calculation
+  (kernel.notes): the agent now gets the list of evidence it may cite and can
+  correct a wrong citation, and a decision whose note was rejected in 0.9.0
+  gets a new one. Fees, rebalances and other decisions are unchanged.
