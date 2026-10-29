@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.17"
+version: "0.9.18"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,7 +27,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.17 makes /analyze reach a decision: when the analysis you asked
-  for finishes, the coordinator reviews it, and analysts propose the ordinary
-  refill or one field experiment instead of nothing. Budget and mandate limits
+  Version 0.9.18 keeps the reviews you ask for (/analyze) outside the daily cap
+  of automatic reviews, so they are never held back, and reports both counts
+  separately in the node state and the daily digest. Budget and mandate limits
   are unchanged.
