@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.15"
+version: "0.9.16"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,9 +27,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.15 adds optional channel autonomy: with channels.vetoHours set,
-  the autopilot may schedule a channel open or cooperative close, announced on
-  Telegram and executed after the veto window unless you tap Rifiuta. It also
-  stops a refused close from being counted twice, leaves room for commitment
-  fees when sizing a rebalance, and skips peers whose smallest channel is above
-  the maximum open. Budget and mandate limits are unchanged.
+  Version 0.9.16 lets the autopilot learn by testing within the mandate limits:
+  when no ordinary decision is supported it runs one experiment (an exploratory
+  rebalance, a fee step, or a channel open or close with your veto), probes
+  rebalance routes for free first, evaluates every experiment and reports the
+  result on Telegram. A negative result is not repeated without new evidence.
+  Budget and mandate limits are unchanged.
