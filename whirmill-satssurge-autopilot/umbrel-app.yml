@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.18"
+version: "0.9.19"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,7 +27,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.18 keeps the reviews you ask for (/analyze) outside the daily cap
-  of automatic reviews, so they are never held back, and reports both counts
-  separately in the node state and the daily digest. Budget and mandate limits
-  are unchanged.
+  Version 0.9.19 makes Telegram previews show the message that will be
+  delivered, with a progress line during tool work and a moving tail on long
+  answers, updated more often and without long stalls. The daily digest now
+  separates the routing net from swaps and other costs, rebalances by type,
+  distinct refused payments from retries, and charges cooperative closes with
+  the on-chain fee actually paid. Budget and mandate limits are unchanged.
