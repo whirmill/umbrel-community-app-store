@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.11"
+version: "0.9.12"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,7 +27,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.11 lets the automatic coordinator act: it now executes a
-  rebalance or fee change within the mandate when the forecast and the
-  computed size allow it, instead of only recommending observation. Analysts
-  stay read-only. Budget and mandate limits are unchanged.
+  Version 0.9.12 fixes the size computed for rebalances: it now leaves room
+  for the fee on the source channel and respects the destination's HTLC
+  limits, so a decided rebalance passes the executor's checks. Budget and
+  mandate limits are unchanged.
