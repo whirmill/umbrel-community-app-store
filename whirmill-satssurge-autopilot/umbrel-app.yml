@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.10"
+version: "0.9.11"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,8 +27,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.10 sizes rebalances in code: the forecast now returns the
-  largest amount the expected demand supports and the highest fee the
-  mandate allows for it, instead of leaving both to the model. The
-  coordinator decides from the analysts' completed research instead of
-  reading every corridor again. Budget and mandate limits are unchanged.
+  Version 0.9.11 lets the automatic coordinator act: it now executes a
+  rebalance or fee change within the mandate when the forecast and the
+  computed size allow it, instead of only recommending observation. Analysts
+  stay read-only. Budget and mandate limits are unchanged.
