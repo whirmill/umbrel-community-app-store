@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.14"
+version: "0.9.15"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,7 +27,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.14 fixes owner-approved cooperative channel closes when the
-  on-chain fee estimate is 1 sat/vB: LND refused them as below its minimum fee
-  rate. A close is now priced and sent at no less than 2 sat/vB. Budget and
-  mandate limits are unchanged.
+  Version 0.9.15 adds optional channel autonomy: with channels.vetoHours set,
+  the autopilot may schedule a channel open or cooperative close, announced on
+  Telegram and executed after the veto window unless you tap Rifiuta. It also
+  stops a refused close from being counted twice, leaves room for commitment
+  fees when sizing a rebalance, and skips peers whose smallest channel is above
+  the maximum open. Budget and mandate limits are unchanged.
