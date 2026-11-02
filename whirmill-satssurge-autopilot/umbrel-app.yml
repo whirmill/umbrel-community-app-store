@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.30"
+version: "0.9.31"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,6 +26,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.30 lets you send a photo or screenshot to the bot (JPEG, PNG or
-  WebP up to 5 MB) with your question in the caption; the agent reads the image
-  in the same answer. Budget and mandate limits are unchanged.
+  Version 0.9.31 tells you on Telegram when a peer closes a channel (and how
+  much routing it carried) and when the node has not forwarded for a day; the
+  agent now sees both in its analysis. Budget and mandate limits are unchanged.
