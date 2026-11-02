@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.29"
+version: "0.9.30"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,6 +26,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.29 lets the in-app fee competition capture qualify on LND 0.21
-  (the reported version includes a commit suffix). Budget and mandate limits are
-  unchanged.
+  Version 0.9.30 lets you send a photo or screenshot to the bot (JPEG, PNG or
+  WebP up to 5 MB) with your question in the caption; the agent reads the image
+  in the same answer. Budget and mandate limits are unchanged.
