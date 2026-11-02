@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.39"
+version: "0.9.40"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,9 +26,8 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.39 removes data that earlier versions recorded incorrectly:
-  duplicate archive copies, the legacy HTLC stream records, empty history
-  projections and keys of removed features (schema 13). Unchanged and
-  restart-duplicate policy captures follow the 90-day rule, and Telegram
-  transport copies keep only their ids after 90 days. Ledger, operations,
-  payments and forwards are unchanged. Image downloads no longer block the bot.
+  Version 0.9.40 corrects the fee of a channel open that was booked at its
+  fee cap because the channel credential could not read wallet transactions.
+  Once that permission is granted, the paid fee is read and one more ledger
+  row carries the difference; the original row stays. Totals and the monthly
+  on-chain budget use the paid fee.
