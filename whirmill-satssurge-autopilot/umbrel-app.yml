@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.31"
+version: "0.9.32"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,6 +26,8 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.31 tells you on Telegram when a peer closes a channel (and how
-  much routing it carried) and when the node has not forwarded for a day; the
-  agent now sees both in its analysis. Budget and mandate limits are unchanged.
+  Version 0.9.32 fixes correctness issues found by a code review: retried
+  refused payments count once in forecasts, stuck fee or rebalance operations
+  close when LND proves they did not run (with a "Segna come fallita" button),
+  channel closes during restarts are recorded, and the app no longer crashes
+  on a full queue. Budget and mandate limits are unchanged.
