@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.26"
+version: "0.9.27"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,6 +27,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.26 keeps retrying the connection to LND when the app starts before
-  LND (for example after an Umbrel update), instead of waiting for a manual
-  restart. Budget and mandate limits are unchanged.
+  Version 0.9.27 shows what the bot is doing on Telegram in its native thinking
+  block, adds a collapsed "Come ho lavorato" summary under each answer, and paces
+  live previews within Telegram limits. Budget and mandate limits are unchanged.
