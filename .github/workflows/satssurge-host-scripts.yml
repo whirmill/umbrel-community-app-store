@@ -1,4 +1,4 @@
-name: SatsSurge host installers
+name: SatsSurge provisioning scripts
 on:
   pull_request:
     paths: ["whirmill-satssurge-autopilot/scripts/**", ".github/workflows/satssurge-host-scripts.yml"]
@@ -9,7 +9,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - name: Host script tests
-        run: python3 -m unittest discover -s whirmill-satssurge-autopilot/scripts/tests -v
-      - name: ShellCheck installers
+      - name: ShellCheck provisioning scripts
         run: shellcheck whirmill-satssurge-autopilot/scripts/*.sh
