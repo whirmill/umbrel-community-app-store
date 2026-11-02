@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.37"
+version: "0.9.38"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,7 +26,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.37 adds an offline database compaction tool for maintenance with
-  the app stopped: it verifies every row of the compacted copy before replacing
-  the database and leaves it untouched otherwise. No schema, budget or mandate
-  change.
+  Version 0.9.38 records data correctly after the 2 Nov audit: no duplicate
+  policy captures at restart, settled costs booked on their settlement day,
+  on-chain fees of app channel opens and closes in the accounting, decision
+  snapshots kept, and no unread runtime keys. No schema change; no data deleted.
