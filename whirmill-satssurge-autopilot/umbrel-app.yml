@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.25"
+version: "0.9.26"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -27,7 +27,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.25 uses the configured on-chain reserve for the safety block, so
-  the autopilot no longer stops below the old 500,000 sat value, and tells you on
-  Telegram when the ChatGPT login has expired. Budget and mandate limits are
-  unchanged.
+  Version 0.9.26 keeps retrying the connection to LND when the app starts before
+  LND (for example after an Umbrel update), instead of waiting for a manual
+  restart. Budget and mandate limits are unchanged.
