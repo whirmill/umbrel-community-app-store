@@ -12,7 +12,8 @@ set -eu
 umask 077
 APP_DIR=${1:?Supply installed app data path}
 # GetNodeInfo and QueryRoutes are read-only: peer candidates and the cost of return routes.
-URIS="uri:/lnrpc.Lightning/ConnectPeer uri:/lnrpc.Lightning/ListPeers uri:/lnrpc.Lightning/OpenChannelSync uri:/lnrpc.Lightning/CloseChannel uri:/lnrpc.Lightning/PendingChannels uri:/lnrpc.Lightning/ClosedChannels uri:/lnrpc.Lightning/EstimateFee uri:/lnrpc.Lightning/GetNodeInfo uri:/lnrpc.Lightning/QueryRoutes"
+# GetTransactions is read-only too: the paid funding fee of an open (0.9.38+); it also exposes the wallet's on-chain history.
+URIS="uri:/lnrpc.Lightning/ConnectPeer uri:/lnrpc.Lightning/ListPeers uri:/lnrpc.Lightning/OpenChannelSync uri:/lnrpc.Lightning/CloseChannel uri:/lnrpc.Lightning/PendingChannels uri:/lnrpc.Lightning/ClosedChannels uri:/lnrpc.Lightning/EstimateFee uri:/lnrpc.Lightning/GetNodeInfo uri:/lnrpc.Lightning/QueryRoutes uri:/lnrpc.Lightning/GetTransactions"
 CRED="$APP_DIR/credentials/channel.macaroon"
 mkdir -p "$APP_DIR/credentials"
 # The permission set is recorded next to the credential: a different set (an older install) is baked again,
