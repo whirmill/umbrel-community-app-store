@@ -16,9 +16,9 @@ and operating notes live in the apps' private repositories.
 - A release tags the app repository, which builds and publishes the image to GHCR.
   The store change then pins the version in `umbrel-app.yml` and the image digest in
   `docker-compose.yml`. Images stay public; their source repositories are private.
-- SatsSurge host installers (`whirmill-satssurge-autopilot/scripts/`) stay here because
-  the node runs them from its copy of the store. Their tests:
-  `python3 -m unittest discover -s whirmill-satssurge-autopilot/scripts/tests`.
+- SatsSurge one-time provisioning scripts (`whirmill-satssurge-autopilot/scripts/`) stay
+  here because the node runs them from its copy of the store. Since 0.9.28 nothing of
+  SatsSurge runs on the host after provisioning: no timers or services.
 - Do not add application source, development notes, credentials or node data here.
 
 Preserve unrelated edits and original financial receipts. Publication,

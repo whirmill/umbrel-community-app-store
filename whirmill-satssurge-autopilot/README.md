@@ -2,8 +2,8 @@
 
 A Lightning routing agent for an Umbrel LND node, driven from Telegram. The
 application source is private (`whirmill/satssurge-autopilot`); this folder
-holds the Umbrel manifest, the compose file and the host installers that run on
-the node.
+holds the Umbrel manifest, the compose file and the one-time provisioning
+scripts that run on the node.
 
 ## Installation
 
@@ -20,17 +20,10 @@ the node.
    proposals stay unavailable and everything else works unchanged. With it,
    each open or cooperative close still runs only after the owner approves it.
 
-3. **Install the host timers**, as `umbrel`:
-
-   ```sh
-   APP=/home/umbrel/umbrel/app-data/whirmill-satssurge-autopilot
-   sh scripts/install-lnd-cert-sync.sh
-   sh scripts/install-interlock.sh "$APP"
-   sh scripts/install-diagnostics.sh "$APP"
-   ```
-
-   After an update that changes one of these scripts, rerun its installer from
-   the node's copy of this store.
+3. **Nothing else runs on the host.** The automation check and the fee
+   competition capture run inside the app; the compose mounts the Lightning
+   app's `tls.cert` read-only. Nodes installed before 0.9.28 can disable and
+   remove the old `satssurge-autopilot-*` user timers.
 
 4. **Sign in** to the web UI from the Umbrel dashboard with the password in
    `data/owner.secret`. Complete the ChatGPT OAuth login there and pick a model.
@@ -44,9 +37,3 @@ the node.
 Use the supported Umbrel update after stopping the app and copying
 `app-data/whirmill-satssurge-autopilot`. The exact steps and the rollback
 procedure are on the status page in the private repository.
-
-## Host script tests
-
-```sh
-python3 -m unittest discover -s scripts/tests
-```

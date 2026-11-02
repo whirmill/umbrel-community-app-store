@@ -11,10 +11,9 @@ description: >-
   circular rebalances, and keeps private SQLite accounting with durable intent
   tracking so no payment is ever repeated. Hard mandate: 30,000 sats total
   spend, 1,500 sats per day, 100 sats per attempt, and 500,000 confirmed
-  on-chain sats always protected. Financial actions are dispatched only while
-  other fee/rebalance automations (LightningMate, LNDg, Loop) are off. Requires
-  one-time restricted LND credential provisioning and the host interlock timer;
-  see the README.
+  on-chain sats always protected. Financial actions are held while LND shows
+  fee changes or rebalances from other automations (LightningMate, LNDg, Loop).
+  Requires one-time restricted LND credential provisioning; see the README.
 developer: whirmill
 website: https://github.com/whirmill/umbrel-community-app-store
 repo: https://github.com/whirmill/satssurge-autopilot
