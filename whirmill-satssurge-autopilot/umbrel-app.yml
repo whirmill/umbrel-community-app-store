@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.45"
+version: "0.9.46"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,5 +26,5 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.45 fixes the start-up of 0.9.44 on existing installations: it
-  refused to open the database. Everything 0.9.44 added is unchanged.
+  Version 0.9.46 clears an outdated 'permission denied' mark in the diagnostics
+  after a restart with new permissions.
