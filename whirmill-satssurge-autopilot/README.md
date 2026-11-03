@@ -15,6 +15,9 @@ scripts that run on the node.
    sh scripts/provision.sh /home/umbrel/umbrel/app-data/whirmill-satssurge-autopilot
    ```
 
+   Both scripts record each macaroon's permission set beside it (`*.uris`) and
+   bake it again when a release changes that set; restart the app afterwards.
+
    Optional, with the owner's approval: `scripts/provision-channels.sh` (same
    argument) bakes a separate channel macaroon. Without it, channel open/close
    proposals stay unavailable and everything else works unchanged. With it,

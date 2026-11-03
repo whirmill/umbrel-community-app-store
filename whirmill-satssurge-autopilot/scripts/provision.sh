@@ -4,10 +4,20 @@ set -eu
 umask 077
 APP_DIR=${1:?Supply installed app data path}
 mkdir -p "$APP_DIR/data" "$APP_DIR/credentials" "$APP_DIR/config"
-if [ ! -s "$APP_DIR/credentials/read.macaroon" ]; then
-  docker exec lightning_lnd_1 lncli bakemacaroon --save_to=/tmp/satssurge-read.macaroon uri:/lnrpc.Lightning/GetInfo uri:/lnrpc.Lightning/WalletBalance uri:/lnrpc.Lightning/ListChannels uri:/lnrpc.Lightning/GetChanInfo uri:/lnrpc.Lightning/ForwardingHistory uri:/lnrpc.Lightning/ListPayments uri:/lnrpc.Lightning/SubscribeChannelGraph uri:/lnrpc.Lightning/SubscribeChannelEvents uri:/routerrpc.Router/TrackPaymentV2 uri:/routerrpc.Router/SubscribeHtlcEvents >/dev/null
-  docker cp lightning_lnd_1:/tmp/satssurge-read.macaroon "$APP_DIR/credentials/read.macaroon"
+# ListInvoices is read-only: payments received on the node's own invoices (0.9.44 notices); preimages and
+# payment requests never leave the app's LND client.
+READ_URIS="uri:/lnrpc.Lightning/GetInfo uri:/lnrpc.Lightning/WalletBalance uri:/lnrpc.Lightning/ListChannels uri:/lnrpc.Lightning/GetChanInfo uri:/lnrpc.Lightning/ForwardingHistory uri:/lnrpc.Lightning/ListPayments uri:/lnrpc.Lightning/SubscribeChannelGraph uri:/lnrpc.Lightning/SubscribeChannelEvents uri:/routerrpc.Router/TrackPaymentV2 uri:/routerrpc.Router/SubscribeHtlcEvents uri:/lnrpc.Lightning/ListInvoices"
+READ="$APP_DIR/credentials/read.macaroon"
+# As for the channel macaroon: the permission set is recorded next to the credential, a different set (an older
+# install) is baked again, and the new file replaces the old one only once complete.
+if [ ! -s "$READ" ] || [ "$(cat "$READ.uris" 2>/dev/null)" != "$READ_URIS" ]; then
+  # shellcheck disable=SC2086 # one argument per URI
+  docker exec lightning_lnd_1 lncli bakemacaroon --save_to=/tmp/satssurge-read.macaroon $READ_URIS >/dev/null
+  docker cp lightning_lnd_1:/tmp/satssurge-read.macaroon "$READ.new"
   docker exec lightning_lnd_1 rm /tmp/satssurge-read.macaroon
+  chmod 600 "$READ.new"
+  mv "$READ.new" "$READ"
+  printf '%s\n' "$READ_URIS" > "$READ.uris"
 fi
 if [ ! -s "$APP_DIR/credentials/write.macaroon" ]; then
   docker exec lightning_lnd_1 lncli bakemacaroon --save_to=/tmp/satssurge-write.macaroon uri:/lnrpc.Lightning/AddInvoice uri:/routerrpc.Router/SendPaymentV2 uri:/lnrpc.Lightning/UpdateChannelPolicy >/dev/null
