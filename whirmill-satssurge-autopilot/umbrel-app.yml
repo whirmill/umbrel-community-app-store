@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.44"
+version: "0.9.45"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,11 +26,5 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.44 reports the node's events in the chat: forwards and fees
-  earned (one silent message per 15 minutes of activity), routing resuming,
-  automatic rebalances and fee changes as they happen, payments received,
-  channels opened, closed or inactive, on-chain deposits, app restarts and
-  the mempool state. It adds channel plans: one proposal to approve that
-  closes channels if needed and then opens several channels in a single
-  transaction. Proposals stay valid for 30 minutes. Payment notices and
-  batch opens need the updated provisioning scripts (see the README).
+  Version 0.9.45 fixes the start-up of 0.9.44 on existing installations: it
+  refused to open the database. Everything 0.9.44 added is unchanged.
