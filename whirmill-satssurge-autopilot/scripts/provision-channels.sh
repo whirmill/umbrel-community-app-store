@@ -4,7 +4,7 @@
 # Existing read/write macaroons are not touched. Without this file the app runs
 # unchanged and channel operations stay unavailable.
 # Residual risk: macaroon URIs cannot restrict request fields. CloseChannel also
-# permits force and delivery_address, and OpenChannelSync permits push_sat. The
+# permits force and delivery_address; OpenChannelSync and BatchOpenChannel permit push_sat. The
 # app never sets them (force:false, push_sat:0, no delivery address), but a
 # compromised container holding this file could. Field-level enforcement would
 # need LND RPC middleware.
@@ -13,7 +13,9 @@ umask 077
 APP_DIR=${1:?Supply installed app data path}
 # GetNodeInfo and QueryRoutes are read-only: peer candidates and the cost of return routes.
 # GetTransactions is read-only too: the paid funding fee of an open (0.9.38+); it also exposes the wallet's on-chain history.
-URIS="uri:/lnrpc.Lightning/ConnectPeer uri:/lnrpc.Lightning/ListPeers uri:/lnrpc.Lightning/OpenChannelSync uri:/lnrpc.Lightning/CloseChannel uri:/lnrpc.Lightning/PendingChannels uri:/lnrpc.Lightning/ClosedChannels uri:/lnrpc.Lightning/EstimateFee uri:/lnrpc.Lightning/GetNodeInfo uri:/lnrpc.Lightning/QueryRoutes uri:/lnrpc.Lightning/GetTransactions"
+# BatchOpenChannel funds several owner-approved opens in one transaction (0.9.44 channel plans); like OpenChannelSync it
+# cannot be limited to push_sat 0 by URI. DescribeGraph is read-only: the agent's node search by alias (0.9.44).
+URIS="uri:/lnrpc.Lightning/ConnectPeer uri:/lnrpc.Lightning/ListPeers uri:/lnrpc.Lightning/OpenChannelSync uri:/lnrpc.Lightning/CloseChannel uri:/lnrpc.Lightning/PendingChannels uri:/lnrpc.Lightning/ClosedChannels uri:/lnrpc.Lightning/EstimateFee uri:/lnrpc.Lightning/GetNodeInfo uri:/lnrpc.Lightning/QueryRoutes uri:/lnrpc.Lightning/GetTransactions uri:/lnrpc.Lightning/BatchOpenChannel uri:/lnrpc.Lightning/DescribeGraph"
 CRED="$APP_DIR/credentials/channel.macaroon"
 mkdir -p "$APP_DIR/credentials"
 # The permission set is recorded next to the credential: a different set (an older install) is baked again,
