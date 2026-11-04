@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.49"
+version: "0.9.50"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,7 +26,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.49 always creates the proposals the owner asks for: they no
-  longer use the turn research budget. Approving one proposal no longer
-  invalidates another; approvals bind only the channels they act on and
-  are rechecked on fresh data.
+  Version 0.9.50 lets a proposal the owner approves start even while an
+  automatic experiment is observing the same channel; that experiment is
+  then evaluated as confounded. Proposals are checked at creation exactly
+  as at approval.
