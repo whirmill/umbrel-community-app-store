@@ -4,7 +4,7 @@ services:
       APP_HOST: whirmill-satssurge-autopilot_server_1
       APP_PORT: 8080
   server:
-    image: ghcr.io/whirmill/umbrel-satssurge-autopilot:0.9.52@sha256:20b153e5d2dda76fb2d9170ca3dedeeb3a57ef6d8f701b2e19602941953cd9f0
+    image: ghcr.io/whirmill/umbrel-satssurge-autopilot:0.9.53@sha256:cf7d160b0b52c965e1f09c4c73edb48a22bb50ee81a753df129f957ed6acc778
     container_name: whirmill-satssurge-autopilot_server_1
     restart: on-failure
     init: true

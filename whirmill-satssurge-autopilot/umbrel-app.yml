@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.52"
+version: "0.9.53"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,7 +26,8 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.52 stops a false reserve alert: while the change of our own
-  transaction is unconfirmed, it counts toward the protected reserve.
-  Unconfirmed third-party deposits never count, and spending still uses
-  confirmed funds only.
+  Version 0.9.53 opens new channels with a chosen fee instead of LND's
+  default of 1 ppm: the fee in the proposal, the fee of the existing
+  channel with the same peer, or the configured default (300 ppm). A
+  channel that SatsSurge opened at LND's default can receive one
+  owner-approved initial fee outside the mandate's step and window.
