@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.65"
+version: "0.9.66"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,8 +26,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.65 applies the fixes from the review of the kernel-driven
-  system. Channels are classified by liquidity and refusals, so lnmarkets is
-  recognised as the main sink. Analysts always reach the forecast. Channel
-  candidates must recover real demand. The node review also sees the
-  kernel's refill suggestions. Health checks no longer raise false alarms.
+  Version 0.9.66 reads LND's mission control right after a restart when an
+  earlier read was refused, so the newly granted read permission takes
+  effect at once.
