@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.66"
+version: "0.9.67"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,6 +26,8 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.66 reads LND's mission control right after a restart when an
-  earlier read was refused, so the newly granted read permission takes
-  effect at once.
+  Version 0.9.67 gives the agent the full fee history (owner-approved,
+  automatic and external changes, with the rule each one followed) and an
+  exact explanation of local and remote liquidity. Refill limits now show
+  the break-even and the owner's mandate cap separately, and every refused
+  payment count states which rule it uses.
