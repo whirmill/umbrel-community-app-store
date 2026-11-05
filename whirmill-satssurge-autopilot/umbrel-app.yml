@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.69"
+version: "0.9.70"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,9 +26,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.69 lets SatsSurge read the public Magma inbound-liquidity
-  offers every 6 hours and judge them in its kernel: price per 30 days, and
-  how much cheaper routing through us would be than each seller's direct
-  path to our busiest channels. The agent can consult them; buying stays
-  an owner decision. Database schema 15: a rollback below 0.9.69 needs the
-  pre-update backup.
+  Version 0.9.70 adds the Amboss page link to every Magma offer the agent
+  sees and to the summary line, so the bot can propose an offer you open
+  and accept on Amboss.
