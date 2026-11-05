@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.56"
+version: "0.9.57"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,9 +26,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.56 applies the fixes from a full system review. Fees are sent
-  to LND as whole ppm. Automatic reviews now wait by default and never cut a
-  fee below a floor. The owner can move a fee in larger steps. Channels with
-  the same peer always share one fee. Impossible refills are skipped.
-  Owner documents cannot steer an automatic execution. Each new rule has a
-  switch in the configuration file.
+  Version 0.9.57 adds to the daily summary the idle capital, the margin of
+  each earning channel and what the agent did yesterday, with its model
+  cost. A new storage view shows how much space each table uses. Minute
+  snapshots older than 31 days are thinned to one every 10 minutes, keeping
+  those that pending evaluations still need. Each part can be switched off
+  in the configuration file.
