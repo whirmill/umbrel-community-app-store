@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.62"
+version: "0.9.63"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,8 +26,8 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.62 gives the agent and the daily summary one kernel cell with
-  the node's economics: margin per channel, idle capital, and how many days
-  each channel has before it empties or fills at the current pace. It falls
-  back to the full computation when the cell is not fresh. Evaluation notes
-  reach the agent as non-binding text.
+  Version 0.9.63 measures fee experiments from kernel cells, with the full
+  computation as fallback and an hourly parity check. Refused demand no
+  longer counts other nodes' rebalancing probes: runs of 3 or more
+  decreasing attempts from one channel within 5 minutes. They are excluded
+  from the forecast and reported apart.
