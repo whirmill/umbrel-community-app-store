@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.54"
+version: "0.9.55"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,8 +26,8 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.54 adds an owner console: a command-line tool inside the
-  container (docker exec … satssurge) to read status, talk to the agent,
-  approve proposals and change models without the web password or
-  Telegram. It listens only on a private socket, with no network port, and
-  each part can be switched off in the configuration file.
+  Version 0.9.55 lets the agent run on OpenRouter with an API key (for
+  example DeepSeek V4.1 Flash) as well as on OpenAI. The key is read from
+  config/openrouter.key and is never shown. Model cost is tracked per day
+  and month, and agent.monthlyUsdCap can pause automatic reviews at a
+  monthly limit. The provider never changes automatically.
