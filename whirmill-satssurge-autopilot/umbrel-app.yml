@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.68"
+version: "0.9.69"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,8 +26,9 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.68 lets a refill target a peer that has more than one
-  channel with us, such as LN Markets: the network picks which channel
-  receives it, and SatsSurge records where it arrived. Mandate checks use
-  the peer as a whole. The kernel no longer withholds these refills or the
-  candidates that lead to them.
+  Version 0.9.69 lets SatsSurge read the public Magma inbound-liquidity
+  offers every 6 hours and judge them in its kernel: price per 30 days, and
+  how much cheaper routing through us would be than each seller's direct
+  path to our busiest channels. The agent can consult them; buying stays
+  an owner decision. Database schema 15: a rollback below 0.9.69 needs the
+  pre-update backup.
