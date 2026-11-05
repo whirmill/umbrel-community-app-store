@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.53"
+version: "0.9.54"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,8 +26,8 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.53 opens new channels with a chosen fee instead of LND's
-  default of 1 ppm: the fee in the proposal, the fee of the existing
-  channel with the same peer, or the configured default (300 ppm). A
-  channel that SatsSurge opened at LND's default can receive one
-  owner-approved initial fee outside the mandate's step and window.
+  Version 0.9.54 adds an owner console: a command-line tool inside the
+  container (docker exec … satssurge) to read status, talk to the agent,
+  approve proposals and change models without the web password or
+  Telegram. It listens only on a private socket, with no network port, and
+  each part can be switched off in the configuration file.
