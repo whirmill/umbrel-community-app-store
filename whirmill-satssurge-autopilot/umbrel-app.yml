@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.58"
+version: "0.9.59"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,6 +26,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.58 corrects the model cost line of the daily summary. It now
-  shows only what is actually billed, and lists use of the ChatGPT
-  subscription apart, at list price.
+  Version 0.9.59 makes the kernel recompute every 5 minutes instead of every
+  minute and report its health. Its suggestions now follow the owner's rules:
+  no fee cuts below the floor, no refills above the fee share, and peers
+  the node closed, vetoed or suspended are left out of the candidates.
