@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.71"
+version: "0.9.72"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Anthropic come terzo provider dell'agente, solo con chiave API (config/anthropic.key o web app): Claude Haiku 5.5 con ragionamento adattivo, cache del prefisso di 1 ora, limite del prompt sotto i 100K token, telemetria per richiesta e ripartenza delle chat lunghe. OpenAI e OpenRouter restano invariati e selezionabili.
+  Telegram: anteprime stabili che non saltano né si accorciano, nessun simbolo Markdown grezzo durante la scrittura, ultimo fotogramma anche per le risposte lunghe. Tabelle native di Telegram (intestazione, allineamento, formato compatto), link, citazioni ed elenchi annidati; risposte molto lunghe divise in più messaggi ordinati, con riserva al formato precedente se Telegram rifiuta.
