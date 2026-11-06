@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.77"
+version: "0.9.78"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Le proposte create dalla console indicano che si approvano dalla console (satssurge approve), non su Telegram. Le risposte non riportano orari, capacità, margini o importi che non compaiono nei dati del turno.
+  Un rifornimento fallito dice dove si è fermato (per esempio sull'ultimo passaggio verso il peer) e blocca per 12 ore i suggerimenti verso quel peer; la prova di rotta è disponibile nelle chat del proprietario; regola opzionale per contare la domanda rifiutata da tutte le sorgenti (spenta).
