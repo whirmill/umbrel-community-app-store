@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.70"
+version: "0.9.71"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,6 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Version 0.9.70 adds the Amboss page link to every Magma offer the agent
-  sees and to the summary line, so the bot can propose an offer you open
-  and accept on Amboss.
+  Anthropic come terzo provider dell'agente, solo con chiave API (config/anthropic.key o web app): Claude Haiku 5.5 con ragionamento adattivo, cache del prefisso di 1 ora, limite del prompt sotto i 100K token, telemetria per richiesta e ripartenza delle chat lunghe. OpenAI e OpenRouter restano invariati e selezionabili.
