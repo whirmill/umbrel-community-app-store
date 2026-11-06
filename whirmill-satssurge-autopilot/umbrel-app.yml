@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.81"
+version: "0.9.82"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Proposte su Telegram in un solo messaggio compatto con i dettagli a scomparsa e i pulsanti una volta sola; giudizio del valutatore visibile e dettaglio a scomparsa; una seconda pressione su una proposta già decisa non fa nulla; budget con speso oggi e ancora disponibile.
+  Proposte con una prima riga leggibile (per esempio "Fee di ACINQ: 120 → 130 ppm"); il valutatore in chat riceve mandato e limiti dei canali coinvolti; i piani canali sono descritti per intero agli agenti e in /status; i pulsanti spariscono quando la proposta è decisa.
