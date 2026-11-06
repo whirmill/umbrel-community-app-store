@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.75"
+version: "0.9.76"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Due modelli con la chiave Anthropic: Claude Haiku 5.5 esegue (analisti, ricerca, note) e Claude Sonnet 5.5 valuta ogni decisione automatica prima che abbia effetto (approva, respinge o aspetta, con i motivi registrati). Nelle chat il valutatore risponde con /evaluate, con "chiedi al valutatore" o quando la chat crea una proposta. Gli accorgimenti per la soglia dei 100K token si applicano solo ai modelli con tariffa a fasce.
+  Riepiloghi che si spiegano da soli: rifiuti per saldo insufficiente con la loro regola di conteggio, recenza e importi; pareggio e tetto del mandato per ogni sink; età dei canali; riga Magma; da dove arriva il traffico dei sink; freschezza dei dati. I testi delle proposte sono in italiano.
