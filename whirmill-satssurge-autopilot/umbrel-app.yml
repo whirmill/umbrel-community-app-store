@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.76"
+version: "0.9.77"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Riepiloghi che si spiegano da soli: rifiuti per saldo insufficiente con la loro regola di conteggio, recenza e importi; pareggio e tetto del mandato per ogni sink; età dei canali; riga Magma; da dove arriva il traffico dei sink; freschezza dei dati. I testi delle proposte sono in italiano.
+  Le proposte create dalla console indicano che si approvano dalla console (satssurge approve), non su Telegram. Le risposte non riportano orari, capacità, margini o importi che non compaiono nei dati del turno.
