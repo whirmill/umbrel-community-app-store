@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.72"
+version: "0.9.74"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Telegram: anteprime stabili che non saltano né si accorciano, nessun simbolo Markdown grezzo durante la scrittura, ultimo fotogramma anche per le risposte lunghe. Tabelle native di Telegram (intestazione, allineamento, formato compatto), link, citazioni ed elenchi annidati; risposte molto lunghe divise in più messaggi ordinati, con riserva al formato precedente se Telegram rifiuta.
+  Risparmio sul modello con il kernel: revisioni automatiche saltate se i fatti del kernel non sono cambiati dall'ultima attesa, riepilogo del kernel nel primo messaggio di analisti e revisioni (budget dell'analista 6 chiamate), chiusura anticipata in attesa. Saldi etichettati per direzione con il ruolo del canale (per peer con più canali), riepilogo aggiornato in ogni chat, fee dei concorrenti distinte dalla liquidità, testi dei modelli riletti con la loro origine. Costo per tipo di lavoro nelle statistiche.
