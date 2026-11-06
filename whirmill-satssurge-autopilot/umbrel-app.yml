@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.79"
+version: "0.9.80"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Il ruolo di liquidità per i peer con più canali vale anche nella tabella dell'economia del nodo (per esempio entrambi i canali LNMarkets risultano pozzo).
+  Le chat possono citare come prova i dati attuali (stato del nodo, economia, stima, mercato, storico fee); il valutatore vede le letture del turno; risposte della chat più compatte e ripartenza della chat a 40.000 token.
