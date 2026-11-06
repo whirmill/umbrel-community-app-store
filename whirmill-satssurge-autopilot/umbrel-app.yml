@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.83"
+version: "0.9.84"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Aperture e chiusure dei canali indicano il nodo per nome (per esempio "verso kappa") e gli importi con i separatori; esito esperimento e bilancio a 7 giorni con gli stessi numeri arrivano in un solo messaggio; gli avvisi di blocco sono in italiano e dicono cosa resta sospeso; gli avvisi del valutatore indicano azione e canali per nome; le scadenze dei piani sono in ora italiana.
+  I canali chiusi non vengono più rivalutati dalle revisioni automatiche; un canale aperto da meno di 30 giorni è indicato come nuovo, con la sua età, e non conta più nel capitale fermo né può essere proposto per la chiusura perché inattivo.
