@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.85"
+version: "0.9.86"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  La domanda rifiutata si conta in episodi (il rifiuto più grande per canale in entrata e ora), non più in pagamenti ripetuti; ogni rifiuto registra la fee offerta dal mittente. Gli esperimenti di fee sui canali svuotati hanno un esito sulla domanda rifiutata (persiste, calata o non determinabile) contato sulle ore in cui i canali che li alimentano hanno liquidità. Il riepilogo di una proposta già decisa mostra la fee di partenza corretta.
+  Scala dei prezzi per i canali svuotati: gradini del 40% proposti al proprietario (entro il passo automatico eseguiti in automatico), stop e ritorno al gradino precedente quando la domanda rifiutata cala, prezzo scoperto fermo per 14 giorni e ribasso solo con ore valide senza domanda. Dopo ogni modifica fee su un canale svuotato, e ogni settimana, una sonda gratuita cerca la rotta di rifornimento sotto il nuovo tetto. Quando un canale svuotato regge un prezzo alto con domanda costante e ci sono fondi on-chain, il nodo propone un canale parallelo con il confronto dei costi; l'apertura resta sempre una tua approvazione.
