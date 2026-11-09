@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.86"
+version: "0.9.87"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Scala dei prezzi per i canali svuotati: gradini del 40% proposti al proprietario (entro il passo automatico eseguiti in automatico), stop e ritorno al gradino precedente quando la domanda rifiutata cala, prezzo scoperto fermo per 14 giorni e ribasso solo con ore valide senza domanda. Dopo ogni modifica fee su un canale svuotato, e ogni settimana, una sonda gratuita cerca la rotta di rifornimento sotto il nuovo tetto. Quando un canale svuotato regge un prezzo alto con domanda costante e ci sono fondi on-chain, il nodo propone un canale parallelo con il confronto dei costi; l'apertura resta sempre una tua approvazione.
+  Politica deterministica in osservazione: per ogni canale svuotato, ogni corridoio di rifornimento, ogni canale liquido e per il nodo, il codice calcola ogni 5 minuti cosa farebbe una regola fissa (azione, motivi con i numeri, dati mancanti) e la confronta con ogni decisione automatica del modello e del valutatore. Non cambia nulla nel comportamento: la vedi nelle statistiche, nel rapporto del kernel e chiedendo in chat. Pronto ma spento: l'esecuzione da parte del codice dei passi automatici della scala prezzi (mandate.ladderActuator), e un interruttore del valutatore per ogni classe di decisione; i rebalance restano sempre valutati.
