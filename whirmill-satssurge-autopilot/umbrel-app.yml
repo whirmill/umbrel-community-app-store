@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.88"
+version: "0.9.89"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Ammissione delle revisioni dalla politica deterministica, pronta ma spenta (agent.policyAdmission): quando sarà accesa, una revisione automatica partirà solo quando la regola fissa vede un'azione ammissibile o un cambiamento da segnalarti, oltre che per eventi materiali, blocchi e analisi richieste da te; l'attesa scelta dal modello non deciderà più nulla. Intanto gira in osservazione e le statistiche confrontano, decisione per decisione, l'ammissione di oggi con quella della politica. Corretto anche un difetto per cui alcuni segnali di revisione dei corridoi potevano saltare un ciclo di calcolo.
+  Verifiche esterne deterministiche: il nodo legge da Amboss i dati pubblici dei peer e, se le indichi nella configurazione, le pagine di stato delle aziende; un dato negativo (nodo offline, guasto annunciato) può solo fermare un rifornimento o una proposta di apertura verso quel peer, mai autorizzare qualcosa, e le proposte preparate dal codice mostrano la sezione «Verifiche esterne». Pronti ma spenti: la ricerca del modello su domande fissate dal codice (research.callsPerDay 0) e i rifornimenti decisi dal codice con la regola di rifornimento (mandate.refillActuator), sempre con il valutatore.
