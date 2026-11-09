@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.90"
+version: "0.9.91"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Revisione settimanale della strategia: una volta a settimana il modello legge in sola lettura le osservazioni della politica deterministica, le decisioni degli ultimi 30 giorni, le verifiche esterne e la configurazione, e ti manda un messaggio con le modifiche di configurazione che propone, ciascuna con il motivo; il codice scarta quelle fuori dai limiti e nulla viene applicato senza di te (satssurge strategy per i dettagli). Corretti la lettura di nomi di chiave anomali nel file di configurazione e il motivo d'attesa dei rifornimenti, che ora nomina anche il prezzo oltre il tetto.
+  Per i peer che Amboss non conosce, il nodo legge i dati pubblici di 1ML (senza chiave): un nodo senza canali o senza aggiornamenti da oltre 60 giorni può fermare un rifornimento o una proposta di apertura verso di lui; un dato buono non sblocca mai nulla.
