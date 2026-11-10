@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-tdarr
 category: media
 name: Tdarr
-version: "2.87.01-1"
+version: "3.07.00-1"
 tagline: Distributed media transcoding and library optimization
 description: >-
   Tdarr converts and optimizes media libraries with FFmpeg and hardware
@@ -22,5 +22,7 @@ dependencies: []
 permissions:
   - GPU
 releaseNotes: >-
-  Declare the GPU permission required by current umbrelOS to expose hardware
-  acceleration to Tdarr. Keeps Tdarr 2.87.01 and paused worker startup.
+  Update Tdarr to 3.07.00, where the Rust engine is the only engine. Existing
+  libraries, flows and history are kept. Authentication stays off and the
+  internal node still starts paused with one GPU transcode and one GPU health
+  check worker. Back up the app data before updating.
