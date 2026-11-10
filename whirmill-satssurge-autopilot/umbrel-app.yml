@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.92"
+version: "0.9.93"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Corretto il blocco dei passi automatici: un esperimento fee già superato da una modifica successiva sullo stesso gruppo di canali (quindi comunque non valutabile) viene chiuso subito invece di restare in osservazione fino a 7 giorni; così non ferma più il passo successivo, come accadeva al ribasso automatico di LN Markets 830 → 664 ppm. Gli esperimenti non superati seguono le regole di sempre.
+  Grafici come widget di Telegram (nuova funzione dei messaggi interattivi): leggeri, nitidi, nel tema chiaro o scuro della chat, con tocco per leggere i valori e passaggio 7/30 giorni; il pulsante Immagine manda il PNG di sempre. Si attiva con telegram.widgetCharts; finché è spento i grafici restano immagini.
