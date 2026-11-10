@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-simplex-xftp
 category: networking
 name: SimpleX XFTP Relay
-version: "7.0.1-1"
+version: "7.0.1-2"
 tagline: Private SimpleX file relay
 description: >-
   Runs a private SimpleX File Transfer Protocol relay on Umbrel for encrypted
@@ -21,8 +21,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Routes WAN TCP 7443 to Umbrel host TCP 7443 and then XFTP container TCP 443,
-  avoiding Umbrel 2 HTTPS. Nginx Proxy Manager forwarding is unchanged. The
-  setup page includes the public port in the client address. Preserves the
-  v7.0.1 image, identity, state, stored file chunks, app password, and 20 GB
-  quota.
+  Updates the connection-details page sidecar from nginx 1.29.6 to the stable
+  1.30.6 Alpine image, pinned by immutable digest, for upstream nginx security
+  fixes. The relay server image, identity, state, app password, and ports are
+  unchanged.

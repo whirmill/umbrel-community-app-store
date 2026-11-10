@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-simplex-smp
 category: networking
 name: SimpleX SMP Relay
-version: "7.0.1"
+version: "7.0.1-1"
 tagline: Private SimpleX messaging relay
 description: >-
   Runs a private SimpleX Messaging Protocol relay on Umbrel. The relay accepts
@@ -22,6 +22,7 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Updates the SimpleX SMP server to v7.0.1 while preserving its identity,
-  queues, undelivered messages, app password, direct TCP 5223 binding, and
-  local connection-details page.
+  Updates the connection-details page sidecar from nginx 1.29.6 to the stable
+  1.30.6 Alpine image, pinned by immutable digest, for upstream nginx security
+  fixes. The relay server image, identity, state, app password, and ports are
+  unchanged.
