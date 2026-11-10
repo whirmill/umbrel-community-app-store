@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.94"
+version: "0.9.95"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Widget Telegram dal vivo, spenti per impostazione: con telegram.widgetPlans un piano canali approvato mostra l'avanzamento in un solo widget aggiornato in silenzio invece di un messaggio per ogni passo (fermo, esito incerto o fallito restano messaggi, la fine è un messaggio silenzioso); con telegram.widgetStatus /status manda anche una scheda dei canali (saldo locale, ppm, commissioni di oggi) aggiornata in silenzio. Se il widget non arriva o smette di aggiornarsi, i passi tornano messaggi. Nessuna modifica al database.
+  Correzione dei widget Telegram dal vivo della 0.9.94: la scheda di /status e il widget del piano canali ora si disegnano (lo script usava un nome riservato del browser e veniva scartato). Nessuna modifica al database né alla configurazione.
