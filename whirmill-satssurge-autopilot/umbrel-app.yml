@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.91"
+version: "0.9.92"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Per i peer che Amboss non conosce, il nodo legge i dati pubblici di 1ML (senza chiave): un nodo senza canali o senza aggiornamenti da oltre 60 giorni può fermare un rifornimento o una proposta di apertura verso di lui; un dato buono non sblocca mai nulla.
+  Corretto il blocco dei passi automatici: un esperimento fee già superato da una modifica successiva sullo stesso gruppo di canali (quindi comunque non valutabile) viene chiuso subito invece di restare in osservazione fino a 7 giorni; così non ferma più il passo successivo, come accadeva al ribasso automatico di LN Markets 830 → 664 ppm. Gli esperimenti non superati seguono le regole di sempre.
