@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-byparr
 category: networking
 name: Byparr
-version: "3.0.4"
+version: "3.1.1"
 tagline: Browser-based anti-bot proxy for Prowlarr
 description: >-
   Byparr runs a Camoufox browser and exposes a FlareSolverr-compatible API.
@@ -22,4 +22,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Update Byparr to 3.0.4 with improved browser TLS matching and Cloudflare challenge handling. Preserves the Prowlarr endpoint and resource limits.
+  Update Byparr to 3.1.1. Cookies are now scoped to the requested page, plain-http pages behind a Cloudflare challenge load correctly, and the page is read after the network settles. At start-up Byparr now downloads a GeoIP database and looks up its public IP to set the browser timezone and locale, which can add a few seconds before the solver accepts requests. Preserves the Prowlarr endpoint and resource limits.
