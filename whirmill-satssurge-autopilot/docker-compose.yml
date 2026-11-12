@@ -16,6 +16,10 @@ services:
       LND_TLS_CERT: /lnd/tls.cert
       LND_URL: https://${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_REST_PORT}
       PORT: "8080"
+      # Swap S0 (#139): Umbrel's Tor SOCKS proxy (tor_proxy on umbrel_main_network) for the RoboSats public reads;
+      # without them swap.observe holds with a reason. Nothing else uses Tor.
+      TOR_PROXY_IP: ${TOR_PROXY_IP}
+      TOR_PROXY_PORT: ${TOR_PROXY_PORT}
     volumes:
       - ${APP_DATA_DIR}/data:/data
       - ${APP_DATA_DIR}/credentials:/credentials:ro
