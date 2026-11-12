@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.10.1"
+version: "0.11.0"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Correzioni dopo le prove: le proposte di canali dal codice trovano di nuovo i candidati e scartano i nodi che non tengono la connessione; precedenza chiara tra scala dei prezzi e rifornimenti; durata dell'osservazione dopo un cambio di fee regolabile (mandate.feeObservationDays); la politica del nodo non resta più indietro. Nessuna modifica al database.
+  Swap-out automatici via RoboSats (prima parte): il nodo può pubblicare offerte di vendita BTC→on-chain come maker, con rilascio solo dopo le conferme sul nostro LND. Tutto spento di default: si accende dalla sezione swap della configurazione, dopo aver installato la garage key e la credenziale dedicata. Nessuna modifica al database.
