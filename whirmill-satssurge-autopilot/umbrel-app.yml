@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.11.2"
+version: "0.12.1"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Swap-out: la cauzione e il deposito ora possono pagare almeno 10 sat di fee di routing (swap.routingMinFeeSat), oltre al limite in ppm: il primo swap era fallito perché per 3.000 sat il limite era 0,9 sat, sotto ogni rotta disponibile. Nessuna modifica al database.
+  Swap-out automatici: con swap.autoStart il nodo avvia da solo lo swap quando serve per un'apertura (approvazione tua per i primi due), verifica la rotta verso il coordinatore prima di creare l'ordine e ricorda il premio a cui è stato preso l'ultimo ordine. I messaggi in chat di chi prende l'ordine arrivano su Telegram come testo non verificato; nuovi comandi /swap say e /swap start; /swaps nel menu. Nessuna modifica al database.
