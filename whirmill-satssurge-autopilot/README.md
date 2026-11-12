@@ -23,6 +23,12 @@ scripts that run on the node.
    proposals stay unavailable and everything else works unchanged. With it,
    each open or cooperative close still runs only after the owner approves it.
 
+   Optional, with the owner's approval and after the channel macaroon:
+   `scripts/provision-swap.sh` (same argument) bakes a separate swap macaroon
+   (`NewAddress`, `DecodePayReq`) for RoboSats swap-outs. Without it, swaps hold
+   and everything else works unchanged. It moves no funds: payments keep using
+   the write macaroon, and swaps stay off until the owner enables them.
+
 3. **Nothing else runs on the host.** The automation check and the fee
    competition capture run inside the app; the compose mounts the Lightning
    app's `tls.cert` read-only. Nodes installed before 0.9.28 can disable and
