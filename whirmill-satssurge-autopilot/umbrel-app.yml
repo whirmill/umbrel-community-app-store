@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.9.96"
+version: "0.9.97"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Scheda di stato dal vivo più leggibile: i canali con lo stesso nome (come i due LN Markets) diventano #1 e #2 in ordine di ID, anche nel grafico del bilanciamento; l'orario dice invariato dalle HH:MM, perché la scheda cambia solo quando cambiano i dati. Nessuna modifica al database né alla configurazione.
+  Correzioni della revisione indipendente (ammissione dalla politica senza revisioni doppie, avviso di deposito del piano canali, widget più robusti) e due nuove chiavi del proprietario: gradini automatici della scala delle fee (mandate.ladderAutoRungs) e budget mensile dei rifornimenti (mandate.monthlySat), entrambe spente per impostazione. Nessuna modifica al database.
