@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.13.2"
+version: "0.13.4"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,6 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.13.2: risolti i seguiti del kernel-first e della revisione 0.13.1 (celle aggiornate subito dopo un aggiornamento e senza slot saltati, bisogno swap già al primo giro dopo il riavvio, allarmi swap senza falsi "coordinatore non risponde" quando l'errore è di LND, ripieghi delle celle mostrati sull'ultima ora, bisogno e primo candidato al netto dello swap stimato con il motivo, fino a 6 coordinatori RoboSats ammessi).
+  Swap-out: l'ordine dei coordinatori ora segue le misure (raggiungibilità, storico dei nostri swap per coordinatore, costo previsto con le fee di routing misurate) e swap.coordinators decide solo a parità, con il motivo in italiano su decisione, rapporto del kernel e Approva; la parità swap riparte al cambio di versione e non conta più il testo d'errore di un coordinatore; le celle giornaliere del kernel e swap-decision non saltano più uno slot né girano due volte; il modello vede la decisione che l'avvio automatico giudica.
+  
+  Swap: lo storico per coordinatore conta ora i fallimenti del coordinatore (prima leggeva le righe contabili finali e non ne contava nessuno, es. sw000001 su lake); la riga di confronto cella/runtime dice "il confronto ricomincia alla prossima decisione" invece di mostrare i conteggi della versione precedente; la decisione della cella riporta la propria versione (sw-v7).
