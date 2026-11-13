@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.13.1"
+version: "0.13.2"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Kernel first: tutte le letture del calcolo incrementale passano da un'unica regola (versione, errori, età) con ripiego contato; swap-out, domanda rifiutata e candidati della fase 5 diventano celle del kernel (affidabilità dei coordinatori, rotte conservate, costo degli swap, decisione swap), con il calcolo di prima come ripiego e confronto nelle statistiche; il costo previsto dello swap entra nel conto delle aperture; avviso se un ordine swap pubblico resta irraggiungibile 30 minuti, critico con la garanzia fuori; ogni ordine swap indica il suo robot RoboSats (robot n. N «nome», nel Garage «Robot #N»). Nessuna modifica al database.
+  0.13.2: risolti i seguiti del kernel-first e della revisione 0.13.1 (celle aggiornate subito dopo un aggiornamento e senza slot saltati, bisogno swap già al primo giro dopo il riavvio, allarmi swap senza falsi "coordinatore non risponde" quando l'errore è di LND, ripieghi delle celle mostrati sull'ultima ora, bisogno e primo candidato al netto dello swap stimato con il motivo, fino a 6 coordinatori RoboSats ammessi).
