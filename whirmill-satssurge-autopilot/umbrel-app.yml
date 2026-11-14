@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.0"
+version: "0.14.1"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,12 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Corretta la crescita quadratica dei collegamenti tra osservazioni di un pagamento in volo (#256): ora ogni cattura aggiunge un solo collegamento; lo schema 16 rimuove a lotti i circa 310.000 collegamenti ridondanti, con verdetti di conflitto invariati.
-  
-  Lease Magma approvati dal proprietario (#151): proposta magma_lease da un candidato qualificato, ricontrollo su dati freschi all'Approva, un solo ordine, fattura trattenuta verificata e pagata dall'executor, budget a parte (markets.magmaMonthlySat), valutazione a 14 e 30 giorni; spento per impostazione predefinita.
-  
-  Vendita di lease Magma (spenta di default): un'offerta gestita dal codice, ordini valutati con regole e accettati con il tuo Approva tramite fattura trattenuta, canale aperto solo con il pagamento trattenuto in LND, incasso dopo la convalida di Amboss, fee promessa e nessuna chiusura nostra fino a fine periodo; corrette anche le chiamate Amboss dell'acquisto.
-  
-  Loop Out nativo senza loopd (#258): preventivo con Approva, token L402 una volta, HTLC taproot verificato da noi, incasso firmato dal nostro LND sul wallet o, se il filtro lo consente, direttamente in un nuovo canale; spento di default (loop.enabled 0).
-  
-  Dashboard web rinnovata: importi in sat interi, contabilità per periodo con margine operativo del routing separato dai costi on-chain dei canali, nuova Panoramica, navigazione per telefono e design coerente con l'icona dell'app.
+  0.14.1: osservazione degli HTLC in transito con verdetto sul jamming (spegnibile con htlc.observe), health check e backup dei canali su Amboss, depositi LN Markets da qualsiasi canale con tetto al saldo, vendita di canali ai wallet con LSPS1, nuove schede in Canali e Swap, confronto commissioni in ppm, liste con «Mostra altri» e pannello più leggero; le nuove funzioni sono spente per impostazione tranne l'osservazione degli HTLC.
