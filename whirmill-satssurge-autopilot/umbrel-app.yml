@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.1"
+version: "0.14.2"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.1: osservazione degli HTLC in transito con verdetto sul jamming (spegnibile con htlc.observe), health check e backup dei canali su Amboss, depositi LN Markets da qualsiasi canale con tetto al saldo, vendita di canali ai wallet con LSPS1, nuove schede in Canali e Swap, confronto commissioni in ppm, liste con «Mostra altri» e pannello più leggero; le nuove funzioni sono spente per impostazione tranne l'osservazione degli HTLC.
+  0.14.2: codice formattato e controllato con Prettier, ESLint con i tipi, ruff, shfmt e ShellCheck; nessun cambio di comportamento.
