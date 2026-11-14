@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.13.6"
+version: "0.13.7"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Swap-out: le chiamate degli ordini (robot, creazione, lettura) contano nell'affidabilità dei coordinatori e un coordinatore che non le serve passa in fondo finché non risponde (al massimo swap.callOutageHours, 6 ore); un ordine mai creato fallisce da solo dopo 10 minuti senza chiamare il coordinatore, nessun ordine né pagamento.
+  Swap-out: il premio di partenza ora segue il libro pubblico RoboSats (appena sotto l'offerta comparabile più economica, commissione di chi prende inclusa; swap.makerStartBp è il tetto, nuovi swap.undercutBp 5 e swap.bookPremium 1), i gradini successivi non salgono mai e seguono il libro verso il basso.
