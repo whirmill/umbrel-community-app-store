@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.13.7"
+version: "0.13.8"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Swap-out: il premio di partenza ora segue il libro pubblico RoboSats (appena sotto l'offerta comparabile più economica, commissione di chi prende inclusa; swap.makerStartBp è il tetto, nuovi swap.undercutBp 5 e swap.bookPremium 1), i gradini successivi non salgono mai e seguono il libro verso il basso.
+  Account LN Markets (#249): depositi e prelievi Lightning avviati dal proprietario con /lnm o satssurge lnm e approvati con Approva, chiave ristretta in config/lnmarkets.key, saldo in /lnm, ricevute e riconciliazione senza mai ripetere un pagamento (spento per impostazione, lnm.enabled 0).
