@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.13.9"
+version: "0.14.0"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,8 +26,12 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Swap-out: chi prende l'ordine viene avvisato in chat quando il pagamento è visto e a ogni conferma; chat letta ogni 20 secondi; la memoria dei prezzi dimentica le prese più vecchie di 30 giorni; riepilogo mensile degli swap nelle statistiche e nel riepilogo giornaliero.
+  Corretta la crescita quadratica dei collegamenti tra osservazioni di un pagamento in volo (#256): ora ogni cattura aggiunge un solo collegamento; lo schema 16 rimuove a lotti i circa 310.000 collegamenti ridondanti, con verdetti di conflitto invariati.
   
-  Swap: l'avvio manuale con canale segue l'ordine dei coordinatori del kernel, le ripubblicazioni del libro non contano come prese, un canale aperto con i fondi di uno swap o troppo giovane non fa da sorgente, e una cauzione persa conta contro il coordinatore solo se l'ha causata lui.
+  Lease Magma approvati dal proprietario (#151): proposta magma_lease da un candidato qualificato, ricontrollo su dati freschi all'Approva, un solo ordine, fattura trattenuta verificata e pagata dall'executor, budget a parte (markets.magmaMonthlySat), valutazione a 14 e 30 giorni; spento per impostazione predefinita.
   
-  Kernel: fee-window e corridor-measure misurati all'ancora dello slot anche se calcolati dopo (niente slot saltati), statistiche delle rotte con la commissione misurata, percentuali per il proprietario con una sola regola (una cifra decimale, troncata).
+  Vendita di lease Magma (spenta di default): un'offerta gestita dal codice, ordini valutati con regole e accettati con il tuo Approva tramite fattura trattenuta, canale aperto solo con il pagamento trattenuto in LND, incasso dopo la convalida di Amboss, fee promessa e nessuna chiusura nostra fino a fine periodo; corrette anche le chiamate Amboss dell'acquisto.
+  
+  Loop Out nativo senza loopd (#258): preventivo con Approva, token L402 una volta, HTLC taproot verificato da noi, incasso firmato dal nostro LND sul wallet o, se il filtro lo consente, direttamente in un nuovo canale; spento di default (loop.enabled 0).
+  
+  Dashboard web rinnovata: importi in sat interi, contabilità per periodo con margine operativo del routing separato dai costi on-chain dei canali, nuova Panoramica, navigazione per telefono e design coerente con l'icona dell'app.
