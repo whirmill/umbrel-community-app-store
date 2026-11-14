@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.13.8"
+version: "0.13.9"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,8 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  Account LN Markets (#249): depositi e prelievi Lightning avviati dal proprietario con /lnm o satssurge lnm e approvati con Approva, chiave ristretta in config/lnmarkets.key, saldo in /lnm, ricevute e riconciliazione senza mai ripetere un pagamento (spento per impostazione, lnm.enabled 0).
+  Swap-out: chi prende l'ordine viene avvisato in chat quando il pagamento è visto e a ogni conferma; chat letta ogni 20 secondi; la memoria dei prezzi dimentica le prese più vecchie di 30 giorni; riepilogo mensile degli swap nelle statistiche e nel riepilogo giornaliero.
+  
+  Swap: l'avvio manuale con canale segue l'ordine dei coordinatori del kernel, le ripubblicazioni del libro non contano come prese, un canale aperto con i fondi di uno swap o troppo giovane non fa da sorgente, e una cauzione persa conta contro il coordinatore solo se l'ha causata lui.
+  
+  Kernel: fee-window e corridor-measure misurati all'ancora dello slot anche se calcolati dopo (niente slot saltati), statistiche delle rotte con la commissione misurata, percentuali per il proprietario con una sola regola (una cifra decimale, troncata).
