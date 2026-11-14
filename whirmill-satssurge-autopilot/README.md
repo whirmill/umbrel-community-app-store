@@ -29,6 +29,18 @@ scripts that run on the node.
    and everything else works unchanged. It moves no funds: payments keep using
    the write macaroon, and swaps stay off until the owner enables them.
 
+   Optional, with the owner's approval, each with the same argument and each a
+   separate macaroon; without one, its feature stays unavailable and everything
+   else works unchanged. None moves funds by itself; every feature stays off
+   until the owner enables it in `config/satssurge.json`.
+   - `scripts/provision-amboss.sh`: `SignMessage` only (Amboss health check) and
+     channel-backup export only (encrypted backups pushed to Amboss).
+   - `scripts/provision-loop.sh`: the native Loop Out client (keys, signature and
+     broadcast of its own sweep, chain notifications).
+   - `scripts/provision-sale.sh`: hold invoices for the liquidity SatsSurge sells
+     (Magma leases, LSPS1 orders).
+   - `scripts/provision-lsp.sh`: the LSPS1 peer messages (needs the sale macaroon).
+
 3. **Nothing else runs on the host.** The automation check and the fee
    competition capture run inside the app; the compose mounts the Lightning
    app's `tls.cert` read-only. Nodes installed before 0.9.28 can disable and
