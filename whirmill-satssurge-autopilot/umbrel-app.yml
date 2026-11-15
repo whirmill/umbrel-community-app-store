@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.9"
+version: "0.14.10"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.9: Approvazioni dalla console e osservatore Loop (#286, #276 fase 1). Con la nuova impostazione console.fundApprovals a 1 (spenta di default) la console del nodo elenca le richieste Approva di swap-out, Loop Out e LN Markets (satssurge approvals) e le approva o rifiuta (satssurge approve|reject <ref>) con gli stessi controlli del pulsante su Telegram: scadenza, una sola decisione valida tra Telegram e console, poi dati freschi, mandato ed esecutore come sempre; approva anche le proposte di chat --telegram dopo la consegna. Ogni decisione arriva su Telegram come «Approvato dalla console: …» o «Rifiutato dalla console: …» (in silenzio nelle ore di quiete), toglie i pulsanti dal messaggio della richiesta e resta nell'audit della console; la scala delle approvazioni e i budget non cambiano, e rimettendo 0 si torna a Telegram soltanto. Con loop.enabled 1, ogni loop.observeEveryHours ore (predefinito 6, 0 = spento) SatsSurge legge dal server Loop i termini e un preventivo gratuito a tre importi (loop.minSat, 500.000 e loop.maxSat), la fee on-chain stimata e verifica la rotta verso il nodo LOOP, senza mai mandare né pagare il token L402 e senza creare swap o fare pagamenti; si ferma mentre un Loop Out è in corso, e /loop mostra la riga "Osservatore Loop" con i preventivi e l'ora della lettura, oppure il motivo per cui non è riuscita.
+  0.14.10: Avvisi degli eventi del nodo per poter disinstallare WoofBot (#289): con telegram.forwardMode "instant" ogni inoltro arriva in pochi secondi in un solo messaggio silenzioso aggiornato sul posto (totali, ultimi 10 inoltri con ora, canali, importo e fee, "e altri N inoltri prima"), con un nuovo messaggio dopo telegram.forwardRollMinutes (60 minuti), dopo una pausa o quando altri messaggi lo hanno coperto; la modalità predefinita "group" resta com'è. Nuovi interruttori: telegram.invoiceCreatedNotices (fatture create sul nodo, senza descrizione, spento di default), telegram.blockNotices (nuovi blocchi, raggruppati, spento di default) e telegram.walletSendNotices (invii on-chain dal wallet fatti fuori da SatsSurge, con importo, fee e conferme, acceso di default). La descrizione dei pagamenti non viene mai mostrata; nessun nuovo permesso LND.
