@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.5"
+version: "0.14.6"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.5: On-chain fuel, fase 0 (#278, #279 punti 6–7): i fondi già impegnati restano a chi li ha impegnati per primo. Un'apertura di canale (proprietario, veto, fase 5, piani) non usa più i sat di una vendita Magma o LSPS1 accettata e non ancora aperta, né quelli di un'apertura proposta o nella finestra di veto; una vendita vede a sua volta le aperture in attesa. Il massimo pubblicato dell'offerta Magma non supera i fondi finanziabili adesso (fee di apertura compresa) e il motivo per cui l'offerta non prende ordini è salvato, visibile nella scheda web e annunciato una sola volta su Telegram. Le aperture automatiche lasciano spazio a una vendita della taglia minima finché le vendite sono attive; per le aperture del proprietario il messaggio avvisa quando non resterebbe spazio. Un solo rifornimento on-chain alla volta: niente swap-out RoboSats con un Loop Out in corso e viceversa. La riserva anchor di LND compare accanto alla riserva protetta.
+  0.14.6: Richieste di Approva nelle ore di quiete (#281). Le richieste di Approva con una scadenza (swap-out, Loop Out, depositi e prelievi LN Markets) arrivano ora anche nelle ore di quiete, senza suono, e passano davanti ai messaggi ordinari in coda, così non scadono più senza essere viste; gli altri avvisi operativi e silenziosi aspettano la fine della quiete come prima, e con la quiete spenta non cambia nulla. Se una richiesta scade senza essere mai stata consegnata, il motivo lo dice («richiesta mai consegnata su Telegram (rimasta in coda)») e il messaggio non parte più in ritardo. Un Loop Out in modalità veto parte da solo solo se l'annuncio è stato davvero consegnato; altrimenti non avvia nulla.
