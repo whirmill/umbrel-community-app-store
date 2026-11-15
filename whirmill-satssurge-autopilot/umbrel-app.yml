@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.10"
+version: "0.14.11"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.10: Avvisi degli eventi del nodo per poter disinstallare WoofBot (#289): con telegram.forwardMode "instant" ogni inoltro arriva in pochi secondi in un solo messaggio silenzioso aggiornato sul posto (totali, ultimi 10 inoltri con ora, canali, importo e fee, "e altri N inoltri prima"), con un nuovo messaggio dopo telegram.forwardRollMinutes (60 minuti), dopo una pausa o quando altri messaggi lo hanno coperto; la modalità predefinita "group" resta com'è. Nuovi interruttori: telegram.invoiceCreatedNotices (fatture create sul nodo, senza descrizione, spento di default), telegram.blockNotices (nuovi blocchi, raggruppati, spento di default) e telegram.walletSendNotices (invii on-chain dal wallet fatti fuori da SatsSurge, con importo, fee e conferme, acceso di default). La descrizione dei pagamenti non viene mai mostrata; nessun nuovo permesso LND.
+  0.14.11: Percorso di rifornimento (in prova): SatsSurge ora calcola, per il bisogno di benzina on-chain, quale via conviene tra Loop Out e RoboSats: per ciascuna dice l'importo possibile (limiti, capienza dei canali, rotte misurate verso il nodo LOOP, budget del mese), il costo atteso tutto compreso in ppm con il rischio del prepagamento o della cauzione, il tempo per avere i fondi e la nostra storia, e sceglie la migliore senza guardare se parte da sola. La vedi nelle statistiche, nel riepilogo della chat e nella card "Percorso di rifornimento" in Panoramica accanto a "Benzina on-chain", con l'ora del calcolo; se manca, la riga dice perché. Nessuna decisione la usa ancora: gli avvii di Loop e RoboSats restano quelli di oggi. Nuove impostazioni route.source (0, l'1 non ha effetto fino alla fase 3), route.failPriorPercent (5), route.costTiePpm (300) e route.recordDays (90).
