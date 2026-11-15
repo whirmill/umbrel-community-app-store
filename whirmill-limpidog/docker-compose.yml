@@ -27,6 +27,10 @@ services:
     ports:
       - "5235:4000"
       - "5236:4002"
+    networks:
+      default:
+        # Nginx Proxy Manager forwards the public vhosts to these 1.0.x container names on umbrel_main_network.
+        aliases: [whirmill-limpidog_api_1, whirmill-limpidog_dashboard_1, whirmill-limpidog_site_1]
     volumes:
       - ${APP_DATA_DIR}/data:/data
     read_only: true

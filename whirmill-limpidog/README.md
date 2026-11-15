@@ -10,11 +10,17 @@ port `5234`.
 | 4000 | API and WhatsApp webhook | `5235` |
 | 4002 | public site | `5236` |
 
-For public ingress through Umbrel's official Nginx Proxy Manager app, use:
+Public ingress goes through Umbrel's official Nginx Proxy Manager app, which
+forwards by container name on `umbrel_main_network` to the names of the 1.0.x
+containers:
 
-- `dashboard.limpidog.com` -> `http://umbrel.local:5234`
-- `api.limpidog.com` -> `http://umbrel.local:5235`
-- `limpidog.com` -> `http://umbrel.local:5236`
+- `api.limpidog.com` -> `http://whirmill-limpidog_api_1:4000`
+- `dashboard.limpidog.com` -> `http://whirmill-limpidog_dashboard_1:4001`
+- `limpidog.com` -> `http://whirmill-limpidog_site_1:4002`
+
+Since 2.0.1 the `server` container carries those three names as network
+aliases and listens on the same ports, so the proxy hosts need no change.
+Removing the aliases breaks the public vhosts (502).
 
 Nginx Proxy Manager publishes HTTP on host port `40080` and HTTPS on `40443`.
 The router therefore needs external `80 -> Umbrel:40080` and external
