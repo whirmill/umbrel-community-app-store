@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.14"
+version: "0.14.15"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.14: Benzina on-chain, fase 2 (#278): con fuel.source 1 le decisioni usano la cella onchain-fuel. L'offerta Magma pubblica il massimo della cella, mai oltre i fondi dal vivo, e si ferma con il suo motivo. I nuovi ordini LSPS1 rispettano il suo massimo. L'apertura automatica lascia sempre finanziabile una vendita intera, così come quella programmata dalla revisione canali. Il bisogno di swap usa l'obiettivo calcolato (swap.targetOnchainSat diventa il minimo) e conta le vendite accettate e le ricariche in arrivo. Un bisogno senza percorso automatico arriva su Telegram una volta, con il comando da usare (per esempio /loop out 1000000). Se la cella manca, ogni decisione torna al controllo di oggi e il ripiego compare nelle statistiche; i controlli dal vivo decidono sempre all'esecuzione. Con fuel.source 0, il valore predefinito, non cambia nulla. Prelievi LN Markets: lo spazio per la fee che lasciamo sul saldo ora segue la regola che LN Markets applica davvero, cioè lo 0,5% dell'importo ma almeno 100 sat. Il prelievo di prova da 1.000 sat (ln000013, 100 sat di fee massima) non fa più gonfiare lo spazio dei prelievi grandi: su un pezzo da 380.000 sat restano circa 2.090 sat invece di 41.800, e per 1.000 sat ne restano 110. Corretto anche un raro blocco della suite di test: ora un test che si blocca fallisce con il suo nome invece di fermare tutto.
+  0.14.15: Loop Out automatici (#276 fase 3), spenti di default: con loop.autoStart 1 (richiede route.source 1 e loop.enabled 1) SatsSurge avvia da solo un Loop Out quando la cella swap-route sceglie Loop per la benzina on-chain, con gli stessi controlli, budget e Approva di /loop out e mai per un importo superiore a quello della cella; ogni Loop Out automatico chiede Approva finché 3 di fila non sono completati puliti (loop.autoCleanBeforeLadder), poi vale loop.approval, e un incidente, un prepagamento perso, un Rifiuta o un Approva scaduto riportano all'Approva. Pause per lo stesso bisogno: 12 ore dopo un Rifiuta, un Approva scaduto o un prepagamento perso, 60 minuti dopo un tentativo fallito senza pagamenti; un HTLC ripreso dal server ferma gli avvii automatici finché non scrivi /loop resume, che ora viene registrato. Con route.source 1 gli swap-out RoboSats automatici partono solo quando la cella sceglie RoboSats, e l'avviso di benzina tace quando il Loop scelto parte da solo. /loop mostra stato, serie pulita e ultimo avvio.
