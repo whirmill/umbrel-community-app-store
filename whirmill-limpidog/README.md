@@ -1,8 +1,14 @@
 # Limpidog on Umbrel
 
-This package runs Limpidog as one Umbrel app with separate API, worker,
-dashboard, site, migration, restore, and PostgreSQL services. The Umbrel app
-proxy exposes only the dashboard on port `5234`.
+Since 2.0.0 this package runs Limpidog as one `server` container (Node, SQLite).
+It serves three listeners; the Umbrel app proxy exposes only the dashboard on
+port `5234`.
+
+| Container port | Role | Host port / ingress |
+|---|---|---|
+| 4001 | operations dashboard | Umbrel app proxy `5234` |
+| 4000 | API and WhatsApp webhook | `5235` |
+| 4002 | public site | `5236` |
 
 For public ingress through Umbrel's official Nginx Proxy Manager app, use:
 
@@ -28,31 +34,42 @@ The immediate rollback is to restore external TCP ports 80 and 443 to
 
 ## Persistent data
 
-- `data/postgres`: PostgreSQL cluster
-- `data/import/limpidog.dump`: optional PostgreSQL custom-format import
-- `data/import/.restored-sha256`: checksum of the last successful import
-- `data/limpidog.env`: optional private runtime integration settings
+Everything lives in `${APP_DATA_DIR}/data`, mounted at `/data`. The container
+runs as UID 1000 (`umbrel`) on a read-only root filesystem and writes only its
+own files:
 
-Application code stays in the immutable container image. Only data and private
-runtime configuration are mounted from `${APP_DATA_DIR}`.
+- `operational.sqlite` (+ `-wal`, `-shm`): application records and the derived
+  analyses, slot proposals and reports
+- `durable.sqlite` (+ `-wal`, `-shm`): the agent chat state
+- `lifecycle.json`: the launcher's record of the installed release and schema
+- `checkpoints/`: database copies taken before a new release migrates them
+  (the two newest are kept)
+- `app.lock`: held while the server runs, so only one process writes the data
+- `migration/`: the one-off PostgreSQL export used by the 2.0.0 cutover
+- `limpidog.env`: optional private runtime settings, passed to the container
+  as environment (`env_file`); it must remain untracked, owned by `umbrel` and
+  mode `0600`. It carries the authentication keys (`SECRET_KEY_BASE`,
+  `AUTH_TOKEN_SALT`, both defaulting to the Umbrel app seed) and the
+  OpenRouter, WhatsApp, Google Calendar and Web Push settings.
 
-## Safe migration behavior
+Application code stays in the immutable container image.
 
-The import service restores `data/import/limpidog.dump` only when its SHA-256
-differs from the last successful import, then the migration service applies
-pending Ecto migrations. API, dashboard, site, and worker start only after both
-steps succeed.
+## Cutover from 1.0.x
 
-Background processing is disabled by default. To perform a final cutover, set
-these values in the private `data/limpidog.env` and restart the app only after
-the old worker has been stopped and the final database dump has been copied:
+Version 2.0.0 replaces the PostgreSQL deployment. The data is exported from
+PostgreSQL and imported into SQLite once, following the cutover runbook of the
+`limpidog-crm` repository; the dashboard needs a new sign-in afterwards.
+The folders of the previous deployment stay untouched and unused by 2.0.0:
 
-```dotenv
-OPERATIONAL_WORKER_ENABLED=true
-CALENDAR_IMPORT_WORKER_ENABLED=true
-```
+- `data/postgres`: PostgreSQL cluster, retained for rollback to 1.0.3
+- `data/import`, `data/backups`: previous dumps
 
-The private environment file must remain untracked and mode `0600`. It can
-carry existing Phoenix/authentication, OpenRouter, WhatsApp, Google Calendar,
-and Web Push settings. Database URLs and credentials are supplied by Umbrel and
-must not be copied from the previous host.
+Rolling back means pinning 1.0.3 again; writes made in 2.0.0 after the cutover
+are not copied back to PostgreSQL. Deleting `data/postgres` is a separate,
+manual decision once the rollback window has closed.
+
+## Workers
+
+Webhook processing runs by default. To accept deliveries without processing
+them, set `OPERATIONAL_WORKER_ENABLED=false` in `data/limpidog.env`. The
+Google Calendar import runs only with `CALENDAR_IMPORT_WORKER_ENABLED=true`.

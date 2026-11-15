@@ -2,15 +2,15 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "1.0.3"
+version: "2.0.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
-  Runs the Limpidog API, operations dashboard, public-site service, background
-  worker, and PostgreSQL database as one Umbrel app. The Umbrel entry point is
-  the protected operations dashboard; dedicated API and site ports support
-  public virtual hosts through Nginx Proxy Manager. Background workers ship
-  disabled so an existing installation can remain authoritative until its
-  final data cutover.
+  Runs Limpidog as one Umbrel app: a single server container serves the
+  protected operations dashboard (the Umbrel entry point), the API with the
+  WhatsApp webhook, and the public site, with its data in two SQLite
+  databases under the app data directory. Dedicated API and site ports support
+  public virtual hosts through Nginx Proxy Manager. Private integration
+  settings stay in data/limpidog.env.
 developer: whirmill
 website: https://limpidog.com
 repo: https://github.com/whirmill/limpidog-crm
@@ -23,5 +23,11 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Prevents shared Umbrel network aliases from routing Limpidog database and API
-  traffic to another app after a host restart.
+  2.0.0: Limpidog passa a un unico servizio Node con i dati in SQLite
+  (operational.sqlite e durable.sqlite nella cartella dati dell'app) al posto
+  dei container Elixir e di PostgreSQL. Dashboard, API e sito restano
+  sulle stesse porte (5234, 5235, 5236) e le impostazioni private in
+  data/limpidog.env non cambiano. I dati vengono importati da PostgreSQL una
+  sola volta durante il passaggio; la cartella data/postgres resta intatta per
+  un eventuale ritorno alla versione 1.0.3. Dopo l'aggiornamento serve un nuovo
+  accesso alla dashboard.
