@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.4"
+version: "0.14.5"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.4: Loop Out: il budget del mese ora conta solo quello che è successo davvero. I tentativi falliti o abbandonati non pesano più sul volume; il costo è quello effettivamente pagato, con il token L402 contato una sola volta. La ricevuta di un tentativo che ha pagato solo il token lo dice ("fallito, pagato solo il token L402 di 200 sat") invece di "nulla pagato". Il prepagamento risulta "trattenuto" solo quando LND lo conferma a una lettura successiva, e il pagamento dello swap parte solo dopo: un minuto più tardi, ma senza pagare lo swap se il prepagamento non è arrivato.
+  0.14.5: On-chain fuel, fase 0 (#278, #279 punti 6–7): i fondi già impegnati restano a chi li ha impegnati per primo. Un'apertura di canale (proprietario, veto, fase 5, piani) non usa più i sat di una vendita Magma o LSPS1 accettata e non ancora aperta, né quelli di un'apertura proposta o nella finestra di veto; una vendita vede a sua volta le aperture in attesa. Il massimo pubblicato dell'offerta Magma non supera i fondi finanziabili adesso (fee di apertura compresa) e il motivo per cui l'offerta non prende ordini è salvato, visibile nella scheda web e annunciato una sola volta su Telegram. Le aperture automatiche lasciano spazio a una vendita della taglia minima finché le vendite sono attive; per le aperture del proprietario il messaggio avvisa quando non resterebbe spazio. Un solo rifornimento on-chain alla volta: niente swap-out RoboSats con un Loop Out in corso e viceversa. La riserva anchor di LND compare accanto alla riserva protetta.
