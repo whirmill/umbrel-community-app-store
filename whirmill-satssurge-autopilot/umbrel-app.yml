@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.11"
+version: "0.14.12"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.11: Percorso di rifornimento (in prova): SatsSurge ora calcola, per il bisogno di benzina on-chain, quale via conviene tra Loop Out e RoboSats: per ciascuna dice l'importo possibile (limiti, capienza dei canali, rotte misurate verso il nodo LOOP, budget del mese), il costo atteso tutto compreso in ppm con il rischio del prepagamento o della cauzione, il tempo per avere i fondi e la nostra storia, e sceglie la migliore senza guardare se parte da sola. La vedi nelle statistiche, nel riepilogo della chat e nella card "Percorso di rifornimento" in Panoramica accanto a "Benzina on-chain", con l'ora del calcolo; se manca, la riga dice perché. Nessuna decisione la usa ancora: gli avvii di Loop e RoboSats restano quelli di oggi. Nuove impostazioni route.source (0, l'1 non ha effetto fino alla fase 3), route.failPriorPercent (5), route.costTiePpm (300) e route.recordDays (90).
+  0.14.12: Prelievi LN Markets: lo spazio lasciato sul saldo per la fee ora è in proporzione all'importo, come fa LN Markets (riserva lo 0,5 %): si prende la proporzione più alta dei nostri ultimi prelievi, più il 10 %, con un minimo di 10 sat. Un prelievo da 1.000 sat ora chiede 10 sat di spazio (prima 4.950); senza prelievi precedenti la stima resta prudente, 1 % dell'importo con un minimo di 100 sat. Nella console, la richiesta di prelievo in attesa dice in quanti pezzi parte, e per le proposte di una chat --telegram il modello non dice più "dalla console non si approva" quando console.fundApprovals è 1. Chat con il proprietario (#293): una singola proposta di fee o rebalance ora entra nel budget del turno anche quando la conversazione è lunga; con Claude Haiku il turno tiene da parte una riserva di contesto (agent.chatEvidenceReserveTokens, 12.000 token, 0 per toglierla) per l'evidenza che la proposta cita e per la proposta stessa, policy_view ed experiment_results restituiscono riassunti più brevi, e quando una lettura viene esclusa per il budget sotto la risposta compare "Letture non consegnate in questo turno: …".
