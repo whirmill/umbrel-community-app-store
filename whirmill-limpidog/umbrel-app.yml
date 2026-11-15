@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.0.0"
+version: "2.0.1"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,6 +23,12 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
+  2.0.1: il server risponde anche ai nomi dei container della 1.0.x
+  (whirmill-limpidog_api_1, whirmill-limpidog_dashboard_1,
+  whirmill-limpidog_site_1) sulla rete di Umbrel, cosi' Nginx Proxy Manager
+  torna a raggiungere api.limpidog.com, dashboard.limpidog.com e limpidog.com
+  senza modifiche. Stessa immagine della 2.0.0.
+
   2.0.0: Limpidog passa a un unico servizio Node con i dati in SQLite
   (operational.sqlite e durable.sqlite nella cartella dati dell'app) al posto
   dei container Elixir e di PostgreSQL. Dashboard, API e sito restano
