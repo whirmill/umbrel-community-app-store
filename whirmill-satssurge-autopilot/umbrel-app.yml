@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.15"
+version: "0.14.16"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.15: Loop Out automatici (#276 fase 3), spenti di default: con loop.autoStart 1 (richiede route.source 1 e loop.enabled 1) SatsSurge avvia da solo un Loop Out quando la cella swap-route sceglie Loop per la benzina on-chain, con gli stessi controlli, budget e Approva di /loop out e mai per un importo superiore a quello della cella; ogni Loop Out automatico chiede Approva finché 3 di fila non sono completati puliti (loop.autoCleanBeforeLadder), poi vale loop.approval, e un incidente, un prepagamento perso, un Rifiuta o un Approva scaduto riportano all'Approva. Pause per lo stesso bisogno: 12 ore dopo un Rifiuta, un Approva scaduto o un prepagamento perso, 60 minuti dopo un tentativo fallito senza pagamenti; un HTLC ripreso dal server ferma gli avvii automatici finché non scrivi /loop resume, che ora viene registrato. Con route.source 1 gli swap-out RoboSats automatici partono solo quando la cella sceglie RoboSats, e l'avviso di benzina tace quando il Loop scelto parte da solo. /loop mostra stato, serie pulita e ultimo avvio.
+  0.14.16: Fondi degli swap-out in un nuovo canale, con un solo cancello (#259). C'è un nuovo interruttore, swap.fundOpen, spento di default. Quando è acceso: appena i fondi di uno swap-out RoboSats completato sono confermati, SatsSurge propone l'apertura di canale pianificata. Passa per il cancello fondi-apertura, che oggi è una cella del kernel calcolata ogni intervallo: serve un candidato qualificato della fase 5; valgono i limiti channels.*; con fuel.source 1 l'apertura non tocca i fondi della vendita Magma/LSPS1. L'apertura segue la strada normale dei canali: finestra di veto o Approva del proprietario. L'Approva dello swap non vale come approvazione dell'apertura. Se il cancello rifiuta, se la cella manca o se la proposta non parte, i fondi restano sul wallet e un messaggio lo dice. L'incasso dei Loop Out nel canale (loop.sweepToChannel, ancora a 0) usa la stessa cella. Le statistiche mostrano lo stato del cancello e l'ultima decisione, con l'orario della cella.
