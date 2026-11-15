@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.6"
+version: "0.14.7"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.6: Richieste di Approva nelle ore di quiete (#281). Le richieste di Approva con una scadenza (swap-out, Loop Out, depositi e prelievi LN Markets) arrivano ora anche nelle ore di quiete, senza suono, e passano davanti ai messaggi ordinari in coda, così non scadono più senza essere viste; gli altri avvisi operativi e silenziosi aspettano la fine della quiete come prima, e con la quiete spenta non cambia nulla. Se una richiesta scade senza essere mai stata consegnata, il motivo lo dice («richiesta mai consegnata su Telegram (rimasta in coda)») e il messaggio non parte più in ritardo. Un Loop Out in modalità veto parte da solo solo se l'annuncio è stato davvero consegnato; altrimenti non avvia nulla.
+  0.14.7: Loop Out più affidabili e prelievi LN Markets a pezzi (#279 punti 3 e 5, #284). Il prepagamento del Loop Out ha ora una sua fee di routing minima (loop.prepayMinFeeSat, 200 sat), separata da quella della fattura dello swap, così un prepagamento piccolo non resta senza rotta e loop.routingMinFeeSat può tornare a 10; il budget mensile riserva entrambi i limiti di routing approvati. Prima dell'Approva SatsSurge verifica che i canali (quello scelto o tutti gli attivi) reggano prepagamento e swap insieme nelle parti MPP ammesse (saldo spendibile, HTLC massimo, slot liberi, suddivisione di LND): se non reggono propone un importo più piccolo, o rifiuta spiegando il motivo e se senza restrizione di canale passerebbe tutto; lo stesso controllo vale per cauzione e garanzia degli swap RoboSats. Un prelievo LN Markets grande parte ora con una sola Approva e viene diviso in pezzi uguali, ciascuno al massimo il max_htlc dei canali di LN Markets verso di noi meno il 5% (190.000 sat se non è noto): i pezzi partono uno alla volta con lo stesso identificativo (ln000012-1, -2, …) e gli stessi controlli di oggi, viene lasciato sul saldo LN Markets lo spazio per la fee (chi chiede tutto il saldo riceve un importo ridotto, indicato già nell'Approva), il primo pezzo che non riesce ferma la catena e la ricevuta dice quanto è arrivato e quanto resta. I pezzi successivi partono solo entro 60 minuti dalla pressione di Approva (il doppio di telegram.proposalMinutes); un pezzo già partito finisce comunque. Il volume mensile conta la catena una sola volta; i depositi restano invariati.
