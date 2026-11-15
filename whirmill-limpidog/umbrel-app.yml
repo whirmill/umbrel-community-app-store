@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.0.3"
+version: "2.1.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Gli agenti (chat agente e lane del kernel) possono ora usare Anthropic con una chiave dedicata: basta il file anthropic.key nella cartella dati dell'app (proprietario umbrel, permessi 0600), letto a ogni turno senza riavvio. Senza quel file resta attivo OpenRouter come prima; LIMPIDOG_AGENT_PROVIDER permette di fissare il provider e ANTHROPIC_MODEL il modello (predefinito claude-sonnet-5-5). Strumenti, skill e conferme sono invariati.
+  Arriva il bot Telegram come sidecar di WhatsApp Business: ogni nuovo messaggio WhatsApp diventa una scheda con l'analisi (cane, servizi, zona, durata da tabella, slot proposti), si risponde ai clienti con anteprima e un solo tocco su Invia, si confermano le bozze del calendario e si parla con l'agente, con le notifiche principali. Il collegamento si fa dalla dashboard (Impostazioni, Telegram). L'invio WhatsApp si attiva con le credenziali Meta: token del system user nel file whatsapp.key della cartella dati (permessi 0600) e WHATSAPP_PHONE_NUMBER_ID e WHATSAPP_WABA_ID nell'ambiente dell'app; senza, il bot funziona e rifiuta solo le risposte ai clienti.
