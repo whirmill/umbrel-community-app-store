@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.3"
+version: "0.14.4"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.3: nuovi comandi /sign e /verify (e satssurge sign/verify dalla console): firmi un testo con la chiave del nodo e verifichi la firma di qualsiasi nodo, solo dal proprietario, con una credenziale dedicata node-sign.macaroon (solo SignMessage); testo e firma non vengono conservati; si spegne con telegram.nodeSign.
+  0.14.4: Loop Out: il budget del mese ora conta solo quello che è successo davvero. I tentativi falliti o abbandonati non pesano più sul volume; il costo è quello effettivamente pagato, con il token L402 contato una sola volta. La ricevuta di un tentativo che ha pagato solo il token lo dice ("fallito, pagato solo il token L402 di 200 sat") invece di "nulla pagato". Il prepagamento risulta "trattenuto" solo quando LND lo conferma a una lettura successiva, e il pagamento dello swap parte solo dopo: un minuto più tardi, ma senza pagare lo swap se il prepagamento non è arrivato.
