@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.0.2"
+version: "2.0.3"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Rilascio di manutenzione con le stesse funzionalità della 2.0.1: l'immagine è ricostruita sul repository dopo la rimozione del runtime Elixir, con i percorsi dei dati (tabella durate, corpus di analisi) ora fuori dalla vecchia struttura apps/, e la CLI ripulita dai comandi di persistenza e server mai disponibili nel runtime Node.
+  Gli agenti (chat agente e lane del kernel) possono ora usare Anthropic con una chiave dedicata: basta il file anthropic.key nella cartella dati dell'app (proprietario umbrel, permessi 0600), letto a ogni turno senza riavvio. Senza quel file resta attivo OpenRouter come prima; LIMPIDOG_AGENT_PROVIDER permette di fissare il provider e ANTHROPIC_MODEL il modello (predefinito claude-sonnet-5-5). Strumenti, skill e conferme sono invariati.
