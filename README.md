@@ -18,7 +18,7 @@ privati; le immagini su GHCR restano pubbliche.
 | `whirmill-simplex-xftp` | `7.0.1-1` | installata direttamente | `simplex-xftp` | terze parti |
 | `whirmill-simplex-turn` | `4.18.0` | installata direttamente | `simplex-turn` | terze parti |
 | `whirmill-cloudflare-ddns` | `1.1.2` | installata dal Community App Store | `cloudflare-ddns` | `whirmill/cloudflare-ddns` (privato) |
-| `whirmill-limpidog` | `1.0.2` | nuova migrazione da OpenShip | — | `whirmill/limpidog-crm` (privato) |
+| `whirmill-limpidog` | `2.0.0` | nuova migrazione da OpenShip | — | `whirmill/limpidog-crm` (privato) |
 | `whirmill-zapbot` | `0.1.59` | installata dal Community App Store | — | `whirmill/zapbot-exs` (privato) |
 | `whirmill-satssurge-autopilot` | `0.8.3` | installata dal Community App Store | — | `whirmill/satssurge-autopilot` (privato) |
 
