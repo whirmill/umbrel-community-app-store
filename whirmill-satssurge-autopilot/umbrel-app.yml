@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.13"
+version: "0.14.14"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.13: Numeri più leggibili e coerenti nei messaggi: gli importi che arrivano in millisat (costo di un rebalance o di uno swap, fee di un inoltro, fee di instradamento LN Markets e Loop, token L402) si leggono in sat con al massimo un decimale ("costo 44,4 sat" invece di "44,412 sat", "99 sat" invece di "98,999 sat"); i resoconti di Magma, LSPS1 e della chiusura di un canale arrotondano al sat invece di troncare e usano il segno meno vero; le percentuali usano un decimale troncato ("20,9 %", "+40 %", "probabilità 70 %"); i numeri da quattro cifre hanno il punto delle migliaia anche nel riepilogo, nelle statistiche degli swap, nei testi di Approva di LN Markets e Loop e nei candidati canale ("1.942 sat", "2.500 ppm"). Il millisat esatto resta nelle ricevute, nel registro contabile e nell'output --json; nessuna decisione, limite o budget cambia.
+  0.14.14: Benzina on-chain, fase 2 (#278): con fuel.source 1 le decisioni usano la cella onchain-fuel. L'offerta Magma pubblica il massimo della cella, mai oltre i fondi dal vivo, e si ferma con il suo motivo. I nuovi ordini LSPS1 rispettano il suo massimo. L'apertura automatica lascia sempre finanziabile una vendita intera, così come quella programmata dalla revisione canali. Il bisogno di swap usa l'obiettivo calcolato (swap.targetOnchainSat diventa il minimo) e conta le vendite accettate e le ricariche in arrivo. Un bisogno senza percorso automatico arriva su Telegram una volta, con il comando da usare (per esempio /loop out 1000000). Se la cella manca, ogni decisione torna al controllo di oggi e il ripiego compare nelle statistiche; i controlli dal vivo decidono sempre all'esecuzione. Con fuel.source 0, il valore predefinito, non cambia nulla. Prelievi LN Markets: lo spazio per la fee che lasciamo sul saldo ora segue la regola che LN Markets applica davvero, cioè lo 0,5% dell'importo ma almeno 100 sat. Il prelievo di prova da 1.000 sat (ln000013, 100 sat di fee massima) non fa più gonfiare lo spazio dei prelievi grandi: su un pezzo da 380.000 sat restano circa 2.090 sat invece di 41.800, e per 1.000 sat ne restano 110. Corretto anche un raro blocco della suite di test: ora un test che si blocca fallisce con il suo nome invece di fermare tutto.
