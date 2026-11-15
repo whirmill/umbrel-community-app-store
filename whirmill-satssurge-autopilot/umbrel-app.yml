@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.20"
+version: "0.14.21"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.20: #274, settima parte: il mandato e le proposte del proprietario leggono i dati in modo tipizzato. Prima di prenotare una spesa, SatsSurge controlla la decisione, le prenotazioni attive, le spese del giorno e del mese, i tentativi precedenti sullo stesso corridoio e il collegamento alla chiamata dello strumento. Un importo o un identificativo illeggibile ferma l'operazione con un errore che nomina il campo (mai il valore), senza scrivere nulla a metà. Una proposta con un contenuto illeggibile si vede ancora nell'elenco, ma non si può approvare: viene invalidata prima di qualsiasi verifica in rete o esecuzione. Con dati validi non cambia niente: stessi importi, stessi testi, stesse regole del mandato.
+  0.14.21: Test di layout con Playwright (#290 F13): `npm run test:layout` controlla l'app reale, su dati di prova temporanei e senza rete, a 375, 768 e 1280 px, nei temi chiaro e scuro. Verifica che nessuna pagina scorra di lato, che nulla resti tagliato o sovrapposto, che la navigazione raggiunga ogni pagina e che il selettore del periodo funzioni anche da tastiera. Playwright resta fuori dall'immagine di produzione e da `npm test`; il browser si installa solo con `npm run test:layout:install`. I test hanno trovato un difetto, già corretto: a 768 px la cifra principale di Contabilità era tagliata ("+10.913 sa"); ora tra 768 e 1279 px occupa una riga intera, come in Panoramica. Il generatore dei dati sintetici del benchmark ora produce record che le statistiche sanno leggere.
