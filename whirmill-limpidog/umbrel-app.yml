@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.9.0"
+version: "2.10.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Nuovo servizio Bagno e rifinitura. Sul sito, sotto il prezzo da, i prezzi per ogni taglia con una nota su taglia e pelo.
+  I cani di taglia gigante non sono serviti: l'analisi lo segnala e invita a declinare, sul sito restano tre taglie.
