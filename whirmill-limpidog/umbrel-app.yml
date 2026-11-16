@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.2.1"
+version: "2.3.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Informativa privacy aggiornata con i fornitori che ricevono i dati WhatsApp (Meta, Anthropic, Telegram, Google Calendar) per l'App Review di Meta; nella dashboard la pagina delle impostazioni si chiama ora Impostazioni.
+  Rinnovo automatico del token WhatsApp collegato tramite Embedded Signup: l'app ne legge la scadenza, lo rinnova prima dei 60 giorni e avvisa in dashboard e su Telegram se il rinnovo non riesce; la card WhatsApp in Impostazioni mostra validità e ultimo rinnovo.
