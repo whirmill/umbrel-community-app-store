@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.7.0"
+version: "2.8.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Un solo listino prezzi: il prezzo da sul sito deriva dal listino, con prezzo personalizzato per servizio. Notifiche push personalizzabili. Le risposte dell'agente non perdono più le prime parole e le conferme restano valide dopo un ricaricamento. Passkey nella pagina Account.
+  Storico del calendario nel CRM: clienti e cani riconosciuti anche quando scrivono su WhatsApp, storico appuntamenti in Agenda, incassi mensili e carburante in Finanza.
