@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.4.0"
+version: "2.5.1"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Risposte ai clienti WhatsApp direttamente dall'inbox della dashboard: thread completo con stato di consegna in tempo reale, anteprima e invio, modello riprendi_conversazione fuori dalla finestra di 24 ore.
+  Bot Telegram allineato a SatsSurge: avanzamento visibile in chat durante le attese, risposte dell'agente in streaming con gli strumenti in uso, formattazione ricca, foto e documenti all'agente. La dashboard propone l'aggiornamento quando esce una nuova versione e si ricarica da sola se una pagina era aperta da prima.
