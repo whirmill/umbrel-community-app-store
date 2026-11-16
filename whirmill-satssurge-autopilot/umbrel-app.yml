@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.21"
+version: "0.14.22"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.21: Test di layout con Playwright (#290 F13): `npm run test:layout` controlla l'app reale, su dati di prova temporanei e senza rete, a 375, 768 e 1280 px, nei temi chiaro e scuro. Verifica che nessuna pagina scorra di lato, che nulla resti tagliato o sovrapposto, che la navigazione raggiunga ogni pagina e che il selettore del periodo funzioni anche da tastiera. Playwright resta fuori dall'immagine di produzione e da `npm test`; il browser si installa solo con `npm run test:layout:install`. I test hanno trovato un difetto, già corretto: a 768 px la cifra principale di Contabilità era tagliata ("+10.913 sa"); ora tra 768 e 1279 px occupa una riga intera, come in Panoramica. Il generatore dei dati sintetici del benchmark ora produce record che le statistiche sanno leggere.
+  0.14.22: I conteggi delle letture delle celle del kernel (per consumatore e per cella, ora per ora) e il riepilogo giornaliero delle esecuzioni del kernel (riuscite, fallite, in errore, ritardo massimo) ora restano salvati anche dopo un riavvio, per 30 giorni (nuova impostazione kernel.countersDays). Vengono scritti una volta al minuto e allo spegnimento: un arresto improvviso perde al massimo l'ultimo minuto. La riga delle statistiche "Celle del kernel" mostra l'ultima ora, le ultime 24 ore e gli ultimi 7 giorni al posto del totale "dall'avvio". Così i criteri per accendere una funzione su più giorni (per esempio "ripieghi al massimo 2 % in 7 giorni") si possono verificare anche dopo un aggiornamento; i 7 giorni completi decorrono dal rilascio.
