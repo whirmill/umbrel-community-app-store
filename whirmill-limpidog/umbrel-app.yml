@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.5.1"
+version: "2.6.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Bot Telegram allineato a SatsSurge: avanzamento visibile in chat durante le attese, risposte dell'agente in streaming con gli strumenti in uso, formattazione ricca, foto e documenti all'agente. La dashboard propone l'aggiornamento quando esce una nuova versione e si ricarica da sola se una pagina era aperta da prima.
+  Dashboard rinnovata: tema scuro, design system, inbox e proposte più comode su telefono, impostazioni in sezioni con salvataggio chiaro, azioni sempre sulla riga giusta, sessione che resta attiva sul dispositivo e Inbox nella barra in basso.
