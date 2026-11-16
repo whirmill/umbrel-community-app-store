@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.2.0"
+version: "2.2.1"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Nuova pagina WhatsApp in Impostazioni (solo admin) per collegare il numero di WhatsApp Business in coesistenza tramite Embedded Signup di Meta: il telefono continua a funzionare come prima, i messaggi arrivano al server e il bot Telegram puo' rispondere tramite la Cloud API. Al collegamento il token viene salvato nel file whatsapp.key della cartella dati e l'invio si attiva senza riavvio; contatti e cronologia delle chat vengono sincronizzati entro 24 ore, con avanzamento visibile nella pagina. Servono prima i passi Meta del proprietario (Tech Provider, App Review, configurazione di Facebook Login for Business in META_LOGIN_CONFIG_ID e WHATSAPP_APP_SECRET nell'ambiente dell'app).
+  Informativa privacy aggiornata con i fornitori che ricevono i dati WhatsApp (Meta, Anthropic, Telegram, Google Calendar) per l'App Review di Meta; nella dashboard la pagina delle impostazioni si chiama ora Impostazioni.
