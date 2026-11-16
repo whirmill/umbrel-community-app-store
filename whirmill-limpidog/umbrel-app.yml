@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.8.0"
+version: "2.9.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Storico del calendario nel CRM: clienti e cani riconosciuti anche quando scrivono su WhatsApp, storico appuntamenti in Agenda, incassi mensili e carburante in Finanza.
+  Nuovo servizio Bagno e rifinitura. Sul sito, sotto il prezzo da, i prezzi per ogni taglia con una nota su taglia e pelo.
