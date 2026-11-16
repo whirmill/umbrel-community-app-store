@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.10.0"
+version: "2.11.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  I cani di taglia gigante non sono serviti: l'analisi lo segnala e invita a declinare, sul sito restano tre taglie.
+  Tutti gli elenchi della dashboard ora sono paginati con ricerca; Finanza mostra qualsiasi periodo con confronti; lo storico dell'Agenda è completo.
