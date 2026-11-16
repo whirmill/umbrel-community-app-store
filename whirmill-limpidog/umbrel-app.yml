@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.11.0"
+version: "2.12.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Tutti gli elenchi della dashboard ora sono paginati con ricerca; Finanza mostra qualsiasi periodo con confronti; lo storico dell'Agenda è completo.
+  Richieste solo dai messaggi dei clienti, gestibili e contate allo stesso modo ovunque. Incassato e carburante da Telegram e Finanza. KPI di Andamento corretti, agente leggibile, scadenze degli asset, stato WhatsApp chiaro, analisi più precise.
