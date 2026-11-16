@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.6.0"
+version: "2.7.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Dashboard rinnovata: tema scuro, design system, inbox e proposte più comode su telefono, impostazioni in sezioni con salvataggio chiaro, azioni sempre sulla riga giusta, sessione che resta attiva sul dispositivo e Inbox nella barra in basso.
+  Un solo listino prezzi: il prezzo da sul sito deriva dal listino, con prezzo personalizzato per servizio. Notifiche push personalizzabili. Le risposte dell'agente non perdono più le prime parole e le conferme restano valide dopo un ricaricamento. Passkey nella pagina Account.
