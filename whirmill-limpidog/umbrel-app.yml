@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.15.0"
+version: "2.15.1"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Nuova sezione Soci e finanziamenti con il prestito del titolare, contributi e chi ha pagato ogni spesa; carburante diviso in benzina del generatore e gasolio del furgone, con litri e km anche da Telegram. Nuova pagina Mappa con destinazioni, giro del giorno e costo tra gasolio, tempo e lavoro in base; gli slot usano i minuti di viaggio veri. Piani di manutenzione per ogni componente con ore d'uso stimate, ricambi e date approssimative. Nel Catalogo la verifica prezzi con rendimento orario, prezzi suggeriti e revisione delle durate.
+  Totali di giornata e rifornimenti scritti come eventi sul calendario vengono riconosciuti come note: non occupano più gli slot, non compaiono come tappe nel giro della Mappa e non falsano il contorno per appuntamento nella verifica prezzi.
