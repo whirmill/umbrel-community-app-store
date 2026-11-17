@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.16.0"
+version: "2.17.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Su ogni asset puoi aprire un intervento da fare con la spesa prevista o registrare un intervento passato con data approssimativa. I km dei rifornimenti aggiornano tutti i mezzi e la Panoramica conta anche le manutenzioni scadute per ore o km. Il giro del giorno ha l'ordine corretto delle tappe, la verifica prezzi confronta il costo di uscita per zona, l'agente e Telegram (/giro) leggono il giro di oggi, e in Finanza puoi indicare chi ha pagato ogni movimento.
+  Nuovo comando per importare un lotto di dati clienti rivisto dal proprietario: aggiornamenti dei clienti, clienti nuovi con i loro animali (gatti compresi), cani deceduti, secondi numeri e indirizzi collegati alla Mappa. I clienti duplicati si possono unire spostando tutti i loro dati sul cliente che resta.
