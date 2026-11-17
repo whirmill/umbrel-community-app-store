@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.13.0"
+version: "2.14.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Gli appuntamenti creati dalla piattaforma vengono scritti sul calendario di test con titolo leggibile, incasso e riepilogo serale; le modifiche fatte a mano su Google diventano richieste da confermare. Le card di soldi e KPI dicono fino a quando arrivano i dati, l'Agenda parte da oggi con filtri, dettaglio e «Incassato», e il pannello import mostra il nome del calendario. Testi, numeri di telefono e importi hanno un formato unico, i nomi di clienti e cani sono più puliti e la scheda Telegram è più chiara.
+  Gli asset hanno costo d'acquisto e ammortamento mensile, i costi ricorrenti come assicurazione e bollo hanno lo storico degli importi e le manutenzioni una spesa prevista. Il profitto è diviso fra competenza e cassa, con gli stessi numeri in Finanza, Panoramica, Andamento, agente e Telegram. Nuovo regime fiscale con storico in Impostazioni: tasse, contributi e profitto netto stimati ovunque, simulazione «Se fossi in forfettario» e una pagina Scenari fiscali per confrontare Nessuno, Forfettario e Associazione con i costi «E se…».
