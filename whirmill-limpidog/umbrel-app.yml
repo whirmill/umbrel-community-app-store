@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.17.0"
+version: "2.17.1"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Nuovo comando per importare un lotto di dati clienti rivisto dal proprietario: aggiornamenti dei clienti, clienti nuovi con i loro animali (gatti compresi), cani deceduti, secondi numeri e indirizzi collegati alla Mappa. I clienti duplicati si possono unire spostando tutti i loro dati sul cliente che resta.
+  Nella revisione dei dati clienti ora si possono correggere i nomi sbagliati, dividere un cliente che univa due famiglie e ricollegare gli appuntamenti al cliente e agli animali giusti.
