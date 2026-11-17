@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.15.1"
+version: "2.16.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Totali di giornata e rifornimenti scritti come eventi sul calendario vengono riconosciuti come note: non occupano più gli slot, non compaiono come tappe nel giro della Mappa e non falsano il contorno per appuntamento nella verifica prezzi.
+  Su ogni asset puoi aprire un intervento da fare con la spesa prevista o registrare un intervento passato con data approssimativa. I km dei rifornimenti aggiornano tutti i mezzi e la Panoramica conta anche le manutenzioni scadute per ore o km. Il giro del giorno ha l'ordine corretto delle tappe, la verifica prezzi confronta il costo di uscita per zona, l'agente e Telegram (/giro) leggono il giro di oggi, e in Finanza puoi indicare chi ha pagato ogni movimento.
