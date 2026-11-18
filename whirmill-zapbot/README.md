@@ -712,10 +712,15 @@ verification-only. The rollback overlay runs the web as `tail` and producers as
 so a marker created after preflight cannot start application or producer
 execution.
 
+`umbrel` has no Docker access of its own, so the script runs as root through
+`sudo`, which asks for `umbrel`'s password. It writes only a temporary file
+under `/tmp`, and its containers keep their explicit `--user`.
+
 ```sh
-APP_DATA_DIR=/absolute/umbrel/app-data/whirmill-zapbot \
-ZAPBOT_PACKAGE_COMPOSE=/absolute/umbrel/app-store/whirmill-zapbot/docker-compose.yml \
-"$APP_DATA_DIR/scripts/rollback-0.1.46.sh" --dry-run
+APP_DATA_DIR=/absolute/umbrel/app-data/whirmill-zapbot
+ZAPBOT_PACKAGE_COMPOSE=/absolute/umbrel/app-store/whirmill-zapbot/docker-compose.yml
+sudo env APP_DATA_DIR="$APP_DATA_DIR" ZAPBOT_PACKAGE_COMPOSE="$ZAPBOT_PACKAGE_COMPOSE" \
+  sh "$APP_DATA_DIR/scripts/rollback-0.1.46.sh" --dry-run
 ```
 
 After the dry run, repeat the command without `--dry-run` only in the installed
@@ -911,12 +916,15 @@ keeps retry material and stale FIFOs so that no second run can overlap it. After
 investigating the failed containers, recover only the transport with:
 
 ```sh
-./scripts/recover-execution-economics-handoff.sh
+sudo sh ./scripts/recover-execution-economics-handoff.sh
 ```
 
 The script first proves through Docker Compose labels that neither participant
 is running, then removes only owner-`1000`, mode-`0600` FIFO paths. It refuses
-regular files, wrong ownership, wrong modes, and any active participant.
+regular files, wrong ownership, wrong modes, and any active participant. It runs
+through `sudo` because `umbrel` has no Docker access of its own; the same holds
+for any manual `docker compose --profile trusted-v2-ops` or
+`--profile execution-economics-ops` command on the node: `sudo docker compose …`.
 
 ## Restart contract
 

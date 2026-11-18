@@ -1,7 +1,7 @@
 name: SatsSurge provisioning scripts
 on:
   pull_request:
-    paths: ["whirmill-satssurge-autopilot/scripts/**", ".github/workflows/satssurge-host-scripts.yml"]
+    paths: ["whirmill-satssurge-autopilot/scripts/**", "tests/test_satssurge_provision.py", ".github/workflows/satssurge-host-scripts.yml"]
 permissions:
   contents: read
 jobs:
@@ -11,3 +11,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: ShellCheck provisioning scripts
         run: shellcheck whirmill-satssurge-autopilot/scripts/*.sh
+      - name: Provisioning without the docker group (fake, then real sudo and Docker)
+        env:
+          SATSSURGE_PROVISION_REAL_DOCKER: "1"
+          SATSSURGE_PROVISION_REAL_SUDO: "1"
+        run: python3 -m unittest discover -s tests -p 'test_satssurge_provision.py' -v

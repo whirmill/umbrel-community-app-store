@@ -9,7 +9,10 @@ scripts that run on the node.
 
 1. **Install** the app from this community app store.
 2. **Provision LND credentials once**, as `umbrel` on the host. Do not rerun
-   this for certificate renewals.
+   this for certificate renewals. Run every provisioning script as `umbrel`,
+   never with `sudo sh`: each Docker call inside it runs through `sudo` and asks
+   for `umbrel`'s password, while the credentials it writes stay owned by
+   `umbrel`, the app's uid 1000.
 
    ```sh
    sh scripts/provision.sh /home/umbrel/umbrel/app-data/whirmill-satssurge-autopilot

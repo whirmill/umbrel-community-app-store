@@ -1,5 +1,7 @@
 #!/bin/sh
 # Run as umbrel on the Umbrel host. No admin macaroon is exposed to the app.
+# Not under sudo: each docker call runs through sudo (it asks for umbrel's password) and this
+# shell writes the credentials, so they stay owned by umbrel, the app's uid 1000.
 set -eu
 umask 077
 APP_DIR=${1:?Supply installed app data path}
@@ -14,21 +16,25 @@ READ="$APP_DIR/credentials/read.macaroon"
 # install) is baked again, and the new file replaces the old one only once complete.
 if [ ! -s "$READ" ] || [ "$(cat "$READ.uris" 2>/dev/null)" != "$READ_URIS" ]; then
   # shellcheck disable=SC2086 # one argument per URI
-  docker exec lightning_lnd_1 lncli bakemacaroon --save_to=/tmp/satssurge-read.macaroon $READ_URIS >/dev/null
-  docker cp lightning_lnd_1:/tmp/satssurge-read.macaroon "$READ.new"
-  docker exec lightning_lnd_1 rm /tmp/satssurge-read.macaroon
+  sudo docker exec lightning_lnd_1 lncli bakemacaroon --save_to=/tmp/satssurge-read.macaroon $READ_URIS >/dev/null
+  # shellcheck disable=SC2024 # on purpose: this shell, not root, creates the file
+  sudo docker exec lightning_lnd_1 cat /tmp/satssurge-read.macaroon >"$READ.new"
+  sudo docker exec lightning_lnd_1 rm /tmp/satssurge-read.macaroon
   chmod 600 "$READ.new"
   mv "$READ.new" "$READ"
-  printf '%s\n' "$READ_URIS" > "$READ.uris"
+  printf '%s\n' "$READ_URIS" >"$READ.uris"
 fi
 if [ ! -s "$APP_DIR/credentials/write.macaroon" ]; then
-  docker exec lightning_lnd_1 lncli bakemacaroon --save_to=/tmp/satssurge-write.macaroon uri:/lnrpc.Lightning/AddInvoice uri:/routerrpc.Router/SendPaymentV2 uri:/lnrpc.Lightning/UpdateChannelPolicy >/dev/null
-  docker cp lightning_lnd_1:/tmp/satssurge-write.macaroon "$APP_DIR/credentials/write.macaroon"
-  docker exec lightning_lnd_1 rm /tmp/satssurge-write.macaroon
+  sudo docker exec lightning_lnd_1 lncli bakemacaroon --save_to=/tmp/satssurge-write.macaroon uri:/lnrpc.Lightning/AddInvoice uri:/routerrpc.Router/SendPaymentV2 uri:/lnrpc.Lightning/UpdateChannelPolicy >/dev/null
+  # Through .new like the others, so a failed fetch never leaves a partial write.macaroon behind.
+  # shellcheck disable=SC2024 # on purpose: this shell, not root, creates the file
+  sudo docker exec lightning_lnd_1 cat /tmp/satssurge-write.macaroon >"$APP_DIR/credentials/write.macaroon.new"
+  sudo docker exec lightning_lnd_1 rm /tmp/satssurge-write.macaroon
+  mv "$APP_DIR/credentials/write.macaroon.new" "$APP_DIR/credentials/write.macaroon"
 fi
 cp /home/umbrel/umbrel/app-data/lightning/data/lnd/tls.cert "$APP_DIR/credentials/tls.cert"
 chmod 600 "$APP_DIR/credentials/"*
 # No root keys, admin macaroon, wallet database or seed is mounted.
 
-docker exec lightning_lnd_1 lncli getinfo | python3 -c 'import json,sys; print(json.load(sys.stdin)["identity_pubkey"])' > "$APP_DIR/credentials/node-pubkey"
+sudo docker exec lightning_lnd_1 lncli getinfo | python3 -c 'import json,sys; print(json.load(sys.stdin)["identity_pubkey"])' >"$APP_DIR/credentials/node-pubkey"
 chmod 600 "$APP_DIR/credentials/node-pubkey"

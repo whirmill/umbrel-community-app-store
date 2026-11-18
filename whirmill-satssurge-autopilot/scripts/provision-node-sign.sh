@@ -12,6 +12,8 @@
 # telegram.nodeSign in config/satssurge.json (1 by default).
 # Residual risk: SignMessage signs any text with the node key; only the paired Telegram
 # owner and the owner console reach it, never a model tool.
+# Not under sudo: each docker call runs through sudo (it asks for umbrel's password) and this
+# shell writes the credentials, so they stay owned by umbrel, the app's uid 1000.
 set -eu
 umask 077
 APP_DIR=${1:?Supply installed app data path}
@@ -20,9 +22,10 @@ CRED="$APP_DIR/credentials/node-sign.macaroon"
 mkdir -p "$APP_DIR/credentials"
 if [ ! -s "$CRED" ] || [ "$(cat "$CRED.uris" 2>/dev/null)" != "$URIS" ]; then
   # shellcheck disable=SC2086 # one argument per URI
-  docker exec lightning_lnd_1 lncli bakemacaroon --save_to=/tmp/satssurge-node-sign.macaroon $URIS >/dev/null
-  docker cp lightning_lnd_1:/tmp/satssurge-node-sign.macaroon "$CRED.new"
-  docker exec lightning_lnd_1 rm /tmp/satssurge-node-sign.macaroon
+  sudo docker exec lightning_lnd_1 lncli bakemacaroon --save_to=/tmp/satssurge-node-sign.macaroon $URIS >/dev/null
+  # shellcheck disable=SC2024 # on purpose: this shell, not root, creates the file
+  sudo docker exec lightning_lnd_1 cat /tmp/satssurge-node-sign.macaroon >"$CRED.new"
+  sudo docker exec lightning_lnd_1 rm /tmp/satssurge-node-sign.macaroon
   chmod 600 "$CRED.new"
   mv "$CRED.new" "$CRED"
   printf '%s\n' "$URIS" >"$CRED.uris"
