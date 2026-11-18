@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.28"
+version: "0.14.29"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.28: #253, modalità taker RoboSats fase T1, spenta: il proprietario può prendere un ordine pubblico di acquisto con "/swap take <sat al massimo> [<id canale>]" su Telegram o "satssurge swap take" dalla console, solo quando swap.takerMaxCostPpm è sopra 0. Di serie è 0: il comando risponde come oggi e non viene preso nessun ordine. Con l'interruttore acceso la presa passa sempre dall'Approva su Telegram (swap.takerApproval solo owner, finestra swap.takerApprovalMinutes 15 minuti), che indica l'ordine, il costo e il limite approvato; poi l'ordine viene riletto, preso una sola volta, controllato prima di pagare la cauzione e seguito come uno swap-out normale dalla garanzia in poi. Le statistiche dei nostri ordini (memoria dei prezzi, tempi di presa) non contano le prese, e per questo le celle swap cambiano versione; con i dati di oggi le uscite restano identiche. #274: corretti gli ultimi avvisi del controllo del codice fuori dai test dove il risultato resta provatamente identico (da 164 a 102 eccezioni, nessuna aggiunta). Sulla copia dei dati di produzione ogni ordine swap si legge senza errori, la configurazione del nodo prende i valori di serie e le uscite e le 29 celle del kernel sono identiche alla 0.14.27, salvo il numero di versione delle celle swap.
+  0.14.29: #271, un deposito su LN Markets parte solo se c'è una strada: prima di chiedere l'Approva l'app cerca con LND una rotta dal canale scelto fino a LN Markets entro la fee massima, e se non ne trova nessuna rifiuta la richiesta subito, senza creare nulla e senza niente da approvare (lnm.requireRoute, di serie 1; con 0 torna il comportamento di prima). Se la stima non si può fare, per esempio per un errore di LND, l'Approva arriva come prima con la stima "non disponibile". #3: ogni passaggio di sfoltimento degli snapshot scrive una riga nel log dell'app (al massimo una al giorno quando non c'è niente da sfoltire), così si possono contare i passaggi uno per uno. #267: lo script di aggiornamento usa sudo per ogni comando docker sul nodo, così funziona anche senza l'utente umbrel nel gruppo docker. Sulla copia dei dati di produzione la configurazione del nodo si legge senza errori, tutte le operazioni LN Markets si leggono senza errori e le 29 celle del kernel sono identiche alla 0.14.28.
