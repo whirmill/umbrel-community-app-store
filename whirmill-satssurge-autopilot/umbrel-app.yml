@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.30"
+version: "0.14.31"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.30: messaggi vocali del proprietario. Con telegram.voiceTranscribe a 1 (di serie 0, quindi per ora non cambia nulla) un messaggio vocale o un file audio mandato nella chat collegata viene trascritto con OpenRouter, usando la chiave già presente in config/openrouter.key e il modello scelto in telegram.voiceModel (di serie google/gemini-3.5-flash-lite). La trascrizione torna in chat come «📝 …» in risposta al vocale e arriva all'assistente esattamente come un messaggio scritto, con una nota che gli chiede di confermare dati o importi poco chiari. Un vocale non diventa mai un comando, un pulsante o un'approvazione. Limiti: durata massima 5 minuti (telegram.voiceMaxSeconds), 300 minuti al mese (telegram.voiceMonthlyMinutes), 20 MB e il tetto mensile del costo dei modelli; se un limite non è rispettato il bot risponde «Messaggio vocale non trascritto: …» e non passa nulla all'assistente. Il costo di ogni trascrizione entra nel costo dei modelli del mese; audio e testo non vengono salvati nei registri. Sulla copia dei dati di produzione la configurazione si legge senza errori, i messaggi Telegram, la coda di uscita e i lavori si leggono come prima e le 29 celle del kernel sono identiche alla 0.14.29.
+  0.14.31: #317, i file mandati su Telegram (messaggi vocali, immagini, documenti) vengono scaricati di nuovo dopo 1 e dopo 3 secondi se il primo tentativo non riesce, e se il download fallisce comunque la ricevuta indica il passo che non ha funzionato (risposta di Telegram, stato HTTP del file o errore di rete), senza token né indirizzi. I messaggi in italiano restano gli stessi. Corretto anche il pulsante Stop nativo di Telegram sulle risposte in scrittura: Telegram ne indica il riferimento come testo e da 16 novembre il bot lo scartava; ora lo Stop ferma di nuovo la risposta. Sulla copia dei dati di produzione tutti i 460 aggiornamenti Telegram si leggono senza errori (prima 450), la coda di uscita e i lavori si leggono come prima e le 29 celle del kernel sono identiche alla 0.14.30.
