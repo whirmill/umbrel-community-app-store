@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.18.0"
+version: "2.19.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Nuova grafica in tutte le sezioni, menu più corto e aperto con il nome e l'icona di LimpiDog Console, costi di Finanza divisi in ricorrenti, ammortamenti e altre spese (contati solo fino a oggi, con confronti sugli stessi giorni), e gli allegati dei clienti su WhatsApp (vocali, foto, video, documenti) inoltrati su Telegram come file.
+  Obiettivi del mese presi dal business plan, fissati dal 1° del mese e correggibili con una nota; Andamento confronta il reale con il piano e spiega lo scostamento. Da telefono niente più pagine che scorrono di lato né zoom quando tocchi un campo. I vocali dei clienti si possono trascrivere con il pulsante «Trascrivi» su Telegram, o in automatico dalla nuova sezione Funzionalità in Impostazioni.
