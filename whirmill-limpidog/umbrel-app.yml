@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.17.1"
+version: "2.18.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Nella revisione dei dati clienti ora si possono correggere i nomi sbagliati, dividere un cliente che univa due famiglie e ricollegare gli appuntamenti al cliente e agli animali giusti.
+  Nuova grafica in tutte le sezioni, menu più corto e aperto con il nome e l'icona di LimpiDog Console, costi di Finanza divisi in ricorrenti, ammortamenti e altre spese (contati solo fino a oggi, con confronti sugli stessi giorni), e gli allegati dei clienti su WhatsApp (vocali, foto, video, documenti) inoltrati su Telegram come file.
