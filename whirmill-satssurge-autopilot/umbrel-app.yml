@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.31"
+version: "0.14.32"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.31: #317, i file mandati su Telegram (messaggi vocali, immagini, documenti) vengono scaricati di nuovo dopo 1 e dopo 3 secondi se il primo tentativo non riesce, e se il download fallisce comunque la ricevuta indica il passo che non ha funzionato (risposta di Telegram, stato HTTP del file o errore di rete), senza token né indirizzi. I messaggi in italiano restano gli stessi. Corretto anche il pulsante Stop nativo di Telegram sulle risposte in scrittura: Telegram ne indica il riferimento come testo e da 16 novembre il bot lo scartava; ora lo Stop ferma di nuovo la risposta. Sulla copia dei dati di produzione tutti i 460 aggiornamenti Telegram si leggono senza errori (prima 450), la coda di uscita e i lavori si leggono come prima e le 29 celle del kernel sono identiche alla 0.14.30.
+  0.14.32: #317, i messaggi vocali funzionano anche quando Telegram è lento a preparare il file: il bot ora aspetta fino a 150 secondi la risposta di Telegram per il file (prima 35) e al massimo 3 minuti in tutto per scaricarlo, invece di rinunciare dopo un minuto e mezzo. Mentre scarica e trascrive un vocale il bot mette 👀 sul messaggio e mostra «sta scrivendo…», così si vede che ci sta lavorando; quando arriva la trascrizione o la risposta di errore la reazione sparisce. Nessun nuovo messaggio. Sulla copia dei dati di produzione tutti gli aggiornamenti Telegram, la coda di uscita e i lavori si leggono senza errori e le 29 celle del kernel sono identiche alla 0.14.31.
