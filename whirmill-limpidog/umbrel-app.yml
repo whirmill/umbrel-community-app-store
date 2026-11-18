@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.19.0"
+version: "2.19.1"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Obiettivi del mese presi dal business plan, fissati dal 1° del mese e correggibili con una nota; Andamento confronta il reale con il piano e spiega lo scostamento. Da telefono niente più pagine che scorrono di lato né zoom quando tocchi un campo. I vocali dei clienti si possono trascrivere con il pulsante «Trascrivi» su Telegram, o in automatico dalla nuova sezione Funzionalità in Impostazioni.
+  Da telefono i moduli e i filtri stanno nelle loro card: campi uno sotto l'altro, date leggibili anche vuote, filtri su una riga. Gli appuntamenti mostrano sempre il nome attuale del cliente. Se il credito OpenRouter finisce, Telegram lo dice chiaramente.
