@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.20.1"
+version: "2.21.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Il pulsante della mini app nella chat del bot ora si chiama «App» (modificabile in Impostazioni › Funzionalità). Se l'accesso con Telegram è spento, la mini app lo dice chiaramente.
+  Il nuovo business plan: scenari e leve con la fonte di ogni numero, i prossimi 12 mesi e 3 anni, il guadagno orario di Pamela, il listino proposto da applicare con conferma, le opzioni per il rientro del prestito e il confronto tra forfettario, semplificato e associazione. Il piano di giugno resta come archivio.
