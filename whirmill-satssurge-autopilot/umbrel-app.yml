@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.29"
+version: "0.14.30"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.29: #271, un deposito su LN Markets parte solo se c'è una strada: prima di chiedere l'Approva l'app cerca con LND una rotta dal canale scelto fino a LN Markets entro la fee massima, e se non ne trova nessuna rifiuta la richiesta subito, senza creare nulla e senza niente da approvare (lnm.requireRoute, di serie 1; con 0 torna il comportamento di prima). Se la stima non si può fare, per esempio per un errore di LND, l'Approva arriva come prima con la stima "non disponibile". #3: ogni passaggio di sfoltimento degli snapshot scrive una riga nel log dell'app (al massimo una al giorno quando non c'è niente da sfoltire), così si possono contare i passaggi uno per uno. #267: lo script di aggiornamento usa sudo per ogni comando docker sul nodo, così funziona anche senza l'utente umbrel nel gruppo docker. Sulla copia dei dati di produzione la configurazione del nodo si legge senza errori, tutte le operazioni LN Markets si leggono senza errori e le 29 celle del kernel sono identiche alla 0.14.28.
+  0.14.30: messaggi vocali del proprietario. Con telegram.voiceTranscribe a 1 (di serie 0, quindi per ora non cambia nulla) un messaggio vocale o un file audio mandato nella chat collegata viene trascritto con OpenRouter, usando la chiave già presente in config/openrouter.key e il modello scelto in telegram.voiceModel (di serie google/gemini-3.5-flash-lite). La trascrizione torna in chat come «📝 …» in risposta al vocale e arriva all'assistente esattamente come un messaggio scritto, con una nota che gli chiede di confermare dati o importi poco chiari. Un vocale non diventa mai un comando, un pulsante o un'approvazione. Limiti: durata massima 5 minuti (telegram.voiceMaxSeconds), 300 minuti al mese (telegram.voiceMonthlyMinutes), 20 MB e il tetto mensile del costo dei modelli; se un limite non è rispettato il bot risponde «Messaggio vocale non trascritto: …» e non passa nulla all'assistente. Il costo di ogni trascrizione entra nel costo dei modelli del mese; audio e testo non vengono salvati nei registri. Sulla copia dei dati di produzione la configurazione si legge senza errori, i messaggi Telegram, la coda di uscita e i lavori si leggono come prima e le 29 celle del kernel sono identiche alla 0.14.29.
