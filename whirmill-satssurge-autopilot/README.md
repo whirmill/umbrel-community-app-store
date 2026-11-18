@@ -42,6 +42,10 @@ scripts that run on the node.
    - `scripts/provision-lsp.sh`: the LSPS1 peer messages (needs the sale macaroon).
    - `scripts/provision-node-sign.sh`: `SignMessage` only, for the owner's `/sign`
      on Telegram and `satssurge sign` (no restart needed).
+   - `scripts/provision-swap-bump.sh`: `BumpFee` only, for the CPFP of a stuck
+     incoming swap payment (our own output back to our wallet, within a fee
+     budget). Without it, `swap.stuckBump` proposes nothing and a stuck payment
+     is only reported; with it, every bump still needs Approva. Restart the app.
 
 3. **Nothing else runs on the host.** The automation check and the fee
    competition capture run inside the app; the compose mounts the Lightning
