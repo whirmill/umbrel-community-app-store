@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.20.0"
+version: "2.20.1"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Il backoffice si apre anche come mini app dentro Telegram, con accesso automatico per gli account Telegram collegati. Si attiva da Impostazioni › Funzionalità.
+  Il pulsante della mini app nella chat del bot ora si chiama «App» (modificabile in Impostazioni › Funzionalità). Se l'accesso con Telegram è spento, la mini app lo dice chiaramente.
