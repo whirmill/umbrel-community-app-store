@@ -11,6 +11,8 @@
 # amboss.healthCheck and amboss.channelBackups in config/satssurge.json).
 # Residual risk: SignMessage signs any text with the node key; only the app's own code
 # can call it, with its fixed payload.
+# Not under sudo: each docker call runs through sudo (it asks for umbrel's password) and this
+# shell writes the credentials, so they stay owned by umbrel, the app's uid 1000.
 set -eu
 umask 077
 APP_DIR=${1:?Supply installed app data path}
@@ -19,9 +21,10 @@ bake() { # name, URIs
   cred="$APP_DIR/credentials/$1.macaroon"
   if [ ! -s "$cred" ] || [ "$(cat "$cred.uris" 2>/dev/null)" != "$2" ]; then
     # shellcheck disable=SC2086 # one argument per URI
-    docker exec lightning_lnd_1 lncli bakemacaroon --save_to="/tmp/satssurge-$1.macaroon" $2 >/dev/null
-    docker cp "lightning_lnd_1:/tmp/satssurge-$1.macaroon" "$cred.new"
-    docker exec lightning_lnd_1 rm "/tmp/satssurge-$1.macaroon"
+    sudo docker exec lightning_lnd_1 lncli bakemacaroon --save_to="/tmp/satssurge-$1.macaroon" $2 >/dev/null
+    # shellcheck disable=SC2024 # on purpose: this shell, not root, creates the file
+    sudo docker exec lightning_lnd_1 cat "/tmp/satssurge-$1.macaroon" >"$cred.new"
+    sudo docker exec lightning_lnd_1 rm "/tmp/satssurge-$1.macaroon"
     chmod 600 "$cred.new"
     mv "$cred.new" "$cred"
     printf '%s\n' "$2" >"$cred.uris"
