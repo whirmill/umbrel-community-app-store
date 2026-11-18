@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.19.1"
+version: "2.20.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Da telefono i moduli e i filtri stanno nelle loro card: campi uno sotto l'altro, date leggibili anche vuote, filtri su una riga. Gli appuntamenti mostrano sempre il nome attuale del cliente. Se il credito OpenRouter finisce, Telegram lo dice chiaramente.
+  Il backoffice si apre anche come mini app dentro Telegram, con accesso automatico per gli account Telegram collegati. Si attiva da Impostazioni › Funzionalità.
