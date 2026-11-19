@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.25.0"
+version: "2.25.1"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Bot Telegram in italiano: i comandi ora si chiamano /conversazioni, /bozze, /incassi, /richiedi, /giro, /stato, /ferma, /nuova, /coda, /recupera, /annulla, /scollega, /menu e /aiuto (i vecchi nomi inglesi funzionano ancora) e il menu dei comandi di ogni chat si aggiorna da solo. /menu apre un menu a pulsanti (Conversazioni, Bozze, Incassi, Richiedi pagamento, Giro di oggi e «Altro» con stato, coda, recupera, nuova chat, aiuto e scollega) che si sfoglia nello stesso messaggio; «Richiedi pagamento» chiede importo, cliente e motivo un passo alla volta.
+  L'assistente non propone più un orario dentro un appuntamento già in agenda: per ogni tappa del giorno conosce anche l'ora di fine (o la ricava dalla durata) e, prima di suggerire un orario, controlla che sia davvero libero e quanto spazio c'è fino all'appuntamento successivo. Nel bot, /giro mostra ora di inizio e di fine di ogni tappa (per esempio «13:30–17:00»).
