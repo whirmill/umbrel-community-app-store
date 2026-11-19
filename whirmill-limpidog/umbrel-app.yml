@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.23.0"
+version: "2.24.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Una sola tariffa oraria: quella impostata in Impostazioni › Percorsi è usata da Verifica prezzi e dal Business plan. Gli scenari del piano la seguono, a meno che uno scenario non ne fissi una propria.
+  Incassi con link di pagamento: dal bot e dalla dashboard puoi far pagare un appuntamento, o chiedere una cifra libera a un cliente, con un link BTCPay (Lightning e, tramite Stripe, carta, Apple Pay, Google Pay, PayPal, Satispay, Revolut Pay e Link) mostrato anche come QR; l'incasso entra in Finanza da solo quando il cliente paga. Si possono registrare anche altri metodi elettronici (Revolut, PayPal, Satispay, Carta POS, bonifico). I link si attivano da Impostazioni › Pagamenti (BTCPay).
