@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.22.0"
+version: "2.23.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Business plan più realistico: apertura della partita IVA dal 1° gennaio 2027, proiezione a 7 anni con il passaggio del forfettario al 15%, costi del commercialista, INAIL e Camera di Commercio, IVA nel semplificato e regime scelto per ogni scenario. I vocali mandati al bot si possono trascrivere e passare all'agente (da Impostazioni › Funzionalità).
+  Una sola tariffa oraria: quella impostata in Impostazioni › Percorsi è usata da Verifica prezzi e dal Business plan. Gli scenari del piano la seguono, a meno che uno scenario non ne fissi una propria.
