@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.27.2"
+version: "2.27.3"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Gli appuntamenti presi dal calendario usano la taglia del cane salvata nel CRM quando il calendario non la indica, e le parole del calendario («sistemata», «tosatura», «bagno+sistemata») diventano i servizi del catalogo: più durate e prezzi completi. Nuovo controllo dei prezzi dello storico.
+  Dashboard più chiara: una proposta su un appuntamento già chiuso si chiude da sola con un messaggio, il messaggio «Annulla» resta sopra le schede e sul telefono non copre la barra, Richieste mostra l'accordo pronto e l'Agenda segnala le sovrapposizioni. Le note di cassa della sera vengono riconosciute meglio. Nuovo servizio «Trattamento all'ozono» e l'extra «Antiparassitario», che non allunga la durata.
