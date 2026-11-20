@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.27.1"
+version: "2.27.2"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Le proposte di orario seguono esattamente le fasce impostate in Impostazioni › Orari, senza pausa pranzo (una pausa si imposta con due fasce nello stesso giorno), e i festivi nazionali sono chiusi, salvo quelli aggiunti in «Festivi lavorati».
+  Gli appuntamenti presi dal calendario usano la taglia del cane salvata nel CRM quando il calendario non la indica, e le parole del calendario («sistemata», «tosatura», «bagno+sistemata») diventano i servizi del catalogo: più durate e prezzi completi. Nuovo controllo dei prezzi dello storico.
