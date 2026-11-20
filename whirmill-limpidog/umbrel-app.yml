@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.25.1"
+version: "2.26.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  L'assistente non propone più un orario dentro un appuntamento già in agenda: per ogni tappa del giorno conosce anche l'ora di fine (o la ricava dalla durata) e, prima di suggerire un orario, controlla che sia davvero libero e quanto spazio c'è fino all'appuntamento successivo. Nel bot, /giro mostra ora di inizio e di fine di ogni tappa (per esempio «13:30–17:00»).
+  La conferma di un appuntamento lo salva subito nella piattaforma e il calendario Google si aggiorna dopo, anche se Google non risponde; prima di confermare si controlla che l'orario sia libero, con «Crea comunque» e annullamento entro 15 minuti. Le indisponibilità bloccano gli orari proposti e un appuntamento importato cancellato non occupa più il suo vecchio orario. In Impostazioni › Stato si vede se Google, WhatsApp, BTCPay e Telegram funzionano, con avvisi anche all'operatrice quando WhatsApp smette di arrivare; l'operatrice può registrare gli incassi degli appuntamenti; l'assistente trova gli appuntamenti futuri.
