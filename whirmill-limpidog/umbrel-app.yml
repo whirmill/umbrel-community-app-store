@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.26.0"
+version: "2.27.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  La conferma di un appuntamento lo salva subito nella piattaforma e il calendario Google si aggiorna dopo, anche se Google non risponde; prima di confermare si controlla che l'orario sia libero, con «Crea comunque» e annullamento entro 15 minuti. Le indisponibilità bloccano gli orari proposti e un appuntamento importato cancellato non occupa più il suo vecchio orario. In Impostazioni › Stato si vede se Google, WhatsApp, BTCPay e Telegram funzionano, con avvisi anche all'operatrice quando WhatsApp smette di arrivare; l'operatrice può registrare gli incassi degli appuntamenti; l'assistente trova gli appuntamenti futuri.
+  Dall'Agenda e dall'Inbox si fissano, spostano, annullano e ripristinano gli appuntamenti con le stesse verifiche del bot, si segnano le indisponibilità (che finiscono sul calendario come «Non disponibile») e c'è «Chiudi richiesta»; l'assistente sa fissare, spostare e annullare appuntamenti, segnare un'indisponibilità e registrare l'esito con l'incasso, sempre con la tua approvazione. Ogni nuova prenotazione di un cliente viene letta solo dai suoi messaggi. Le nuove funzioni su Telegram (🗓 Fissa, 🔁 Sposta, ❌ Annulla dalla scheda), il riepilogo serale e il riconoscimento con il modello restano spenti in Impostazioni › Funzionalità finché non decidi di accenderli; il comando per passare al nuovo calendario è pronto.
