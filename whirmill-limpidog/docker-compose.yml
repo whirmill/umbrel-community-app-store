@@ -7,7 +7,7 @@ services:
       APP_PORT: 4001
 
   server:
-    image: ghcr.io/whirmill/limpidog-crm:2.27.2@sha256:022789f6550b7c19cd9f7f3c9b2ec9e0b2ced4e657046d0b312b3cfce8cc8cbe
+    image: ghcr.io/whirmill/limpidog-crm:2.27.3@sha256:c8882dbfff4cc52128d25f1fc68a730b8b84159dfe79230f89fd3b2d67d3100d
     container_name: whirmill-limpidog_server_1
     restart: on-failure
     init: true
