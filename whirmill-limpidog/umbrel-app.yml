@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.28.0"
+version: "2.29.0"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Classifica clienti: ogni annullamento dice se l'ha chiesto il cliente o tu, dopo la visita puoi lasciare un voto con «Com'è andata?», e nel CRM la nuova «Classifica» divide i clienti in Base, Argento e Oro secondo la regolarità, con gli avvisi «Da tenere d'occhio» e «Da non servire» nelle proposte. Nuovi inviti e crediti: puoi segnare chi ha portato chi, e sconti e crediti si applicano all'incasso; per ora tutti gli importi sono a zero, quindi incassi e messaggi restano come prima.
+  Posizioni degli indirizzi: la piattaforma cerca da sola la posizione di un indirizzo su OpenStreetMap e la applica solo quando è sicura; le altre finiscono in «Da verificare», dove scegli il candidato giusto sulla mappa. In Mappa trovi «Cerca posizione», «Da verificare» e la ricerca di un indirizzo; nel CRM lo stato di ogni indirizzo; su Telegram i comandi /posizione e /posizioni, anche mandando tu la posizione. Un appuntamento con una via nuova crea l'indirizzo, e la posizione mandata da un cliente su WhatsApp diventa un candidato da confermare. La ricerca si accende da Impostazioni › Funzionalità.
