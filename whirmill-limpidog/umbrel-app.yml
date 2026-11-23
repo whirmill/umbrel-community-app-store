@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.29.0"
+version: "2.29.1"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Posizioni degli indirizzi: la piattaforma cerca da sola la posizione di un indirizzo su OpenStreetMap e la applica solo quando è sicura; le altre finiscono in «Da verificare», dove scegli il candidato giusto sulla mappa. In Mappa trovi «Cerca posizione», «Da verificare» e la ricerca di un indirizzo; nel CRM lo stato di ogni indirizzo; su Telegram i comandi /posizione e /posizioni, anche mandando tu la posizione. Un appuntamento con una via nuova crea l'indirizzo, e la posizione mandata da un cliente su WhatsApp diventa un candidato da confermare. La ricerca si accende da Impostazioni › Funzionalità.
+  Ricerca delle posizioni più tollerante: quando OpenStreetMap conosce la via ma non il civico, la piattaforma ripiega sulla via (la posizione resta da verificare); legge l'indirizzo anche dentro i testi descrittivi delle vecchie importazioni («Via … 12; citofono…», «…, civico 82, vicino alla scuola») e riconosce «Latina» come comune.
