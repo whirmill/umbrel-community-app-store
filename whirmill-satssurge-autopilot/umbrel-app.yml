@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.35"
+version: "0.14.36"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.35: ammissione dalla politica. Un dato del kernel che manca per pochi minuti, come i prezzi giornalieri dei sink al cambio di giorno, non sveglia più due revisioni di fila. Diventa una novità da segnalare solo se dura almeno tre cadenze, come già il blip di sincronizzazione. Un dato mancante che c'era già prima del blip e torna non conta come nuovo. Una nuova azione ammissibile, una nuova bozza per il proprietario o un nuovo dato mancante di un predicato sono ancora segnalati subito. Il piano della politica deterministica ora riporta lo stato reale: fasi 1–5 attive, con il risultato della fase 0. Sulla copia dei dati di produzione le celle del kernel sono identiche alla 0.14.34. Nessuna impostazione, cella o schema cambia.
+  0.14.36: Valutatore delle aperture proposte dal codice: il verdetto resta valido anche quando Amboss rinnova soltanto la data dei suoi dati sul peer (stato, fonte e risposte delle ricerche contano ancora; una scadenza o un dato che diventa bloccante fanno chiedere di nuovo). Ora si ricordano gli ultimi due verdetti: se i dati di un candidato tornano a un valore già valutato nelle ultime 24 ore, si riusa quel verdetto invece di pagare una nuova richiesta. Dopo l'aggiornamento non c'è nessuna richiesta in più. Stima: da circa 20 a circa 13 richieste al giorno per le bozze di canale, circa 0,5–0,6 USD risparmiati al giorno. Sulla copia dei dati di produzione le 10 bozze con un verdetto recente vengono riusate al primo controllo dopo l'aggiornamento e le celle del kernel sono identiche alla 0.14.35. Nessuna impostazione, cella o schema cambia.
