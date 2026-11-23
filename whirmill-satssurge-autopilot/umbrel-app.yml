@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.34"
+version: "0.14.35"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.34: la verifica oraria del calcolo incrementale e fee_history non leggono più le vecchie celle fee-window delle decisioni chiuse da oltre 8 giorni. Quelle celle erano rimaste a una versione precedente. Così generavano un falso "fallback" circa ogni ora nei contatori del kernel e voci "unavailable (cell_version)" nello storico fee. Ora la verifica controlla solo le decisioni che il kernel calcola ancora. Per una modifica fee più vecchia, fee_history mostra il confronto prima/dopo dalla valutazione a 7 giorni salvata; se quella manca, indica "finestra chiusa" senza cifre. Sulla copia dei dati di produzione le celle del kernel sono identiche a quelle della 0.14.33, e tutte le 26 modifiche fee riuscite mostrano una finestra. Nessun dato viene cancellato; nessuna impostazione, versione o schema cambia.
+  0.14.35: ammissione dalla politica. Un dato del kernel che manca per pochi minuti, come i prezzi giornalieri dei sink al cambio di giorno, non sveglia più due revisioni di fila. Diventa una novità da segnalare solo se dura almeno tre cadenze, come già il blip di sincronizzazione. Un dato mancante che c'era già prima del blip e torna non conta come nuovo. Una nuova azione ammissibile, una nuova bozza per il proprietario o un nuovo dato mancante di un predicato sono ancora segnalati subito. Il piano della politica deterministica ora riporta lo stato reale: fasi 1–5 attive, con il risultato della fase 0. Sulla copia dei dati di produzione le celle del kernel sono identiche alla 0.14.34. Nessuna impostazione, cella o schema cambia.
