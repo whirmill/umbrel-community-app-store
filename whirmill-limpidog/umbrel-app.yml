@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-limpidog
 category: files
 name: Limpidog
-version: "2.29.1"
+version: "2.29.2"
 tagline: Self-hosted operations for Limpidog
 description: >-
   Runs Limpidog as one Umbrel app: a single server container serves the
@@ -23,4 +23,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: []
 releaseNotes: >-
-  Ricerca delle posizioni più tollerante: quando OpenStreetMap conosce la via ma non il civico, la piattaforma ripiega sulla via (la posizione resta da verificare); legge l'indirizzo anche dentro i testi descrittivi delle vecchie importazioni («Via … 12; citofono…», «…, civico 82, vicino alla scuola») e riconosce «Latina» come comune.
+  In Inbox, quando la finestra di 24 ore di WhatsApp è chiusa e il modello riprendi_conversazione non è approvato, al posto dell'errore rosso e del pulsante disattivato compare un avviso neutro: dice quando il cliente ha scritto l'ultima volta e che per scrivergli subito si usa l'app WhatsApp Business sul telefono.
