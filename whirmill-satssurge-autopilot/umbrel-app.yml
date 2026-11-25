@@ -2,7 +2,7 @@ manifestVersion: 1
 id: whirmill-satssurge-autopilot
 category: finance
 name: SatsSurge Autopilot
-version: "0.14.36"
+version: "0.14.37"
 tagline: An evidence-driven Lightning routing agent
 description: >-
   Lightning routing agent for your LND node, driven from Telegram and using a
@@ -26,4 +26,4 @@ defaultUsername: ""
 defaultPassword: ""
 dependencies: [lightning]
 releaseNotes: >-
-  0.14.36: Valutatore delle aperture proposte dal codice: il verdetto resta valido anche quando Amboss rinnova soltanto la data dei suoi dati sul peer (stato, fonte e risposte delle ricerche contano ancora; una scadenza o un dato che diventa bloccante fanno chiedere di nuovo). Ora si ricordano gli ultimi due verdetti: se i dati di un candidato tornano a un valore già valutato nelle ultime 24 ore, si riusa quel verdetto invece di pagare una nuova richiesta. Dopo l'aggiornamento non c'è nessuna richiesta in più. Stima: da circa 20 a circa 13 richieste al giorno per le bozze di canale, circa 0,5–0,6 USD risparmiati al giorno. Sulla copia dei dati di produzione le 10 bozze con un verdetto recente vengono riusate al primo controllo dopo l'aggiornamento e le celle del kernel sono identiche alla 0.14.35. Nessuna impostazione, cella o schema cambia.
+  0.14.37: Gli esiti degli esperimenti (esito, bilancio a 7 e 30 giorni, bilancio dell'apertura) su canali già chiusi non arrivano più su Telegram: restano calcolati e visibili nella pagina Esperimenti e per l'assistente. Arrivano sempre quelli negativi, perché sospendono un corridoio o un peer. Il bilancio di una chiusura cooperativa arriva appena la chiusura è confermata, non più 14 giorni dopo; una chiusura forzata aspetta ancora 14 giorni, perché il suo costo on-chain non è definitivo. Sulla copia dei dati di produzione, il 28 novembre i 5 bilanci a 30 giorni su canali chiusi non vengono inviati, e le celle del kernel sono identiche alla 0.14.36. Nessuna impostazione, cella o schema cambia.
